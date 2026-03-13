@@ -528,8 +528,26 @@ function ChillerIllustration({ asset, selected, onSelect, isMobile }) {
             </filter>
           </defs>
 
-          <rect x="110" y="40" rx="24" ry="24" width="340" height="160" fill={`url(#chillerBody-${asset.asset_code})`} stroke="rgba(148,163,184,0.24)" />
-          <rect x="130" y="60" rx="18" ry="18" width="300" height="120" fill="#111827" stroke="rgba(148,163,184,0.18)" />
+          <rect
+            x="110"
+            y="40"
+            rx="24"
+            ry="24"
+            width="340"
+            height="160"
+            fill={`url(#chillerBody-${asset.asset_code})`}
+            stroke="rgba(148,163,184,0.24)"
+          />
+          <rect
+            x="130"
+            y="60"
+            rx="18"
+            ry="18"
+            width="300"
+            height="120"
+            fill="#111827"
+            stroke="rgba(148,163,184,0.18)"
+          />
 
           {[0, 1, 2].map((i) => (
             <circle
@@ -597,8 +615,26 @@ function ChillerIllustration({ asset, selected, onSelect, isMobile }) {
             </g>
           ))}
 
-          <rect x="470" y="60" rx="18" ry="18" width="120" height="120" fill="#0b1120" stroke="rgba(148,163,184,0.18)" />
-          <rect x="485" y="78" rx="10" ry="10" width="90" height="22" fill={activeComps > 0 ? '#052e2b' : '#3f0d18'} stroke={activeComps > 0 ? '#22c55e' : '#ef4444'} />
+          <rect
+            x="470"
+            y="60"
+            rx="18"
+            ry="18"
+            width="120"
+            height="120"
+            fill="#0b1120"
+            stroke="rgba(148,163,184,0.18)"
+          />
+          <rect
+            x="485"
+            y="78"
+            rx="10"
+            ry="10"
+            width="90"
+            height="22"
+            fill={activeComps > 0 ? '#052e2b' : '#3f0d18'}
+            stroke={activeComps > 0 ? '#22c55e' : '#ef4444'}
+          />
           <text x="530" y="94" textAnchor="middle" fontSize="11" fill="#e2e8f0" fontWeight="700">
             COMPRESSORS
           </text>
@@ -609,11 +645,53 @@ function ChillerIllustration({ asset, selected, onSelect, isMobile }) {
             ACTIVE
           </text>
 
-          <line x1="88" y1="86" x2="110" y2="86" stroke={`url(#waterPipe-${asset.asset_code})`} strokeWidth="10" strokeLinecap="round" />
-          <line x1="88" y1="156" x2="110" y2="156" stroke={`url(#hotPipe-${asset.asset_code})`} strokeWidth="10" strokeLinecap="round" />
+          <line
+            x1="88"
+            y1="86"
+            x2="650"
+            y2="86"
+            stroke={`url(#waterPipe-${asset.asset_code})`}
+            strokeWidth="10"
+            strokeLinecap="round"
+            opacity="0.9"
+          />
 
-          <line x1="590" y1="86" x2="650" y2="86" stroke={`url(#waterPipe-${asset.asset_code})`} strokeWidth="10" strokeLinecap="round" />
-          <line x1="590" y1="156" x2="650" y2="156" stroke={`url(#hotPipe-${asset.asset_code})`} strokeWidth="10" strokeLinecap="round" />
+          <line
+            x1="88"
+            y1="156"
+            x2="650"
+            y2="156"
+            stroke={`url(#hotPipe-${asset.asset_code})`}
+            strokeWidth="10"
+            strokeLinecap="round"
+            opacity="0.9"
+          />
+
+          <g transform="translate(355,156)">
+            <rect
+              x="-38"
+              y="-20"
+              width="76"
+              height="40"
+              rx="10"
+              fill="#1e293b"
+              stroke="#fb7185"
+              strokeWidth="2"
+            />
+            <path d="M-24 -10 L-12 10" stroke="#fda4af" strokeWidth="2.5" strokeLinecap="round" />
+            <path d="M-8 -10 L4 10" stroke="#fda4af" strokeWidth="2.5" strokeLinecap="round" />
+            <path d="M8 -10 L20 10" stroke="#fda4af" strokeWidth="2.5" strokeLinecap="round" />
+            <text
+              x="0"
+              y="-28"
+              textAnchor="middle"
+              fontSize="11"
+              fill="#fecdd3"
+              fontWeight="700"
+            >
+              COND
+            </text>
+          </g>
 
           <circle cx="88" cy="86" r="9" fill="#38bdf8" filter={`url(#softGlow-${asset.asset_code})`} />
           <circle cx="88" cy="156" r="9" fill="#fb7185" filter={`url(#softGlow-${asset.asset_code})`} />
@@ -623,10 +701,21 @@ function ChillerIllustration({ asset, selected, onSelect, isMobile }) {
           {allOnline ? (
             <>
               <circle cx="88" cy="86" r="5" fill="#bae6fd">
-                <animate attributeName="cx" values="88;110;240;420;590;650" dur="3.2s" repeatCount="indefinite" />
+                <animate
+                  attributeName="cx"
+                  values="88;110;240;420;590;650"
+                  dur="3.2s"
+                  repeatCount="indefinite"
+                />
               </circle>
-              <circle cx="650" cy="156" r="5" fill="#fecdd3">
-                <animate attributeName="cx" values="650;590;420;240;110;88" dur="3.8s" repeatCount="indefinite" />
+
+              <circle cx="88" cy="156" r="5" fill="#fecdd3">
+                <animate
+                  attributeName="cx"
+                  values="88;110;240;420;590;650"
+                  dur="3.8s"
+                  repeatCount="indefinite"
+                />
               </circle>
             </>
           ) : null}
@@ -730,7 +819,13 @@ function BarrelIllustration({ asset, isMobile }) {
                 fill="rgba(255,255,255,0.22)"
               />
               {status.online ? (
-                <ellipse cx="140" cy={318 - (256 * levelPercent) / 100} rx="58" ry="8" fill="rgba(255,255,255,0.18)">
+                <ellipse
+                  cx="140"
+                  cy={318 - (256 * levelPercent) / 100}
+                  rx="58"
+                  ry="8"
+                  fill="rgba(255,255,255,0.18)"
+                >
                   <animate attributeName="ry" values="8;10;8" dur="2.6s" repeatCount="indefinite" />
                 </ellipse>
               ) : null}
@@ -848,7 +943,17 @@ function DetailPanel({ asset, isMobile }) {
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
             {temperatures.map((point) => (
-              <div key={point.point_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 14, background: 'rgba(15,23,42,0.85)' }}>
+              <div
+                key={point.point_id}
+                style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: 12,
+                  padding: '10px 12px',
+                  borderRadius: 14,
+                  background: 'rgba(15,23,42,0.85)',
+                }}
+              >
                 <span style={{ color: '#cbd5e1', fontSize: 13, fontWeight: 700 }}>{point.point_name}</span>
                 <span style={{ fontWeight: 900, whiteSpace: 'nowrap' }}>{formatValue(point)}</span>
               </div>
@@ -875,7 +980,13 @@ function DetailPanel({ asset, isMobile }) {
                 }}
               >
                 <span style={{ color: '#cbd5e1', fontSize: 13, fontWeight: 700 }}>{point.point_name}</span>
-                <span style={{ fontWeight: 900, color: point.value_boolean ? '#4ade80' : '#f87171', whiteSpace: 'nowrap' }}>
+                <span
+                  style={{
+                    fontWeight: 900,
+                    color: point.value_boolean ? '#4ade80' : '#f87171',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
                   {formatValue(point)}
                 </span>
               </div>
