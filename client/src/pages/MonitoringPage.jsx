@@ -343,17 +343,11 @@ function normalizeRow(row) {
     asset_code: row.asset_code,
     asset_name: row.asset_name,
     asset_type: row.asset_type,
-    device_id: row.device_id,
-    device_code: row.device_code,
-    device_name: row.device_name,
     point_id: row.point_id,
     point_code: row.point_code,
     point_name: row.point_name,
     point_group: row.point_group,
-    point_type: row.point_type,
     data_type: row.data_type,
-    unit: row.unit || '',
-    display_order: row.display_order ?? 0,
     value_number:
       row.value_number === null || row.value_number === undefined
         ? null
@@ -363,14 +357,14 @@ function normalizeRow(row) {
         ? null
         : row.value_boolean,
     value_text: row.value_text,
-    quality: row.quality,
+    unit: row.unit || '',
     updated_at: row.updated_at,
+    display_order: row.display_order ?? 0,
   }
 }
 
 function formatValue(point) {
   if (point?.data_type === 'boolean') return point.value_boolean ? 'ON' : 'OFF'
-
   if (point?.data_type === 'number') {
     if (point.value_number === null || point.value_number === undefined) return '—'
     const num = Number(point.value_number)
@@ -380,16 +374,14 @@ function formatValue(point) {
     if (point.unit === 'F') return `${num.toFixed(1)}°F`
     return `${num.toFixed(1)}${point.unit ? ` ${point.unit}` : ''}`
   }
-
   return point?.value_text || '—'
 }
 
 function getLatestTime(points) {
   let latest = null
   for (const p of points) {
-    if (!p?.updated_at) continue
+    if (!p.updated_at) continue
     const d = new Date(p.updated_at)
-    if (Number.isNaN(d.getTime())) continue
     if (!latest || d > latest) latest = d
   }
   return latest
@@ -398,7 +390,6 @@ function getLatestTime(points) {
 function getAssetStatus(points) {
   const latest = getLatestTime(points)
   if (!latest) return { online: false, label: 'OFFLINE' }
-
   const secondsAgo = Math.floor((Date.now() - latest.getTime()) / 1000)
   return {
     online: secondsAgo <= ONLINE_THRESHOLD_SEC,
@@ -408,10 +399,7 @@ function getAssetStatus(points) {
 
 function groupAssets(rows) {
   const grouped = {}
-
   for (const row of rows) {
-    if (!row.asset_code) continue
-
     if (!grouped[row.asset_code]) {
       grouped[row.asset_code] = {
         asset_id: row.asset_id,
@@ -421,7 +409,6 @@ function groupAssets(rows) {
         points: [],
       }
     }
-
     grouped[row.asset_code].points.push(row)
   }
 
@@ -989,48 +976,29 @@ export default function MonitoringPage() {
     try {
       const { data, error } = await supabase
         .from('v_asset_points_latest')
-        .select(`
-          asset_id,
-          asset_code,
-          asset_name,
-          asset_type,
-          device_id,
-          device_code,
-          device_name,
-          point_id,
-          point_code,
-          point_name,
-          point_group,
-          point_type,
-          data_type,
-          unit,
-          display_order,
-          value_number,
-          value_boolean,
-          value_text,
-          quality,
-          updated_at
-        `)
+        .select('*')
         .order('asset_code', { ascending: true })
         .order('display_order', { ascending: true })
+
+      console.log('DB DATA:', data)
+      console.log('DB ERROR:', error)
 
       if (error) throw error
 
       if (!data || !data.length) {
         setRows(mockRows)
         setUseMockData(true)
-        setError('В v_asset_points_latest пока нет данных. Показаны demo значения.')
-        return
+        setError('Supabase returned no rows. Showing demo visualization.')
+      } else {
+        setRows(data.map(normalizeRow))
+        setUseMockData(false)
+        setError(null)
       }
-
-      const normalized = data.map(normalizeRow)
-      setRows(normalized)
-      setUseMockData(false)
-      setError(null)
     } catch (err) {
+      console.error('fetchData error:', err)
       setRows(mockRows)
       setUseMockData(true)
-      setError(err?.message || 'Ошибка загрузки данных из Supabase. Показаны demo значения.')
+      setError(err?.message || 'Live telemetry unavailable. Showing demo visualization.')
     } finally {
       setLoading(false)
     }
@@ -1063,38 +1031,24 @@ export default function MonitoringPage() {
   }, [])
 
   const assets = useMemo(() => groupAssets(rows), [rows])
-
-  const njAssets = useMemo(() => {
-    return assets.filter((a) => String(a.asset_code || '').includes('-NJ-'))
-  }, [assets])
-
-  const chillers = useMemo(() => {
-    return njAssets.filter((a) => String(a.asset_type || '').toLowerCase() === 'chiller')
-  }, [njAssets])
-
-  const barrel = useMemo(() => {
-    return njAssets.find((a) => String(a.asset_type || '').toLowerCase() === 'barrel')
-  }, [njAssets])
-
-  const selectedAsset = useMemo(() => {
-    return chillers.find((a) => a.asset_code === selectedAssetCode) || chillers[0] || null
-  }, [chillers, selectedAssetCode])
+  const njAssets = useMemo(() => assets.filter((a) => a.asset_code.includes('-NJ-')), [assets])
+  const chillers = useMemo(() => njAssets.filter((a) => a.asset_type === 'chiller'), [njAssets])
+  const barrel = useMemo(() => njAssets.find((a) => a.asset_type === 'barrel'), [njAssets])
+  const selectedAsset = useMemo(
+    () => chillers.find((a) => a.asset_code === selectedAssetCode) || chillers[0] || null,
+    [chillers, selectedAssetCode]
+  )
 
   const summary = useMemo(() => {
     const online = njAssets.filter((a) => getAssetStatus(a.points).online).length
     const offline = njAssets.length - online
-
     const compressorsOn = njAssets
       .flatMap((a) => a.points)
-      .filter(
-        (p) =>
-          (p.point_group === 'compressors' || String(p.point_code || '').includes('COMP')) &&
-          p.value_boolean === true
-      ).length
+      .filter((p) => (p.point_group === 'compressors' || String(p.point_code || '').includes('COMP')) && p.value_boolean === true).length
 
     const barrelLevelPoint = njAssets
       .flatMap((a) => a.points)
-      .find((p) => String(p.point_code || '') === 'LEVEL_PERCENT')
+      .find((p) => p.point_code === 'LEVEL_PERCENT')
 
     return {
       total: njAssets.length,
