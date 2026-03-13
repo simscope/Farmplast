@@ -1,4 +1,3 @@
-// 1
 import React, { useEffect, useMemo, useState } from 'react'
 import {
   Activity,
@@ -129,187 +128,9 @@ const mockRows = [
   },
 
   {
-    asset_id: '2',
-    asset_code: 'CH-NJ-02',
-    asset_name: 'Chiller 02',
-    asset_type: 'chiller',
-    point_id: '2-1',
-    point_code: 'CHW_IN',
-    point_name: 'Chilled Water In',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 51.8,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 1,
-  },
-  {
-    asset_id: '2',
-    asset_code: 'CH-NJ-02',
-    asset_name: 'Chiller 02',
-    asset_type: 'chiller',
-    point_id: '2-2',
-    point_code: 'CHW_OUT',
-    point_name: 'Chilled Water Out',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 43.9,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 2,
-  },
-  {
-    asset_id: '2',
-    asset_code: 'CH-NJ-02',
-    asset_name: 'Chiller 02',
-    asset_type: 'chiller',
-    point_id: '2-3',
-    point_code: 'COND_WATER_IN',
-    point_name: 'Condenser Water In',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 79.4,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 3,
-  },
-  {
-    asset_id: '2',
-    asset_code: 'CH-NJ-02',
-    asset_name: 'Chiller 02',
-    asset_type: 'chiller',
-    point_id: '2-4',
-    point_code: 'COND_WATER_OUT',
-    point_name: 'Condenser Water Out',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 87.8,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 4,
-  },
-  {
-    asset_id: '2',
-    asset_code: 'CH-NJ-02',
-    asset_name: 'Chiller 02',
-    asset_type: 'chiller',
-    point_id: '2-5',
-    point_code: 'COMP_A',
-    point_name: 'Compressor A',
-    point_group: 'compressors',
-    data_type: 'boolean',
-    value_boolean: true,
-    updated_at: new Date().toISOString(),
-    display_order: 5,
-  },
-  {
-    asset_id: '2',
-    asset_code: 'CH-NJ-02',
-    asset_name: 'Chiller 02',
-    asset_type: 'chiller',
-    point_id: '2-6',
-    point_code: 'COMP_B',
-    point_name: 'Compressor B',
-    point_group: 'compressors',
-    data_type: 'boolean',
-    value_boolean: true,
-    updated_at: new Date().toISOString(),
-    display_order: 6,
-  },
-
-  {
-    asset_id: '3',
-    asset_code: 'CH-NJ-03',
-    asset_name: 'Chiller 03',
-    asset_type: 'chiller',
-    point_id: '3-1',
-    point_code: 'CHW_IN',
-    point_name: 'Chilled Water In',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 53.1,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 1,
-  },
-  {
-    asset_id: '3',
-    asset_code: 'CH-NJ-03',
-    asset_name: 'Chiller 03',
-    asset_type: 'chiller',
-    point_id: '3-2',
-    point_code: 'CHW_OUT',
-    point_name: 'Chilled Water Out',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 45.2,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 2,
-  },
-  {
-    asset_id: '3',
-    asset_code: 'CH-NJ-03',
-    asset_name: 'Chiller 03',
-    asset_type: 'chiller',
-    point_id: '3-3',
-    point_code: 'COND_WATER_IN',
-    point_name: 'Condenser Water In',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 80.1,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 3,
-  },
-  {
-    asset_id: '3',
-    asset_code: 'CH-NJ-03',
-    asset_name: 'Chiller 03',
-    asset_type: 'chiller',
-    point_id: '3-4',
-    point_code: 'COND_WATER_OUT',
-    point_name: 'Condenser Water Out',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 88.4,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 4,
-  },
-  {
-    asset_id: '3',
-    asset_code: 'CH-NJ-03',
-    asset_name: 'Chiller 03',
-    asset_type: 'chiller',
-    point_id: '3-5',
-    point_code: 'COMP_A',
-    point_name: 'Compressor A',
-    point_group: 'compressors',
-    data_type: 'boolean',
-    value_boolean: false,
-    updated_at: new Date().toISOString(),
-    display_order: 5,
-  },
-  {
-    asset_id: '3',
-    asset_code: 'CH-NJ-03',
-    asset_name: 'Chiller 03',
-    asset_type: 'chiller',
-    point_id: '3-6',
-    point_code: 'COMP_B',
-    point_name: 'Compressor B',
-    point_group: 'compressors',
-    data_type: 'boolean',
-    value_boolean: true,
-    updated_at: new Date().toISOString(),
-    display_order: 6,
-  },
-
-  {
     asset_id: '4',
-    asset_code: 'BR-NJ-01',
-    asset_name: 'Material Barrel',
+    asset_code: 'BARREL-NJ-01',
+    asset_name: 'Material Barrel 1',
     asset_type: 'barrel',
     point_id: '4-1',
     point_code: 'LEVEL_PERCENT',
@@ -323,8 +144,8 @@ const mockRows = [
   },
   {
     asset_id: '4',
-    asset_code: 'BR-NJ-01',
-    asset_name: 'Material Barrel',
+    asset_code: 'BARREL-NJ-01',
+    asset_name: 'Material Barrel 1',
     asset_type: 'barrel',
     point_id: '4-2',
     point_code: 'LEVEL_MA',
@@ -337,6 +158,27 @@ const mockRows = [
     display_order: 2,
   },
 ]
+
+function useViewport() {
+  const getWidth = () => (typeof window !== 'undefined' ? window.innerWidth : 1440)
+  const [width, setWidth] = useState(getWidth)
+
+  useEffect(() => {
+    function onResize() {
+      setWidth(getWidth())
+    }
+
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
+
+  return {
+    width,
+    isMobile: width < 768,
+    isTablet: width >= 768 && width < 1200,
+    isDesktop: width >= 1200,
+  }
+}
 
 function normalizeRow(row) {
   return {
@@ -366,6 +208,7 @@ function normalizeRow(row) {
 
 function formatValue(point) {
   if (point?.data_type === 'boolean') return point.value_boolean ? 'ON' : 'OFF'
+
   if (point?.data_type === 'number') {
     if (point.value_number === null || point.value_number === undefined) return '—'
     const num = Number(point.value_number)
@@ -375,14 +218,16 @@ function formatValue(point) {
     if (point.unit === 'F') return `${num.toFixed(1)}°F`
     return `${num.toFixed(1)}${point.unit ? ` ${point.unit}` : ''}`
   }
+
   return point?.value_text || '—'
 }
 
 function getLatestTime(points) {
   let latest = null
   for (const p of points) {
-    if (!p.updated_at) continue
+    if (!p?.updated_at) continue
     const d = new Date(p.updated_at)
+    if (Number.isNaN(d.getTime())) continue
     if (!latest || d > latest) latest = d
   }
   return latest
@@ -391,6 +236,7 @@ function getLatestTime(points) {
 function getAssetStatus(points) {
   const latest = getLatestTime(points)
   if (!latest) return { online: false, label: 'OFFLINE' }
+
   const secondsAgo = Math.floor((Date.now() - latest.getTime()) / 1000)
   return {
     online: secondsAgo <= ONLINE_THRESHOLD_SEC,
@@ -400,6 +246,7 @@ function getAssetStatus(points) {
 
 function groupAssets(rows) {
   const grouped = {}
+
   for (const row of rows) {
     if (!grouped[row.asset_code]) {
       grouped[row.asset_code] = {
@@ -421,26 +268,27 @@ function groupAssets(rows) {
     .sort((a, b) => a.asset_code.localeCompare(b.asset_code))
 }
 
-function statCardStyle() {
+function statCardStyle(isMobile = false) {
   return {
     background: 'rgba(15, 23, 42, 0.82)',
     border: '1px solid rgba(148, 163, 184, 0.14)',
-    borderRadius: 24,
-    padding: 18,
+    borderRadius: isMobile ? 18 : 24,
+    padding: isMobile ? 14 : 18,
     boxShadow: '0 10px 30px rgba(0,0,0,0.24)',
     backdropFilter: 'blur(10px)',
   }
 }
 
-function pageButtonStyle(active = true) {
+function pageButtonStyle(active = true, isMobile = false) {
   return {
     border: '1px solid rgba(148,163,184,0.18)',
     background: active ? 'rgba(8,47,73,0.84)' : 'rgba(15,23,42,0.7)',
     color: '#e2e8f0',
     borderRadius: 16,
-    padding: '10px 14px',
+    padding: isMobile ? '12px 14px' : '10px 14px',
     cursor: 'pointer',
     fontWeight: 800,
+    minHeight: isMobile ? 44 : 'auto',
   }
 }
 
@@ -458,6 +306,7 @@ function StatusPill({ online }) {
         fontWeight: 800,
         fontSize: 12,
         letterSpacing: 0.6,
+        whiteSpace: 'nowrap',
       }}
     >
       {online ? <Wifi size={14} /> : <WifiOff size={14} />}
@@ -466,28 +315,34 @@ function StatusPill({ online }) {
   )
 }
 
-function LocationSelector({ onSelect }) {
+function LocationSelector({ onSelect, isMobile }) {
   return (
     <div
       style={{
         minHeight: '100vh',
         background: 'radial-gradient(circle at top, #0f766e 0%, #020617 45%, #01030a 100%)',
         color: '#f8fafc',
-        padding: 20,
+        padding: isMobile ? 14 : 20,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
       }}
     >
       <div style={{ width: '100%', maxWidth: 1260 }}>
-        <div style={{ textAlign: 'center', marginBottom: 28 }}>
+        <div style={{ textAlign: 'center', marginBottom: isMobile ? 20 : 28 }}>
           <div style={{ color: '#67e8f9', fontSize: 13, fontWeight: 900, letterSpacing: 1.2 }}>
             SIM SCOPE / FARMPLAST
           </div>
-          <h1 style={{ margin: '8px 0 10px', fontSize: 'clamp(34px, 5vw, 64px)', lineHeight: 1.02 }}>
+          <h1
+            style={{
+              margin: '8px 0 10px',
+              fontSize: isMobile ? 32 : 'clamp(34px, 5vw, 64px)',
+              lineHeight: 1.02,
+            }}
+          >
             Choose production location
           </h1>
-          <div style={{ color: '#cbd5e1', fontSize: 16 }}>
+          <div style={{ color: '#cbd5e1', fontSize: isMobile ? 14 : 16 }}>
             Open plant overview with live industrial telemetry
           </div>
         </div>
@@ -495,8 +350,8 @@ function LocationSelector({ onSelect }) {
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))',
-            gap: 18,
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: isMobile ? 14 : 18,
           }}
         >
           {LOCATIONS.map((loc) => (
@@ -509,12 +364,12 @@ function LocationSelector({ onSelect }) {
                   : '1px solid rgba(148,163,184,0.14)',
                 background: loc.gradient,
                 color: '#fff',
-                borderRadius: 30,
-                padding: 26,
+                borderRadius: 24,
+                padding: isMobile ? 20 : 26,
                 textAlign: 'left',
                 cursor: loc.active ? 'pointer' : 'not-allowed',
                 opacity: loc.active ? 1 : 0.55,
-                minHeight: 260,
+                minHeight: isMobile ? 220 : 260,
                 position: 'relative',
                 overflow: 'hidden',
                 boxShadow: '0 20px 50px rgba(0,0,0,0.35)',
@@ -564,8 +419,12 @@ function LocationSelector({ onSelect }) {
                 <div style={{ color: '#67e8f9', fontWeight: 900, fontSize: 13, letterSpacing: 1 }}>
                   {loc.code}
                 </div>
-                <div style={{ fontSize: 34, fontWeight: 900, marginTop: 8 }}>{loc.title}</div>
-                <div style={{ fontSize: 16, color: '#dbeafe', marginTop: 8 }}>{loc.subtitle}</div>
+                <div style={{ fontSize: isMobile ? 28 : 34, fontWeight: 900, marginTop: 8 }}>
+                  {loc.title}
+                </div>
+                <div style={{ fontSize: isMobile ? 15 : 16, color: '#dbeafe', marginTop: 8 }}>
+                  {loc.subtitle}
+                </div>
                 <div style={{ fontSize: 14, color: '#cbd5e1', marginTop: 18, maxWidth: 400 }}>
                   {loc.description}
                 </div>
@@ -578,7 +437,7 @@ function LocationSelector({ onSelect }) {
   )
 }
 
-function ChillerIllustration({ asset, selected, onSelect }) {
+function ChillerIllustration({ asset, selected, onSelect, isMobile }) {
   const status = getAssetStatus(asset.points)
   const temperatures = asset.points.filter((p) => p.point_group === 'temperatures')
   const compressors = asset.points.filter(
@@ -596,9 +455,9 @@ function ChillerIllustration({ asset, selected, onSelect }) {
     <button
       onClick={onSelect}
       style={{
-        ...statCardStyle(),
+        ...statCardStyle(isMobile),
         width: '100%',
-        padding: 20,
+        padding: isMobile ? 14 : 20,
         textAlign: 'left',
         cursor: 'pointer',
         border: selected ? '1px solid rgba(34,211,238,0.34)' : '1px solid rgba(148, 163, 184, 0.14)',
@@ -607,22 +466,40 @@ function ChillerIllustration({ asset, selected, onSelect }) {
           : '0 10px 30px rgba(0,0,0,0.24)',
       }}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-        <div>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          gap: 12,
+          flexWrap: 'wrap',
+          marginBottom: 14,
+          alignItems: 'flex-start',
+        }}
+      >
+        <div style={{ minWidth: 0 }}>
           <div style={{ color: '#67e8f9', fontSize: 12, fontWeight: 900 }}>{asset.asset_code}</div>
-          <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900 }}>{asset.asset_name}</div>
+          <div
+            style={{
+              marginTop: 4,
+              fontSize: isMobile ? 20 : 24,
+              fontWeight: 900,
+              wordBreak: 'break-word',
+            }}
+          >
+            {asset.asset_name}
+          </div>
         </div>
         <StatusPill online={allOnline} />
       </div>
 
       <div
         style={{
-          borderRadius: 22,
+          borderRadius: isMobile ? 18 : 22,
           overflow: 'hidden',
           border: '1px solid rgba(148,163,184,0.12)',
           background:
             'linear-gradient(180deg, rgba(5,10,20,0.88) 0%, rgba(15,23,42,0.92) 100%)',
-          padding: 14,
+          padding: isMobile ? 8 : 14,
         }}
       >
         <svg viewBox="0 0 720 260" style={{ width: '100%', height: 'auto', display: 'block' }}>
@@ -772,7 +649,7 @@ function ChillerIllustration({ asset, selected, onSelect }) {
   )
 }
 
-function BarrelIllustration({ asset }) {
+function BarrelIllustration({ asset, isMobile }) {
   const status = getAssetStatus(asset.points)
   const levelPercentPoint = asset.points.find((p) => String(p.point_code || '').includes('PERCENT'))
   const levelMaPoint = asset.points.find((p) => String(p.point_code || '').includes('_MA'))
@@ -780,16 +657,34 @@ function BarrelIllustration({ asset }) {
   const fillColor = levelPercent < 20 ? '#ef4444' : levelPercent < 40 ? '#f59e0b' : '#22c55e'
 
   return (
-    <div style={{ ...statCardStyle(), minHeight: 520 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, marginBottom: 14 }}>
+    <div style={{ ...statCardStyle(isMobile), minHeight: isMobile ? 'auto' : 520 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: isMobile ? 'flex-start' : 'center',
+          flexWrap: 'wrap',
+          gap: 12,
+          marginBottom: 14,
+        }}
+      >
         <div>
           <div style={{ color: '#67e8f9', fontSize: 12, fontWeight: 900 }}>{asset.asset_code}</div>
-          <div style={{ fontSize: 28, fontWeight: 900, marginTop: 4 }}>{asset.asset_name}</div>
+          <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 900, marginTop: 4 }}>
+            {asset.asset_name}
+          </div>
         </div>
         <StatusPill online={status.online} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr', gap: 18, alignItems: 'center' }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '1.1fr 0.9fr',
+          gap: 18,
+          alignItems: 'center',
+        }}
+      >
         <div
           style={{
             borderRadius: 24,
@@ -892,10 +787,19 @@ function BarrelIllustration({ asset }) {
   )
 }
 
-function DetailPanel({ asset }) {
+function DetailPanel({ asset, isMobile }) {
   if (!asset) {
     return (
-      <div style={{ ...statCardStyle(), minHeight: 480, display: 'grid', placeItems: 'center', color: '#94a3b8' }}>
+      <div
+        style={{
+          ...statCardStyle(isMobile),
+          minHeight: isMobile ? 220 : 480,
+          display: 'grid',
+          placeItems: 'center',
+          color: '#94a3b8',
+          textAlign: 'center',
+        }}
+      >
         Select a chiller to open equipment details.
       </div>
     )
@@ -908,11 +812,22 @@ function DetailPanel({ asset }) {
   const status = getAssetStatus(asset.points)
 
   return (
-    <div style={{ ...statCardStyle(), minHeight: 480 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, marginBottom: 18, flexWrap: 'wrap' }}>
+    <div style={{ ...statCardStyle(isMobile), minHeight: isMobile ? 'auto' : 480 }}>
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          gap: 12,
+          marginBottom: 18,
+          flexWrap: 'wrap',
+        }}
+      >
         <div>
           <div style={{ color: '#67e8f9', fontSize: 12, fontWeight: 900 }}>{asset.asset_code}</div>
-          <div style={{ fontSize: 30, fontWeight: 900, marginTop: 4 }}>{asset.asset_name}</div>
+          <div style={{ fontSize: isMobile ? 24 : 30, fontWeight: 900, marginTop: 4 }}>
+            {asset.asset_name}
+          </div>
           <div style={{ color: '#94a3b8', fontSize: 14, marginTop: 8 }}>
             Live industrial visualization with equipment metrics
           </div>
@@ -920,16 +835,22 @@ function DetailPanel({ asset }) {
         <StatusPill online={status.online} />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+          gap: 16,
+        }}
+      >
         <div style={{ background: 'rgba(2,6,23,0.46)', borderRadius: 20, padding: 16, border: '1px solid rgba(148,163,184,0.08)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, color: '#cbd5e1', fontWeight: 900 }}>
             <Droplets size={16} /> Water temperatures
           </div>
           <div style={{ display: 'grid', gap: 10 }}>
             {temperatures.map((point) => (
-              <div key={point.point_id} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 12px', borderRadius: 14, background: 'rgba(15,23,42,0.85)' }}>
+              <div key={point.point_id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, padding: '10px 12px', borderRadius: 14, background: 'rgba(15,23,42,0.85)' }}>
                 <span style={{ color: '#cbd5e1', fontSize: 13, fontWeight: 700 }}>{point.point_name}</span>
-                <span style={{ fontWeight: 900 }}>{formatValue(point)}</span>
+                <span style={{ fontWeight: 900, whiteSpace: 'nowrap' }}>{formatValue(point)}</span>
               </div>
             ))}
           </div>
@@ -946,6 +867,7 @@ function DetailPanel({ asset }) {
                 style={{
                   display: 'flex',
                   justifyContent: 'space-between',
+                  gap: 12,
                   padding: '10px 12px',
                   borderRadius: 14,
                   background: point.value_boolean ? 'rgba(34,197,94,0.12)' : 'rgba(239,68,68,0.12)',
@@ -953,7 +875,7 @@ function DetailPanel({ asset }) {
                 }}
               >
                 <span style={{ color: '#cbd5e1', fontSize: 13, fontWeight: 700 }}>{point.point_name}</span>
-                <span style={{ fontWeight: 900, color: point.value_boolean ? '#4ade80' : '#f87171' }}>
+                <span style={{ fontWeight: 900, color: point.value_boolean ? '#4ade80' : '#f87171', whiteSpace: 'nowrap' }}>
                   {formatValue(point)}
                 </span>
               </div>
@@ -972,6 +894,8 @@ export default function MonitoringPage() {
   const [location, setLocation] = useState(null)
   const [selectedAssetCode, setSelectedAssetCode] = useState('CH-NJ-01')
   const [useMockData, setUseMockData] = useState(false)
+
+  const { isMobile, isTablet, isDesktop } = useViewport()
 
   async function fetchData() {
     try {
@@ -1032,9 +956,19 @@ export default function MonitoringPage() {
   }, [])
 
   const assets = useMemo(() => groupAssets(rows), [rows])
-  const njAssets = useMemo(() => assets.filter((a) => a.asset_code.includes('-NJ-')), [assets])
-  const chillers = useMemo(() => njAssets.filter((a) => a.asset_type === 'chiller'), [njAssets])
-  const barrel = useMemo(() => njAssets.find((a) => a.asset_type === 'barrel'), [njAssets])
+  const njAssets = useMemo(
+    () => assets.filter((a) => String(a.asset_code || '').includes('-NJ-')),
+    [assets]
+  )
+  const chillers = useMemo(
+    () => njAssets.filter((a) => String(a.asset_type || '').toLowerCase() === 'chiller'),
+    [njAssets]
+  )
+  const barrel = useMemo(
+    () => njAssets.find((a) => String(a.asset_type || '').toLowerCase() === 'barrel'),
+    [njAssets]
+  )
+
   const selectedAsset = useMemo(
     () => chillers.find((a) => a.asset_code === selectedAssetCode) || chillers[0] || null,
     [chillers, selectedAssetCode]
@@ -1045,11 +979,15 @@ export default function MonitoringPage() {
     const offline = njAssets.length - online
     const compressorsOn = njAssets
       .flatMap((a) => a.points)
-      .filter((p) => (p.point_group === 'compressors' || String(p.point_code || '').includes('COMP')) && p.value_boolean === true).length
+      .filter(
+        (p) =>
+          (p.point_group === 'compressors' || String(p.point_code || '').includes('COMP')) &&
+          p.value_boolean === true
+      ).length
 
     const barrelLevelPoint = njAssets
       .flatMap((a) => a.points)
-      .find((p) => p.point_code === 'LEVEL_PERCENT')
+      .find((p) => String(p.point_code || '') === 'LEVEL_PERCENT')
 
     return {
       total: njAssets.length,
@@ -1060,15 +998,32 @@ export default function MonitoringPage() {
     }
   }, [njAssets])
 
-  if (!location) return <LocationSelector onSelect={setLocation} />
+  const pagePadding = isMobile ? 12 : 16
+  const mainGridColumns = isDesktop ? '1.3fr 0.9fr' : '1fr'
+  const summaryColumns = isMobile
+    ? 'repeat(2, minmax(0, 1fr))'
+    : isTablet
+      ? 'repeat(3, minmax(0, 1fr))'
+      : 'repeat(5, minmax(120px, 1fr))'
+
+  if (!location) return <LocationSelector onSelect={setLocation} isMobile={isMobile} />
 
   if (location === 'PA') {
     return (
-      <div style={{ minHeight: '100vh', background: '#020617', color: '#fff', display: 'grid', placeItems: 'center', padding: 20 }}>
-        <div style={{ ...statCardStyle(), maxWidth: 700, textAlign: 'center' }}>
+      <div
+        style={{
+          minHeight: '100vh',
+          background: '#020617',
+          color: '#fff',
+          display: 'grid',
+          placeItems: 'center',
+          padding: 20,
+        }}
+      >
+        <div style={{ ...statCardStyle(isMobile), maxWidth: 700, textAlign: 'center' }}>
           <div style={{ color: '#67e8f9', fontSize: 13, fontWeight: 900 }}>PENNSYLVANIA</div>
           <h1 style={{ margin: '10px 0' }}>Dashboard coming soon</h1>
-          <button onClick={() => setLocation(null)} style={pageButtonStyle()}>
+          <button onClick={() => setLocation(null)} style={pageButtonStyle(true, isMobile)}>
             Back to locations
           </button>
         </div>
@@ -1082,13 +1037,31 @@ export default function MonitoringPage() {
         minHeight: '100vh',
         background: 'radial-gradient(circle at top, #0f766e 0%, #031323 24%, #020617 58%, #01030a 100%)',
         color: '#f8fafc',
-        padding: 16,
+        padding: pagePadding,
       }}
     >
       <div style={{ maxWidth: 1600, margin: '0 auto' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 16, marginBottom: 18 }}>
-          <div>
-            <button onClick={() => setLocation(null)} style={{ ...pageButtonStyle(), marginBottom: 14, display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            flexWrap: 'wrap',
+            gap: 16,
+            marginBottom: 18,
+          }}
+        >
+          <div style={{ minWidth: 0, flex: '1 1 320px' }}>
+            <button
+              onClick={() => setLocation(null)}
+              style={{
+                ...pageButtonStyle(true, isMobile),
+                marginBottom: 14,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 8,
+              }}
+            >
               <ArrowLeft size={16} />
               Back to locations
             </button>
@@ -1096,34 +1069,56 @@ export default function MonitoringPage() {
             <div style={{ color: '#67e8f9', fontSize: 13, fontWeight: 900, letterSpacing: 1.2 }}>
               FARMPLAST / NEW JERSEY
             </div>
-            <h1 style={{ margin: '8px 0 8px', fontSize: 'clamp(30px, 4vw, 52px)', lineHeight: 1.02 }}>
+            <h1
+              style={{
+                margin: '8px 0 8px',
+                fontSize: isMobile ? 28 : 'clamp(30px, 4vw, 52px)',
+                lineHeight: 1.02,
+              }}
+            >
               Plant HMI Dashboard
             </h1>
-            <div style={{ color: '#cbd5e1', fontSize: 15 }}>
+            <div style={{ color: '#cbd5e1', fontSize: isMobile ? 14 : 15 }}>
               Three chillers and one material barrel with animated industrial visualization
             </div>
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, minmax(120px, 1fr))', gap: 10, width: 'min(100%, 820px)' }}>
-            <div style={statCardStyle()}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: summaryColumns,
+              gap: 10,
+              width: isDesktop ? 'min(100%, 820px)' : '100%',
+              minWidth: 0,
+            }}
+          >
+            <div style={statCardStyle(isMobile)}>
               <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>TOTAL</div>
-              <div style={{ marginTop: 4, fontSize: 30, fontWeight: 900 }}>{summary.total}</div>
+              <div style={{ marginTop: 4, fontSize: isMobile ? 24 : 30, fontWeight: 900 }}>
+                {summary.total}
+              </div>
             </div>
-            <div style={statCardStyle()}>
+            <div style={statCardStyle(isMobile)}>
               <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>ONLINE</div>
-              <div style={{ marginTop: 4, fontSize: 30, fontWeight: 900, color: '#4ade80' }}>{summary.online}</div>
+              <div style={{ marginTop: 4, fontSize: isMobile ? 24 : 30, fontWeight: 900, color: '#4ade80' }}>
+                {summary.online}
+              </div>
             </div>
-            <div style={statCardStyle()}>
+            <div style={statCardStyle(isMobile)}>
               <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>OFFLINE</div>
-              <div style={{ marginTop: 4, fontSize: 30, fontWeight: 900, color: '#f87171' }}>{summary.offline}</div>
+              <div style={{ marginTop: 4, fontSize: isMobile ? 24 : 30, fontWeight: 900, color: '#f87171' }}>
+                {summary.offline}
+              </div>
             </div>
-            <div style={statCardStyle()}>
+            <div style={statCardStyle(isMobile)}>
               <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>COMP ON</div>
-              <div style={{ marginTop: 4, fontSize: 30, fontWeight: 900, color: '#38bdf8' }}>{summary.compressorsOn}</div>
+              <div style={{ marginTop: 4, fontSize: isMobile ? 24 : 30, fontWeight: 900, color: '#38bdf8' }}>
+                {summary.compressorsOn}
+              </div>
             </div>
-            <div style={statCardStyle()}>
+            <div style={statCardStyle(isMobile)}>
               <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>BARREL</div>
-              <div style={{ marginTop: 4, fontSize: 30, fontWeight: 900, color: '#facc15' }}>
+              <div style={{ marginTop: 4, fontSize: isMobile ? 24 : 30, fontWeight: 900, color: '#facc15' }}>
                 {summary.barrelLevel.toFixed(0)}%
               </div>
             </div>
@@ -1133,7 +1128,7 @@ export default function MonitoringPage() {
         {useMockData ? (
           <div
             style={{
-              ...statCardStyle(),
+              ...statCardStyle(isMobile),
               marginBottom: 18,
               display: 'flex',
               alignItems: 'center',
@@ -1148,9 +1143,16 @@ export default function MonitoringPage() {
         ) : null}
 
         {loading ? (
-          <div style={statCardStyle()}>Loading live dashboard…</div>
+          <div style={statCardStyle(isMobile)}>Loading live dashboard…</div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: '1.3fr 0.9fr', gap: 18 }}>
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: mainGridColumns,
+              gap: 18,
+              alignItems: 'start',
+            }}
+          >
             <div style={{ display: 'grid', gap: 18 }}>
               {chillers.map((asset) => (
                 <ChillerIllustration
@@ -1158,16 +1160,30 @@ export default function MonitoringPage() {
                   asset={asset}
                   selected={selectedAsset?.asset_code === asset.asset_code}
                   onSelect={() => setSelectedAssetCode(asset.asset_code)}
+                  isMobile={isMobile}
                 />
               ))}
             </div>
 
             <div style={{ display: 'grid', gap: 18 }}>
-              <DetailPanel asset={selectedAsset} />
-              {barrel ? <BarrelIllustration asset={barrel} /> : <div style={statCardStyle()}>No barrel telemetry yet.</div>}
+              <DetailPanel asset={selectedAsset} isMobile={isMobile} />
+              {barrel ? (
+                <BarrelIllustration asset={barrel} isMobile={isMobile} />
+              ) : (
+                <div style={statCardStyle(isMobile)}>No barrel telemetry yet.</div>
+              )}
 
-              <div style={statCardStyle()}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontWeight: 900, marginBottom: 12 }}>
+              <div style={statCardStyle(isMobile)}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 8,
+                    color: '#cbd5e1',
+                    fontWeight: 900,
+                    marginBottom: 12,
+                  }}
+                >
                   <Wind size={16} />
                   System notes
                 </div>
