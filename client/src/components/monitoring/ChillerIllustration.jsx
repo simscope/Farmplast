@@ -1,34 +1,127 @@
-import React from 'react'
-import StatusPill from './StatusPill'
-import { formatValue, getAssetStatus, statCardStyle } from '../../utils/monitoringHelpers'
+import React, { useMemo } from 'react'
 
-export default function ChillerIllustration({ asset, selected, onSelect, isMobile }) {
-  const status = getAssetStatus(asset.points)
-  const temperatures = asset.points.filter((p) => p.point_group === 'temperatures')
-  const compressors = asset.points.filter(
-    (p) => p.point_group === 'compressors' || String(p.point_code || '').includes('COMP')
+function getPoint(points, predicate) {
+  return points.find(predicate)
+}
+
+function getBoolean(points, codePart) {
+  const point = points.find((p) => String(p.point_code || '').toUpperCase().includes(codePart))
+  return point?.value_boolean === true
+}
+
+function getNumber(points, codePart, fallback = null) {
+  const point = points.find((p) => String(p.point_code || '').toUpperCase().includes(codePart))
+  const value = point?.value_number
+  return typeof value === 'number' && !Number.isNaN(value) ? value : fallback
+}
+
+function getStatus(points) {
+  const onlinePoint = points.find((p) => String(p.point_code || '').toUpperCase() === 'ONLINE')
+  const online = onlinePoint?.value_boolean ?? true
+
+  const alarmPoint =
+    points.find((p) => String(p.point_code || '').toUpperCase().includes('ALARM')) ||
+    points.find((p) => String(p.point_code || '').toUpperCase().includes('FAULT'))
+
+  const alarm = alarmPoint?.value_boolean === true
+
+  return {
+    online,
+    alarm,
+  }
+}
+
+function getCompressors(points) {
+  const compPoints = points.filter(
+    (p) =>
+      p.point_group === 'compressors' ||
+      String(p.point_code || '').toUpperCase().includes('COMP')
   )
 
-  const chwIn = temperatures.find((p) => String(p.point_code || '').includes('CHW_IN'))
-  const chwOut = temperatures.find((p) => String(p.point_code || '').includes('CHW_OUT'))
-  const condIn = temperatures.find((p) => String(p.point_code || '').includes('COND_WATER_IN'))
-  const condOut = temperatures.find((p) => String(p.point_code || '').includes('COND_WATER_OUT'))
-  const activeComps = compressors.filter((p) => p.value_boolean === true).length
-  const allOnline = status.online
+  const map = new Map()
+
+  compPoints.forEach((p) => {
+    const raw = String(p.point_code || '').toUpperCase()
+    const match =
+      raw.match(/COMP[_-]?([A-Z0-9]+)/) ||
+      raw.match(/C([1-9][A-Z]?)/)
+
+    const key = match?.[1] || raw
+
+    if (!map.has(key)) {
+      map.set(key, {
+        key,
+        on: false,
+      })
+    }
+
+    if (p.value_boolean === true) {
+      map.get(key).on = true
+    }
+  })
+
+  const items = Array.from(map.values())
+
+  if (!items.length) {
+    return [
+      { key: 'A', on: getBoolean(points, 'COMP_A') || getBoolean(points, 'COMP1') },
+      { key: 'B', on: getBoolean(points, 'COMP_B') || getBoolean(points, 'COMP2') },
+    ]
+  }
+
+  return items.slice(0, 6)
+}
+
+function formatTemp(value) {
+  if (typeof value !== 'number') return '--'
+  return `${value.toFixed(1)}°F`
+}
+
+export default function ChillerIllustration({
+  asset,
+  selected = false,
+  onSelect,
+  isMobile = false,
+}) {
+  const points = Array.isArray(asset?.points) ? asset.points : []
+
+  const { online, alarm } = useMemo(() => getStatus(points), [points])
+  const compressors = useMemo(() => getCompressors(points), [points])
+
+  const leavingWater = getNumber(points, 'LCHW', getNumber(points, 'LEAVING', null))
+  const enteringWater = getNumber(points, 'ECHW', getNumber(points, 'ENTERING', null))
+  const condLeaving = getNumber(points, 'LCW', getNumber(points, 'COND_LEAVING', null))
+  const condEntering = getNumber(points, 'ECW', getNumber(points, 'COND_ENTERING', null))
+
+  const width = isMobile ? 360 : 760
+  const height = isMobile ? 250 : 300
+
+  const frameStroke = selected
+    ? 'rgba(34, 211, 238, 0.95)'
+    : 'rgba(148, 163, 184, 0.25)'
+
+  const outerGlow = selected
+    ? '0 0 0 1px rgba(34, 211, 238, 0.3), 0 18px 40px rgba(8, 47, 73, 0.55)'
+    : '0 16px 36px rgba(2, 6, 23, 0.45)'
+
+  const cardBg = alarm
+    ? 'linear-gradient(180deg, rgba(69,10,10,0.78) 0%, rgba(24,24,27,0.92) 100%)'
+    : 'linear-gradient(180deg, rgba(15,23,42,0.92) 0%, rgba(3,7,18,0.96) 100%)'
 
   return (
     <button
+      type="button"
       onClick={onSelect}
       style={{
-        ...statCardStyle(isMobile),
         width: '100%',
-        padding: isMobile ? 14 : 20,
+        border: `1px solid ${frameStroke}`,
+        background: cardBg,
+        borderRadius: 28,
+        padding: isMobile ? 14 : 18,
+        color: '#f8fafc',
         textAlign: 'left',
         cursor: 'pointer',
-        border: selected ? '1px solid rgba(34,211,238,0.34)' : '1px solid rgba(148, 163, 184, 0.14)',
-        boxShadow: selected
-          ? '0 16px 40px rgba(14,165,233,0.16)'
-          : '0 10px 30px rgba(0,0,0,0.24)',
+        boxShadow: outerGlow,
       }}
     >
       <div
@@ -36,159 +129,404 @@ export default function ChillerIllustration({ asset, selected, onSelect, isMobil
           display: 'flex',
           justifyContent: 'space-between',
           gap: 12,
-          flexWrap: 'wrap',
-          marginBottom: 14,
           alignItems: 'flex-start',
+          marginBottom: 12,
+          flexWrap: 'wrap',
         }}
       >
-        <div style={{ minWidth: 0 }}>
-          <div style={{ color: '#67e8f9', fontSize: 12, fontWeight: 900 }}>{asset.asset_code}</div>
+        <div>
+          <div
+            style={{
+              fontSize: 12,
+              fontWeight: 900,
+              letterSpacing: 1.1,
+              color: '#67e8f9',
+            }}
+          >
+            CHILLER
+          </div>
+          <div
+            style={{
+              fontSize: isMobile ? 20 : 24,
+              fontWeight: 900,
+              marginTop: 4,
+            }}
+          >
+            {asset?.name || asset?.asset_code || 'Unnamed chiller'}
+          </div>
           <div
             style={{
               marginTop: 4,
-              fontSize: isMobile ? 20 : 24,
-              fontWeight: 900,
-              wordBreak: 'break-word',
+              color: '#94a3b8',
+              fontSize: 13,
             }}
           >
-            {asset.asset_name}
+            {asset?.asset_code || '—'}
           </div>
         </div>
-        <StatusPill online={allOnline} />
+
+        <div
+          style={{
+            display: 'flex',
+            gap: 8,
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            justifyContent: 'flex-end',
+          }}
+        >
+          <div
+            style={{
+              padding: '6px 10px',
+              borderRadius: 999,
+              fontSize: 12,
+              fontWeight: 800,
+              background: online ? 'rgba(34,197,94,0.16)' : 'rgba(239,68,68,0.16)',
+              color: online ? '#4ade80' : '#f87171',
+              border: `1px solid ${online ? 'rgba(74,222,128,0.28)' : 'rgba(248,113,113,0.28)'}`,
+            }}
+          >
+            {online ? 'ONLINE' : 'OFFLINE'}
+          </div>
+
+          {alarm ? (
+            <div
+              style={{
+                padding: '6px 10px',
+                borderRadius: 999,
+                fontSize: 12,
+                fontWeight: 800,
+                background: 'rgba(251,146,60,0.16)',
+                color: '#fb923c',
+                border: '1px solid rgba(251,146,60,0.28)',
+              }}
+            >
+              ALARM
+            </div>
+          ) : null}
+        </div>
       </div>
 
       <div
         style={{
-          borderRadius: isMobile ? 18 : 22,
+          width: '100%',
           overflow: 'hidden',
-          border: '1px solid rgba(148,163,184,0.12)',
+          borderRadius: 22,
+          border: '1px solid rgba(148,163,184,0.14)',
           background:
-            'linear-gradient(180deg, rgba(5,10,20,0.88) 0%, rgba(15,23,42,0.92) 100%)',
-          padding: isMobile ? 8 : 14,
+            'radial-gradient(circle at 20% 0%, rgba(8,145,178,0.10), transparent 35%), linear-gradient(180deg, rgba(2,6,23,0.90), rgba(3,7,18,0.98))',
         }}
       >
-        <svg viewBox="0 0 720 260" style={{ width: '100%', height: 'auto', display: 'block' }}>
+        <svg
+          viewBox={`0 0 ${width} ${height}`}
+          style={{ width: '100%', height: 'auto', display: 'block' }}
+        >
           <defs>
-            <linearGradient id={`chillerBody-${asset.asset_code}`} x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#334155" />
-              <stop offset="100%" stopColor="#0f172a" />
-            </linearGradient>
-
-            <linearGradient id={`waterPipe-${asset.asset_code}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#0ea5e9" />
-              <stop offset="100%" stopColor="#22d3ee" />
-            </linearGradient>
-
-            <linearGradient id={`hotPipe-${asset.asset_code}`} x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#fb7185" />
-              <stop offset="100%" stopColor="#f97316" />
-            </linearGradient>
-
-            <filter id={`softGlow-${asset.asset_code}`}>
+            <filter id="softGlowBlue">
               <feGaussianBlur stdDeviation="4" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
+
+            <filter id="softGlowRed">
+              <feGaussianBlur stdDeviation="3.5" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+
+            <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#16233b" />
+              <stop offset="100%" stopColor="#0b1324" />
+            </linearGradient>
+
+            <linearGradient id="panelGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#1e293b" />
+              <stop offset="100%" stopColor="#0f172a" />
+            </linearGradient>
           </defs>
 
-          <rect x="110" y="40" rx="24" ry="24" width="340" height="160" fill={`url(#chillerBody-${asset.asset_code})`} stroke="rgba(148,163,184,0.24)" />
-          <rect x="130" y="60" rx="18" ry="18" width="300" height="120" fill="#111827" stroke="rgba(148,163,184,0.18)" />
+          {/* pipes */}
+          <path
+            d={isMobile ? 'M24 72 H120' : 'M24 86 H160'}
+            stroke="#38bdf8"
+            strokeWidth="12"
+            strokeLinecap="round"
+            fill="none"
+            filter="url(#softGlowBlue)"
+          />
+          <path
+            d={isMobile ? 'M24 176 H120' : 'M24 218 H160'}
+            stroke="#fb7185"
+            strokeWidth="12"
+            strokeLinecap="round"
+            fill="none"
+            filter="url(#softGlowRed)"
+          />
 
-          {[0, 1, 2].map((i) => (
-            <circle
-              key={i}
-              cx={190 + i * 90}
-              cy={120}
-              r="32"
-              fill="#020617"
-              stroke={allOnline ? '#22d3ee' : '#475569'}
-              strokeWidth="3"
-            />
-          ))}
-
-          {[0, 1, 2].map((i) => (
-            <g key={`fan-${i}`} transform={`translate(${190 + i * 90}, 120)`}>
-              <circle cx="0" cy="0" r="6" fill={allOnline ? '#67e8f9' : '#64748b'} />
-              <path d="M0 -22 C8 -8 10 -2 2 4 C-4 2 -8 -4 0 -22Z" fill={allOnline ? '#22d3ee' : '#475569'}>
-                {allOnline ? (
-                  <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="2s" repeatCount="indefinite" />
-                ) : null}
-              </path>
-              <path d="M22 0 C8 8 2 10 -4 2 C-2 -4 4 -8 22 0Z" fill={allOnline ? '#22d3ee' : '#475569'}>
-                {allOnline ? (
-                  <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="2s" repeatCount="indefinite" />
-                ) : null}
-              </path>
-              <path d="M0 22 C-8 8 -10 2 -2 -4 C4 -2 8 4 0 22Z" fill={allOnline ? '#22d3ee' : '#475569'}>
-                {allOnline ? (
-                  <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="2s" repeatCount="indefinite" />
-                ) : null}
-              </path>
-              <path d="M-22 0 C-8 -8 -2 -10 4 -2 C2 4 -4 8 -22 0Z" fill={allOnline ? '#22d3ee' : '#475569'}>
-                {allOnline ? (
-                  <animateTransform attributeName="transform" type="rotate" from="0 0 0" to="360 0 0" dur="2s" repeatCount="indefinite" />
-                ) : null}
-              </path>
-            </g>
-          ))}
-
-          <rect x="470" y="60" rx="18" ry="18" width="120" height="120" fill="#0b1120" stroke="rgba(148,163,184,0.18)" />
-          <rect x="485" y="78" rx="10" ry="10" width="90" height="22" fill={activeComps > 0 ? '#052e2b' : '#3f0d18'} stroke={activeComps > 0 ? '#22c55e' : '#ef4444'} />
-          <text x="530" y="94" textAnchor="middle" fontSize="11" fill="#e2e8f0" fontWeight="700">
-            COMPRESSORS
-          </text>
-          <text x="530" y="135" textAnchor="middle" fontSize="32" fill="#f8fafc" fontWeight="900">
-            {activeComps}
-          </text>
-          <text x="530" y="157" textAnchor="middle" fontSize="12" fill="#94a3b8" fontWeight="700">
-            ACTIVE
-          </text>
-
-          <line x1="88" y1="86" x2="650" y2="86" stroke={`url(#waterPipe-${asset.asset_code})`} strokeWidth="10" strokeLinecap="round" opacity="0.9" />
-          <line x1="88" y1="156" x2="650" y2="156" stroke={`url(#hotPipe-${asset.asset_code})`} strokeWidth="10" strokeLinecap="round" opacity="0.9" />
-
-          <g transform="translate(355,156)">
-            <rect x="-38" y="-20" width="76" height="40" rx="10" fill="#1e293b" stroke="#fb7185" strokeWidth="2" />
-            <path d="M-24 -10 L-12 10" stroke="#fda4af" strokeWidth="2.5" strokeLinecap="round" />
-            <path d="M-8 -10 L4 10" stroke="#fda4af" strokeWidth="2.5" strokeLinecap="round" />
-            <path d="M8 -10 L20 10" stroke="#fda4af" strokeWidth="2.5" strokeLinecap="round" />
-            <text x="0" y="-28" textAnchor="middle" fontSize="11" fill="#fecdd3" fontWeight="700">
-              COND
-            </text>
-          </g>
-
-          <circle cx="88" cy="86" r="9" fill="#38bdf8" filter={`url(#softGlow-${asset.asset_code})`} />
-          <circle cx="88" cy="156" r="9" fill="#fb7185" filter={`url(#softGlow-${asset.asset_code})`} />
-          <circle cx="650" cy="86" r="9" fill="#38bdf8" filter={`url(#softGlow-${asset.asset_code})`} />
-          <circle cx="650" cy="156" r="9" fill="#fb7185" filter={`url(#softGlow-${asset.asset_code})`} />
-
-          {allOnline ? (
+          {/* flow dots */}
+          {online && (
             <>
-              <circle cx="88" cy="86" r="5" fill="#bae6fd">
-                <animate attributeName="cx" values="88;110;240;420;590;650" dur="3.2s" repeatCount="indefinite" />
+              <circle r="6" fill="#7dd3fc" filter="url(#softGlowBlue)">
+                <animateMotion
+                  dur="2.4s"
+                  repeatCount="indefinite"
+                  path={isMobile ? 'M24 72 H120' : 'M24 86 H160'}
+                />
               </circle>
-
-              <circle cx="88" cy="156" r="5" fill="#fecdd3">
-                <animate attributeName="cx" values="88;110;240;420;590;650" dur="3.8s" repeatCount="indefinite" />
+              <circle r="6" fill="#fda4af" filter="url(#softGlowRed)">
+                <animateMotion
+                  dur="2.4s"
+                  repeatCount="indefinite"
+                  path={isMobile ? 'M120 176 H24' : 'M160 218 H24'}
+                />
               </circle>
             </>
-          ) : null}
+          )}
 
-          <text x="88" y="68" textAnchor="middle" fontSize="12" fill="#bae6fd" fontWeight="700">
-            {formatValue(chwIn)}
+          {/* main unit */}
+          <rect
+            x={isMobile ? 118 : 156}
+            y={isMobile ? 34 : 34}
+            rx="28"
+            ry="28"
+            width={isMobile ? 214 : 510}
+            height={isMobile ? 168 : 220}
+            fill="url(#bodyGrad)"
+            stroke="rgba(148,163,184,0.22)"
+            strokeWidth="2"
+          />
+
+          <rect
+            x={isMobile ? 138 : 182}
+            y={isMobile ? 54 : 56}
+            rx="20"
+            ry="20"
+            width={isMobile ? 174 : 458}
+            height={isMobile ? 128 : 176}
+            fill="url(#panelGrad)"
+            stroke="rgba(148,163,184,0.12)"
+            strokeWidth="1.5"
+          />
+
+          {/* EVAP block */}
+          <text
+            x={isMobile ? 266 : 406}
+            y={isMobile ? 78 : 88}
+            fill="#7dd3fc"
+            fontSize={isMobile ? 16 : 20}
+            fontWeight="900"
+            textAnchor="middle"
+            letterSpacing="1.2"
+          >
+            EVAP
           </text>
-          <text x="88" y="176" textAnchor="middle" fontSize="12" fill="#fecdd3" fontWeight="700">
-            {formatValue(condIn)}
+
+          <rect
+            x={isMobile ? 196 : 268}
+            y={isMobile ? 90 : 102}
+            rx="14"
+            ry="14"
+            width={isMobile ? 138 : 274}
+            height={isMobile ? 34 : 42}
+            fill="rgba(8,145,178,0.10)"
+            stroke="#22d3ee"
+            strokeWidth="2.5"
+          />
+
+          {[0, 1, 2, 3, 4].map((i) => {
+            const startX = (isMobile ? 206 : 282) + i * (isMobile ? 25 : 52)
+            const topY = isMobile ? 98 : 110
+            const bottomY = isMobile ? 124 : 136
+            return (
+              <path
+                key={`evap-fin-${i}`}
+                d={`M ${startX} ${topY} Q ${startX + (isMobile ? 10 : 18)} ${(topY + bottomY) / 2} ${startX} ${bottomY}`}
+                stroke="#67e8f9"
+                strokeWidth="2.4"
+                fill="none"
+                strokeLinecap="round"
+                opacity="0.95"
+              />
+            )
+          })}
+
+          {/* COND label above condenser */}
+          <text
+            x={isMobile ? 266 : 406}
+            y={isMobile ? 154 : 174}
+            fill="#f8fafc"
+            fontSize={isMobile ? 16 : 20}
+            fontWeight="900"
+            textAnchor="middle"
+            letterSpacing="1.2"
+          >
+            COND
           </text>
-          <text x="650" y="68" textAnchor="middle" fontSize="12" fill="#bae6fd" fontWeight="700">
-            {formatValue(chwOut)}
+
+          {/* narrower condenser block */}
+          <rect
+            x={isMobile ? 206 : 298}
+            y={isMobile ? 166 : 186}
+            rx="14"
+            ry="14"
+            width={isMobile ? 118 : 218}
+            height={isMobile ? 38 : 46}
+            fill="rgba(251,113,133,0.08)"
+            stroke="#fb7185"
+            strokeWidth="2.5"
+          />
+
+          {/* condenser coil style instead of 3 fans */}
+          {[0, 1, 2, 3].map((i) => {
+            const x = (isMobile ? 224 : 328) + i * (isMobile ? 22 : 42)
+            return (
+              <path
+                key={`cond-coil-${i}`}
+                d={`M ${x} ${isMobile ? 176 : 198} L ${x + (isMobile ? 12 : 18)} ${isMobile ? 222 : 220}`}
+                stroke="#fda4af"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                opacity="0.95"
+              />
+            )
+          })}
+
+          {/* compressor group */}
+          <text
+            x={isMobile ? 74 : 84}
+            y={isMobile ? 108 : 124}
+            fill="#94a3b8"
+            fontSize={isMobile ? 12 : 14}
+            fontWeight="800"
+            textAnchor="middle"
+            letterSpacing="1"
+          >
+            COMP
           </text>
-          <text x="650" y="176" textAnchor="middle" fontSize="12" fill="#fecdd3" fontWeight="700">
-            {formatValue(condOut)}
+
+          {compressors.slice(0, isMobile ? 3 : 6).map((comp, index) => {
+            const col = index % (isMobile ? 3 : 3)
+            const row = Math.floor(index / 3)
+            const baseX = isMobile ? 48 : 48
+            const baseY = isMobile ? 126 : 148
+            const gapX = isMobile ? 28 : 34
+            const gapY = isMobile ? 34 : 40
+            const cx = baseX + col * gapX
+            const cy = baseY + row * gapY
+
+            return (
+              <g key={comp.key}>
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  r={isMobile ? 10 : 12}
+                  fill={comp.on ? '#22c55e' : '#334155'}
+                  stroke={comp.on ? '#86efac' : '#64748b'}
+                  strokeWidth="2"
+                />
+                {comp.on && online ? (
+                  <circle r={isMobile ? 3.5 : 4.5} fill="#bbf7d0">
+                    <animateMotion
+                      dur="1.8s"
+                      repeatCount="indefinite"
+                      path={`M ${cx - 6} ${cy} A 6 6 0 1 1 ${cx + 6} ${cy} A 6 6 0 1 1 ${cx - 6} ${cy}`}
+                    />
+                  </circle>
+                ) : null}
+              </g>
+            )
+          })}
+
+          {/* labels left */}
+          <text
+            x={isMobile ? 14 : 12}
+            y={isMobile ? 76 : 90}
+            fill="#7dd3fc"
+            fontSize={isMobile ? 12 : 14}
+            fontWeight="900"
+            textAnchor="start"
+          >
+            CHW
+          </text>
+          <text
+            x={isMobile ? 14 : 12}
+            y={isMobile ? 180 : 222}
+            fill="#fda4af"
+            fontSize={isMobile ? 12 : 14}
+            fontWeight="900"
+            textAnchor="start"
+          >
+            COND
           </text>
         </svg>
+      </div>
+
+      <div
+        style={{
+          marginTop: 12,
+          display: 'grid',
+          gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))',
+          gap: 10,
+        }}
+      >
+        <div
+          style={{
+            padding: '10px 12px',
+            borderRadius: 16,
+            background: 'rgba(15,23,42,0.72)',
+            border: '1px solid rgba(148,163,184,0.14)',
+          }}
+        >
+          <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>ECHW</div>
+          <div style={{ marginTop: 4, color: '#e2e8f0', fontWeight: 900 }}>
+            {formatTemp(enteringWater)}
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '10px 12px',
+            borderRadius: 16,
+            background: 'rgba(15,23,42,0.72)',
+            border: '1px solid rgba(148,163,184,0.14)',
+          }}
+        >
+          <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>LCHW</div>
+          <div style={{ marginTop: 4, color: '#7dd3fc', fontWeight: 900 }}>
+            {formatTemp(leavingWater)}
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '10px 12px',
+            borderRadius: 16,
+            background: 'rgba(15,23,42,0.72)',
+            border: '1px solid rgba(148,163,184,0.14)',
+          }}
+        >
+          <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>ECW</div>
+          <div style={{ marginTop: 4, color: '#fbcfe8', fontWeight: 900 }}>
+            {formatTemp(condEntering)}
+          </div>
+        </div>
+
+        <div
+          style={{
+            padding: '10px 12px',
+            borderRadius: 16,
+            background: 'rgba(15,23,42,0.72)',
+            border: '1px solid rgba(148,163,184,0.14)',
+          }}
+        >
+          <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>LCW</div>
+          <div style={{ marginTop: 4, color: '#fda4af', fontWeight: 900 }}>
+            {formatTemp(condLeaving)}
+          </div>
+        </div>
       </div>
     </button>
   )
