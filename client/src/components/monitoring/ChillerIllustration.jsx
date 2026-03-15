@@ -74,9 +74,17 @@ function tempColor(value, type) {
     if (value <= 55) return '#38bdf8'
     return '#93c5fd'
   }
-  if (value >= 95) return '#f97316'
+  if (value >= 100) return '#f97316'
   if (value >= 80) return '#fb7185'
   return '#fda4af'
+}
+
+function labelCardStyle(borderColor) {
+  return {
+    fill: 'rgba(15,23,42,0.88)',
+    stroke: borderColor,
+    strokeWidth: 1.5,
+  }
 }
 
 export default function ChillerIllustration({
@@ -90,13 +98,13 @@ export default function ChillerIllustration({
   const { online, alarm } = useMemo(() => getStatus(points), [points])
   const compressors = useMemo(() => getCompressors(points), [points])
 
-  const leavingWater = getNumber(points, 'LCHW', getNumber(points, 'LEAVING', null))
-  const enteringWater = getNumber(points, 'ECHW', getNumber(points, 'ENTERING', null))
-  const condLeaving = getNumber(points, 'LCW', getNumber(points, 'COND_LEAVING', null))
-  const condEntering = getNumber(points, 'ECW', getNumber(points, 'COND_ENTERING', null))
+  const chwIn = getNumber(points, 'ECHW', getNumber(points, 'ENTERING', null))
+  const chwOut = getNumber(points, 'LCHW', getNumber(points, 'LEAVING', null))
+  const condIn = getNumber(points, 'ECW', getNumber(points, 'COND_ENTERING', null))
+  const condOut = getNumber(points, 'LCW', getNumber(points, 'COND_LEAVING', null))
 
-  const width = isMobile ? 760 : 980
-  const height = isMobile ? 360 : 360
+  const width = 980
+  const height = 360
 
   const frameStroke = selected
     ? 'rgba(34, 211, 238, 0.95)'
@@ -110,10 +118,17 @@ export default function ChillerIllustration({
     ? 'linear-gradient(180deg, rgba(69,10,10,0.78) 0%, rgba(24,24,27,0.92) 100%)'
     : 'linear-gradient(180deg, rgba(15,23,42,0.92) 0%, rgba(3,7,18,0.96) 100%)'
 
-  const shellX = 220
-  const shellY = 50
-  const shellW = 540
-  const shellH = 210
+  const chillerX = 385
+  const chillerY = 88
+  const chillerW = 210
+  const chillerH = 120
+
+  const topY = 105
+  const bottomY = 225
+  const leftX = 70
+  const rightX = 910
+  const centerLeft = chillerX
+  const centerRight = chillerX + chillerW
 
   return (
     <button
@@ -220,7 +235,7 @@ export default function ChillerIllustration({
           borderRadius: 22,
           border: '1px solid rgba(148,163,184,0.14)',
           background:
-            'radial-gradient(circle at 20% 0%, rgba(8,145,178,0.10), transparent 35%), linear-gradient(180deg, rgba(2,6,23,0.90), rgba(3,7,18,0.98))',
+            'radial-gradient(circle at 20% 0%, rgba(8,145,178,0.10), transparent 35%), linear-gradient(180deg, rgba(2,6,23,0.92), rgba(3,7,18,0.98))',
         }}
       >
         <svg
@@ -244,251 +259,202 @@ export default function ChillerIllustration({
               </feMerge>
             </filter>
 
-            <linearGradient id="shellGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#1b2945" />
-              <stop offset="100%" stopColor="#10192f" />
+            <linearGradient id="chillerBodyGrad" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor="#1f2d4a" />
+              <stop offset="100%" stopColor="#111b31" />
             </linearGradient>
 
-            <linearGradient id="innerGrad" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#24324d" />
-              <stop offset="100%" stopColor="#111a2f" />
-            </linearGradient>
-
-            <linearGradient id="glassGrad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="rgba(255,255,255,0.03)" />
-              <stop offset="50%" stopColor="rgba(255,255,255,0.08)" />
-              <stop offset="100%" stopColor="rgba(255,255,255,0.02)" />
+            <linearGradient id="innerCoreGrad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#18243d" />
+              <stop offset="100%" stopColor="#0d1629" />
             </linearGradient>
           </defs>
 
-          {/* CHW top left to top right */}
+          {/* top blue line */}
           <path
-            d={`M 35 95 H ${shellX - 20} C ${shellX - 5} 95 ${shellX - 5} 95 ${shellX + 5} 95 H ${shellX + shellW + 20}`}
+            d={`M ${leftX} ${topY} H ${centerLeft} M ${centerRight} ${topY} H ${rightX}`}
             stroke="#38bdf8"
-            strokeWidth="12"
+            strokeWidth="10"
             strokeLinecap="round"
             fill="none"
             filter="url(#softGlowBlue)"
           />
 
-          {/* COND bottom right to bottom left */}
+          {/* bottom red line */}
           <path
-            d={`M ${shellX + shellW + 20} 215 H ${shellX + shellW - 5} C ${shellX + shellW - 20} 215 ${shellX + shellW - 20} 215 ${shellX + shellW - 35} 215 H ${shellX - 20} H 35`}
+            d={`M ${leftX} ${bottomY} H ${centerLeft} M ${centerRight} ${bottomY} H ${rightX}`}
             stroke="#fb7185"
-            strokeWidth="12"
+            strokeWidth="10"
             strokeLinecap="round"
             fill="none"
             filter="url(#softGlowRed)"
           />
 
-          {/* animated flow */}
+          {/* arrows */}
+          <polygon points="300,105 282,96 282,114" fill="#7dd3fc" />
+          <polygon points="680,105 698,96 698,114" fill="#7dd3fc" />
+          <polygon points="680,225 662,216 662,234" fill="#fda4af" />
+          <polygon points="300,225 318,216 318,234" fill="#fda4af" />
+
+          {/* animated dots */}
           {online && (
             <>
-              <circle r="6" fill="#7dd3fc" filter="url(#softGlowBlue)">
-                <animateMotion
-                  dur="3s"
-                  repeatCount="indefinite"
-                  path={`M 35 95 H ${shellX - 20} C ${shellX - 5} 95 ${shellX - 5} 95 ${shellX + 5} 95 H ${shellX + shellW + 20}`}
-                />
+              <circle r="5.5" fill="#7dd3fc" filter="url(#softGlowBlue)">
+                <animateMotion dur="2.8s" repeatCount="indefinite" path={`M ${leftX} ${topY} H ${centerLeft - 8}`} />
+              </circle>
+              <circle r="5.5" fill="#7dd3fc" filter="url(#softGlowBlue)">
+                <animateMotion dur="2.8s" repeatCount="indefinite" path={`M ${centerRight + 8} ${topY} H ${rightX}`} />
               </circle>
 
-              <circle r="6" fill="#fda4af" filter="url(#softGlowRed)">
-                <animateMotion
-                  dur="3s"
-                  repeatCount="indefinite"
-                  path={`M ${shellX + shellW + 20} 215 H ${shellX + shellW - 5} C ${shellX + shellW - 20} 215 ${shellX + shellW - 20} 215 ${shellX + shellW - 35} 215 H ${shellX - 20} H 35`}
-                />
+              <circle r="5.5" fill="#fda4af" filter="url(#softGlowRed)">
+                <animateMotion dur="2.8s" repeatCount="indefinite" path={`M ${rightX} ${bottomY} H ${centerRight + 8}`} />
+              </circle>
+              <circle r="5.5" fill="#fda4af" filter="url(#softGlowRed)">
+                <animateMotion dur="2.8s" repeatCount="indefinite" path={`M ${centerLeft - 8} ${bottomY} H ${leftX}`} />
               </circle>
             </>
           )}
 
-          {/* arrows */}
-          <polygon points="145,95 128,86 128,104" fill="#7dd3fc" opacity="0.95" />
-          <polygon points="845,215 862,206 862,224" fill="#fda4af" opacity="0.95" />
+          {/* left blue temp card */}
+          <rect x="35" y="55" rx="18" ry="18" width="170" height="62" {...labelCardStyle('rgba(56,189,248,0.35)')} />
+          <text x="55" y="78" fill="#7dd3fc" fontSize="14" fontWeight="900">CHW IN</text>
+          <text x="55" y="102" fill={tempColor(chwIn, 'blue')} fontSize="22" fontWeight="900">
+            {formatTemp(chwIn)}
+          </text>
 
-          {/* shell */}
+          {/* right blue temp card */}
+          <rect x="775" y="55" rx="18" ry="18" width="170" height="62" {...labelCardStyle('rgba(56,189,248,0.35)')} />
+          <text x="925" y="78" fill="#7dd3fc" fontSize="14" fontWeight="900" textAnchor="end">CHW OUT</text>
+          <text x="925" y="102" fill={tempColor(chwOut, 'blue')} fontSize="22" fontWeight="900" textAnchor="end">
+            {formatTemp(chwOut)}
+          </text>
+
+          {/* left red temp card */}
+          <rect x="35" y="193" rx="18" ry="18" width="170" height="62" {...labelCardStyle('rgba(251,113,133,0.35)')} />
+          <text x="55" y="216" fill="#fda4af" fontSize="14" fontWeight="900">COND OUT</text>
+          <text x="55" y="240" fill={tempColor(condOut, 'red')} fontSize="22" fontWeight="900">
+            {formatTemp(condOut)}
+          </text>
+
+          {/* right red temp card */}
+          <rect x="775" y="193" rx="18" ry="18" width="170" height="62" {...labelCardStyle('rgba(251,113,133,0.35)')} />
+          <text x="925" y="216" fill="#fda4af" fontSize="14" fontWeight="900" textAnchor="end">COND IN</text>
+          <text x="925" y="240" fill={tempColor(condIn, 'red')} fontSize="22" fontWeight="900" textAnchor="end">
+            {formatTemp(condIn)}
+          </text>
+
+          {/* central chiller */}
           <rect
-            x={shellX}
-            y={shellY}
-            width={shellW}
-            height={shellH}
-            rx="34"
-            ry="34"
-            fill="url(#shellGrad)"
-            stroke="rgba(148,163,184,0.28)"
-            strokeWidth="2.2"
+            x={chillerX}
+            y={chillerY}
+            rx="28"
+            ry="28"
+            width={chillerW}
+            height={chillerH}
+            fill="url(#chillerBodyGrad)"
+            stroke="rgba(148,163,184,0.24)"
+            strokeWidth="2"
           />
 
           <rect
-            x={shellX + 28}
-            y={shellY + 30}
-            width={shellW - 56}
-            height={shellH - 60}
-            rx="24"
-            ry="24"
-            fill="url(#innerGrad)"
-            stroke="rgba(148,163,184,0.14)"
-            strokeWidth="1.5"
+            x={chillerX + 20}
+            y={chillerY + 18}
+            rx="18"
+            ry="18"
+            width={chillerW - 40}
+            height={chillerH - 36}
+            fill="url(#innerCoreGrad)"
+            stroke="rgba(148,163,184,0.12)"
+            strokeWidth="1.4"
           />
 
-          {/* heat exchanger body */}
+          {/* center connections */}
+          <circle cx={centerLeft} cy={topY} r="7" fill="#7dd3fc" />
+          <circle cx={centerRight} cy={topY} r="7" fill="#7dd3fc" />
+          <circle cx={centerLeft} cy={bottomY} r="7" fill="#fda4af" />
+          <circle cx={centerRight} cy={bottomY} r="7" fill="#fda4af" />
+
+          {/* exchanger symbol */}
           <rect
-            x={shellX + 90}
-            y={shellY + 78}
-            width={shellW - 180}
-            height={54}
-            rx="16"
-            ry="16"
-            fill="rgba(15,23,42,0.72)"
+            x={chillerX + 48}
+            y={chillerY + 38}
+            rx="14"
+            ry="14"
+            width={chillerW - 96}
+            height="44"
+            fill="rgba(15,23,42,0.78)"
             stroke="rgba(103,232,249,0.55)"
             strokeWidth="1.8"
           />
 
-          {/* internal coil lines */}
-          {[0, 1, 2, 3, 4, 5].map((i) => {
-            const x = shellX + 120 + i * 48
+          {[0, 1, 2, 3].map((i) => {
+            const x = chillerX + 68 + i * 24
             return (
               <path
-                key={`coil-${i}`}
-                d={`M ${x} ${shellY + 86} Q ${x + 18} ${shellY + 105} ${x} ${shellY + 124}`}
+                key={i}
+                d={`M ${x} ${chillerY + 46} Q ${x + 12} ${chillerY + 60} ${x} ${chillerY + 74}`}
                 stroke="#67e8f9"
-                strokeWidth="3"
+                strokeWidth="2.6"
                 fill="none"
                 strokeLinecap="round"
-                opacity="0.95"
               />
             )
           })}
 
-          {/* center title */}
           <text
-            x={shellX + shellW / 2}
-            y={shellY + 72}
+            x={chillerX + chillerW / 2}
+            y={chillerY + 105}
             fill="#e2e8f0"
-            fontSize="20"
+            fontSize="16"
+            fontWeight="900"
+            textAnchor="middle"
+            letterSpacing="1.1"
+          >
+            CHILLER
+          </text>
+
+          {/* compressor status bottom */}
+          <text
+            x="490"
+            y="292"
+            fill="#94a3b8"
+            fontSize="13"
             fontWeight="900"
             textAnchor="middle"
             letterSpacing="1.2"
           >
-            CHILLER HEAT EXCHANGER
-          </text>
-
-          {/* compressor dots bottom left */}
-          <text
-            x="120"
-            y="135"
-            fill="#94a3b8"
-            fontSize="14"
-            fontWeight="800"
-            textAnchor="middle"
-            letterSpacing="1"
-          >
-            COMP
+            COMPRESSOR STATUS
           </text>
 
           {compressors.slice(0, 6).map((comp, index) => {
-            const col = index % 3
-            const row = Math.floor(index / 3)
-            const cx = 75 + col * 38
-            const cy = 162 + row * 40
+            const total = Math.min(compressors.length, 6)
+            const startX = 490 - ((total - 1) * 34) / 2
+            const cx = startX + index * 34
+            const cy = 318
 
             return (
               <g key={comp.key}>
                 <circle
                   cx={cx}
                   cy={cy}
-                  r="14"
+                  r="11"
                   fill={comp.on ? '#22c55e' : '#475569'}
                   stroke={comp.on ? '#86efac' : '#64748b'}
-                  strokeWidth="2.2"
+                  strokeWidth="2"
                 />
+                <text
+                  x={cx}
+                  y={cy + 28}
+                  fill="#cbd5e1"
+                  fontSize="10"
+                  fontWeight="800"
+                  textAnchor="middle"
+                >
+                  {comp.key}
+                </text>
               </g>
             )
           })}
-
-          {/* left side labels */}
-          <text x="18" y="78" fill="#7dd3fc" fontSize="14" fontWeight="900">
-            CHW IN
-          </text>
-          <text x="18" y="112" fill={tempColor(enteringWater, 'blue')} fontSize="22" fontWeight="900">
-            {formatTemp(enteringWater)}
-          </text>
-
-          <text x="18" y="198" fill="#fda4af" fontSize="14" fontWeight="900">
-            COND OUT
-          </text>
-          <text x="18" y="232" fill={tempColor(condLeaving, 'red')} fontSize="22" fontWeight="900">
-            {formatTemp(condLeaving)}
-          </text>
-
-          {/* right side labels */}
-          <text x={width - 18} y="78" fill="#7dd3fc" fontSize="14" fontWeight="900" textAnchor="end">
-            CHW OUT
-          </text>
-          <text
-            x={width - 18}
-            y="112"
-            fill={tempColor(leavingWater, 'blue')}
-            fontSize="22"
-            fontWeight="900"
-            textAnchor="end"
-          >
-            {formatTemp(leavingWater)}
-          </text>
-
-          <text x={width - 18} y="198" fill="#fda4af" fontSize="14" fontWeight="900" textAnchor="end">
-            COND IN
-          </text>
-          <text
-            x={width - 18}
-            y="232"
-            fill={tempColor(condEntering, 'red')}
-            fontSize="22"
-            fontWeight="900"
-            textAnchor="end"
-          >
-            {formatTemp(condEntering)}
-          </text>
-
-          {/* pipe connection points */}
-          <circle cx={shellX - 4} cy="95" r="8" fill="#7dd3fc" opacity="0.95" />
-          <circle cx={shellX + shellW + 4} cy="95" r="8" fill="#7dd3fc" opacity="0.95" />
-          <circle cx={shellX - 4} cy="215" r="8" fill="#fda4af" opacity="0.95" />
-          <circle cx={shellX + shellW + 4} cy="215" r="8" fill="#fda4af" opacity="0.95" />
-
-          {/* small captions */}
-          <text
-            x={shellX + 34}
-            y={shellY + shellH - 22}
-            fill="rgba(148,163,184,0.85)"
-            fontSize="12"
-            fontWeight="700"
-          >
-            chilled water circuit
-          </text>
-
-          <text
-            x={shellX + shellW - 34}
-            y={shellY + shellH - 22}
-            fill="rgba(148,163,184,0.85)"
-            fontSize="12"
-            fontWeight="700"
-            textAnchor="end"
-          >
-            condenser water circuit
-          </text>
-
-          {/* glossy highlight */}
-          <rect
-            x={shellX + 12}
-            y={shellY + 10}
-            width={shellW - 24}
-            height="42"
-            rx="20"
-            ry="20"
-            fill="url(#glassGrad)"
-            opacity="0.45"
-          />
         </svg>
       </div>
 
@@ -509,8 +475,8 @@ export default function ChillerIllustration({
           }}
         >
           <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>ECHW / CHW IN</div>
-          <div style={{ marginTop: 4, color: tempColor(enteringWater, 'blue'), fontWeight: 900 }}>
-            {formatTemp(enteringWater)}
+          <div style={{ marginTop: 4, color: tempColor(chwIn, 'blue'), fontWeight: 900 }}>
+            {formatTemp(chwIn)}
           </div>
         </div>
 
@@ -523,8 +489,8 @@ export default function ChillerIllustration({
           }}
         >
           <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>LCHW / CHW OUT</div>
-          <div style={{ marginTop: 4, color: tempColor(leavingWater, 'blue'), fontWeight: 900 }}>
-            {formatTemp(leavingWater)}
+          <div style={{ marginTop: 4, color: tempColor(chwOut, 'blue'), fontWeight: 900 }}>
+            {formatTemp(chwOut)}
           </div>
         </div>
 
@@ -537,8 +503,8 @@ export default function ChillerIllustration({
           }}
         >
           <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>ECW / COND IN</div>
-          <div style={{ marginTop: 4, color: tempColor(condEntering, 'red'), fontWeight: 900 }}>
-            {formatTemp(condEntering)}
+          <div style={{ marginTop: 4, color: tempColor(condIn, 'red'), fontWeight: 900 }}>
+            {formatTemp(condIn)}
           </div>
         </div>
 
@@ -551,8 +517,8 @@ export default function ChillerIllustration({
           }}
         >
           <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>LCW / COND OUT</div>
-          <div style={{ marginTop: 4, color: tempColor(condLeaving, 'red'), fontWeight: 900 }}>
-            {formatTemp(condLeaving)}
+          <div style={{ marginTop: 4, color: tempColor(condOut, 'red'), fontWeight: 900 }}>
+            {formatTemp(condOut)}
           </div>
         </div>
       </div>
