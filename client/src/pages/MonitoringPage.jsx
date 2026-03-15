@@ -1,6 +1,14 @@
 import React from 'react'
-import { Navigate } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
 
 export default function MonitoringPage() {
-  return <Navigate to="/monitoring/nj" replace />
+  const { location } = useParams()
+
+  const site = location || 'nj'
+
+  return (
+    <div style={{ padding: '40px', color: 'white' }}>
+      <h1>Monitoring {site.toUpperCase()}</h1>
+    </div>
+  )
 }
