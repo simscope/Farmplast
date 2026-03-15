@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { Eye, EyeOff, Lock, Mail } from 'lucide-react'
-import { Navigate, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
 export default function LoginPage() {
@@ -37,69 +37,200 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-cyan-950 px-4 text-white">
-      <div className="w-full max-w-md rounded-3xl border border-cyan-900/40 bg-slate-900/80 p-6 shadow-2xl backdrop-blur">
-        <div className="mb-6 text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl border border-cyan-500/20 bg-cyan-500/10">
-            <Lock className="h-8 w-8 text-cyan-400" />
-          </div>
+    <div
+      style={{
+        minHeight: '100vh',
+        background:
+          'radial-gradient(circle at top, #0a3158 0%, #04172d 45%, #02101f 100%)',
+        color: '#fff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px',
+        boxSizing: 'border-box',
+        position: 'relative',
+      }}
+    >
+      <Link
+        to="/"
+        style={{
+          position: 'absolute',
+          top: '24px',
+          left: '24px',
+          color: '#67e8f9',
+          textDecoration: 'none',
+          fontWeight: 600,
+          fontSize: '14px',
+        }}
+      >
+        ← Back
+      </Link>
 
-          <h1 className="text-2xl font-semibold tracking-tight">Login</h1>
-          <p className="mt-2 text-sm text-slate-400">
-            Sign in to access the monitoring system
-          </p>
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '460px',
+          background: 'rgba(5, 18, 36, 0.86)',
+          border: '1px solid rgba(67, 110, 150, 0.30)',
+          borderRadius: '24px',
+          padding: '30px',
+          boxShadow: '0 25px 70px rgba(0,0,0,0.35)',
+        }}
+      >
+        <div
+          style={{
+            width: '62px',
+            height: '62px',
+            borderRadius: '18px',
+            background: 'rgba(34, 211, 238, 0.12)',
+            border: '1px solid rgba(34, 211, 238, 0.22)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            marginBottom: '18px',
+          }}
+        >
+          <Lock size={28} color="#67e8f9" />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">
-              Email
-            </label>
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800/80 px-4">
-              <Mail className="h-4 w-4 text-slate-400" />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="name@company.com"
-                autoComplete="email"
-                required
-                className="w-full bg-transparent py-3.5 text-white outline-none placeholder:text-slate-500"
-              />
-            </div>
+        <h1
+          style={{
+            margin: 0,
+            fontSize: '48px',
+            lineHeight: 1.05,
+            fontWeight: 800,
+            letterSpacing: '-0.03em',
+          }}
+        >
+          Login
+        </h1>
+
+        <p
+          style={{
+            margin: '10px 0 24px 0',
+            color: 'rgba(226, 232, 240, 0.82)',
+            fontSize: '16px',
+            lineHeight: 1.5,
+          }}
+        >
+          Sign in to access internal sections of the system
+        </p>
+
+        <form onSubmit={handleSubmit}>
+          <label
+            style={{
+              display: 'block',
+              marginBottom: '8px',
+              color: '#dbeafe',
+              fontSize: '14px',
+              fontWeight: 600,
+            }}
+          >
+            Email
+          </label>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(148, 163, 184, 0.18)',
+              borderRadius: '14px',
+              padding: '0 14px',
+              marginBottom: '18px',
+              height: '52px',
+            }}
+          >
+            <Mail size={18} color="#9fb3c8" />
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="name@company.com"
+              required
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: '#fff',
+                fontSize: '16px',
+              }}
+            />
           </div>
 
-          <div>
-            <label className="mb-2 block text-sm font-medium text-slate-300">
-              Password
-            </label>
-            <div className="flex items-center gap-3 rounded-2xl border border-slate-700 bg-slate-800/80 px-4">
-              <Lock className="h-4 w-4 text-slate-400" />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter password"
-                autoComplete="current-password"
-                required
-                className="w-full bg-transparent py-3.5 text-white outline-none placeholder:text-slate-500"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="text-slate-400 transition hover:text-white"
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
-              </button>
-            </div>
+          <label
+            style={{
+              display: 'block',
+              marginBottom: '8px',
+              color: '#dbeafe',
+              fontSize: '14px',
+              fontWeight: 600,
+            }}
+          >
+            Password
+          </label>
+
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+              background: 'rgba(255,255,255,0.06)',
+              border: '1px solid rgba(148, 163, 184, 0.18)',
+              borderRadius: '14px',
+              padding: '0 14px',
+              marginBottom: '18px',
+              height: '52px',
+            }}
+          >
+            <Lock size={18} color="#9fb3c8" />
+            <input
+              type={showPassword ? 'text' : 'password'}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="Enter password"
+              required
+              style={{
+                flex: 1,
+                background: 'transparent',
+                border: 'none',
+                outline: 'none',
+                color: '#fff',
+                fontSize: '16px',
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: '#fff',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 0,
+              }}
+            >
+              {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+            </button>
           </div>
 
           {error ? (
-            <div className="rounded-2xl border border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-300">
+            <div
+              style={{
+                marginBottom: '16px',
+                borderRadius: '14px',
+                padding: '12px 14px',
+                background: 'rgba(239, 68, 68, 0.12)',
+                border: '1px solid rgba(239, 68, 68, 0.24)',
+                color: '#fecaca',
+                fontSize: '14px',
+              }}
+            >
               {error}
             </div>
           ) : null}
@@ -107,7 +238,17 @@ export default function LoginPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-2xl bg-cyan-500 px-4 py-3 font-semibold text-slate-950 transition hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-60"
+            style={{
+              width: '100%',
+              height: '52px',
+              borderRadius: '14px',
+              border: 'none',
+              background: '#22d3ee',
+              color: '#062238',
+              fontWeight: 800,
+              fontSize: '16px',
+              cursor: 'pointer',
+            }}
           >
             {submitting ? 'Signing in...' : 'Login'}
           </button>
