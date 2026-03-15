@@ -1,18 +1,50 @@
-import { Routes, Route } from 'react-router-dom'
+import React from 'react'
+import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './context/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+
 import HomePage from './pages/HomePage'
+import LoginPage from './pages/LoginPage'
+import DashboardPage from './pages/DashboardPage'
 import MonitoringPage from './pages/MonitoringPage'
-import MonitoringNJPage from './pages/MonitoringNJPage'
-import MonitoringPAPage from './pages/MonitoringPAPage'
 import AdminPage from './pages/AdminPage'
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/" element={<HomePage />} />
-      <Route path="/monitoring" element={<MonitoringPage />} />
-      <Route path="/monitoring/nj" element={<MonitoringNJPage />} />
-      <Route path="/monitoring/pa" element={<MonitoringPAPage />} />
-      <Route path="/admin" element={<AdminPage />} />
-    </Routes>
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute roles={['owner', 'admin']}>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/monitoring"
+            element={
+              <ProtectedRoute roles={['owner', 'admin']}>
+                <MonitoringPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute roles={['owner', 'admin']}>
+                <AdminPage />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
   )
 }
