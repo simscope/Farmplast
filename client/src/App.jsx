@@ -14,13 +14,12 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-        {/* public */}
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
+
         <Route path="/monitoring" element={<MonitoringPage />} />
         <Route path="/monitoring/:location" element={<MonitoringPage />} />
 
-        {/* private */}
         <Route
           path="/dashboard"
           element={
