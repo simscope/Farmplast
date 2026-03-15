@@ -8,30 +8,24 @@ import LoginPage from './pages/LoginPage'
 import DashboardPage from './pages/DashboardPage'
 import MonitoringPage from './pages/MonitoringPage'
 import AdminPage from './pages/AdminPage'
+import AccountingPage from './pages/AccountingPage'
 
 export default function App() {
   return (
     <AuthProvider>
       <Routes>
-
+        {/* public */}
         <Route path="/" element={<HomePage />} />
-
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/monitoring" element={<MonitoringPage />} />
+        <Route path="/monitoring/:location" element={<MonitoringPage />} />
 
+        {/* private */}
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute roles={['owner','admin']}>
+            <ProtectedRoute roles={['owner', 'admin']}>
               <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/monitoring/:location"
-          element={
-            <ProtectedRoute roles={['owner','admin']}>
-              <MonitoringPage />
             </ProtectedRoute>
           }
         />
@@ -39,12 +33,20 @@ export default function App() {
         <Route
           path="/admin"
           element={
-            <ProtectedRoute roles={['owner','admin']}>
+            <ProtectedRoute roles={['owner', 'admin']}>
               <AdminPage />
             </ProtectedRoute>
           }
         />
 
+        <Route
+          path="/accounting"
+          element={
+            <ProtectedRoute roles={['owner', 'admin']}>
+              <AccountingPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </AuthProvider>
   )
