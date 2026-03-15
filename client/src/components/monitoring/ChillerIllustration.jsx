@@ -342,20 +342,20 @@ export default function ChillerIllustration({
 
             <div style={tempBlockStyle(redAccent, selected)}>
               <div style={{ color: '#fda4af', fontSize: 12, fontWeight: 900, letterSpacing: 1 }}>
-                COND OUT
+                COND IN
               </div>
               <div
                 style={{
                   marginTop: 6,
-                  color: tempColor(condOut, 'red'),
+                  color: tempColor(condIn, 'red'),
                   fontSize: 28,
                   fontWeight: 900,
                 }}
               >
-                {formatTemp(condOut)}
+                {formatTemp(condIn)}
               </div>
               <div style={{ marginTop: 4, color: '#64748b', fontSize: 12 }}>
-                leaving condenser water
+                entering condenser water
               </div>
             </div>
           </div>
@@ -366,8 +366,7 @@ export default function ChillerIllustration({
               borderRadius: 24,
               position: 'relative',
               overflow: 'hidden',
-              background:
-                'linear-gradient(180deg, rgba(15,23,42,0.72), rgba(10,15,28,0.88))',
+              background: 'linear-gradient(180deg, rgba(15,23,42,0.72), rgba(10,15,28,0.88))',
               border: '1px solid rgba(148,163,184,0.12)',
             }}
           >
@@ -403,7 +402,7 @@ export default function ChillerIllustration({
                 </linearGradient>
               </defs>
 
-              {/* blue path */}
+              {/* blue in left */}
               <path
                 d="M 20 75 H 155"
                 stroke="#38bdf8"
@@ -412,6 +411,8 @@ export default function ChillerIllustration({
                 fill="none"
                 filter="url(#glowBlue)"
               />
+
+              {/* blue out right */}
               <path
                 d="M 405 75 H 540"
                 stroke="#38bdf8"
@@ -421,7 +422,7 @@ export default function ChillerIllustration({
                 filter="url(#glowBlue)"
               />
 
-              {/* red path */}
+              {/* red in left */}
               <path
                 d="M 20 225 H 155"
                 stroke="#fb7185"
@@ -430,6 +431,8 @@ export default function ChillerIllustration({
                 fill="none"
                 filter="url(#glowRed)"
               />
+
+              {/* red out right */}
               <path
                 d="M 405 225 H 540"
                 stroke="#fb7185"
@@ -450,13 +453,19 @@ export default function ChillerIllustration({
                   </circle>
 
                   <circle r="5.5" fill="#fda4af" filter="url(#glowRed)">
-                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 540 225 H 405" />
+                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 20 225 H 155" />
                   </circle>
                   <circle r="5.5" fill="#fda4af" filter="url(#glowRed)">
-                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 155 225 H 20" />
+                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 405 225 H 540" />
                   </circle>
                 </>
               )}
+
+              {/* arrows for direction */}
+              <polygon points="138,75 120,66 120,84" fill="#7dd3fc" />
+              <polygon points="438,75 456,66 456,84" fill="#7dd3fc" />
+              <polygon points="138,225 120,216 120,234" fill="#fda4af" />
+              <polygon points="438,225 456,216 456,234" fill="#fda4af" />
 
               {/* exchanger */}
               <rect
@@ -507,7 +516,6 @@ export default function ChillerIllustration({
                 )
               })}
 
-              {/* labels */}
               <text x="280" y="128" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
                 PLATE HEAT
               </text>
@@ -516,10 +524,9 @@ export default function ChillerIllustration({
               </text>
 
               <text x="280" y="182" fill="#64748b" fontSize="12" fontWeight="800" textAnchor="middle">
-                illustrative process view
+                inlet left / outlet right
               </text>
 
-              {/* comp */}
               <text x="280" y="278" fill="#94a3b8" fontSize="12" fontWeight="900" textAnchor="middle">
                 COMPRESSORS
               </text>
@@ -589,86 +596,21 @@ export default function ChillerIllustration({
 
             <div style={tempBlockStyle(redAccent, selected)}>
               <div style={{ color: '#fda4af', fontSize: 12, fontWeight: 900, letterSpacing: 1 }}>
-                COND IN
+                COND OUT
               </div>
               <div
                 style={{
                   marginTop: 6,
-                  color: tempColor(condIn, 'red'),
+                  color: tempColor(condOut, 'red'),
                   fontSize: 28,
                   fontWeight: 900,
                 }}
               >
-                {formatTemp(condIn)}
+                {formatTemp(condOut)}
               </div>
               <div style={{ marginTop: 4, color: '#64748b', fontSize: 12 }}>
-                entering condenser water
+                leaving condenser water
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div
-          style={{
-            marginTop: 14,
-            display: 'grid',
-            gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(4, minmax(0, 1fr))',
-            gap: 10,
-          }}
-        >
-          <div
-            style={{
-              padding: '10px 12px',
-              borderRadius: 16,
-              background: 'rgba(15,23,42,0.72)',
-              border: '1px solid rgba(148,163,184,0.14)',
-            }}
-          >
-            <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>ECHW / CHW IN</div>
-            <div style={{ marginTop: 4, color: tempColor(chwIn, 'blue'), fontWeight: 900 }}>
-              {formatTemp(chwIn)}
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: '10px 12px',
-              borderRadius: 16,
-              background: 'rgba(15,23,42,0.72)',
-              border: '1px solid rgba(148,163,184,0.14)',
-            }}
-          >
-            <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>LCHW / CHW OUT</div>
-            <div style={{ marginTop: 4, color: tempColor(chwOut, 'blue'), fontWeight: 900 }}>
-              {formatTemp(chwOut)}
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: '10px 12px',
-              borderRadius: 16,
-              background: 'rgba(15,23,42,0.72)',
-              border: '1px solid rgba(148,163,184,0.14)',
-            }}
-          >
-            <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>ECW / COND IN</div>
-            <div style={{ marginTop: 4, color: tempColor(condIn, 'red'), fontWeight: 900 }}>
-              {formatTemp(condIn)}
-            </div>
-          </div>
-
-          <div
-            style={{
-              padding: '10px 12px',
-              borderRadius: 16,
-              background: 'rgba(15,23,42,0.72)',
-              border: '1px solid rgba(148,163,184,0.14)',
-            }}
-          >
-            <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>LCW / COND OUT</div>
-            <div style={{ marginTop: 4, color: tempColor(condOut, 'red'), fontWeight: 900 }}>
-              {formatTemp(condOut)}
             </div>
           </div>
         </div>
