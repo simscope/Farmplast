@@ -1,5 +1,5 @@
 import React from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 
@@ -12,39 +12,40 @@ import AdminPage from './pages/AdminPage'
 export default function App() {
   return (
     <AuthProvider>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
+      <Routes>
 
-          <Route
-            path="/dashboard"
-            element={
-              <ProtectedRoute roles={['owner', 'admin']}>
-                <DashboardPage />
-              </ProtectedRoute>
-            }
-          />
+        <Route path="/" element={<HomePage />} />
 
-          <Route
-            path="/monitoring"
-            element={
-              <ProtectedRoute roles={['owner', 'admin']}>
-                <MonitoringPage />
-              </ProtectedRoute>
-            }
-          />
+        <Route path="/login" element={<LoginPage />} />
 
-          <Route
-            path="/admin"
-            element={
-              <ProtectedRoute roles={['owner', 'admin']}>
-                <AdminPage />
-              </ProtectedRoute>
-            }
-          />
-        </Routes>
-      </BrowserRouter>
+        <Route
+          path="/dashboard"
+          element={
+            <ProtectedRoute roles={['owner','admin']}>
+              <DashboardPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/monitoring/:location"
+          element={
+            <ProtectedRoute roles={['owner','admin']}>
+              <MonitoringPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute roles={['owner','admin']}>
+              <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+
+      </Routes>
     </AuthProvider>
   )
 }
