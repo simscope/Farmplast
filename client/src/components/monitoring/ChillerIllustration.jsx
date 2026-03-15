@@ -1,9 +1,5 @@
 import React, { useMemo } from 'react'
 
-function getPoint(points, predicate) {
-  return points.find(predicate)
-}
-
 function getBoolean(points, codePart) {
   const point = points.find((p) => String(p.point_code || '').toUpperCase().includes(codePart))
   return point?.value_boolean === true
@@ -248,7 +244,7 @@ export default function ChillerIllustration({
             </linearGradient>
           </defs>
 
-          {/* pipes */}
+          {/* left pipes */}
           <path
             d={isMobile ? 'M24 72 H120' : 'M24 86 H160'}
             stroke="#38bdf8"
@@ -286,7 +282,7 @@ export default function ChillerIllustration({
             </>
           )}
 
-          {/* main unit */}
+          {/* main body like before */}
           <rect
             x={isMobile ? 118 : 156}
             y={isMobile ? 34 : 34}
@@ -311,90 +307,7 @@ export default function ChillerIllustration({
             strokeWidth="1.5"
           />
 
-          {/* EVAP block */}
-          <text
-            x={isMobile ? 266 : 406}
-            y={isMobile ? 78 : 88}
-            fill="#7dd3fc"
-            fontSize={isMobile ? 16 : 20}
-            fontWeight="900"
-            textAnchor="middle"
-            letterSpacing="1.2"
-          >
-            EVAP
-          </text>
-
-          <rect
-            x={isMobile ? 196 : 268}
-            y={isMobile ? 90 : 102}
-            rx="14"
-            ry="14"
-            width={isMobile ? 138 : 274}
-            height={isMobile ? 34 : 42}
-            fill="rgba(8,145,178,0.10)"
-            stroke="#22d3ee"
-            strokeWidth="2.5"
-          />
-
-          {[0, 1, 2, 3, 4].map((i) => {
-            const startX = (isMobile ? 206 : 282) + i * (isMobile ? 25 : 52)
-            const topY = isMobile ? 98 : 110
-            const bottomY = isMobile ? 124 : 136
-            return (
-              <path
-                key={`evap-fin-${i}`}
-                d={`M ${startX} ${topY} Q ${startX + (isMobile ? 10 : 18)} ${(topY + bottomY) / 2} ${startX} ${bottomY}`}
-                stroke="#67e8f9"
-                strokeWidth="2.4"
-                fill="none"
-                strokeLinecap="round"
-                opacity="0.95"
-              />
-            )
-          })}
-
-          {/* COND label above condenser */}
-          <text
-            x={isMobile ? 266 : 406}
-            y={isMobile ? 154 : 174}
-            fill="#f8fafc"
-            fontSize={isMobile ? 16 : 20}
-            fontWeight="900"
-            textAnchor="middle"
-            letterSpacing="1.2"
-          >
-            COND
-          </text>
-
-          {/* narrower condenser block */}
-          <rect
-            x={isMobile ? 206 : 298}
-            y={isMobile ? 166 : 186}
-            rx="14"
-            ry="14"
-            width={isMobile ? 118 : 218}
-            height={isMobile ? 38 : 46}
-            fill="rgba(251,113,133,0.08)"
-            stroke="#fb7185"
-            strokeWidth="2.5"
-          />
-
-          {/* condenser coil style instead of 3 fans */}
-          {[0, 1, 2, 3].map((i) => {
-            const x = (isMobile ? 224 : 328) + i * (isMobile ? 22 : 42)
-            return (
-              <path
-                key={`cond-coil-${i}`}
-                d={`M ${x} ${isMobile ? 176 : 198} L ${x + (isMobile ? 12 : 18)} ${isMobile ? 222 : 220}`}
-                stroke="#fda4af"
-                strokeWidth="3.2"
-                strokeLinecap="round"
-                opacity="0.95"
-              />
-            )
-          })}
-
-          {/* compressor group */}
+          {/* compressors on left */}
           <text
             x={isMobile ? 74 : 84}
             y={isMobile ? 108 : 124}
@@ -423,24 +336,15 @@ export default function ChillerIllustration({
                   cx={cx}
                   cy={cy}
                   r={isMobile ? 10 : 12}
-                  fill={comp.on ? '#22c55e' : '#334155'}
+                  fill={comp.on ? '#22c55e' : '#475569'}
                   stroke={comp.on ? '#86efac' : '#64748b'}
                   strokeWidth="2"
                 />
-                {comp.on && online ? (
-                  <circle r={isMobile ? 3.5 : 4.5} fill="#bbf7d0">
-                    <animateMotion
-                      dur="1.8s"
-                      repeatCount="indefinite"
-                      path={`M ${cx - 6} ${cy} A 6 6 0 1 1 ${cx + 6} ${cy} A 6 6 0 1 1 ${cx - 6} ${cy}`}
-                    />
-                  </circle>
-                ) : null}
               </g>
             )
           })}
 
-          {/* labels left */}
+          {/* side labels */}
           <text
             x={isMobile ? 14 : 12}
             y={isMobile ? 76 : 90}
@@ -451,6 +355,7 @@ export default function ChillerIllustration({
           >
             CHW
           </text>
+
           <text
             x={isMobile ? 14 : 12}
             y={isMobile ? 180 : 222}
