@@ -1,3 +1,4 @@
+import React from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 
@@ -17,42 +18,20 @@ export default function App() {
   return (
     <AuthProvider>
       <Routes>
-
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
 
+        {/* PUBLIC MONITORING */}
+        <Route path="/monitoring" element={<MonitoringPage />} />
+        <Route path="/monitoring/nj" element={<MonitoringNJPage />} />
+        <Route path="/monitoring/pa" element={<MonitoringPAPage />} />
+
+        {/* PROTECTED */}
         <Route
           path="/dashboard"
           element={
             <ProtectedRoute>
               <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/monitoring"
-          element={
-            <ProtectedRoute>
-              <MonitoringPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/monitoring/nj"
-          element={
-            <ProtectedRoute>
-              <MonitoringNJPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/monitoring/pa"
-          element={
-            <ProtectedRoute>
-              <MonitoringPAPage />
             </ProtectedRoute>
           }
         />
@@ -69,7 +48,7 @@ export default function App() {
         <Route
           path="/accounting"
           element={
-            <ProtectedRoute roles={['admin','accountant']}>
+            <ProtectedRoute roles={['admin', 'accountant']}>
               <AccountingPage />
             </ProtectedRoute>
           }
@@ -83,7 +62,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-
       </Routes>
     </AuthProvider>
   )
