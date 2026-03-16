@@ -15,20 +15,42 @@ export function AuthProvider({ children }) {
       return null
     }
 
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', authUser.id)
-      .maybeSingle()
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle()
 
-    if (error) {
-      console.error('Error loading profile:', error)
-      setProfile(null)
-      return null
+      if (error) {
+        console.error('Error loading profile:', error)
+        setProfile(null)
+        return null
+      }
+
+      const safeProfile =
+        data || {
+          id: authUser.id,
+          email: authUser.email || null,
+          full_name: authUser.user_metadata?.full_name || '',
+          role: authUser.user_metadata?.role || 'user',
+        }
+
+      setProfile(safeProfile)
+      return safeProfile
+    } catch (err) {
+      console.error('loadProfile crash:', err)
+
+      const fallbackProfile = {
+        id: authUser.id,
+        email: authUser.email || null,
+        full_name: authUser.user_metadata?.full_name || '',
+        role: authUser.user_metadata?.role || 'user',
+      }
+
+      setProfile(fallbackProfile)
+      return fallbackProfile
     }
-
-    setProfile(data || null)
-    return data || null
   }
 
   useEffect(() => {
@@ -47,18 +69,25 @@ export function AuthProvider({ children }) {
 
         if (error) {
           console.error('getSession error:', error)
+          setSession(null)
+          setUser(null)
+          setProfile(null)
+          return
         }
 
-        setSession(currentSession || null)
-        setUser(currentSession?.user || null)
+        const authUser = currentSession?.user || null
 
-        if (currentSession?.user) {
-          await loadProfile(currentSession.user)
+        setSession(currentSession || null)
+        setUser(authUser)
+
+        if (authUser) {
+          await loadProfile(authUser)
         } else {
           setProfile(null)
         }
       } catch (err) {
         console.error('initAuth error:', err)
+
         if (mounted) {
           setSession(null)
           setUser(null)
@@ -76,13 +105,13 @@ export function AuthProvider({ children }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      setLoading(true)
+      const authUser = nextSession?.user || null
 
       setSession(nextSession || null)
-      setUser(nextSession?.user || null)
+      setUser(authUser)
 
-      if (nextSession?.user) {
-        await loadProfile(nextSession.user)
+      if (authUser) {
+        await loadProfile(authUser)
       } else {
         setProfile(null)
       }
@@ -97,40 +126,48 @@ export function AuthProvider({ children }) {
   }, [])
 
   async function signIn(email, password) {
-    const result = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    })
+    setLoading(true)
 
-    if (result.error) {
+    try {
+      const result = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      })
+
+      if (result.error) {
+        return result
+      }
+
+      const freshSession = result.data?.session || null
+      const authUser = freshSession?.user || null
+
+      setSession(freshSession)
+      setUser(authUser)
+
+      if (authUser) {
+        await loadProfile(authUser)
+      } else {
+        setProfile(null)
+      }
+
       return result
+    } finally {
+      setLoading(false)
     }
-
-    const {
-      data: { session: freshSession },
-      error: sessionError,
-    } = await supabase.auth.getSession()
-
-    if (sessionError) {
-      console.error('getSession after signIn error:', sessionError)
-    }
-
-    setSession(freshSession || null)
-    setUser(freshSession?.user || null)
-
-    if (freshSession?.user) {
-      await loadProfile(freshSession.user)
-    }
-
-    return result
   }
 
   async function signOut() {
-    const result = await supabase.auth.signOut()
-    setSession(null)
-    setUser(null)
-    setProfile(null)
-    return result
+    setLoading(true)
+
+    try {
+      const result = await supabase.auth.signOut()
+      setSession(null)
+      setUser(null)
+      setProfile(null)
+      return result
+    } finally {
+      setLoading(false)
+    }
   }
 
   const value = useMemo(
@@ -141,8 +178,8 @@ export function AuthProvider({ children }) {
       loading,
       signIn,
       signOut,
-      isAuthenticated: !!session,
-      role: profile?.role || null,
+      isAuthenticated: !!user,
+      role: profile?.role || 'user',
     }),
     [session, user, profile, loading]
   )
