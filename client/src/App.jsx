@@ -9,7 +9,7 @@ import DashboardPage from './pages/DashboardPage'
 import MonitoringPage from './pages/MonitoringPage'
 import AdminPage from './pages/AdminPage'
 import AccountingPage from './pages/AccountingPage'
-
+import EmployeesPage from './pages/EmployeesPage'
 export default function App() {
   return (
     <AuthProvider>
@@ -46,6 +46,14 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+        <Route
+         path="/employees"
+         element={
+         <ProtectedRoute>
+         <EmployeesPage />
+         </ProtectedRoute>
+         }
+       />
       </Routes>
     </AuthProvider>
   )
