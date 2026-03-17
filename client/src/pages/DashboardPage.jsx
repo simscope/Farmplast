@@ -17,6 +17,7 @@ import {
   XCircle,
   X,
   Users,
+  Hash,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -47,12 +48,13 @@ function EmployeeModal({
               {isEditing ? 'Edit employee' : 'Add employee'}
             </h2>
             <p className="mt-1 text-sm text-slate-400">
-              Full employee card with rate and status
+              Employee card with number, contacts, position, rate and status
             </p>
           </div>
 
           <button
             onClick={onClose}
+            type="button"
             className="rounded-xl border border-slate-700 bg-slate-900 p-2 text-slate-300 transition hover:border-red-500 hover:text-white"
           >
             <X size={20} />
@@ -62,11 +64,31 @@ function EmployeeModal({
         <form onSubmit={onSave} className="space-y-6 px-6 py-6">
           <div className="grid gap-5 md:grid-cols-2">
             <div>
+              <label className="mb-2 block text-sm text-slate-300">
+                Employee number
+              </label>
+              <input
+                type="number"
+                className={inputClass}
+                value={form.employee_number}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    employee_number: e.target.value,
+                  }))
+                }
+                placeholder="Employee number"
+              />
+            </div>
+
+            <div>
               <label className="mb-2 block text-sm text-slate-300">Name</label>
               <input
                 className={inputClass}
                 value={form.name}
-                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, name: e.target.value }))
+                }
                 placeholder="Worker name"
               />
             </div>
@@ -76,7 +98,9 @@ function EmployeeModal({
               <input
                 className={inputClass}
                 value={form.phone}
-                onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, phone: e.target.value }))
+                }
                 placeholder="Phone number"
               />
             </div>
@@ -87,13 +111,17 @@ function EmployeeModal({
                 type="email"
                 className={inputClass}
                 value={form.email}
-                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, email: e.target.value }))
+                }
                 placeholder="Email"
               />
             </div>
 
             <div>
-              <label className="mb-2 block text-sm text-slate-300">Position</label>
+              <label className="mb-2 block text-sm text-slate-300">
+                Position
+              </label>
               <input
                 className={inputClass}
                 value={form.position}
@@ -105,7 +133,9 @@ function EmployeeModal({
             </div>
 
             <div>
-              <label className="mb-2 block text-sm text-slate-300">Hourly rate</label>
+              <label className="mb-2 block text-sm text-slate-300">
+                Hourly rate
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -171,10 +201,11 @@ export default function DashboardPage() {
 
   const emptyForm = {
     id: null,
+    employee_number: '',
     name: '',
     phone: '',
     email: '',
-    position: '',
+    position: 'worker',
     hourly_rate: '',
     active: true,
   }
@@ -195,7 +226,9 @@ export default function DashboardPage() {
 
       const { data, error } = await supabase
         .from('employees')
-        .select('id, name, phone, email, position, hourly_rate, active, created_at')
+        .select(
+          'id, employee_number, name, phone, email, position, hourly_rate, active, created_at'
+        )
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -210,17 +243,30 @@ export default function DashboardPage() {
   }
 
   function openAddModal() {
-    setForm(emptyForm)
+    setForm({
+      id: null,
+      employee_number: '',
+      name: '',
+      phone: '',
+      email: '',
+      position: 'worker',
+      hourly_rate: '',
+      active: true,
+    })
     setModalOpen(true)
   }
 
   function openEditModal(employee) {
     setForm({
       id: employee.id,
+      employee_number:
+        employee.employee_number === null || employee.employee_number === undefined
+          ? ''
+          : employee.employee_number,
       name: employee.name || '',
       phone: employee.phone || '',
       email: employee.email || '',
-      position: employee.position || '',
+      position: employee.position || 'worker',
       hourly_rate:
         employee.hourly_rate === null || employee.hourly_rate === undefined
           ? ''
@@ -243,15 +289,24 @@ export default function DashboardPage() {
       return
     }
 
+    if (form.employee_number === '' || Number.isNaN(Number(form.employee_number))) {
+      setError('Employee number is required')
+      return
+    }
+
     try {
       setSaving(true)
       setError('')
 
       const payload = {
+        employee_number:
+          form.employee_number === '' || form.employee_number === null
+            ? null
+            : Number(form.employee_number),
         name: form.name.trim(),
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
-        position: form.position.trim() || null,
+        position: form.position.trim() || 'worker',
         hourly_rate:
           form.hourly_rate === '' || form.hourly_rate === null
             ? null
@@ -326,6 +381,7 @@ export default function DashboardPage() {
 
     return employees.filter((employee) => {
       return (
+        String(employee.employee_number || '').toLowerCase().includes(q) ||
         (employee.name || '').toLowerCase().includes(q) ||
         (employee.phone || '').toLowerCase().includes(q) ||
         (employee.email || '').toLowerCase().includes(q) ||
@@ -364,7 +420,7 @@ export default function DashboardPage() {
               <div>
                 <h1 className="text-3xl font-bold text-white">Employees Dashboard</h1>
                 <p className="mt-2 max-w-2xl text-slate-400">
-                  Only employees table. Add, edit, activate, deactivate and delete workers.
+                  Employees only. Add, edit, activate, deactivate and delete workers.
                 </p>
               </div>
             </div>
@@ -452,7 +508,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* QUICK LINKS */}
         <div className="mt-6 grid gap-6 xl:grid-cols-[1.9fr_0.9fr]">
           {/* EMPLOYEES TABLE */}
           <div className={`${cardClass} p-6`}>
@@ -467,7 +522,7 @@ export default function DashboardPage() {
               <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
-                  placeholder="Search by name, phone, email, position..."
+                  placeholder="Search by number, name, phone, email, position..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
                   className="min-w-[260px] rounded-xl border border-slate-700 bg-[#0b1220] px-4 py-3 text-white outline-none focus:border-cyan-500"
@@ -496,7 +551,8 @@ export default function DashboardPage() {
               <>
                 {/* desktop table */}
                 <div className="hidden overflow-hidden rounded-2xl border border-slate-800 lg:block">
-                  <div className="grid grid-cols-[1.2fr_1fr_1.2fr_1fr_0.8fr_0.8fr_1.2fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
+                  <div className="grid grid-cols-[0.8fr_1.2fr_1fr_1.2fr_1fr_0.8fr_0.8fr_1.2fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
+                    <div>No.</div>
                     <div>Name</div>
                     <div>Phone</div>
                     <div>Email</div>
@@ -514,8 +570,12 @@ export default function DashboardPage() {
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="grid grid-cols-[1.2fr_1fr_1.2fr_1fr_0.8fr_0.8fr_1.2fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
+                        className="grid grid-cols-[0.8fr_1.2fr_1fr_1.2fr_1fr_0.8fr_0.8fr_1.2fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
                       >
+                        <div className="font-semibold text-cyan-300">
+                          {employee.employee_number ?? '—'}
+                        </div>
+
                         <div className="font-semibold text-white">
                           {employee.name || '—'}
                         </div>
@@ -590,11 +650,15 @@ export default function DashboardPage() {
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div>
-                            <div className="text-lg font-semibold text-white">
+                            <div className="flex items-center gap-2 text-sm text-cyan-300">
+                              <Hash size={14} />
+                              {employee.employee_number ?? '—'}
+                            </div>
+                            <div className="mt-1 text-lg font-semibold text-white">
                               {employee.name || '—'}
                             </div>
                             <div className="mt-1 text-sm text-slate-400">
-                              {employee.position || 'No position'}
+                              {employee.position || 'worker'}
                             </div>
                           </div>
 
@@ -620,7 +684,7 @@ export default function DashboardPage() {
                           </div>
                           <div className="flex items-center gap-2 text-slate-300">
                             <Briefcase size={15} className="text-cyan-400" />
-                            {employee.position || '—'}
+                            {employee.position || 'worker'}
                           </div>
                           <div className="flex items-center gap-2 text-slate-300">
                             <DollarSign size={15} className="text-cyan-400" />
@@ -733,6 +797,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="rounded-xl bg-[#0b1220] p-4">
                   Deletes employee from table
+                </div>
+                <div className="rounded-xl bg-[#0b1220] p-4">
+                  Default position on create: worker
                 </div>
               </div>
             </div>
