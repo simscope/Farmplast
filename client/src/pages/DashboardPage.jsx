@@ -18,6 +18,7 @@ import {
   X,
   Users,
   Hash,
+  User,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -48,7 +49,7 @@ function EmployeeModal({
               {isEditing ? 'Edit employee' : 'Add employee'}
             </h2>
             <p className="mt-1 text-sm text-slate-400">
-              Employee card with number, contacts, position, rate and status
+              Employee card with number, name, contacts, position, rate and status
             </p>
           </div>
 
@@ -82,14 +83,30 @@ function EmployeeModal({
             </div>
 
             <div>
-              <label className="mb-2 block text-sm text-slate-300">Name</label>
+              <label className="mb-2 block text-sm text-slate-300">
+                First name
+              </label>
               <input
                 className={inputClass}
-                value={form.name}
+                value={form.first_name}
                 onChange={(e) =>
-                  setForm((prev) => ({ ...prev, name: e.target.value }))
+                  setForm((prev) => ({ ...prev, first_name: e.target.value }))
                 }
-                placeholder="Worker name"
+                placeholder="First name"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm text-slate-300">
+                Last name
+              </label>
+              <input
+                className={inputClass}
+                value={form.last_name}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, last_name: e.target.value }))
+                }
+                placeholder="Last name"
               />
             </div>
 
@@ -128,7 +145,7 @@ function EmployeeModal({
                 onChange={(e) =>
                   setForm((prev) => ({ ...prev, position: e.target.value }))
                 }
-                placeholder="Position"
+                placeholder="worker"
               />
             </div>
 
@@ -202,7 +219,8 @@ export default function DashboardPage() {
   const emptyForm = {
     id: null,
     employee_number: '',
-    name: '',
+    first_name: '',
+    last_name: '',
     phone: '',
     email: '',
     position: 'worker',
@@ -227,7 +245,7 @@ export default function DashboardPage() {
       const { data, error } = await supabase
         .from('employees')
         .select(
-          'id, employee_number, name, phone, email, position, hourly_rate, active, created_at'
+          'id, employee_number, first_name, last_name, phone, email, position, hourly_rate, active, created_at'
         )
         .order('created_at', { ascending: false })
 
@@ -246,7 +264,8 @@ export default function DashboardPage() {
     setForm({
       id: null,
       employee_number: '',
-      name: '',
+      first_name: '',
+      last_name: '',
       phone: '',
       email: '',
       position: 'worker',
@@ -263,7 +282,8 @@ export default function DashboardPage() {
         employee.employee_number === null || employee.employee_number === undefined
           ? ''
           : employee.employee_number,
-      name: employee.name || '',
+      first_name: employee.first_name || '',
+      last_name: employee.last_name || '',
       phone: employee.phone || '',
       email: employee.email || '',
       position: employee.position || 'worker',
@@ -284,13 +304,13 @@ export default function DashboardPage() {
   async function handleSave(e) {
     e.preventDefault()
 
-    if (!form.name.trim()) {
-      setError('Name is required')
+    if (form.employee_number === '' || Number.isNaN(Number(form.employee_number))) {
+      setError('Employee number is required')
       return
     }
 
-    if (form.employee_number === '' || Number.isNaN(Number(form.employee_number))) {
-      setError('Employee number is required')
+    if (!form.first_name.trim()) {
+      setError('First name is required')
       return
     }
 
@@ -299,11 +319,9 @@ export default function DashboardPage() {
       setError('')
 
       const payload = {
-        employee_number:
-          form.employee_number === '' || form.employee_number === null
-            ? null
-            : Number(form.employee_number),
-        name: form.name.trim(),
+        employee_number: Number(form.employee_number),
+        first_name: form.first_name.trim(),
+        last_name: form.last_name.trim() || null,
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         position: form.position.trim() || 'worker',
@@ -323,6 +341,7 @@ export default function DashboardPage() {
         if (error) throw error
       } else {
         const { error } = await supabase.from('employees').insert(payload)
+
         if (error) throw error
       }
 
@@ -375,14 +394,25 @@ export default function DashboardPage() {
     await signOut()
   }
 
+  function getFullName(employee) {
+    return [employee.first_name, employee.last_name].filter(Boolean).join(' ') || '—'
+  }
+
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return employees
 
     return employees.filter((employee) => {
+      const fullName = [employee.first_name, employee.last_name]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase()
+
       return (
         String(employee.employee_number || '').toLowerCase().includes(q) ||
-        (employee.name || '').toLowerCase().includes(q) ||
+        fullName.includes(q) ||
+        (employee.first_name || '').toLowerCase().includes(q) ||
+        (employee.last_name || '').toLowerCase().includes(q) ||
         (employee.phone || '').toLowerCase().includes(q) ||
         (employee.email || '').toLowerCase().includes(q) ||
         (employee.position || '').toLowerCase().includes(q)
@@ -409,7 +439,6 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#020817] text-white">
       <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
-        {/* HEADER */}
         <div className={`${cardClass} mb-6 overflow-hidden`}>
           <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-4">
@@ -453,7 +482,6 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* STATS */}
         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           <div className={`${cardClass} p-5`}>
             <div className="mb-4 flex items-center justify-between">
@@ -509,7 +537,6 @@ export default function DashboardPage() {
         </div>
 
         <div className="mt-6 grid gap-6 xl:grid-cols-[1.9fr_0.9fr]">
-          {/* EMPLOYEES TABLE */}
           <div className={`${cardClass} p-6`}>
             <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
@@ -549,9 +576,8 @@ export default function DashboardPage() {
               </div>
             ) : (
               <>
-                {/* desktop table */}
                 <div className="hidden overflow-hidden rounded-2xl border border-slate-800 lg:block">
-                  <div className="grid grid-cols-[0.8fr_1.2fr_1fr_1.2fr_1fr_0.8fr_0.8fr_1.2fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
+                  <div className="grid grid-cols-[0.8fr_1.4fr_1fr_1.2fr_1fr_0.8fr_0.8fr_1.2fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
                     <div>No.</div>
                     <div>Name</div>
                     <div>Phone</div>
@@ -570,21 +596,21 @@ export default function DashboardPage() {
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="grid grid-cols-[0.8fr_1.2fr_1fr_1.2fr_1fr_0.8fr_0.8fr_1.2fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
+                        className="grid grid-cols-[0.8fr_1.4fr_1fr_1.2fr_1fr_0.8fr_0.8fr_1.2fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
                       >
                         <div className="font-semibold text-cyan-300">
                           {employee.employee_number ?? '—'}
                         </div>
 
                         <div className="font-semibold text-white">
-                          {employee.name || '—'}
+                          {getFullName(employee)}
                         </div>
 
                         <div>{employee.phone || '—'}</div>
 
                         <div className="truncate">{employee.email || '—'}</div>
 
-                        <div>{employee.position || '—'}</div>
+                        <div>{employee.position || 'worker'}</div>
 
                         <div className="font-semibold text-cyan-300">
                           {employee.hourly_rate !== null && employee.hourly_rate !== undefined
@@ -636,7 +662,6 @@ export default function DashboardPage() {
                   )}
                 </div>
 
-                {/* mobile cards */}
                 <div className="space-y-4 lg:hidden">
                   {filteredEmployees.length === 0 ? (
                     <div className="rounded-2xl border border-slate-800 bg-[#0b1220] px-4 py-10 text-center text-slate-400">
@@ -654,8 +679,9 @@ export default function DashboardPage() {
                               <Hash size={14} />
                               {employee.employee_number ?? '—'}
                             </div>
-                            <div className="mt-1 text-lg font-semibold text-white">
-                              {employee.name || '—'}
+                            <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-white">
+                              <User size={16} />
+                              {getFullName(employee)}
                             </div>
                             <div className="mt-1 text-sm text-slate-400">
                               {employee.position || 'worker'}
@@ -730,7 +756,6 @@ export default function DashboardPage() {
             )}
           </div>
 
-          {/* RIGHT SIDE */}
           <div className="space-y-6">
             <div className={`${cardClass} p-6`}>
               <div className="mb-4 flex items-center gap-3">
