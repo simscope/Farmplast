@@ -1,32 +1,25 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
-  Activity,
-  ArrowRight,
-  DollarSign,
   LayoutDashboard,
   LogOut,
-  Mail,
-  Pencil,
-  Phone,
   Plus,
-  Settings,
-  Shield,
-  User,
-  Users,
-  UserCog,
-  Wrench,
-  X,
-  BadgePercent,
+  Pencil,
+  Trash2,
+  RefreshCw,
+  Activity,
+  ArrowRight,
+  Phone,
+  Mail,
   Briefcase,
+  DollarSign,
   CheckCircle2,
-  AlertTriangle,
+  XCircle,
+  X,
+  Users,
 } from 'lucide-react'
+import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-
-const roles = ['admin', 'manager', 'technician']
-const payModes = ['hourly', 'percent', 'fixed']
-const statuses = ['active', 'inactive']
 
 const cardClass =
   'rounded-2xl border border-slate-800 bg-[#0f172a] shadow-[0_10px_30px_rgba(0,0,0,0.25)]'
@@ -34,19 +27,27 @@ const cardClass =
 const inputClass =
   'w-full rounded-xl border border-slate-700 bg-[#0b1220] px-4 py-3 text-white outline-none transition focus:border-cyan-500'
 
-const labelClass = 'mb-2 block text-sm font-medium text-slate-300'
-
-function Modal({ open, title, children, onClose }) {
+function EmployeeModal({
+  open,
+  onClose,
+  onSave,
+  form,
+  setForm,
+  saving,
+  isEditing,
+}) {
   if (!open) return null
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-700 bg-[#07111f] shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-hidden rounded-3xl border border-slate-700 bg-[#07111f] shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
           <div>
-            <h2 className="text-2xl font-bold text-white">{title}</h2>
+            <h2 className="text-2xl font-bold text-white">
+              {isEditing ? 'Edit employee' : 'Add employee'}
+            </h2>
             <p className="mt-1 text-sm text-slate-400">
-              Full employee configuration and payroll setup
+              Full employee card with rate and status
             </p>
           </div>
 
@@ -58,217 +59,296 @@ function Modal({ open, title, children, onClose }) {
           </button>
         </div>
 
-        <div className="max-h-[calc(90vh-82px)] overflow-y-auto px-6 py-6">
-          {children}
-        </div>
+        <form onSubmit={onSave} className="space-y-6 px-6 py-6">
+          <div className="grid gap-5 md:grid-cols-2">
+            <div>
+              <label className="mb-2 block text-sm text-slate-300">Name</label>
+              <input
+                className={inputClass}
+                value={form.name}
+                onChange={(e) => setForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Worker name"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm text-slate-300">Phone</label>
+              <input
+                className={inputClass}
+                value={form.phone}
+                onChange={(e) => setForm((prev) => ({ ...prev, phone: e.target.value }))}
+                placeholder="Phone number"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm text-slate-300">Email</label>
+              <input
+                type="email"
+                className={inputClass}
+                value={form.email}
+                onChange={(e) => setForm((prev) => ({ ...prev, email: e.target.value }))}
+                placeholder="Email"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm text-slate-300">Position</label>
+              <input
+                className={inputClass}
+                value={form.position}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, position: e.target.value }))
+                }
+                placeholder="Position"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm text-slate-300">Hourly rate</label>
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                className={inputClass}
+                value={form.hourly_rate}
+                onChange={(e) =>
+                  setForm((prev) => ({ ...prev, hourly_rate: e.target.value }))
+                }
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm text-slate-300">Status</label>
+              <select
+                className={inputClass}
+                value={form.active ? 'true' : 'false'}
+                onChange={(e) =>
+                  setForm((prev) => ({
+                    ...prev,
+                    active: e.target.value === 'true',
+                  }))
+                }
+              >
+                <option value="true">Active</option>
+                <option value="false">Inactive</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 border-t border-slate-800 pt-5 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 font-semibold text-white transition hover:border-slate-500"
+            >
+              Cancel
+            </button>
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="rounded-xl bg-cyan-600 px-5 py-3 font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {saving ? 'Saving...' : isEditing ? 'Save changes' : 'Add employee'}
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   )
-}
-
-function StatCard({ icon: Icon, title, value, subtitle, accent = 'text-cyan-400' }) {
-  return (
-    <div className={`${cardClass} p-5`}>
-      <div className="mb-4 flex items-center justify-between">
-        <div className={`rounded-2xl bg-slate-900 p-3 ${accent}`}>
-          <Icon size={22} />
-        </div>
-        <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
-          overview
-        </span>
-      </div>
-
-      <div className="text-3xl font-bold text-white">{value}</div>
-      <div className="mt-2 text-sm font-medium text-slate-200">{title}</div>
-      <div className="mt-1 text-sm text-slate-400">{subtitle}</div>
-    </div>
-  )
-}
-
-function EmptyValue({ children }) {
-  return <span className="text-slate-500">{children}</span>
 }
 
 export default function DashboardPage() {
-  const { profile, signOut } = useAuth()
+  const { signOut } = useAuth()
 
-  const displayName = profile?.full_name || 'No name'
-  const displayEmail = profile?.email || 'No email'
-  const displayRole = profile?.role || 'unknown'
+  const [employees, setEmployees] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+  const [search, setSearch] = useState('')
 
-  const [workers, setWorkers] = useState([
-    {
-      id: 1,
-      full_name: displayName,
-      email: displayEmail,
-      phone: '',
-      role: displayRole === 'unknown' ? 'admin' : displayRole,
-      status: 'active',
-      pay_mode: 'percent',
-      rate: '',
-      percent: 50,
-      notes: 'Main account / owner access',
-    },
-    {
-      id: 2,
-      full_name: 'Alex Technician',
-      email: 'alex@simscope.com',
-      phone: '(201) 555-0101',
-      role: 'technician',
-      status: 'active',
-      pay_mode: 'percent',
-      rate: '',
-      percent: 50,
-      notes: 'Field tech - HVAC',
-    },
-    {
-      id: 3,
-      full_name: 'Maria Manager',
-      email: 'maria@simscope.com',
-      phone: '(201) 555-0102',
-      role: 'manager',
-      status: 'active',
-      pay_mode: 'fixed',
-      rate: 28,
-      percent: '',
-      notes: 'Dispatch / office',
-    },
-  ])
-
-  const emptyWorker = {
+  const emptyForm = {
     id: null,
-    full_name: '',
-    email: '',
+    name: '',
     phone: '',
-    role: 'technician',
-    status: 'active',
-    pay_mode: 'percent',
-    rate: '',
-    percent: 50,
-    notes: '',
+    email: '',
+    position: '',
+    hourly_rate: '',
+    active: true,
   }
 
-  const [isModalOpen, setIsModalOpen] = useState(false)
-  const [editingWorker, setEditingWorker] = useState(emptyWorker)
-  const [search, setSearch] = useState('')
+  const [modalOpen, setModalOpen] = useState(false)
+  const [form, setForm] = useState(emptyForm)
+
+  const isEditing = Boolean(form.id)
+
+  useEffect(() => {
+    loadEmployees()
+  }, [])
+
+  async function loadEmployees() {
+    try {
+      setLoading(true)
+      setError('')
+
+      const { data, error } = await supabase
+        .from('employees')
+        .select('id, name, phone, email, position, hourly_rate, active, created_at')
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      setEmployees(data || [])
+    } catch (err) {
+      console.error('loadEmployees error:', err)
+      setError(err.message || 'Failed to load employees')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function openAddModal() {
+    setForm(emptyForm)
+    setModalOpen(true)
+  }
+
+  function openEditModal(employee) {
+    setForm({
+      id: employee.id,
+      name: employee.name || '',
+      phone: employee.phone || '',
+      email: employee.email || '',
+      position: employee.position || '',
+      hourly_rate:
+        employee.hourly_rate === null || employee.hourly_rate === undefined
+          ? ''
+          : employee.hourly_rate,
+      active: employee.active ?? true,
+    })
+    setModalOpen(true)
+  }
+
+  function closeModal() {
+    setModalOpen(false)
+    setForm(emptyForm)
+  }
+
+  async function handleSave(e) {
+    e.preventDefault()
+
+    if (!form.name.trim()) {
+      setError('Name is required')
+      return
+    }
+
+    try {
+      setSaving(true)
+      setError('')
+
+      const payload = {
+        name: form.name.trim(),
+        phone: form.phone.trim() || null,
+        email: form.email.trim() || null,
+        position: form.position.trim() || null,
+        hourly_rate:
+          form.hourly_rate === '' || form.hourly_rate === null
+            ? null
+            : Number(form.hourly_rate),
+        active: Boolean(form.active),
+      }
+
+      if (form.id) {
+        const { error } = await supabase
+          .from('employees')
+          .update(payload)
+          .eq('id', form.id)
+
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('employees').insert(payload)
+        if (error) throw error
+      }
+
+      closeModal()
+      await loadEmployees()
+    } catch (err) {
+      console.error('handleSave error:', err)
+      setError(err.message || 'Failed to save employee')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  async function handleDelete(id) {
+    const ok = window.confirm('Delete this employee?')
+    if (!ok) return
+
+    try {
+      setError('')
+
+      const { error } = await supabase.from('employees').delete().eq('id', id)
+      if (error) throw error
+
+      await loadEmployees()
+    } catch (err) {
+      console.error('handleDelete error:', err)
+      setError(err.message || 'Failed to delete employee')
+    }
+  }
+
+  async function toggleActive(employee) {
+    try {
+      setError('')
+
+      const { error } = await supabase
+        .from('employees')
+        .update({ active: !employee.active })
+        .eq('id', employee.id)
+
+      if (error) throw error
+
+      await loadEmployees()
+    } catch (err) {
+      console.error('toggleActive error:', err)
+      setError(err.message || 'Failed to update status')
+    }
+  }
 
   async function handleLogout() {
     await signOut()
   }
 
-  function openCreateModal() {
-    setEditingWorker(emptyWorker)
-    setIsModalOpen(true)
-  }
+  const filteredEmployees = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return employees
 
-  function openEditModal(worker) {
-    setEditingWorker(worker)
-    setIsModalOpen(true)
-  }
-
-  function closeModal() {
-    setIsModalOpen(false)
-    setEditingWorker(emptyWorker)
-  }
-
-  function handleFieldChange(field, value) {
-    setEditingWorker((prev) => ({
-      ...prev,
-      [field]: value,
-    }))
-  }
-
-  function handleSaveWorker(e) {
-    e.preventDefault()
-
-    if (!editingWorker.full_name.trim() || !editingWorker.email.trim()) {
-      alert('Name and email are required')
-      return
-    }
-
-    if (editingWorker.id) {
-      setWorkers((prev) =>
-        prev.map((worker) =>
-          worker.id === editingWorker.id ? { ...editingWorker } : worker
-        )
-      )
-    } else {
-      setWorkers((prev) => [
-        {
-          ...editingWorker,
-          id: Date.now(),
-        },
-        ...prev,
-      ])
-    }
-
-    closeModal()
-  }
-
-  function handleDeleteWorker(id) {
-    const confirmed = window.confirm('Delete this employee?')
-    if (!confirmed) return
-    setWorkers((prev) => prev.filter((worker) => worker.id !== id))
-  }
-
-  const filteredWorkers = useMemo(() => {
-    const q = search.toLowerCase().trim()
-    if (!q) return workers
-
-    return workers.filter((worker) => {
+    return employees.filter((employee) => {
       return (
-        worker.full_name.toLowerCase().includes(q) ||
-        worker.email.toLowerCase().includes(q) ||
-        worker.role.toLowerCase().includes(q) ||
-        (worker.phone || '').toLowerCase().includes(q)
+        (employee.name || '').toLowerCase().includes(q) ||
+        (employee.phone || '').toLowerCase().includes(q) ||
+        (employee.email || '').toLowerCase().includes(q) ||
+        (employee.position || '').toLowerCase().includes(q)
       )
     })
-  }, [workers, search])
+  }, [employees, search])
 
   const stats = useMemo(() => {
-    const total = workers.length
-    const active = workers.filter((w) => w.status === 'active').length
-    const technicians = workers.filter((w) => w.role === 'technician').length
-    const managers = workers.filter((w) => w.role === 'manager').length
-    const admins = workers.filter((w) => w.role === 'admin').length
-    const payMissing = workers.filter((w) => {
-      if (w.pay_mode === 'percent') return !w.percent && w.percent !== 0
-      return !w.rate && w.rate !== 0
-    }).length
+    const total = employees.length
+    const active = employees.filter((e) => e.active).length
+    const inactive = employees.filter((e) => !e.active).length
 
-    return {
-      total,
-      active,
-      technicians,
-      managers,
-      admins,
-      payMissing,
-    }
-  }, [workers])
+    const rates = employees
+      .map((e) => Number(e.hourly_rate))
+      .filter((n) => !Number.isNaN(n) && n > 0)
 
-  const urgentItems = useMemo(() => {
-    const items = []
+    const avgRate = rates.length
+      ? (rates.reduce((sum, value) => sum + value, 0) / rates.length).toFixed(2)
+      : '0.00'
 
-    if (stats.payMissing > 0) {
-      items.push(`${stats.payMissing} employee(s) without payroll setup`)
-    }
-
-    const inactiveUsers = workers.filter((w) => w.status === 'inactive').length
-    if (inactiveUsers > 0) {
-      items.push(`${inactiveUsers} inactive employee(s)`)
-    }
-
-    const noPhone = workers.filter((w) => !w.phone).length
-    if (noPhone > 0) {
-      items.push(`${noPhone} employee(s) without phone number`)
-    }
-
-    if (items.length === 0) {
-      items.push('Everything looks configured correctly')
-    }
-
-    return items
-  }, [workers, stats.payMissing])
+    return { total, active, inactive, avgRate }
+  }, [employees])
 
   return (
     <div className="min-h-screen bg-[#020817] text-white">
@@ -282,32 +362,24 @@ export default function DashboardPage() {
               </div>
 
               <div>
-                <h1 className="text-3xl font-bold text-white">
-                  Admin Dashboard
-                </h1>
+                <h1 className="text-3xl font-bold text-white">Employees Dashboard</h1>
                 <p className="mt-2 max-w-2xl text-slate-400">
-                  Employee management, payroll configuration, quick control links
-                  and operational overview in one place.
+                  Only employees table. Add, edit, activate, deactivate and delete workers.
                 </p>
-
-                <div className="mt-4 flex flex-wrap gap-3">
-                  <div className="rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-300">
-                    <span className="text-slate-500">Logged in:</span>{' '}
-                    {displayName}
-                  </div>
-                  <div className="rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm capitalize text-slate-300">
-                    <span className="text-slate-500">Role:</span> {displayRole}
-                  </div>
-                  <div className="rounded-full border border-slate-700 bg-slate-900 px-4 py-2 text-sm text-slate-300">
-                    {displayEmail}
-                  </div>
-                </div>
               </div>
             </div>
 
             <div className="flex flex-wrap gap-3">
               <button
-                onClick={openCreateModal}
+                onClick={loadEmployees}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 font-semibold text-white transition hover:border-cyan-500"
+              >
+                <RefreshCw size={18} />
+                Refresh
+              </button>
+
+              <button
+                onClick={openAddModal}
                 className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-3 font-semibold text-white transition hover:bg-cyan-500"
               >
                 <Plus size={18} />
@@ -326,251 +398,276 @@ export default function DashboardPage() {
         </div>
 
         {/* STATS */}
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <StatCard
-            icon={Users}
-            title="Total employees"
-            value={stats.total}
-            subtitle="All workers in the system"
-            accent="text-cyan-400"
-          />
-          <StatCard
-            icon={CheckCircle2}
-            title="Active"
-            value={stats.active}
-            subtitle="Currently enabled accounts"
-            accent="text-emerald-400"
-          />
-          <StatCard
-            icon={Wrench}
-            title="Technicians"
-            value={stats.technicians}
-            subtitle="Field service workers"
-            accent="text-amber-400"
-          />
-          <StatCard
-            icon={Briefcase}
-            title="Managers"
-            value={stats.managers}
-            subtitle="Dispatch and coordination"
-            accent="text-violet-400"
-          />
-          <StatCard
-            icon={AlertTriangle}
-            title="Need setup"
-            value={stats.payMissing}
-            subtitle="Payroll is incomplete"
-            accent="text-red-400"
-          />
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className={`${cardClass} p-5`}>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="rounded-2xl bg-cyan-500/10 p-3 text-cyan-400">
+                <Users size={22} />
+              </div>
+              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                total
+              </span>
+            </div>
+            <div className="text-3xl font-bold text-white">{stats.total}</div>
+            <div className="mt-2 text-sm text-slate-400">All employees</div>
+          </div>
+
+          <div className={`${cardClass} p-5`}>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="rounded-2xl bg-emerald-500/10 p-3 text-emerald-400">
+                <CheckCircle2 size={22} />
+              </div>
+              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                active
+              </span>
+            </div>
+            <div className="text-3xl font-bold text-white">{stats.active}</div>
+            <div className="mt-2 text-sm text-slate-400">Active workers</div>
+          </div>
+
+          <div className={`${cardClass} p-5`}>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="rounded-2xl bg-red-500/10 p-3 text-red-400">
+                <XCircle size={22} />
+              </div>
+              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                inactive
+              </span>
+            </div>
+            <div className="text-3xl font-bold text-white">{stats.inactive}</div>
+            <div className="mt-2 text-sm text-slate-400">Inactive workers</div>
+          </div>
+
+          <div className={`${cardClass} p-5`}>
+            <div className="mb-4 flex items-center justify-between">
+              <div className="rounded-2xl bg-amber-500/10 p-3 text-amber-400">
+                <DollarSign size={22} />
+              </div>
+              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
+                avg
+              </span>
+            </div>
+            <div className="text-3xl font-bold text-white">${stats.avgRate}</div>
+            <div className="mt-2 text-sm text-slate-400">Average hourly rate</div>
+          </div>
         </div>
 
-        {/* MAIN GRID */}
-        <div className="mt-6 grid gap-6 xl:grid-cols-[1.8fr_1fr]">
-          {/* EMPLOYEE MANAGEMENT */}
+        {/* QUICK LINKS */}
+        <div className="mt-6 grid gap-6 xl:grid-cols-[1.9fr_0.9fr]">
+          {/* EMPLOYEES TABLE */}
           <div className={`${cardClass} p-6`}>
             <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div>
-                <h2 className="text-2xl font-bold text-white">
-                  Employee management
-                </h2>
+                <h2 className="text-2xl font-bold text-white">Workers</h2>
                 <p className="mt-1 text-slate-400">
-                  Add workers, edit roles, phone, payroll mode, rates and status.
+                  Data is loaded from public.employees
                 </p>
               </div>
 
               <div className="flex flex-col gap-3 sm:flex-row">
                 <input
                   type="text"
-                  placeholder="Search employee..."
+                  placeholder="Search by name, phone, email, position..."
                   value={search}
                   onChange={(e) => setSearch(e.target.value)}
-                  className="min-w-[240px] rounded-xl border border-slate-700 bg-[#0b1220] px-4 py-3 text-white outline-none focus:border-cyan-500"
+                  className="min-w-[260px] rounded-xl border border-slate-700 bg-[#0b1220] px-4 py-3 text-white outline-none focus:border-cyan-500"
                 />
                 <button
-                  onClick={openCreateModal}
+                  onClick={openAddModal}
                   className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 font-semibold text-white transition hover:bg-cyan-500"
                 >
                   <Plus size={18} />
-                  New
+                  Add
                 </button>
               </div>
             </div>
 
-            <div className="hidden overflow-hidden rounded-2xl border border-slate-800 lg:block">
-              <div className="grid grid-cols-[1.6fr_1.6fr_1fr_1fr_1fr_1.1fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
-                <div>Employee</div>
-                <div>Contact</div>
-                <div>Role</div>
-                <div>Status</div>
-                <div>Payroll</div>
-                <div>Actions</div>
+            {error ? (
+              <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-300">
+                {error}
               </div>
+            ) : null}
 
-              {filteredWorkers.map((worker) => (
-                <div
-                  key={worker.id}
-                  className="grid grid-cols-[1.6fr_1.6fr_1fr_1fr_1fr_1.1fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
-                >
-                  <div>
-                    <div className="font-semibold text-white">{worker.full_name}</div>
-                    <div className="mt-1 text-slate-400">
-                      {worker.notes || <EmptyValue>No notes</EmptyValue>}
+            {loading ? (
+              <div className="rounded-2xl border border-slate-800 bg-[#0b1220] px-4 py-12 text-center text-slate-400">
+                Loading employees...
+              </div>
+            ) : (
+              <>
+                {/* desktop table */}
+                <div className="hidden overflow-hidden rounded-2xl border border-slate-800 lg:block">
+                  <div className="grid grid-cols-[1.2fr_1fr_1.2fr_1fr_0.8fr_0.8fr_1.2fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
+                    <div>Name</div>
+                    <div>Phone</div>
+                    <div>Email</div>
+                    <div>Position</div>
+                    <div>Rate</div>
+                    <div>Status</div>
+                    <div>Actions</div>
+                  </div>
+
+                  {filteredEmployees.length === 0 ? (
+                    <div className="bg-[#0b1220] px-4 py-10 text-center text-slate-400">
+                      No employees found
                     </div>
-                  </div>
+                  ) : (
+                    filteredEmployees.map((employee) => (
+                      <div
+                        key={employee.id}
+                        className="grid grid-cols-[1.2fr_1fr_1.2fr_1fr_0.8fr_0.8fr_1.2fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
+                      >
+                        <div className="font-semibold text-white">
+                          {employee.name || '—'}
+                        </div>
 
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <Mail size={14} className="text-cyan-400" />
-                      <span>{worker.email}</span>
-                    </div>
-                    <div className="mt-2 flex items-center gap-2 text-slate-400">
-                      <Phone size={14} className="text-emerald-400" />
-                      <span>{worker.phone || 'No phone'}</span>
-                    </div>
-                  </div>
+                        <div>{employee.phone || '—'}</div>
 
-                  <div>
-                    <span className="rounded-full border border-slate-700 bg-slate-900 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-slate-200">
-                      {worker.role}
-                    </span>
-                  </div>
+                        <div className="truncate">{employee.email || '—'}</div>
 
-                  <div>
-                    <span
-                      className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
-                        worker.status === 'active'
-                          ? 'bg-emerald-500/15 text-emerald-300'
-                          : 'bg-red-500/15 text-red-300'
-                      }`}
-                    >
-                      {worker.status}
-                    </span>
-                  </div>
+                        <div>{employee.position || '—'}</div>
 
-                  <div>
-                    {worker.pay_mode === 'percent' ? (
-                      <div className="font-semibold text-amber-300">
-                        {worker.percent || 0}%
+                        <div className="font-semibold text-cyan-300">
+                          {employee.hourly_rate !== null && employee.hourly_rate !== undefined
+                            ? `$${employee.hourly_rate}`
+                            : '—'}
+                        </div>
+
+                        <div>
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                              employee.active
+                                ? 'bg-emerald-500/15 text-emerald-300'
+                                : 'bg-red-500/15 text-red-300'
+                            }`}
+                          >
+                            {employee.active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            onClick={() => openEditModal(employee)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white transition hover:border-cyan-500"
+                          >
+                            <Pencil size={16} />
+                            Edit
+                          </button>
+
+                          <button
+                            onClick={() => toggleActive(employee)}
+                            className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                              employee.active
+                                ? 'border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
+                                : 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
+                            }`}
+                          >
+                            {employee.active ? 'Disable' : 'Enable'}
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(employee.id)}
+                            className="rounded-xl border border-red-500/30 bg-red-600/10 px-3 py-2 text-red-300 transition hover:bg-red-600/20"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
-                    ) : (
-                      <div className="font-semibold text-cyan-300">
-                        ${worker.rate || 0}
-                        <span className="ml-1 text-slate-500">
-                          / {worker.pay_mode}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => openEditModal(worker)}
-                      className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white transition hover:border-cyan-500"
-                    >
-                      <Pencil size={16} />
-                      Edit
-                    </button>
-
-                    <button
-                      onClick={() => handleDeleteWorker(worker.id)}
-                      className="rounded-xl border border-red-500/30 bg-red-600/10 px-3 py-2 text-red-300 transition hover:bg-red-600/20"
-                    >
-                      Delete
-                    </button>
-                  </div>
+                    ))
+                  )}
                 </div>
-              ))}
 
-              {filteredWorkers.length === 0 && (
-                <div className="px-4 py-10 text-center text-slate-400">
-                  No employees found
-                </div>
-              )}
-            </div>
+                {/* mobile cards */}
+                <div className="space-y-4 lg:hidden">
+                  {filteredEmployees.length === 0 ? (
+                    <div className="rounded-2xl border border-slate-800 bg-[#0b1220] px-4 py-10 text-center text-slate-400">
+                      No employees found
+                    </div>
+                  ) : (
+                    filteredEmployees.map((employee) => (
+                      <div
+                        key={employee.id}
+                        className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4"
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div>
+                            <div className="text-lg font-semibold text-white">
+                              {employee.name || '—'}
+                            </div>
+                            <div className="mt-1 text-sm text-slate-400">
+                              {employee.position || 'No position'}
+                            </div>
+                          </div>
 
-            <div className="space-y-4 lg:hidden">
-              {filteredWorkers.map((worker) => (
-                <div key={worker.id} className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <div className="text-lg font-semibold text-white">
-                        {worker.full_name}
+                          <span
+                            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                              employee.active
+                                ? 'bg-emerald-500/15 text-emerald-300'
+                                : 'bg-red-500/15 text-red-300'
+                            }`}
+                          >
+                            {employee.active ? 'Active' : 'Inactive'}
+                          </span>
+                        </div>
+
+                        <div className="mt-4 grid gap-3 text-sm">
+                          <div className="flex items-center gap-2 text-slate-300">
+                            <Phone size={15} className="text-cyan-400" />
+                            {employee.phone || '—'}
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-300">
+                            <Mail size={15} className="text-cyan-400" />
+                            {employee.email || '—'}
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-300">
+                            <Briefcase size={15} className="text-cyan-400" />
+                            {employee.position || '—'}
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-300">
+                            <DollarSign size={15} className="text-cyan-400" />
+                            {employee.hourly_rate !== null &&
+                            employee.hourly_rate !== undefined
+                              ? `$${employee.hourly_rate}`
+                              : '—'}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap gap-2">
+                          <button
+                            onClick={() => openEditModal(employee)}
+                            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+                          >
+                            <Pencil size={16} />
+                            Edit
+                          </button>
+
+                          <button
+                            onClick={() => toggleActive(employee)}
+                            className={`rounded-xl px-3 py-2 text-sm font-medium ${
+                              employee.active
+                                ? 'border border-amber-500/30 bg-amber-500/10 text-amber-300'
+                                : 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                            }`}
+                          >
+                            {employee.active ? 'Disable' : 'Enable'}
+                          </button>
+
+                          <button
+                            onClick={() => handleDelete(employee.id)}
+                            className="rounded-xl border border-red-500/30 bg-red-600/10 px-3 py-2 text-red-300"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </div>
                       </div>
-                      <div className="mt-1 text-sm text-slate-400">{worker.email}</div>
-                    </div>
-
-                    <button
-                      onClick={() => openEditModal(worker)}
-                      className="rounded-xl border border-slate-700 bg-slate-900 p-2 text-white"
-                    >
-                      <Pencil size={16} />
-                    </button>
-                  </div>
-
-                  <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                    <div className="rounded-xl bg-slate-900 p-3">
-                      <div className="text-slate-500">Role</div>
-                      <div className="mt-1 capitalize text-white">{worker.role}</div>
-                    </div>
-                    <div className="rounded-xl bg-slate-900 p-3">
-                      <div className="text-slate-500">Status</div>
-                      <div className="mt-1 capitalize text-white">{worker.status}</div>
-                    </div>
-                    <div className="rounded-xl bg-slate-900 p-3">
-                      <div className="text-slate-500">Phone</div>
-                      <div className="mt-1 text-white">{worker.phone || '—'}</div>
-                    </div>
-                    <div className="rounded-xl bg-slate-900 p-3">
-                      <div className="text-slate-500">Payroll</div>
-                      <div className="mt-1 text-white">
-                        {worker.pay_mode === 'percent'
-                          ? `${worker.percent || 0}%`
-                          : `$${worker.rate || 0} / ${worker.pay_mode}`}
-                      </div>
-                    </div>
-                  </div>
+                    ))
+                  )}
                 </div>
-              ))}
-            </div>
+              </>
+            )}
           </div>
 
-          {/* RIGHT PANEL */}
+          {/* RIGHT SIDE */}
           <div className="space-y-6">
-            {/* PROFILE */}
-            <div className={`${cardClass} p-6`}>
-              <div className="mb-4 flex items-center gap-3">
-                <div className="rounded-2xl bg-cyan-500/10 p-3 text-cyan-400">
-                  <UserCog size={22} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">Current profile</h3>
-                  <p className="text-sm text-slate-400">Logged-in account info</p>
-                </div>
-              </div>
-
-              <div className="space-y-3 text-sm text-slate-300">
-                <div className="rounded-xl bg-[#0b1220] p-4">
-                  <div className="text-slate-500">Name</div>
-                  <div className="mt-1 text-base font-semibold text-white">
-                    {displayName}
-                  </div>
-                </div>
-                <div className="rounded-xl bg-[#0b1220] p-4">
-                  <div className="text-slate-500">Email</div>
-                  <div className="mt-1 text-base font-semibold text-white">
-                    {displayEmail}
-                  </div>
-                </div>
-                <div className="rounded-xl bg-[#0b1220] p-4">
-                  <div className="text-slate-500">Role</div>
-                  <div className="mt-1 text-base font-semibold capitalize text-white">
-                    {displayRole}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {/* QUICK ACCESS */}
             <div className={`${cardClass} p-6`}>
               <div className="mb-4 flex items-center gap-3">
                 <div className="rounded-2xl bg-amber-500/10 p-3 text-amber-400">
@@ -578,7 +675,7 @@ export default function DashboardPage() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-white">Quick access</h3>
-                  <p className="text-sm text-slate-400">Fast navigation</p>
+                  <p className="text-sm text-slate-400">Only useful links</p>
                 </div>
               </div>
 
@@ -602,21 +699,19 @@ export default function DashboardPage() {
                 >
                   <div>
                     <div className="font-semibold text-white">Home</div>
-                    <div className="text-sm text-slate-400">
-                      Return to main page
-                    </div>
+                    <div className="text-sm text-slate-400">Return to main page</div>
                   </div>
                   <ArrowRight className="text-cyan-400" size={18} />
                 </Link>
 
                 <button
-                  onClick={openCreateModal}
+                  onClick={openAddModal}
                   className="flex items-center justify-between rounded-2xl border border-slate-800 bg-[#0b1220] px-4 py-4 text-left transition hover:border-cyan-500"
                 >
                   <div>
-                    <div className="font-semibold text-white">Add worker</div>
+                    <div className="font-semibold text-white">Add employee</div>
                     <div className="text-sm text-slate-400">
-                      Open create employee modal
+                      Open employee modal
                     </div>
                   </div>
                   <Plus className="text-cyan-400" size={18} />
@@ -624,255 +719,36 @@ export default function DashboardPage() {
               </div>
             </div>
 
-            {/* PAYROLL SETTINGS IDEA BLOCK */}
             <div className={`${cardClass} p-6`}>
-              <div className="mb-4 flex items-center gap-3">
-                <div className="rounded-2xl bg-emerald-500/10 p-3 text-emerald-400">
-                  <DollarSign size={22} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">Payroll logic</h3>
-                  <p className="text-sm text-slate-400">
-                    What this dashboard should control
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3 text-sm text-slate-300">
+              <h3 className="text-xl font-bold text-white">What this page does</h3>
+              <div className="mt-4 space-y-3 text-sm text-slate-300">
                 <div className="rounded-xl bg-[#0b1220] p-4">
-                  <div className="mb-1 flex items-center gap-2 text-white">
-                    <BadgePercent size={16} className="text-amber-400" />
-                    Percent mode
-                  </div>
-                  <div className="text-slate-400">
-                    Good for technicians. Example: 50% from labor, materials excluded.
-                  </div>
+                  Reads employees from Supabase table
                 </div>
-
                 <div className="rounded-xl bg-[#0b1220] p-4">
-                  <div className="mb-1 flex items-center gap-2 text-white">
-                    <DollarSign size={16} className="text-cyan-400" />
-                    Hourly / fixed mode
-                  </div>
-                  <div className="text-slate-400">
-                    Good for managers, office staff and fixed salary workers.
-                  </div>
+                  Saves full employee edit form
                 </div>
-
                 <div className="rounded-xl bg-[#0b1220] p-4">
-                  <div className="mb-1 flex items-center gap-2 text-white">
-                    <Settings size={16} className="text-violet-400" />
-                    Next step
-                  </div>
-                  <div className="text-slate-400">
-                    Later connect rates to real Supabase tables and calculate payroll automatically.
-                  </div>
+                  Switches active / inactive
                 </div>
-              </div>
-            </div>
-
-            {/* ATTENTION BLOCK */}
-            <div className={`${cardClass} p-6`}>
-              <div className="mb-4 flex items-center gap-3">
-                <div className="rounded-2xl bg-red-500/10 p-3 text-red-400">
-                  <Shield size={22} />
+                <div className="rounded-xl bg-[#0b1220] p-4">
+                  Deletes employee from table
                 </div>
-                <div>
-                  <h3 className="text-xl font-bold text-white">Needs attention</h3>
-                  <p className="text-sm text-slate-400">
-                    Configuration and staffing issues
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                {urgentItems.map((item, index) => (
-                  <div
-                    key={index}
-                    className="rounded-xl border border-slate-800 bg-[#0b1220] px-4 py-3 text-sm text-slate-300"
-                  >
-                    {item}
-                  </div>
-                ))}
               </div>
             </div>
           </div>
         </div>
       </div>
 
-      {/* MODAL */}
-      <Modal
-        open={isModalOpen}
-        title={editingWorker?.id ? 'Edit employee' : 'Add employee'}
+      <EmployeeModal
+        open={modalOpen}
         onClose={closeModal}
-      >
-        <form onSubmit={handleSaveWorker} className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <div>
-              <label className={labelClass}>Full name</label>
-              <input
-                className={inputClass}
-                value={editingWorker.full_name}
-                onChange={(e) => handleFieldChange('full_name', e.target.value)}
-                placeholder="Enter full name"
-              />
-            </div>
-
-            <div>
-              <label className={labelClass}>Email</label>
-              <input
-                className={inputClass}
-                type="email"
-                value={editingWorker.email}
-                onChange={(e) => handleFieldChange('email', e.target.value)}
-                placeholder="worker@company.com"
-              />
-            </div>
-
-            <div>
-              <label className={labelClass}>Phone</label>
-              <input
-                className={inputClass}
-                value={editingWorker.phone}
-                onChange={(e) => handleFieldChange('phone', e.target.value)}
-                placeholder="(201) 555-0100"
-              />
-            </div>
-
-            <div>
-              <label className={labelClass}>Role</label>
-              <select
-                className={inputClass}
-                value={editingWorker.role}
-                onChange={(e) => handleFieldChange('role', e.target.value)}
-              >
-                {roles.map((role) => (
-                  <option key={role} value={role} className="bg-[#0b1220]">
-                    {role}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className={labelClass}>Status</label>
-              <select
-                className={inputClass}
-                value={editingWorker.status}
-                onChange={(e) => handleFieldChange('status', e.target.value)}
-              >
-                {statuses.map((status) => (
-                  <option key={status} value={status} className="bg-[#0b1220]">
-                    {status}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className={labelClass}>Payroll mode</label>
-              <select
-                className={inputClass}
-                value={editingWorker.pay_mode}
-                onChange={(e) => handleFieldChange('pay_mode', e.target.value)}
-              >
-                {payModes.map((mode) => (
-                  <option key={mode} value={mode} className="bg-[#0b1220]">
-                    {mode}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-
-          <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-5">
-            <h3 className="mb-4 text-lg font-semibold text-white">
-              Payroll setup
-            </h3>
-
-            {editingWorker.pay_mode === 'percent' ? (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <div>
-                  <label className={labelClass}>Percent</label>
-                  <input
-                    className={inputClass}
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={editingWorker.percent}
-                    onChange={(e) => handleFieldChange('percent', e.target.value)}
-                    placeholder="50"
-                  />
-                </div>
-
-                <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-amber-100">
-                  Use this for technicians when salary depends on completed job labor.
-                </div>
-              </div>
-            ) : (
-              <div className="grid gap-6 lg:grid-cols-2">
-                <div>
-                  <label className={labelClass}>
-                    {editingWorker.pay_mode === 'hourly'
-                      ? 'Hourly rate'
-                      : 'Fixed amount'}
-                  </label>
-                  <input
-                    className={inputClass}
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={editingWorker.rate}
-                    onChange={(e) => handleFieldChange('rate', e.target.value)}
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div className="rounded-2xl border border-cyan-500/20 bg-cyan-500/5 p-4 text-sm text-cyan-100">
-                  Use hourly or fixed payment for office staff, managers, dispatchers or non-commission roles.
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div>
-            <label className={labelClass}>Notes</label>
-            <textarea
-              className={`${inputClass} min-h-[120px] resize-y`}
-              value={editingWorker.notes}
-              onChange={(e) => handleFieldChange('notes', e.target.value)}
-              placeholder="Internal notes, permissions, specialty, comments..."
-            />
-          </div>
-
-          <div className="flex flex-col gap-3 border-t border-slate-800 pt-5 sm:flex-row sm:justify-end">
-            {editingWorker.id && (
-              <button
-                type="button"
-                onClick={() => handleDeleteWorker(editingWorker.id)}
-                className="rounded-xl border border-red-500/30 bg-red-600/10 px-5 py-3 font-semibold text-red-300 transition hover:bg-red-600/20"
-              >
-                Delete employee
-              </button>
-            )}
-
-            <button
-              type="button"
-              onClick={closeModal}
-              className="rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 font-semibold text-white transition hover:border-slate-500"
-            >
-              Cancel
-            </button>
-
-            <button
-              type="submit"
-              className="rounded-xl bg-cyan-600 px-5 py-3 font-semibold text-white transition hover:bg-cyan-500"
-            >
-              Save employee
-            </button>
-          </div>
-        </form>
-      </Modal>
+        onSave={handleSave}
+        form={form}
+        setForm={setForm}
+        saving={saving}
+        isEditing={isEditing}
+      />
     </div>
   )
 }
