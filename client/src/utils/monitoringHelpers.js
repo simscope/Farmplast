@@ -37,11 +37,14 @@ export function formatValue(point) {
 
   if (point.data_type === 'number') {
     if (point.value_number === null || point.value_number === undefined) return '—'
+
     const num = Number(point.value_number)
     if (Number.isNaN(num)) return '—'
+
     if (point.unit === '%') return `${num.toFixed(1)}%`
     if (point.unit === 'mA') return `${num.toFixed(2)} mA`
     if (point.unit === 'F') return `${num.toFixed(1)}°F`
+
     return `${num.toFixed(1)}${point.unit ? ` ${point.unit}` : ''}`
   }
 
@@ -65,26 +68,112 @@ export function getLatestTime(points = []) {
   return latest
 }
 
+function isRealNumberValue(point) {
+  if (point?.data_type !== 'number') return false
+  if (point.value_number === null || point.value_number === undefined) return false
+  if (Number.isNaN(Number(point.value_number))) return false
+
+  const code = String(point.point_code || '').toUpperCase()
+  const group = String(point.point_group || '').toUpperCase()
+  const unit = String(point.unit || '').toUpperCase()
+  const value = Number(point.value_number)
+
+  if (code.includes('LEVEL') || group.includes('LEVEL') || unit === '%') {
+    return value > 0
+  }
+
+  if (
+    code.includes('TEMP') ||
+    code.includes('CHW') ||
+    code.includes('COND') ||
+    code.includes('INLET') ||
+    code.includes('OUTLET') ||
+    code.includes('SUCTION') ||
+    code.includes('DISCHARGE') ||
+    code.includes('PRESSURE') ||
+    unit === 'F' ||
+    unit === 'PSI'
+  ) {
+    return value > 0
+  }
+
+  return value !== 0
+}
+
+function isRealBooleanValue(point) {
+  if (point?.data_type !== 'boolean') return false
+  return point.value_boolean === true
+}
+
+function isRealTextValue(point) {
+  if (!point || point.data_type === 'number' || point.data_type === 'boolean') return false
+  return String(point.value_text || '').trim() !== ''
+}
+
+export function hasRealTelemetry(points = []) {
+  return points.some((point) => {
+    return (
+      isRealNumberValue(point) ||
+      isRealBooleanValue(point) ||
+      isRealTextValue(point)
+    )
+  })
+}
+
+export function hasAlarm(points = []) {
+  return points.some((point) => {
+    const code = String(point?.point_code || '').toUpperCase()
+    const name = String(point?.point_name || '').toUpperCase()
+    const group = String(point?.point_group || '').toUpperCase()
+
+    const looksLikeAlarm =
+      code.includes('ALARM') ||
+      name.includes('ALARM') ||
+      group.includes('ALARM') ||
+      code.includes('FAULT') ||
+      name.includes('FAULT')
+
+    if (!looksLikeAlarm) return false
+
+    if (point.data_type === 'boolean') {
+      return point.value_boolean === true
+    }
+
+    if (point.data_type === 'number') {
+      return point.value_number !== null && Number(point.value_number) > 0
+    }
+
+    return String(point.value_text || '').trim() !== ''
+  })
+}
+
 export function getAssetStatus(points = []) {
   const latest = getLatestTime(points)
 
   if (!latest) {
     return {
       online: false,
+      alarm: false,
       label: 'OFFLINE',
       lastSeenAt: null,
       secondsAgo: null,
+      hasRealData: false,
     }
   }
 
   const secondsAgo = Math.floor((Date.now() - latest.getTime()) / 1000)
-  const online = secondsAgo <= ONLINE_THRESHOLD_SEC
+  const isFresh = secondsAgo <= ONLINE_THRESHOLD_SEC
+  const realData = hasRealTelemetry(points)
+  const alarm = hasAlarm(points)
+  const online = isFresh && realData
 
   return {
     online,
+    alarm,
     label: online ? 'ONLINE' : 'OFFLINE',
     lastSeenAt: latest.toISOString(),
     secondsAgo,
+    hasRealData: realData,
   }
 }
 
