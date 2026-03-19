@@ -95,117 +95,102 @@ function getStatus(points) {
   return { online, alarm }
 }
 
-function getCompressorLayout(assetCode) {
+function isSixCompressorAsset(assetCode) {
   const code = String(assetCode || '').toUpperCase()
+  return code === 'CH-NJ-02' || code === 'CH-NJ-03' || code === 'CH2' || code === 'CH3'
+}
 
-  if (code === 'CH-NJ-02' || code === 'CH-NJ-03' || code === 'CH2' || code === 'CH3') {
+function getCompressorLayout(assetCode) {
+  if (isSixCompressorAsset(assetCode)) {
     return [
       {
         key: '1A',
         terms: [
-          '1A',
           'COMPRESSOR 1A',
           'COMP 1A',
           'COMP_1A',
           'COMP1A',
           '1A STATUS',
-          'CIRCUIT 1 COMP A',
-          'SECTION 1 COMP A',
-          'CH2_COMP_1A',
-          'CH2_COMP_1A_STATUS',
-          'CH3_COMP_1A',
-          'CH3_COMP_1A_STATUS',
+          'SECTION 1 A',
+          'CIRCUIT 1 A',
           'COMPRESSOR_1A_STATUS',
+          'CH2_COMP_1A_STATUS',
+          'CH3_COMP_1A_STATUS',
         ],
       },
       {
         key: '1B',
         terms: [
-          '1B',
           'COMPRESSOR 1B',
           'COMP 1B',
           'COMP_1B',
           'COMP1B',
           '1B STATUS',
-          'CIRCUIT 1 COMP B',
-          'SECTION 1 COMP B',
-          'CH2_COMP_1B',
-          'CH2_COMP_1B_STATUS',
-          'CH3_COMP_1B',
-          'CH3_COMP_1B_STATUS',
+          'SECTION 1 B',
+          'CIRCUIT 1 B',
           'COMPRESSOR_1B_STATUS',
+          'CH2_COMP_1B_STATUS',
+          'CH3_COMP_1B_STATUS',
         ],
       },
       {
         key: '1C',
         terms: [
-          '1C',
           'COMPRESSOR 1C',
           'COMP 1C',
           'COMP_1C',
           'COMP1C',
           '1C STATUS',
-          'CIRCUIT 1 COMP C',
-          'SECTION 1 COMP C',
-          'CH2_COMP_1C',
-          'CH2_COMP_1C_STATUS',
-          'CH3_COMP_1C',
-          'CH3_COMP_1C_STATUS',
+          'SECTION 1 C',
+          'CIRCUIT 1 C',
           'COMPRESSOR_1C_STATUS',
+          'CH2_COMP_1C_STATUS',
+          'CH3_COMP_1C_STATUS',
         ],
       },
       {
         key: '2A',
         terms: [
-          '2A',
           'COMPRESSOR 2A',
           'COMP 2A',
           'COMP_2A',
           'COMP2A',
           '2A STATUS',
-          'CIRCUIT 2 COMP A',
-          'SECTION 2 COMP A',
-          'CH2_COMP_2A',
-          'CH2_COMP_2A_STATUS',
-          'CH3_COMP_2A',
-          'CH3_COMP_2A_STATUS',
+          'SECTION 2 A',
+          'CIRCUIT 2 A',
           'COMPRESSOR_2A_STATUS',
+          'CH2_COMP_2A_STATUS',
+          'CH3_COMP_2A_STATUS',
         ],
       },
       {
         key: '2B',
         terms: [
-          '2B',
           'COMPRESSOR 2B',
           'COMP 2B',
           'COMP_2B',
           'COMP2B',
           '2B STATUS',
-          'CIRCUIT 2 COMP B',
-          'SECTION 2 COMP B',
-          'CH2_COMP_2B',
-          'CH2_COMP_2B_STATUS',
-          'CH3_COMP_2B',
-          'CH3_COMP_2B_STATUS',
+          'SECTION 2 B',
+          'CIRCUIT 2 B',
           'COMPRESSOR_2B_STATUS',
+          'CH2_COMP_2B_STATUS',
+          'CH3_COMP_2B_STATUS',
         ],
       },
       {
         key: '2C',
         terms: [
-          '2C',
           'COMPRESSOR 2C',
           'COMP 2C',
           'COMP_2C',
           'COMP2C',
           '2C STATUS',
-          'CIRCUIT 2 COMP C',
-          'SECTION 2 COMP C',
-          'CH2_COMP_2C',
-          'CH2_COMP_2C_STATUS',
-          'CH3_COMP_2C',
-          'CH3_COMP_2C_STATUS',
+          'SECTION 2 C',
+          'CIRCUIT 2 C',
           'COMPRESSOR_2C_STATUS',
+          'CH2_COMP_2C_STATUS',
+          'CH3_COMP_2C_STATUS',
         ],
       },
     ]
@@ -221,9 +206,8 @@ function getCompressorLayout(assetCode) {
         'COMP-A',
         'COMP1',
         'COMP 1',
-        'COMPRESSOR_1_STATUS',
-        'COMP_A_STATUS',
         'CH1_COMP_A_STATUS',
+        'COMP_A_STATUS',
       ],
     },
     {
@@ -235,9 +219,8 @@ function getCompressorLayout(assetCode) {
         'COMP-B',
         'COMP2',
         'COMP 2',
-        'COMPRESSOR_2_STATUS',
-        'COMP_B_STATUS',
         'CH1_COMP_B_STATUS',
+        'COMP_B_STATUS',
       ],
     },
   ]
@@ -245,7 +228,6 @@ function getCompressorLayout(assetCode) {
 
 function getCompressors(points, assetCode) {
   const layout = getCompressorLayout(assetCode)
-
   return layout.map((item) => ({
     key: item.key,
     on: getBoolean(points, item.terms),
@@ -280,7 +262,163 @@ function tempBlockStyle(accent, selected) {
     background: 'rgba(8,15,30,0.72)',
     border: `1px solid ${selected ? accent : 'rgba(148,163,184,0.14)'}`,
     boxShadow: selected ? `0 0 0 1px ${accent}22 inset` : 'none',
+    minHeight: 112,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
   }
+}
+
+function getFluidTemps(points, assetCode) {
+  if (isSixCompressorAsset(assetCode)) {
+    const in1 = getTemperature(points, [
+      'CH2_CHW_IN',
+      'CH3_CHW_IN',
+      'CHILLER 1 ENTERING FLUID TEMP',
+      'SECTION 1 ENTERING FLUID TEMP',
+      'CIRCUIT 1 ENTERING FLUID TEMP',
+      'ENTERING FLUID TEMP 1',
+      'FLUID IN 1',
+      'CHW IN 1',
+    ])
+
+    const out1 = getTemperature(points, [
+      'CH2_CHW_OUT',
+      'CH3_CHW_OUT',
+      'CHILLER 1 LEAVING FLUID TEMP',
+      'SECTION 1 LEAVING FLUID TEMP',
+      'CIRCUIT 1 LEAVING FLUID TEMP',
+      'LEAVING FLUID TEMP 1',
+      'FLUID OUT 1',
+      'CHW OUT 1',
+    ])
+
+    const in2 = getTemperature(points, [
+      'CH2_CHW_IN_2',
+      'CH3_CHW_IN_2',
+      'CHILLER 2 ENTERING FLUID TEMP',
+      'SECTION 2 ENTERING FLUID TEMP',
+      'CIRCUIT 2 ENTERING FLUID TEMP',
+      'ENTERING FLUID TEMP 2',
+      'FLUID IN 2',
+      'CHW IN 2',
+    ], in1)
+
+    const out2 = getTemperature(points, [
+      'CH2_CHW_OUT_2',
+      'CH3_CHW_OUT_2',
+      'CHILLER 2 LEAVING FLUID TEMP',
+      'SECTION 2 LEAVING FLUID TEMP',
+      'CIRCUIT 2 LEAVING FLUID TEMP',
+      'LEAVING FLUID TEMP 2',
+      'FLUID OUT 2',
+      'CHW OUT 2',
+    ], out1)
+
+    return { in1, out1, in2, out2 }
+  }
+
+  const chwIn = getTemperature(points, [
+    'ECHW',
+    'CHILLED WATER IN',
+    'CHW IN',
+    'ENTERING CHILLED WATER',
+    'EVAP WATER IN',
+    'ENTERING FLUID TEMP',
+    'CH1_CHW_IN',
+  ])
+
+  const chwOut = getTemperature(points, [
+    'LCHW',
+    'CHILLED WATER OUT',
+    'CHW OUT',
+    'LEAVING CHILLED WATER',
+    'EVAP WATER OUT',
+    'LEAVING FLUID TEMP',
+    'CH1_CHW_OUT',
+  ])
+
+  const condIn = getTemperature(points, [
+    'ECW',
+    'CONDENSER WATER IN',
+    'COND IN',
+    'ENTERING CONDENSER WATER',
+    'CH1_COND_WATER_IN',
+  ])
+
+  const condOut = getTemperature(points, [
+    'LCW',
+    'CONDENSER WATER OUT',
+    'COND OUT',
+    'LEAVING CONDENSER WATER',
+    'CH1_COND_WATER_OUT',
+  ])
+
+  return {
+    in1: chwIn,
+    out1: chwOut,
+    in2: condIn,
+    out2: condOut,
+  }
+}
+
+function TempCard({ label, value, family, subtitle, selected }) {
+  const accent = family === 'blue' ? 'rgba(56,189,248,0.38)' : 'rgba(251,113,133,0.38)'
+  const labelColor = family === 'blue' ? '#7dd3fc' : '#fda4af'
+
+  return (
+    <div style={tempBlockStyle(accent, selected)}>
+      <div style={{ color: labelColor, fontSize: 12, fontWeight: 900, letterSpacing: 1 }}>
+        {label}
+      </div>
+      <div
+        style={{
+          marginTop: 6,
+          color: tempColor(value, family),
+          fontSize: 28,
+          fontWeight: 900,
+          lineHeight: 1,
+        }}
+      >
+        {formatTemp(value)}
+      </div>
+      <div style={{ marginTop: 8, color: '#64748b', fontSize: 12 }}>
+        {subtitle}
+      </div>
+    </div>
+  )
+}
+
+function CompressorPill({ comp, wide = false }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '7px 11px',
+        borderRadius: 999,
+        background: 'rgba(8,15,30,0.78)',
+        border: '1px solid rgba(148,163,184,0.14)',
+        minWidth: wide ? 62 : 46,
+        justifyContent: 'center',
+      }}
+    >
+      <span
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: '50%',
+          background: comp.on ? '#22c55e' : '#475569',
+          display: 'inline-block',
+          boxShadow: comp.on ? '0 0 10px rgba(34,197,94,0.55)' : 'none',
+        }}
+      />
+      <span style={{ color: '#cbd5e1', fontSize: 12, fontWeight: 800 }}>
+        {comp.key}
+      </span>
+    </div>
+  )
 }
 
 export default function ChillerIllustration({
@@ -291,41 +429,11 @@ export default function ChillerIllustration({
 }) {
   const points = Array.isArray(asset?.points) ? asset.points : []
   const assetCode = String(asset?.asset_code || '').toUpperCase()
+  const sixComp = isSixCompressorAsset(assetCode)
 
   const { online, alarm } = useMemo(() => getStatus(points), [points])
   const compressors = useMemo(() => getCompressors(points, assetCode), [points, assetCode])
-
-  const chwIn = getTemperature(points, [
-    'ECHW',
-    'CHILLED WATER IN',
-    'CHW IN',
-    'ENTERING CHILLED WATER',
-    'EVAP WATER IN',
-    'LEAVING FLUID TEMP',
-  ])
-
-  const chwOut = getTemperature(points, [
-    'LCHW',
-    'CHILLED WATER OUT',
-    'CHW OUT',
-    'LEAVING CHILLED WATER',
-    'EVAP WATER OUT',
-    'ENTERING FLUID TEMP',
-  ])
-
-  const condIn = getTemperature(points, [
-    'ECW',
-    'CONDENSER WATER IN',
-    'COND IN',
-    'ENTERING CONDENSER WATER',
-  ])
-
-  const condOut = getTemperature(points, [
-    'LCW',
-    'CONDENSER WATER OUT',
-    'COND OUT',
-    'LEAVING CONDENSER WATER',
-  ])
+  const fluidTemps = useMemo(() => getFluidTemps(points, assetCode), [points, assetCode])
 
   const frameStroke = selected
     ? 'rgba(34, 211, 238, 0.95)'
@@ -339,14 +447,18 @@ export default function ChillerIllustration({
     ? 'linear-gradient(180deg, rgba(69,10,10,0.78) 0%, rgba(24,24,27,0.92) 100%)'
     : 'linear-gradient(180deg, rgba(15,23,42,0.92) 0%, rgba(3,7,18,0.96) 100%)'
 
-  const blueAccent = 'rgba(56,189,248,0.38)'
-  const redAccent = 'rgba(251,113,133,0.38)'
+  const leftTopLabel = sixComp ? 'CHILLER IN 1' : 'CHW IN'
+  const rightTopLabel = sixComp ? 'CHILLER OUT 1' : 'CHW OUT'
+  const leftBottomLabel = sixComp ? 'CHILLER IN 2' : 'COND IN'
+  const rightBottomLabel = sixComp ? 'CHILLER OUT 2' : 'COND OUT'
 
-  const isSixCompressorChiller =
-    assetCode === 'CH-NJ-02' ||
-    assetCode === 'CH-NJ-03' ||
-    assetCode === 'CH2' ||
-    assetCode === 'CH3'
+  const leftTopSubtitle = sixComp ? 'section 1 entering fluid' : 'entering chilled water'
+  const rightTopSubtitle = sixComp ? 'section 1 leaving fluid' : 'leaving chilled water'
+  const leftBottomSubtitle = sixComp ? 'section 2 entering fluid' : 'entering condenser water'
+  const rightBottomSubtitle = sixComp ? 'section 2 leaving fluid' : 'leaving condenser water'
+
+  const compRow1 = sixComp ? compressors.slice(0, 3) : compressors
+  const compRow2 = sixComp ? compressors.slice(3, 6) : []
 
   return (
     <button
@@ -464,48 +576,26 @@ export default function ChillerIllustration({
           }}
         >
           <div style={{ display: 'grid', gap: 14 }}>
-            <div style={tempBlockStyle(blueAccent, selected)}>
-              <div style={{ color: '#7dd3fc', fontSize: 12, fontWeight: 900, letterSpacing: 1 }}>
-                CHW IN
-              </div>
-              <div
-                style={{
-                  marginTop: 6,
-                  color: tempColor(chwIn, 'blue'),
-                  fontSize: 28,
-                  fontWeight: 900,
-                }}
-              >
-                {formatTemp(chwIn)}
-              </div>
-              <div style={{ marginTop: 4, color: '#64748b', fontSize: 12 }}>
-                entering chilled water
-              </div>
-            </div>
+            <TempCard
+              label={leftTopLabel}
+              value={fluidTemps.in1}
+              family="blue"
+              subtitle={leftTopSubtitle}
+              selected={selected}
+            />
 
-            <div style={tempBlockStyle(redAccent, selected)}>
-              <div style={{ color: '#fda4af', fontSize: 12, fontWeight: 900, letterSpacing: 1 }}>
-                COND IN
-              </div>
-              <div
-                style={{
-                  marginTop: 6,
-                  color: tempColor(condIn, 'red'),
-                  fontSize: 28,
-                  fontWeight: 900,
-                }}
-              >
-                {formatTemp(condIn)}
-              </div>
-              <div style={{ marginTop: 4, color: '#64748b', fontSize: 12 }}>
-                entering condenser water
-              </div>
-            </div>
+            <TempCard
+              label={leftBottomLabel}
+              value={fluidTemps.in2}
+              family={sixComp ? 'blue' : 'red'}
+              subtitle={leftBottomSubtitle}
+              selected={selected}
+            />
           </div>
 
           <div
             style={{
-              minHeight: isMobile ? 250 : 300,
+              minHeight: isMobile ? 270 : 316,
               borderRadius: 24,
               position: 'relative',
               overflow: 'hidden',
@@ -514,7 +604,7 @@ export default function ChillerIllustration({
             }}
           >
             <svg
-              viewBox="0 0 560 300"
+              viewBox="0 0 560 316"
               style={{ width: '100%', height: '100%', display: 'block' }}
             >
               <defs>
@@ -546,7 +636,15 @@ export default function ChillerIllustration({
               </defs>
 
               <path
-                d="M 20 75 H 155"
+                d="M 20 82 H 155"
+                stroke="#38bdf8"
+                strokeWidth="10"
+                strokeLinecap="round"
+                fill="none"
+                filter="url(#glowBlue)"
+              />
+              <path
+                d="M 405 82 H 540"
                 stroke="#38bdf8"
                 strokeWidth="10"
                 strokeLinecap="round"
@@ -555,60 +653,64 @@ export default function ChillerIllustration({
               />
 
               <path
-                d="M 405 75 H 540"
-                stroke="#38bdf8"
+                d="M 20 228 H 155"
+                stroke={sixComp ? '#38bdf8' : '#fb7185'}
                 strokeWidth="10"
                 strokeLinecap="round"
                 fill="none"
-                filter="url(#glowBlue)"
+                filter={sixComp ? 'url(#glowBlue)' : 'url(#glowRed)'}
               />
-
               <path
-                d="M 20 225 H 155"
-                stroke="#fb7185"
+                d="M 405 228 H 540"
+                stroke={sixComp ? '#38bdf8' : '#fb7185'}
                 strokeWidth="10"
                 strokeLinecap="round"
                 fill="none"
-                filter="url(#glowRed)"
-              />
-
-              <path
-                d="M 405 225 H 540"
-                stroke="#fb7185"
-                strokeWidth="10"
-                strokeLinecap="round"
-                fill="none"
-                filter="url(#glowRed)"
+                filter={sixComp ? 'url(#glowBlue)' : 'url(#glowRed)'}
               />
 
               {online && (
                 <>
                   <circle r="5.5" fill="#7dd3fc" filter="url(#glowBlue)">
-                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 20 75 H 155" />
+                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 20 82 H 155" />
                   </circle>
                   <circle r="5.5" fill="#7dd3fc" filter="url(#glowBlue)">
-                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 405 75 H 540" />
+                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 405 82 H 540" />
                   </circle>
 
-                  <circle r="5.5" fill="#fda4af" filter="url(#glowRed)">
-                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 20 225 H 155" />
+                  <circle
+                    r="5.5"
+                    fill={sixComp ? '#7dd3fc' : '#fda4af'}
+                    filter={sixComp ? 'url(#glowBlue)' : 'url(#glowRed)'}
+                  >
+                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 20 228 H 155" />
                   </circle>
-                  <circle r="5.5" fill="#fda4af" filter="url(#glowRed)">
-                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 405 225 H 540" />
+                  <circle
+                    r="5.5"
+                    fill={sixComp ? '#7dd3fc' : '#fda4af'}
+                    filter={sixComp ? 'url(#glowBlue)' : 'url(#glowRed)'}
+                  >
+                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 405 228 H 540" />
                   </circle>
                 </>
               )}
 
-              <polygon points="138,75 120,66 120,84" fill="#7dd3fc" />
-              <polygon points="438,75 456,66 456,84" fill="#7dd3fc" />
-              <polygon points="138,225 120,216 120,234" fill="#fda4af" />
-              <polygon points="438,225 456,216 456,234" fill="#fda4af" />
+              <polygon points="138,82 120,73 120,91" fill="#7dd3fc" />
+              <polygon points="438,82 456,73 456,91" fill="#7dd3fc" />
+              <polygon
+                points="138,228 120,219 120,237"
+                fill={sixComp ? '#7dd3fc' : '#fda4af'}
+              />
+              <polygon
+                points="438,228 456,219 456,237"
+                fill={sixComp ? '#7dd3fc' : '#fda4af'}
+              />
 
               <rect
                 x="155"
-                y="42"
+                y="38"
                 width="250"
-                height="216"
+                height="220"
                 rx="34"
                 ry="34"
                 fill="url(#hxShell)"
@@ -618,9 +720,9 @@ export default function ChillerIllustration({
 
               <rect
                 x="182"
-                y="66"
+                y="60"
                 width="196"
-                height="168"
+                height="176"
                 rx="22"
                 ry="22"
                 fill="url(#hxInner)"
@@ -628,10 +730,10 @@ export default function ChillerIllustration({
                 strokeWidth="1.4"
               />
 
-              <circle cx="155" cy="75" r="7" fill="#7dd3fc" />
-              <circle cx="405" cy="75" r="7" fill="#7dd3fc" />
-              <circle cx="155" cy="225" r="7" fill="#fda4af" />
-              <circle cx="405" cy="225" r="7" fill="#fda4af" />
+              <circle cx="155" cy="82" r="7" fill="#7dd3fc" />
+              <circle cx="405" cy="82" r="7" fill="#7dd3fc" />
+              <circle cx="155" cy="228" r="7" fill={sixComp ? '#7dd3fc' : '#fda4af'} />
+              <circle cx="405" cy="228" r="7" fill={sixComp ? '#7dd3fc' : '#fda4af'} />
 
               {[0, 1, 2, 3, 4, 5].map((i) => {
                 const x = 214 + i * 22
@@ -639,7 +741,7 @@ export default function ChillerIllustration({
                   <line
                     key={i}
                     x1={x}
-                    y1="92"
+                    y1="88"
                     x2={x + 34}
                     y2="208"
                     stroke={i % 2 === 0 ? '#67e8f9' : '#fda4af'}
@@ -650,19 +752,23 @@ export default function ChillerIllustration({
                 )
               })}
 
-              <text x="280" y="128" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
+              <text x="280" y="126" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
                 PLATE HEAT
               </text>
-              <text x="280" y="150" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
+              <text x="280" y="148" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
                 EXCHANGER
               </text>
 
-              <text x="280" y="182" fill="#64748b" fontSize="12" fontWeight="800" textAnchor="middle">
+              <text x="280" y="176" fill="#64748b" fontSize="12" fontWeight="800" textAnchor="middle">
                 inlet left / outlet right
               </text>
 
-              <text x="280" y="278" fill="#94a3b8" fontSize="12" fontWeight="900" textAnchor="middle">
-                {isSixCompressorChiller ? 'COMPRESSOR SECTIONS' : 'COMPRESSORS'}
+              <text x="280" y="196" fill="#64748b" fontSize="12" fontWeight="800" textAnchor="middle">
+                {sixComp ? 'two chilled-water sections' : 'chilled + condenser circuits'}
+              </text>
+
+              <text x="280" y="286" fill="#94a3b8" fontSize="12" fontWeight="900" textAnchor="middle">
+                {sixComp ? 'COMPRESSOR SECTIONS' : 'COMPRESSORS'}
               </text>
             </svg>
 
@@ -673,83 +779,58 @@ export default function ChillerIllustration({
                 right: 0,
                 bottom: 14,
                 display: 'flex',
-                justifyContent: 'center',
-                gap: 10,
-                flexWrap: 'wrap',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 8,
                 padding: '0 10px',
               }}
             >
-              {compressors.map((comp) => (
+              <div
+                style={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  gap: 10,
+                  flexWrap: 'wrap',
+                }}
+              >
+                {compRow1.map((comp) => (
+                  <CompressorPill key={comp.key} comp={comp} wide={sixComp} />
+                ))}
+              </div>
+
+              {compRow2.length > 0 ? (
                 <div
-                  key={comp.key}
                   style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    padding: '6px 10px',
-                    borderRadius: 999,
-                    background: 'rgba(8,15,30,0.75)',
-                    border: '1px solid rgba(148,163,184,0.14)',
-                    minWidth: isSixCompressorChiller ? 58 : 44,
                     justifyContent: 'center',
+                    gap: 10,
+                    flexWrap: 'wrap',
                   }}
                 >
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
-                      borderRadius: '50%',
-                      background: comp.on ? '#22c55e' : '#475569',
-                      display: 'inline-block',
-                      boxShadow: comp.on ? '0 0 10px rgba(34,197,94,0.55)' : 'none',
-                    }}
-                  />
-                  <span style={{ color: '#cbd5e1', fontSize: 12, fontWeight: 800 }}>
-                    {comp.key}
-                  </span>
+                  {compRow2.map((comp) => (
+                    <CompressorPill key={comp.key} comp={comp} wide={sixComp} />
+                  ))}
                 </div>
-              ))}
+              ) : null}
             </div>
           </div>
 
           <div style={{ display: 'grid', gap: 14 }}>
-            <div style={tempBlockStyle(blueAccent, selected)}>
-              <div style={{ color: '#7dd3fc', fontSize: 12, fontWeight: 900, letterSpacing: 1 }}>
-                CHW OUT
-              </div>
-              <div
-                style={{
-                  marginTop: 6,
-                  color: tempColor(chwOut, 'blue'),
-                  fontSize: 28,
-                  fontWeight: 900,
-                }}
-              >
-                {formatTemp(chwOut)}
-              </div>
-              <div style={{ marginTop: 4, color: '#64748b', fontSize: 12 }}>
-                leaving chilled water
-              </div>
-            </div>
+            <TempCard
+              label={rightTopLabel}
+              value={fluidTemps.out1}
+              family="blue"
+              subtitle={rightTopSubtitle}
+              selected={selected}
+            />
 
-            <div style={tempBlockStyle(redAccent, selected)}>
-              <div style={{ color: '#fda4af', fontSize: 12, fontWeight: 900, letterSpacing: 1 }}>
-                COND OUT
-              </div>
-              <div
-                style={{
-                  marginTop: 6,
-                  color: tempColor(condOut, 'red'),
-                  fontSize: 28,
-                  fontWeight: 900,
-                }}
-              >
-                {formatTemp(condOut)}
-              </div>
-              <div style={{ marginTop: 4, color: '#64748b', fontSize: 12 }}>
-                leaving condenser water
-              </div>
-            </div>
+            <TempCard
+              label={rightBottomLabel}
+              value={fluidTemps.out2}
+              family={sixComp ? 'blue' : 'red'}
+              subtitle={rightBottomSubtitle}
+              selected={selected}
+            />
           </div>
         </div>
       </div>
