@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, ArrowLeft, Wind } from 'lucide-react'
+import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import ChillerIllustration from '../components/monitoring/ChillerIllustration'
 import BarrelIllustration from '../components/monitoring/BarrelIllustration'
