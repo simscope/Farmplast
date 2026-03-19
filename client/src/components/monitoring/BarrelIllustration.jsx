@@ -1,14 +1,38 @@
 import React from 'react'
-import { Gauge, Package, Waves } from 'lucide-react'
+import { Gauge, Package, Waves, Radar, Activity } from 'lucide-react'
 import StatusPill from './StatusPill'
 import { formatValue, getAssetStatus, statCardStyle } from '../../utils/monitoringHelpers'
 
+function getPoint(asset, matcher) {
+  return asset?.points?.find((p) => matcher(String(p.point_code || '').toUpperCase()))
+}
+
+function getNumericValue(point, fallback = 0) {
+  const n = Number(point?.value_number)
+  return Number.isFinite(n) ? n : fallback
+}
+
 export default function BarrelIllustration({ asset, isMobile }) {
   const status = getAssetStatus(asset.points)
-  const levelPercentPoint = asset.points.find((p) => String(p.point_code || '').includes('PERCENT'))
-  const levelMaPoint = asset.points.find((p) => String(p.point_code || '').includes('_MA'))
-  const levelPercent = Math.max(0, Math.min(100, Number(levelPercentPoint?.value_number ?? 0)))
-  const fillColor = levelPercent < 20 ? '#ef4444' : levelPercent < 40 ? '#f59e0b' : '#22c55e'
+
+  const levelPercentPoint = getPoint(asset, (code) => code.includes('PERCENT'))
+  const levelMaPoint = getPoint(asset, (code) => code.includes('_MA'))
+  const levelMmPoint = getPoint(asset, (code) => code.includes('_MM') || code.includes('LEVEL_MM'))
+  const qualityPoint = getPoint(asset, (code) => code.includes('QUALITY') || code.includes('STATUS'))
+
+  const levelPercent = Math.max(0, Math.min(100, getNumericValue(levelPercentPoint, 0)))
+  const levelMa = levelMaPoint ? getNumericValue(levelMaPoint, 0) : null
+  const levelMm = levelMmPoint ? getNumericValue(levelMmPoint, 0) : null
+  const qualityText = qualityPoint?.value_text || qualityPoint?.quality || ''
+
+  const fillColor =
+    levelPercent < 20 ? '#ef4444' : levelPercent < 40 ? '#f59e0b' : '#22c55e'
+
+  const levelStatusText =
+    levelPercent < 20 ? 'LOW LEVEL' : levelPercent < 40 ? 'WATCH LEVEL' : 'NORMAL'
+
+  const materialConditionText =
+    levelPercent < 20 ? 'Refill required soon' : 'Stock level is acceptable'
 
   return (
     <div style={{ ...statCardStyle(isMobile), minHeight: isMobile ? 'auto' : 520 }}>
@@ -23,7 +47,9 @@ export default function BarrelIllustration({ asset, isMobile }) {
         }}
       >
         <div>
-          <div style={{ color: '#67e8f9', fontSize: 12, fontWeight: 900 }}>{asset.asset_code}</div>
+          <div style={{ color: '#67e8f9', fontSize: 12, fontWeight: 900 }}>
+            {asset.asset_code}
+          </div>
           <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 900, marginTop: 4 }}>
             {asset.asset_name}
           </div>
@@ -60,9 +86,34 @@ export default function BarrelIllustration({ asset, isMobile }) {
             </defs>
 
             <ellipse cx="140" cy="50" rx="80" ry="24" fill="#475569" opacity="0.75" />
-            <rect x="60" y="50" width="160" height="280" rx="40" fill="url(#barrelMetal)" stroke="rgba(148,163,184,0.3)" strokeWidth="4" />
-            <ellipse cx="140" cy="50" rx="80" ry="24" fill="#64748b" stroke="rgba(148,163,184,0.3)" strokeWidth="4" />
-            <ellipse cx="140" cy="330" rx="80" ry="24" fill="#1e293b" stroke="rgba(148,163,184,0.3)" strokeWidth="4" />
+            <rect
+              x="60"
+              y="50"
+              width="160"
+              height="280"
+              rx="40"
+              fill="url(#barrelMetal)"
+              stroke="rgba(148,163,184,0.3)"
+              strokeWidth="4"
+            />
+            <ellipse
+              cx="140"
+              cy="50"
+              rx="80"
+              ry="24"
+              fill="#64748b"
+              stroke="rgba(148,163,184,0.3)"
+              strokeWidth="4"
+            />
+            <ellipse
+              cx="140"
+              cy="330"
+              rx="80"
+              ry="24"
+              fill="#1e293b"
+              stroke="rgba(148,163,184,0.3)"
+              strokeWidth="4"
+            />
 
             <clipPath id="barrelClip">
               <rect x="72" y="62" width="136" height="256" rx="28" />
@@ -84,55 +135,159 @@ export default function BarrelIllustration({ asset, isMobile }) {
                 fill="rgba(255,255,255,0.22)"
               />
               {status.online ? (
-                <ellipse cx="140" cy={318 - (256 * levelPercent) / 100} rx="58" ry="8" fill="rgba(255,255,255,0.18)">
+                <ellipse
+                  cx="140"
+                  cy={318 - (256 * levelPercent) / 100}
+                  rx="58"
+                  ry="8"
+                  fill="rgba(255,255,255,0.18)"
+                >
                   <animate attributeName="ry" values="8;10;8" dur="2.6s" repeatCount="indefinite" />
                 </ellipse>
               ) : null}
             </g>
 
-            <line x1="210" y1="88" x2="250" y2="88" stroke="#38bdf8" strokeWidth="8" strokeLinecap="round" />
+            <line
+              x1="210"
+              y1="88"
+              x2="250"
+              y2="88"
+              stroke="#38bdf8"
+              strokeWidth="8"
+              strokeLinecap="round"
+            />
             <circle cx="250" cy="88" r="10" fill="#38bdf8" />
-            <text x="248" y="70" textAnchor="end" fill="#bae6fd" fontSize="12" fontWeight="700">
-              SENSOR
+            <text
+              x="248"
+              y="70"
+              textAnchor="end"
+              fill="#bae6fd"
+              fontSize="12"
+              fontWeight="700"
+            >
+              RADAR
             </text>
 
-            <text x="140" y="190" textAnchor="middle" fill="#f8fafc" fontSize="40" fontWeight="900">
+            <text
+              x="140"
+              y="190"
+              textAnchor="middle"
+              fill="#f8fafc"
+              fontSize="40"
+              fontWeight="900"
+            >
               {levelPercent.toFixed(1)}%
             </text>
-            <text x="140" y="214" textAnchor="middle" fill="#cbd5e1" fontSize="14" fontWeight="700">
+            <text
+              x="140"
+              y="214"
+              textAnchor="middle"
+              fill="#cbd5e1"
+              fontSize="14"
+              fontWeight="700"
+            >
               MATERIAL LEVEL
             </text>
           </svg>
         </div>
 
         <div style={{ display: 'grid', gap: 12 }}>
-          <div style={{ background: 'rgba(2,6,23,0.46)', borderRadius: 18, padding: 14, border: '1px solid rgba(148,163,184,0.08)' }}>
+          <div
+            style={{
+              background: 'rgba(2,6,23,0.46)',
+              borderRadius: 18,
+              padding: 14,
+              border: '1px solid rgba(148,163,184,0.08)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontWeight: 800 }}>
+              <Radar size={16} /> Radar level
+            </div>
+            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900 }}>
+              {levelPercent.toFixed(1)}%
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: 'rgba(2,6,23,0.46)',
+              borderRadius: 18,
+              padding: 14,
+              border: '1px solid rgba(148,163,184,0.08)',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontWeight: 800 }}>
               <Gauge size={16} /> Current loop
             </div>
-            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900 }}>{levelMaPoint ? formatValue(levelMaPoint) : '—'}</div>
-          </div>
-
-          <div style={{ background: 'rgba(2,6,23,0.46)', borderRadius: 18, padding: 14, border: '1px solid rgba(148,163,184,0.08)' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontWeight: 800 }}>
-              <Waves size={16} /> Live fill level
+            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900 }}>
+              {levelMaPoint ? formatValue(levelMaPoint) : '—'}
             </div>
-            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900 }}>{levelPercent.toFixed(1)}%</div>
           </div>
 
-          <div style={{ background: 'rgba(2,6,23,0.46)', borderRadius: 18, padding: 14, border: '1px solid rgba(148,163,184,0.08)' }}>
+          <div
+            style={{
+              background: 'rgba(2,6,23,0.46)',
+              borderRadius: 18,
+              padding: 14,
+              border: '1px solid rgba(148,163,184,0.08)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontWeight: 800 }}>
+              <Waves size={16} /> Measured height
+            </div>
+            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900 }}>
+              {levelMm !== null ? `${levelMm.toFixed(0)} mm` : '—'}
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: 'rgba(2,6,23,0.46)',
+              borderRadius: 18,
+              padding: 14,
+              border: '1px solid rgba(148,163,184,0.08)',
+            }}
+          >
             <div style={{ color: '#64748b', fontSize: 11, fontWeight: 800 }}>STATUS</div>
             <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: fillColor }}>
-              {levelPercent < 20 ? 'LOW LEVEL' : levelPercent < 40 ? 'WATCH LEVEL' : 'NORMAL'}
+              {levelStatusText}
             </div>
+            {qualityText ? (
+              <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8', fontWeight: 700 }}>
+                QUALITY: {qualityText}
+              </div>
+            ) : null}
           </div>
 
-          <div style={{ background: 'rgba(2,6,23,0.46)', borderRadius: 18, padding: 14, border: '1px solid rgba(148,163,184,0.08)' }}>
+          <div
+            style={{
+              background: 'rgba(2,6,23,0.46)',
+              borderRadius: 18,
+              padding: 14,
+              border: '1px solid rgba(148,163,184,0.08)',
+            }}
+          >
             <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontWeight: 800 }}>
               <Package size={16} /> Material condition
             </div>
             <div style={{ marginTop: 8, fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>
-              {levelPercent < 20 ? 'Refill required soon' : 'Stock level is acceptable'}
+              {materialConditionText}
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: 'rgba(2,6,23,0.46)',
+              borderRadius: 18,
+              padding: 14,
+              border: '1px solid rgba(148,163,184,0.08)',
+            }}
+          >
+            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontWeight: 800 }}>
+              <Activity size={16} /> Live source
+            </div>
+            <div style={{ marginTop: 8, fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>
+              RS485 radar → ESP32 → Supabase
             </div>
           </div>
         </div>
