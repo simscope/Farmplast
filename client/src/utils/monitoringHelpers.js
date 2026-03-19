@@ -1,157 +1,41 @@
 export const POLL_INTERVAL_MS = 5000
-export const ONLINE_THRESHOLD_SEC = 90
-
-export const mockRows = [
-  {
-    asset_id: '1',
-    asset_code: 'CH-NJ-01',
-    asset_name: 'Chiller 01',
-    asset_type: 'chiller',
-    point_id: '1-1',
-    point_code: 'CHW_IN',
-    point_name: 'Chilled Water In',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 52.4,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 1,
-  },
-  {
-    asset_id: '1',
-    asset_code: 'CH-NJ-01',
-    asset_name: 'Chiller 01',
-    asset_type: 'chiller',
-    point_id: '1-2',
-    point_code: 'CHW_OUT',
-    point_name: 'Chilled Water Out',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 44.6,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 2,
-  },
-  {
-    asset_id: '1',
-    asset_code: 'CH-NJ-01',
-    asset_name: 'Chiller 01',
-    asset_type: 'chiller',
-    point_id: '1-3',
-    point_code: 'COND_WATER_IN',
-    point_name: 'Condenser Water In',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 78.2,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 3,
-  },
-  {
-    asset_id: '1',
-    asset_code: 'CH-NJ-01',
-    asset_name: 'Chiller 01',
-    asset_type: 'chiller',
-    point_id: '1-4',
-    point_code: 'COND_WATER_OUT',
-    point_name: 'Condenser Water Out',
-    point_group: 'temperatures',
-    data_type: 'number',
-    value_number: 86.1,
-    unit: 'F',
-    updated_at: new Date().toISOString(),
-    display_order: 4,
-  },
-  {
-    asset_id: '1',
-    asset_code: 'CH-NJ-01',
-    asset_name: 'Chiller 01',
-    asset_type: 'chiller',
-    point_id: '1-5',
-    point_code: 'COMP_A',
-    point_name: 'Compressor A',
-    point_group: 'compressors',
-    data_type: 'boolean',
-    value_boolean: true,
-    updated_at: new Date().toISOString(),
-    display_order: 5,
-  },
-  {
-    asset_id: '1',
-    asset_code: 'CH-NJ-01',
-    asset_name: 'Chiller 01',
-    asset_type: 'chiller',
-    point_id: '1-6',
-    point_code: 'COMP_B',
-    point_name: 'Compressor B',
-    point_group: 'compressors',
-    data_type: 'boolean',
-    value_boolean: false,
-    updated_at: new Date().toISOString(),
-    display_order: 6,
-  },
-  {
-    asset_id: '4',
-    asset_code: 'BARREL-NJ-01',
-    asset_name: 'Material Barrel 1',
-    asset_type: 'barrel',
-    point_id: '4-1',
-    point_code: 'LEVEL_PERCENT',
-    point_name: 'Level Percent',
-    point_group: 'level',
-    data_type: 'number',
-    value_number: 67.8,
-    unit: '%',
-    updated_at: new Date().toISOString(),
-    display_order: 1,
-  },
-  {
-    asset_id: '4',
-    asset_code: 'BARREL-NJ-01',
-    asset_name: 'Material Barrel 1',
-    asset_type: 'barrel',
-    point_id: '4-2',
-    point_code: 'LEVEL_MA',
-    point_name: 'Current Loop',
-    point_group: 'level',
-    data_type: 'number',
-    value_number: 14.84,
-    unit: 'mA',
-    updated_at: new Date().toISOString(),
-    display_order: 2,
-  },
-]
+export const ONLINE_THRESHOLD_SEC = 15
 
 export function normalizeRow(row) {
   return {
-    asset_id: row.asset_id,
-    asset_code: row.asset_code,
-    asset_name: row.asset_name,
-    asset_type: row.asset_type,
-    point_id: row.point_id,
-    point_code: row.point_code,
-    point_name: row.point_name,
-    point_group: row.point_group,
-    data_type: row.data_type,
+    asset_id: row?.asset_id ?? null,
+    asset_code: row?.asset_code ?? '',
+    asset_name: row?.asset_name ?? '',
+    asset_type: row?.asset_type ?? '',
+    point_id: row?.point_id ?? null,
+    point_code: row?.point_code ?? '',
+    point_name: row?.point_name ?? '',
+    point_group: row?.point_group ?? '',
+    data_type: row?.data_type ?? '',
     value_number:
-      row.value_number === null || row.value_number === undefined
+      row?.value_number === null || row?.value_number === undefined || row?.value_number === ''
         ? null
         : Number(row.value_number),
     value_boolean:
-      row.value_boolean === null || row.value_boolean === undefined
+      row?.value_boolean === null || row?.value_boolean === undefined
         ? null
         : row.value_boolean,
-    value_text: row.value_text,
-    unit: row.unit || '',
-    updated_at: row.updated_at,
-    display_order: row.display_order ?? 0,
+    value_text: row?.value_text ?? '',
+    unit: row?.unit || '',
+    updated_at: row?.updated_at || row?.created_at || null,
+    display_order: row?.display_order ?? 0,
   }
 }
 
 export function formatValue(point) {
-  if (point?.data_type === 'boolean') return point.value_boolean ? 'ON' : 'OFF'
+  if (!point) return '—'
 
-  if (point?.data_type === 'number') {
+  if (point.data_type === 'boolean') {
+    if (point.value_boolean === null || point.value_boolean === undefined) return '—'
+    return point.value_boolean ? 'ON' : 'OFF'
+  }
+
+  if (point.data_type === 'number') {
     if (point.value_number === null || point.value_number === undefined) return '—'
     const num = Number(point.value_number)
     if (Number.isNaN(num)) return '—'
@@ -161,37 +45,58 @@ export function formatValue(point) {
     return `${num.toFixed(1)}${point.unit ? ` ${point.unit}` : ''}`
   }
 
-  return point?.value_text || '—'
+  return point.value_text || '—'
 }
 
-export function getLatestTime(points) {
+export function getLatestTime(points = []) {
   let latest = null
+
   for (const p of points) {
     if (!p?.updated_at) continue
+
     const d = new Date(p.updated_at)
     if (Number.isNaN(d.getTime())) continue
-    if (!latest || d > latest) latest = d
+
+    if (!latest || d.getTime() > latest.getTime()) {
+      latest = d
+    }
   }
+
   return latest
 }
 
-export function getAssetStatus(points) {
+export function getAssetStatus(points = []) {
   const latest = getLatestTime(points)
-  if (!latest) return { online: false, label: 'OFFLINE' }
+
+  if (!latest) {
+    return {
+      online: false,
+      label: 'OFFLINE',
+      lastSeenAt: null,
+      secondsAgo: null,
+    }
+  }
 
   const secondsAgo = Math.floor((Date.now() - latest.getTime()) / 1000)
+  const online = secondsAgo <= ONLINE_THRESHOLD_SEC
+
   return {
-    online: secondsAgo <= ONLINE_THRESHOLD_SEC,
-    label: secondsAgo <= ONLINE_THRESHOLD_SEC ? 'ONLINE' : 'OFFLINE',
+    online,
+    label: online ? 'ONLINE' : 'OFFLINE',
+    lastSeenAt: latest.toISOString(),
+    secondsAgo,
   }
 }
 
-export function groupAssets(rows) {
+export function groupAssets(rows = []) {
   const grouped = {}
 
-  for (const row of rows) {
-    if (!grouped[row.asset_code]) {
-      grouped[row.asset_code] = {
+  for (const raw of rows) {
+    const row = normalizeRow(raw)
+    const key = row.asset_code || row.asset_id || `unknown-${row.point_id || Math.random()}`
+
+    if (!grouped[key]) {
+      grouped[key] = {
         asset_id: row.asset_id,
         asset_code: row.asset_code,
         asset_name: row.asset_name,
@@ -199,15 +104,23 @@ export function groupAssets(rows) {
         points: [],
       }
     }
-    grouped[row.asset_code].points.push(row)
+
+    grouped[key].points.push(row)
   }
 
   return Object.values(grouped)
     .map((asset) => ({
       ...asset,
-      points: [...asset.points].sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)),
+      points: [...asset.points].sort(
+        (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
+      ),
     }))
-    .sort((a, b) => a.asset_code.localeCompare(b.asset_code))
+    .sort((a, b) =>
+      String(a.asset_code || '').localeCompare(String(b.asset_code || ''), undefined, {
+        numeric: true,
+        sensitivity: 'base',
+      })
+    )
 }
 
 export function statCardStyle(isMobile = false) {
