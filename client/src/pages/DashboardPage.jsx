@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import {
   LayoutDashboard,
   LogOut,
@@ -16,6 +17,7 @@ import {
   Phone,
   Mail,
   Briefcase,
+  Calculator,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -538,6 +540,14 @@ export default function DashboardPage() {
             </div>
 
             <div className="flex flex-wrap gap-3">
+              <Link
+                to="/accounting"
+                className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-600/10 px-5 py-3 font-semibold text-emerald-300 transition hover:bg-emerald-600/20"
+              >
+                <Calculator size={18} />
+                Accounting
+              </Link>
+
               <button
                 onClick={loadEmployees}
                 className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 font-semibold text-white transition hover:border-cyan-500"
