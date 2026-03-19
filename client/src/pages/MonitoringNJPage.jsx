@@ -3,7 +3,6 @@ import { AlertTriangle, ArrowLeft, Wind } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import ChillerIllustration from '../components/monitoring/ChillerIllustration'
 import BarrelIllustration from '../components/monitoring/BarrelIllustration'
-import DetailPanel from '../components/monitoring/DetailPanel'
 import {
   POLL_INTERVAL_MS,
   mockRows,
@@ -32,6 +31,12 @@ function useViewport() {
     isTablet: width >= 768 && width < 1200,
     isDesktop: width >= 1200,
   }
+}
+
+function barrelSort(a, b) {
+  const codeA = String(a?.asset_code || '')
+  const codeB = String(b?.asset_code || '')
+  return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
 }
 
 export default function MonitoringNJPage() {
@@ -98,16 +103,26 @@ export default function MonitoringNJPage() {
   }, [])
 
   const assets = useMemo(() => groupAssets(rows), [rows])
+
   const njAssets = useMemo(
-    () => assets.filter((a) => String(a.asset_code || '').includes('-NJ-')),
+    () =>
+      assets.filter((a) => {
+        const code = String(a.asset_code || '').toUpperCase()
+        return code.includes('-NJ-') || code === 'CH2' || code === 'CH3'
+      }),
     [assets]
   )
+
   const chillers = useMemo(
     () => njAssets.filter((a) => String(a.asset_type || '').toLowerCase() === 'chiller'),
     [njAssets]
   )
-  const barrel = useMemo(
-    () => njAssets.find((a) => String(a.asset_type || '').toLowerCase() === 'barrel'),
+
+  const barrels = useMemo(
+    () =>
+      njAssets
+        .filter((a) => String(a.asset_type || '').toLowerCase() === 'barrel')
+        .sort(barrelSort),
     [njAssets]
   )
 
@@ -188,6 +203,7 @@ export default function MonitoringNJPage() {
             <div style={{ color: '#67e8f9', fontSize: 13, fontWeight: 900, letterSpacing: 1.2 }}>
               FARMPLAST / NEW JERSEY
             </div>
+
             <h1
               style={{
                 margin: '8px 0 8px',
@@ -197,8 +213,9 @@ export default function MonitoringNJPage() {
             >
               Plant HMI Dashboard
             </h1>
+
             <div style={{ color: '#cbd5e1', fontSize: isMobile ? 14 : 15 }}>
-              Three chillers and one material barrel with animated industrial visualization
+              Three chillers and material barrels with animated industrial visualization
             </div>
           </div>
 
@@ -217,27 +234,59 @@ export default function MonitoringNJPage() {
                 {summary.total}
               </div>
             </div>
+
             <div style={statCardStyle(isMobile)}>
               <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>ONLINE</div>
-              <div style={{ marginTop: 4, fontSize: isMobile ? 24 : 30, fontWeight: 900, color: '#4ade80' }}>
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: isMobile ? 24 : 30,
+                  fontWeight: 900,
+                  color: '#4ade80',
+                }}
+              >
                 {summary.online}
               </div>
             </div>
+
             <div style={statCardStyle(isMobile)}>
               <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>OFFLINE</div>
-              <div style={{ marginTop: 4, fontSize: isMobile ? 24 : 30, fontWeight: 900, color: '#f87171' }}>
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: isMobile ? 24 : 30,
+                  fontWeight: 900,
+                  color: '#f87171',
+                }}
+              >
                 {summary.offline}
               </div>
             </div>
+
             <div style={statCardStyle(isMobile)}>
               <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>COMP ON</div>
-              <div style={{ marginTop: 4, fontSize: isMobile ? 24 : 30, fontWeight: 900, color: '#38bdf8' }}>
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: isMobile ? 24 : 30,
+                  fontWeight: 900,
+                  color: '#38bdf8',
+                }}
+              >
                 {summary.compressorsOn}
               </div>
             </div>
+
             <div style={statCardStyle(isMobile)}>
               <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>BARREL</div>
-              <div style={{ marginTop: 4, fontSize: isMobile ? 24 : 30, fontWeight: 900, color: '#facc15' }}>
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: isMobile ? 24 : 30,
+                  fontWeight: 900,
+                  color: '#facc15',
+                }}
+              >
                 {summary.barrelLevel.toFixed(0)}%
               </div>
             </div>
@@ -285,11 +334,34 @@ export default function MonitoringNJPage() {
             </div>
 
             <div style={{ display: 'grid', gap: 18 }}>
-              <DetailPanel asset={selectedAsset} isMobile={isMobile} />
-              {barrel ? (
-                <BarrelIllustration asset={barrel} isMobile={isMobile} />
+              {barrels[0] ? (
+                <BarrelIllustration asset={barrels[0]} isMobile={isMobile} />
               ) : (
-                <div style={statCardStyle(isMobile)}>No barrel telemetry yet.</div>
+                <div style={statCardStyle(isMobile)}>No barrel 1 telemetry yet.</div>
+              )}
+
+              {barrels[1] ? (
+                <BarrelIllustration asset={barrels[1]} isMobile={isMobile} />
+              ) : (
+                <div style={statCardStyle(isMobile)}>
+                  <div
+                    style={{
+                      color: '#67e8f9',
+                      fontSize: 13,
+                      fontWeight: 900,
+                      letterSpacing: 1,
+                      marginBottom: 8,
+                    }}
+                  >
+                    BARREL-NJ-02
+                  </div>
+                  <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 6 }}>
+                    Material Barrel 2
+                  </div>
+                  <div style={{ color: '#94a3b8', fontSize: 14 }}>
+                    Second barrel is not in telemetry yet.
+                  </div>
+                </div>
               )}
 
               <div style={statCardStyle(isMobile)}>
@@ -306,11 +378,12 @@ export default function MonitoringNJPage() {
                   <Wind size={16} />
                   System notes
                 </div>
+
                 <div style={{ display: 'grid', gap: 10, color: '#cbd5e1', fontSize: 14 }}>
-                  <div>• Blue line = chilled water circuit</div>
-                  <div>• Red line = condenser / warm return circuit</div>
-                  <div>• Fan animation indicates equipment communication is online</div>
-                  <div>• Barrel graphic is driven by live percent value or demo fallback</div>
+                  <div>• Chillers show live process temperatures and compressor sections</div>
+                  <div>• Right column is reserved for barrel monitoring only</div>
+                  <div>• Add BARREL-NJ-02 in assets and points to replace the placeholder with live data</div>
+                  <div>• Online status is based on latest telemetry timestamp freshness</div>
                 </div>
               </div>
             </div>
