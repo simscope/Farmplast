@@ -68,55 +68,114 @@ export function getLatestTime(points = []) {
   return latest
 }
 
-function isRealNumberValue(point) {
-  if (point?.data_type !== 'number') return false
-  if (point.value_number === null || point.value_number === undefined) return false
-  if (Number.isNaN(Number(point.value_number))) return false
+function isBarrelPointMeaningful(point) {
+  const code = String(point?.point_code || '').toUpperCase()
+  const name = String(point?.point_name || '').toUpperCase()
+  const group = String(point?.point_group || '').toUpperCase()
+  const text = String(point?.value_text || '').trim()
 
-  const code = String(point.point_code || '').toUpperCase()
-  const group = String(point.point_group || '').toUpperCase()
-  const unit = String(point.unit || '').toUpperCase()
-  const value = Number(point.value_number)
-
-  if (code.includes('LEVEL') || group.includes('LEVEL') || unit === '%') {
-    return value > 0
+  if (point?.data_type === 'boolean') {
+    return point.value_boolean !== null && point.value_boolean !== undefined
   }
+
+  if (point?.data_type === 'number') {
+    if (point.value_number === null || point.value_number === undefined) return false
+    if (Number.isNaN(Number(point.value_number))) return false
+
+    // Для barrel 0% тоже реальное значение
+    if (
+      code.includes('LEVEL') ||
+      code.includes('RADAR') ||
+      code.includes('DISTANCE') ||
+      group.includes('LEVEL') ||
+      name.includes('LEVEL') ||
+      point.unit === '%'
+    ) {
+      return true
+    }
+
+    // Любое числовое значение тоже можно считать телеметрией
+    return true
+  }
+
+  if (text !== '') return true
 
   if (
-    code.includes('TEMP') ||
-    code.includes('CHW') ||
-    code.includes('COND') ||
-    code.includes('INLET') ||
-    code.includes('OUTLET') ||
-    code.includes('SUCTION') ||
-    code.includes('DISCHARGE') ||
-    code.includes('PRESSURE') ||
-    unit === 'F' ||
-    unit === 'PSI'
+    code.includes('STATUS') ||
+    code.includes('ALARM') ||
+    code.includes('LOW') ||
+    name.includes('STATUS') ||
+    name.includes('ALARM')
   ) {
-    return value > 0
+    return true
   }
 
-  return value !== 0
+  return false
 }
 
-function isRealBooleanValue(point) {
-  if (point?.data_type !== 'boolean') return false
-  return point.value_boolean === true
+function isChillerPointMeaningful(point) {
+  const code = String(point?.point_code || '').toUpperCase()
+  const group = String(point?.point_group || '').toUpperCase()
+  const text = String(point?.value_text || '').trim()
+
+  if (point?.data_type === 'boolean') {
+    return point.value_boolean === true
+  }
+
+  if (point?.data_type === 'number') {
+    if (point.value_number === null || point.value_number === undefined) return false
+    if (Number.isNaN(Number(point.value_number))) return false
+
+    const value = Number(point.value_number)
+
+    if (
+      code.includes('TEMP') ||
+      code.includes('CHW') ||
+      code.includes('COND') ||
+      code.includes('INLET') ||
+      code.includes('OUTLET') ||
+      code.includes('SUCTION') ||
+      code.includes('DISCHARGE') ||
+      code.includes('PRESSURE') ||
+      group.includes('TEMPERATURE') ||
+      group.includes('PRESSURE')
+    ) {
+      return value > 0
+    }
+
+    if (group.includes('COMPRESSOR') || code.includes('COMP')) {
+      return value > 0
+    }
+
+    return value !== 0
+  }
+
+  return text !== ''
 }
 
-function isRealTextValue(point) {
-  if (!point || point.data_type === 'number' || point.data_type === 'boolean') return false
-  return String(point.value_text || '').trim() !== ''
-}
+export function hasRealTelemetry(points = [], assetType = '') {
+  const type = String(assetType || '').toLowerCase()
 
-export function hasRealTelemetry(points = []) {
+  if (!points.length) return false
+
+  if (type === 'barrel') {
+    return points.some((point) => isBarrelPointMeaningful(point))
+  }
+
+  if (type === 'chiller') {
+    return points.some((point) => isChillerPointMeaningful(point))
+  }
+
   return points.some((point) => {
-    return (
-      isRealNumberValue(point) ||
-      isRealBooleanValue(point) ||
-      isRealTextValue(point)
-    )
+    if (point?.data_type === 'boolean') {
+      return point.value_boolean !== null && point.value_boolean !== undefined
+    }
+
+    if (point?.data_type === 'number') {
+      return point.value_number !== null && point.value_number !== undefined && !Number.isNaN(Number(point.value_number))
+    }
+
+    return String(point?.value_text || '').trim() !== ''
   })
 }
 
@@ -125,13 +184,17 @@ export function hasAlarm(points = []) {
     const code = String(point?.point_code || '').toUpperCase()
     const name = String(point?.point_name || '').toUpperCase()
     const group = String(point?.point_group || '').toUpperCase()
+    const text = String(point?.value_text || '').trim().toUpperCase()
 
     const looksLikeAlarm =
       code.includes('ALARM') ||
       name.includes('ALARM') ||
       group.includes('ALARM') ||
       code.includes('FAULT') ||
-      name.includes('FAULT')
+      name.includes('FAULT') ||
+      code.includes('LOW') ||
+      name.includes('LOW') ||
+      text.includes('ALARM')
 
     if (!looksLikeAlarm) return false
 
@@ -140,14 +203,19 @@ export function hasAlarm(points = []) {
     }
 
     if (point.data_type === 'number') {
-      return point.value_number !== null && Number(point.value_number) > 0
+      return point.value_number !== null && !Number.isNaN(Number(point.value_number)) && Number(point.value_number) > 0
     }
 
-    return String(point.value_text || '').trim() !== ''
+    return text !== ''
   })
 }
 
-export function getAssetStatus(points = []) {
+export function getAssetStatus(assetOrPoints = [], maybeAssetType = '') {
+  const isArrayInput = Array.isArray(assetOrPoints)
+
+  const points = isArrayInput ? assetOrPoints : assetOrPoints?.points || []
+  const assetType = isArrayInput ? maybeAssetType : assetOrPoints?.asset_type || ''
+
   const latest = getLatestTime(points)
 
   if (!latest) {
@@ -163,7 +231,7 @@ export function getAssetStatus(points = []) {
 
   const secondsAgo = Math.floor((Date.now() - latest.getTime()) / 1000)
   const isFresh = secondsAgo <= ONLINE_THRESHOLD_SEC
-  const realData = hasRealTelemetry(points)
+  const realData = hasRealTelemetry(points, assetType)
   const alarm = hasAlarm(points)
   const online = isFresh && realData
 
