@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
 
     const fallbackProfile = buildFallbackProfile(authUser)
 
-    // Сразу ставим fallback, чтобы ProtectedRoute не зависал
+    // Ставим профиль сразу, чтобы UI не ждал таблицу profiles
     setProfile(fallbackProfile)
 
     try {
@@ -55,7 +55,7 @@ export function AuthProvider({ children }) {
     }
   }
 
-  async function applySession(nextSession) {
+  function applySession(nextSession) {
     const authUser = nextSession?.user || null
 
     setSession(nextSession || null)
@@ -66,7 +66,9 @@ export function AuthProvider({ children }) {
       return
     }
 
-    await loadProfile(authUser)
+    // Важно: НЕ await
+    // Профиль грузим в фоне, а auth не блокируем
+    loadProfile(authUser)
   }
 
   useEffect(() => {
@@ -91,7 +93,7 @@ export function AuthProvider({ children }) {
           return
         }
 
-        await applySession(currentSession || null)
+        applySession(currentSession || null)
       } catch (err) {
         console.error('initAuth error:', err)
 
@@ -111,9 +113,9 @@ export function AuthProvider({ children }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    } = supabase.auth.onAuthStateChange((_event, nextSession) => {
       try {
-        await applySession(nextSession || null)
+        applySession(nextSession || null)
       } catch (err) {
         console.error('onAuthStateChange error:', err)
       } finally {
@@ -142,7 +144,7 @@ export function AuthProvider({ children }) {
         return result
       }
 
-      await applySession(result.data?.session || null)
+      applySession(result.data?.session || null)
 
       return result
     } catch (err) {
@@ -161,17 +163,13 @@ export function AuthProvider({ children }) {
 
     try {
       const result = await supabase.auth.signOut()
-
       setSession(null)
       setUser(null)
       setProfile(null)
-
       return result
     } catch (err) {
       console.error('signOut crash:', err)
-      return {
-        error: err,
-      }
+      return { error: err }
     } finally {
       setLoading(false)
     }
