@@ -1,38 +1,39 @@
 import React from 'react'
-import { Gauge, Package, Waves, Radar, Activity } from 'lucide-react'
+import { Radar, Gauge, Package, Activity } from 'lucide-react'
 import StatusPill from './StatusPill'
 import { formatValue, getAssetStatus, statCardStyle } from '../../utils/monitoringHelpers'
 
-function getPoint(asset, matcher) {
+function findPoint(asset, matcher) {
   return asset?.points?.find((p) => matcher(String(p.point_code || '').toUpperCase()))
 }
 
-function getNumericValue(point, fallback = 0) {
+function getNumeric(point, fallback = 0) {
   const n = Number(point?.value_number)
   return Number.isFinite(n) ? n : fallback
 }
 
 export default function BarrelIllustration({ asset, isMobile }) {
-  const status = getAssetStatus(asset.points)
+  const status = getAssetStatus(asset?.points || [])
 
-  const levelPercentPoint = getPoint(asset, (code) => code.includes('PERCENT'))
-  const levelMaPoint = getPoint(asset, (code) => code.includes('_MA'))
-  const levelMmPoint = getPoint(asset, (code) => code.includes('_MM') || code.includes('LEVEL_MM'))
-  const qualityPoint = getPoint(asset, (code) => code.includes('QUALITY') || code.includes('STATUS'))
+  const levelPercentPoint = findPoint(asset, (code) => code.includes('LEVEL_PERCENT') || code.includes('PERCENT'))
+  const levelMaPoint = findPoint(asset, (code) => code.includes('LEVEL_MA') || code.endsWith('_MA'))
 
-  const levelPercent = Math.max(0, Math.min(100, getNumericValue(levelPercentPoint, 0)))
-  const levelMa = levelMaPoint ? getNumericValue(levelMaPoint, 0) : null
-  const levelMm = levelMmPoint ? getNumericValue(levelMmPoint, 0) : null
-  const qualityText = qualityPoint?.value_text || qualityPoint?.quality || ''
+  const levelPercent = Math.max(0, Math.min(100, getNumeric(levelPercentPoint, 0)))
+  const levelMa = levelMaPoint ? getNumeric(levelMaPoint, 0) : null
 
   const fillColor =
     levelPercent < 20 ? '#ef4444' : levelPercent < 40 ? '#f59e0b' : '#22c55e'
 
-  const levelStatusText =
-    levelPercent < 20 ? 'LOW LEVEL' : levelPercent < 40 ? 'WATCH LEVEL' : 'NORMAL'
+  const fillHeight = Math.max(8, (levelPercent / 100) * 240)
 
-  const materialConditionText =
-    levelPercent < 20 ? 'Refill required soon' : 'Stock level is acceptable'
+  const statusText =
+    levelPercent < 10
+      ? 'ALARM LOW'
+      : levelPercent < 20
+        ? 'LOW LEVEL'
+        : levelPercent < 40
+          ? 'WATCH LEVEL'
+          : 'NORMAL'
 
   return (
     <div style={{ ...statCardStyle(isMobile), minHeight: isMobile ? 'auto' : 520 }}>
@@ -48,12 +49,13 @@ export default function BarrelIllustration({ asset, isMobile }) {
       >
         <div>
           <div style={{ color: '#67e8f9', fontSize: 12, fontWeight: 900 }}>
-            {asset.asset_code}
+            {asset?.asset_code || 'BARREL'}
           </div>
           <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 900, marginTop: 4 }}>
-            {asset.asset_name}
+            {asset?.asset_name || 'Material Barrel'}
           </div>
         </div>
+
         <StatusPill online={status.online} />
       </div>
 
@@ -122,44 +124,33 @@ export default function BarrelIllustration({ asset, isMobile }) {
             <g clipPath="url(#barrelClip)">
               <rect
                 x="72"
-                y={318 - (256 * levelPercent) / 100}
+                y={318 - fillHeight}
                 width="136"
-                height={(256 * levelPercent) / 100}
+                height={fillHeight}
                 fill="url(#barrelFillGradient)"
               />
               <ellipse
                 cx="140"
-                cy={318 - (256 * levelPercent) / 100}
+                cy={318 - fillHeight}
                 rx="68"
                 ry="12"
-                fill="rgba(255,255,255,0.22)"
+                fill="rgba(255,255,255,0.18)"
               />
-              {status.online ? (
-                <ellipse
-                  cx="140"
-                  cy={318 - (256 * levelPercent) / 100}
-                  rx="58"
-                  ry="8"
-                  fill="rgba(255,255,255,0.18)"
-                >
-                  <animate attributeName="ry" values="8;10;8" dur="2.6s" repeatCount="indefinite" />
-                </ellipse>
-              ) : null}
             </g>
 
             <line
-              x1="210"
-              y1="88"
-              x2="250"
-              y2="88"
+              x1="206"
+              y1="90"
+              x2="248"
+              y2="90"
               stroke="#38bdf8"
               strokeWidth="8"
               strokeLinecap="round"
             />
-            <circle cx="250" cy="88" r="10" fill="#38bdf8" />
+            <circle cx="248" cy="90" r="10" fill="#38bdf8" />
             <text
               x="248"
-              y="70"
+              y="72"
               textAnchor="end"
               fill="#bae6fd"
               fontSize="12"
@@ -170,7 +161,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
 
             <text
               x="140"
-              y="190"
+              y="188"
               textAnchor="middle"
               fill="#f8fafc"
               fontSize="40"
@@ -222,21 +213,8 @@ export default function BarrelIllustration({ asset, isMobile }) {
             <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900 }}>
               {levelMaPoint ? formatValue(levelMaPoint) : '—'}
             </div>
-          </div>
-
-          <div
-            style={{
-              background: 'rgba(2,6,23,0.46)',
-              borderRadius: 18,
-              padding: 14,
-              border: '1px solid rgba(148,163,184,0.08)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: '#cbd5e1', fontWeight: 800 }}>
-              <Waves size={16} /> Measured height
-            </div>
-            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 900 }}>
-              {levelMm !== null ? `${levelMm.toFixed(0)} mm` : '—'}
+            <div style={{ marginTop: 4, fontSize: 12, color: '#94a3b8' }}>
+              virtual 4–20 mA for compatibility
             </div>
           </div>
 
@@ -250,13 +228,8 @@ export default function BarrelIllustration({ asset, isMobile }) {
           >
             <div style={{ color: '#64748b', fontSize: 11, fontWeight: 800 }}>STATUS</div>
             <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: fillColor }}>
-              {levelStatusText}
+              {statusText}
             </div>
-            {qualityText ? (
-              <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8', fontWeight: 700 }}>
-                QUALITY: {qualityText}
-              </div>
-            ) : null}
           </div>
 
           <div
@@ -271,7 +244,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
               <Package size={16} /> Material condition
             </div>
             <div style={{ marginTop: 8, fontSize: 15, fontWeight: 800, color: '#e2e8f0' }}>
-              {materialConditionText}
+              {levelPercent < 20 ? 'Refill required soon' : 'Stock level is acceptable'}
             </div>
           </div>
 
