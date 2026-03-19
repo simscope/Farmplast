@@ -408,29 +408,6 @@ export default function MonitoringNJPage() {
                 </div>
               )}
 
-              <div style={statCardStyle(isMobile)}>
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    color: '#cbd5e1',
-                    fontWeight: 900,
-                    marginBottom: 12,
-                  }}
-                >
-                  <Wind size={16} />
-                  System notes
-                </div>
-
-                <div style={{ display: 'grid', gap: 10, color: '#cbd5e1', fontSize: 14 }}>
-                  <div>• Demo mode is fully removed</div>
-                  <div>• Online status uses fresh live telemetry timestamps</div>
-                  <div>• Asset type is now respected when determining ONLINE/OFFLINE</div>
-                  <div>• Chillers and barrels are validated differently</div>
-                  <div>• No fake fallback values are shown when live data is missing</div>
-                </div>
-              </div>
             </div>
           </div>
         )}
