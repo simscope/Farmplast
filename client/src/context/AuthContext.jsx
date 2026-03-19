@@ -3,6 +3,17 @@ import { supabase } from '../lib/supabase'
 
 const AuthContext = createContext(null)
 
+function buildFallbackProfile(authUser) {
+  if (!authUser?.id) return null
+
+  return {
+    id: authUser.id,
+    email: authUser.email || null,
+    full_name: authUser.user_metadata?.full_name || '',
+    role: authUser.user_metadata?.role || 'user',
+  }
+}
+
 export function AuthProvider({ children }) {
   const [session, setSession] = useState(null)
   const [user, setUser] = useState(null)
@@ -15,6 +26,11 @@ export function AuthProvider({ children }) {
       return null
     }
 
+    const fallbackProfile = buildFallbackProfile(authUser)
+
+    // Сразу ставим fallback, чтобы ProtectedRoute не зависал
+    setProfile(fallbackProfile)
+
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -24,33 +40,33 @@ export function AuthProvider({ children }) {
 
       if (error) {
         console.error('Error loading profile:', error)
-        setProfile(null)
-        return null
+        return fallbackProfile
       }
 
-      const safeProfile =
-        data || {
-          id: authUser.id,
-          email: authUser.email || null,
-          full_name: authUser.user_metadata?.full_name || '',
-          role: authUser.user_metadata?.role || 'user',
-        }
+      if (data) {
+        setProfile(data)
+        return data
+      }
 
-      setProfile(safeProfile)
-      return safeProfile
+      return fallbackProfile
     } catch (err) {
       console.error('loadProfile crash:', err)
-
-      const fallbackProfile = {
-        id: authUser.id,
-        email: authUser.email || null,
-        full_name: authUser.user_metadata?.full_name || '',
-        role: authUser.user_metadata?.role || 'user',
-      }
-
-      setProfile(fallbackProfile)
       return fallbackProfile
     }
+  }
+
+  async function applySession(nextSession) {
+    const authUser = nextSession?.user || null
+
+    setSession(nextSession || null)
+    setUser(authUser)
+
+    if (!authUser) {
+      setProfile(null)
+      return
+    }
+
+    await loadProfile(authUser)
   }
 
   useEffect(() => {
@@ -75,16 +91,7 @@ export function AuthProvider({ children }) {
           return
         }
 
-        const authUser = currentSession?.user || null
-
-        setSession(currentSession || null)
-        setUser(authUser)
-
-        if (authUser) {
-          await loadProfile(authUser)
-        } else {
-          setProfile(null)
-        }
+        await applySession(currentSession || null)
       } catch (err) {
         console.error('initAuth error:', err)
 
@@ -105,18 +112,15 @@ export function AuthProvider({ children }) {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
-      const authUser = nextSession?.user || null
-
-      setSession(nextSession || null)
-      setUser(authUser)
-
-      if (authUser) {
-        await loadProfile(authUser)
-      } else {
-        setProfile(null)
+      try {
+        await applySession(nextSession || null)
+      } catch (err) {
+        console.error('onAuthStateChange error:', err)
+      } finally {
+        if (mounted) {
+          setLoading(false)
+        }
       }
-
-      setLoading(false)
     })
 
     return () => {
@@ -138,19 +142,15 @@ export function AuthProvider({ children }) {
         return result
       }
 
-      const freshSession = result.data?.session || null
-      const authUser = freshSession?.user || null
-
-      setSession(freshSession)
-      setUser(authUser)
-
-      if (authUser) {
-        await loadProfile(authUser)
-      } else {
-        setProfile(null)
-      }
+      await applySession(result.data?.session || null)
 
       return result
+    } catch (err) {
+      console.error('signIn crash:', err)
+      return {
+        data: null,
+        error: err,
+      }
     } finally {
       setLoading(false)
     }
@@ -161,10 +161,17 @@ export function AuthProvider({ children }) {
 
     try {
       const result = await supabase.auth.signOut()
+
       setSession(null)
       setUser(null)
       setProfile(null)
+
       return result
+    } catch (err) {
+      console.error('signOut crash:', err)
+      return {
+        error: err,
+      }
     } finally {
       setLoading(false)
     }
