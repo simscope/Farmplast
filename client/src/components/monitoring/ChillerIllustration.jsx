@@ -95,27 +95,161 @@ function getStatus(points) {
   return { online, alarm }
 }
 
-function getCompressors(points) {
-  const aliases = [
-    { key: 'A', terms: ['COMPRESSOR A', 'COMP A', 'COMP_A', 'COMP-A', 'COMP1', 'COMP 1'] },
-    { key: 'B', terms: ['COMPRESSOR B', 'COMP B', 'COMP_B', 'COMP-B', 'COMP2', 'COMP 2'] },
-    { key: 'C', terms: ['COMPRESSOR C', 'COMP C', 'COMP_C', 'COMP-C', 'COMP3', 'COMP 3'] },
-    { key: 'D', terms: ['COMPRESSOR D', 'COMP D', 'COMP_D', 'COMP-D', 'COMP4', 'COMP 4'] },
-    { key: 'E', terms: ['COMPRESSOR E', 'COMP E', 'COMP_E', 'COMP-E', 'COMP5', 'COMP 5'] },
-    { key: 'F', terms: ['COMPRESSOR F', 'COMP F', 'COMP_F', 'COMP-F', 'COMP6', 'COMP 6'] },
+function getCompressorLayout(assetCode) {
+  const code = String(assetCode || '').toUpperCase()
+
+  if (code === 'CH-NJ-02' || code === 'CH-NJ-03' || code === 'CH2' || code === 'CH3') {
+    return [
+      {
+        key: '1A',
+        terms: [
+          '1A',
+          'COMPRESSOR 1A',
+          'COMP 1A',
+          'COMP_1A',
+          'COMP1A',
+          '1A STATUS',
+          'CIRCUIT 1 COMP A',
+          'SECTION 1 COMP A',
+          'CH2_COMP_1A',
+          'CH2_COMP_1A_STATUS',
+          'CH3_COMP_1A',
+          'CH3_COMP_1A_STATUS',
+          'COMPRESSOR_1A_STATUS',
+        ],
+      },
+      {
+        key: '1B',
+        terms: [
+          '1B',
+          'COMPRESSOR 1B',
+          'COMP 1B',
+          'COMP_1B',
+          'COMP1B',
+          '1B STATUS',
+          'CIRCUIT 1 COMP B',
+          'SECTION 1 COMP B',
+          'CH2_COMP_1B',
+          'CH2_COMP_1B_STATUS',
+          'CH3_COMP_1B',
+          'CH3_COMP_1B_STATUS',
+          'COMPRESSOR_1B_STATUS',
+        ],
+      },
+      {
+        key: '1C',
+        terms: [
+          '1C',
+          'COMPRESSOR 1C',
+          'COMP 1C',
+          'COMP_1C',
+          'COMP1C',
+          '1C STATUS',
+          'CIRCUIT 1 COMP C',
+          'SECTION 1 COMP C',
+          'CH2_COMP_1C',
+          'CH2_COMP_1C_STATUS',
+          'CH3_COMP_1C',
+          'CH3_COMP_1C_STATUS',
+          'COMPRESSOR_1C_STATUS',
+        ],
+      },
+      {
+        key: '2A',
+        terms: [
+          '2A',
+          'COMPRESSOR 2A',
+          'COMP 2A',
+          'COMP_2A',
+          'COMP2A',
+          '2A STATUS',
+          'CIRCUIT 2 COMP A',
+          'SECTION 2 COMP A',
+          'CH2_COMP_2A',
+          'CH2_COMP_2A_STATUS',
+          'CH3_COMP_2A',
+          'CH3_COMP_2A_STATUS',
+          'COMPRESSOR_2A_STATUS',
+        ],
+      },
+      {
+        key: '2B',
+        terms: [
+          '2B',
+          'COMPRESSOR 2B',
+          'COMP 2B',
+          'COMP_2B',
+          'COMP2B',
+          '2B STATUS',
+          'CIRCUIT 2 COMP B',
+          'SECTION 2 COMP B',
+          'CH2_COMP_2B',
+          'CH2_COMP_2B_STATUS',
+          'CH3_COMP_2B',
+          'CH3_COMP_2B_STATUS',
+          'COMPRESSOR_2B_STATUS',
+        ],
+      },
+      {
+        key: '2C',
+        terms: [
+          '2C',
+          'COMPRESSOR 2C',
+          'COMP 2C',
+          'COMP_2C',
+          'COMP2C',
+          '2C STATUS',
+          'CIRCUIT 2 COMP C',
+          'SECTION 2 COMP C',
+          'CH2_COMP_2C',
+          'CH2_COMP_2C_STATUS',
+          'CH3_COMP_2C',
+          'CH3_COMP_2C_STATUS',
+          'COMPRESSOR_2C_STATUS',
+        ],
+      },
+    ]
+  }
+
+  return [
+    {
+      key: 'A',
+      terms: [
+        'COMPRESSOR A',
+        'COMP A',
+        'COMP_A',
+        'COMP-A',
+        'COMP1',
+        'COMP 1',
+        'COMPRESSOR_1_STATUS',
+        'COMP_A_STATUS',
+        'CH1_COMP_A_STATUS',
+      ],
+    },
+    {
+      key: 'B',
+      terms: [
+        'COMPRESSOR B',
+        'COMP B',
+        'COMP_B',
+        'COMP-B',
+        'COMP2',
+        'COMP 2',
+        'COMPRESSOR_2_STATUS',
+        'COMP_B_STATUS',
+        'CH1_COMP_B_STATUS',
+      ],
+    },
   ]
+}
 
-  const result = aliases
-    .map((item) => ({
-      key: item.key,
-      on: getBoolean(points, item.terms),
-    }))
-    .filter((item, index) => {
-      if (index < 2) return true
-      return item.on
-    })
+function getCompressors(points, assetCode) {
+  const layout = getCompressorLayout(assetCode)
 
-  return result.length ? result : [{ key: 'A', on: false }, { key: 'B', on: false }]
+  return layout.map((item) => ({
+    key: item.key,
+    on: getBoolean(points, item.terms),
+  }))
 }
 
 function formatTemp(value) {
@@ -156,9 +290,10 @@ export default function ChillerIllustration({
   isMobile = false,
 }) {
   const points = Array.isArray(asset?.points) ? asset.points : []
+  const assetCode = String(asset?.asset_code || '').toUpperCase()
 
   const { online, alarm } = useMemo(() => getStatus(points), [points])
-  const compressors = useMemo(() => getCompressors(points), [points])
+  const compressors = useMemo(() => getCompressors(points, assetCode), [points, assetCode])
 
   const chwIn = getTemperature(points, [
     'ECHW',
@@ -166,6 +301,7 @@ export default function ChillerIllustration({
     'CHW IN',
     'ENTERING CHILLED WATER',
     'EVAP WATER IN',
+    'LEAVING FLUID TEMP',
   ])
 
   const chwOut = getTemperature(points, [
@@ -174,6 +310,7 @@ export default function ChillerIllustration({
     'CHW OUT',
     'LEAVING CHILLED WATER',
     'EVAP WATER OUT',
+    'ENTERING FLUID TEMP',
   ])
 
   const condIn = getTemperature(points, [
@@ -204,6 +341,12 @@ export default function ChillerIllustration({
 
   const blueAccent = 'rgba(56,189,248,0.38)'
   const redAccent = 'rgba(251,113,133,0.38)'
+
+  const isSixCompressorChiller =
+    assetCode === 'CH-NJ-02' ||
+    assetCode === 'CH-NJ-03' ||
+    assetCode === 'CH2' ||
+    assetCode === 'CH3'
 
   return (
     <button
@@ -249,7 +392,7 @@ export default function ChillerIllustration({
               marginTop: 4,
             }}
           >
-            {asset?.name || asset?.asset_code || 'Unnamed chiller'}
+            {asset?.name || asset?.asset_name || asset?.asset_code || 'Unnamed chiller'}
           </div>
           <div
             style={{
@@ -402,7 +545,6 @@ export default function ChillerIllustration({
                 </linearGradient>
               </defs>
 
-              {/* blue in left */}
               <path
                 d="M 20 75 H 155"
                 stroke="#38bdf8"
@@ -412,7 +554,6 @@ export default function ChillerIllustration({
                 filter="url(#glowBlue)"
               />
 
-              {/* blue out right */}
               <path
                 d="M 405 75 H 540"
                 stroke="#38bdf8"
@@ -422,7 +563,6 @@ export default function ChillerIllustration({
                 filter="url(#glowBlue)"
               />
 
-              {/* red in left */}
               <path
                 d="M 20 225 H 155"
                 stroke="#fb7185"
@@ -432,7 +572,6 @@ export default function ChillerIllustration({
                 filter="url(#glowRed)"
               />
 
-              {/* red out right */}
               <path
                 d="M 405 225 H 540"
                 stroke="#fb7185"
@@ -442,7 +581,6 @@ export default function ChillerIllustration({
                 filter="url(#glowRed)"
               />
 
-              {/* animated dots */}
               {online && (
                 <>
                   <circle r="5.5" fill="#7dd3fc" filter="url(#glowBlue)">
@@ -461,13 +599,11 @@ export default function ChillerIllustration({
                 </>
               )}
 
-              {/* arrows for direction */}
               <polygon points="138,75 120,66 120,84" fill="#7dd3fc" />
               <polygon points="438,75 456,66 456,84" fill="#7dd3fc" />
               <polygon points="138,225 120,216 120,234" fill="#fda4af" />
               <polygon points="438,225 456,216 456,234" fill="#fda4af" />
 
-              {/* exchanger */}
               <rect
                 x="155"
                 y="42"
@@ -492,13 +628,11 @@ export default function ChillerIllustration({
                 strokeWidth="1.4"
               />
 
-              {/* nozzles */}
               <circle cx="155" cy="75" r="7" fill="#7dd3fc" />
               <circle cx="405" cy="75" r="7" fill="#7dd3fc" />
               <circle cx="155" cy="225" r="7" fill="#fda4af" />
               <circle cx="405" cy="225" r="7" fill="#fda4af" />
 
-              {/* plate pack */}
               {[0, 1, 2, 3, 4, 5].map((i) => {
                 const x = 214 + i * 22
                 return (
@@ -528,7 +662,7 @@ export default function ChillerIllustration({
               </text>
 
               <text x="280" y="278" fill="#94a3b8" fontSize="12" fontWeight="900" textAnchor="middle">
-                COMPRESSORS
+                {isSixCompressorChiller ? 'COMPRESSOR SECTIONS' : 'COMPRESSORS'}
               </text>
             </svg>
 
@@ -540,11 +674,12 @@ export default function ChillerIllustration({
                 bottom: 14,
                 display: 'flex',
                 justifyContent: 'center',
-                gap: 12,
+                gap: 10,
                 flexWrap: 'wrap',
+                padding: '0 10px',
               }}
             >
-              {compressors.slice(0, 6).map((comp) => (
+              {compressors.map((comp) => (
                 <div
                   key={comp.key}
                   style={{
@@ -555,6 +690,8 @@ export default function ChillerIllustration({
                     borderRadius: 999,
                     background: 'rgba(8,15,30,0.75)',
                     border: '1px solid rgba(148,163,184,0.14)',
+                    minWidth: isSixCompressorChiller ? 58 : 44,
+                    justifyContent: 'center',
                   }}
                 >
                   <span
@@ -564,6 +701,7 @@ export default function ChillerIllustration({
                       borderRadius: '50%',
                       background: comp.on ? '#22c55e' : '#475569',
                       display: 'inline-block',
+                      boxShadow: comp.on ? '0 0 10px rgba(34,197,94,0.55)' : 'none',
                     }}
                   />
                   <span style={{ color: '#cbd5e1', fontSize: 12, fontWeight: 800 }}>
