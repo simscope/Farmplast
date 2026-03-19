@@ -13,7 +13,7 @@ import MonitoringPAPage from './pages/MonitoringPAPage'
 import AdminPage from './pages/AdminPage'
 import AccountingPage from './pages/AccountingPage'
 import EmployeesPage from './pages/EmployeesPage'
-import AccountingPage from './pages/AccountingPage'
+import AccountingPage from '../pages/AccountingPage'
 export default function App() {
   return (
     <AuthProvider>
