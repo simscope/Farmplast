@@ -255,13 +255,17 @@ function tempColor(value, family) {
   return '#fecdd3'
 }
 
-function tempBlockStyle(accent, selected) {
+function tempBlockStyle(accent, selected, alarm = false) {
   return {
     padding: '12px 14px',
     borderRadius: 18,
-    background: 'rgba(8,15,30,0.72)',
-    border: `1px solid ${selected ? accent : 'rgba(148,163,184,0.14)'}`,
-    boxShadow: selected ? `0 0 0 1px ${accent}22 inset` : 'none',
+    background: alarm ? 'rgba(38, 10, 16, 0.72)' : 'rgba(8,15,30,0.72)',
+    border: `1px solid ${alarm ? 'rgba(248,113,113,0.28)' : selected ? accent : 'rgba(148,163,184,0.14)'}`,
+    boxShadow: selected
+      ? `0 0 0 1px ${accent}22 inset`
+      : alarm
+        ? '0 0 0 1px rgba(248,113,113,0.08) inset'
+        : 'none',
     minHeight: 112,
     display: 'flex',
     flexDirection: 'column',
@@ -293,27 +297,35 @@ function getFluidTemps(points, assetCode) {
       'CHW OUT 1',
     ])
 
-    const in2 = getTemperature(points, [
-      'CH2_CHW_IN_2',
-      'CH3_CHW_IN_2',
-      'CHILLER 2 ENTERING FLUID TEMP',
-      'SECTION 2 ENTERING FLUID TEMP',
-      'CIRCUIT 2 ENTERING FLUID TEMP',
-      'ENTERING FLUID TEMP 2',
-      'FLUID IN 2',
-      'CHW IN 2',
-    ], in1)
+    const in2 = getTemperature(
+      points,
+      [
+        'CH2_CHW_IN_2',
+        'CH3_CHW_IN_2',
+        'CHILLER 2 ENTERING FLUID TEMP',
+        'SECTION 2 ENTERING FLUID TEMP',
+        'CIRCUIT 2 ENTERING FLUID TEMP',
+        'ENTERING FLUID TEMP 2',
+        'FLUID IN 2',
+        'CHW IN 2',
+      ],
+      in1
+    )
 
-    const out2 = getTemperature(points, [
-      'CH2_CHW_OUT_2',
-      'CH3_CHW_OUT_2',
-      'CHILLER 2 LEAVING FLUID TEMP',
-      'SECTION 2 LEAVING FLUID TEMP',
-      'CIRCUIT 2 LEAVING FLUID TEMP',
-      'LEAVING FLUID TEMP 2',
-      'FLUID OUT 2',
-      'CHW OUT 2',
-    ], out1)
+    const out2 = getTemperature(
+      points,
+      [
+        'CH2_CHW_OUT_2',
+        'CH3_CHW_OUT_2',
+        'CHILLER 2 LEAVING FLUID TEMP',
+        'SECTION 2 LEAVING FLUID TEMP',
+        'CIRCUIT 2 LEAVING FLUID TEMP',
+        'LEAVING FLUID TEMP 2',
+        'FLUID OUT 2',
+        'CHW OUT 2',
+      ],
+      out1
+    )
 
     return { in1, out1, in2, out2 }
   }
@@ -362,12 +374,12 @@ function getFluidTemps(points, assetCode) {
   }
 }
 
-function TempCard({ label, value, family, subtitle, selected }) {
+function TempCard({ label, value, family, subtitle, selected, alarm }) {
   const accent = family === 'blue' ? 'rgba(56,189,248,0.38)' : 'rgba(251,113,133,0.38)'
   const labelColor = family === 'blue' ? '#7dd3fc' : '#fda4af'
 
   return (
-    <div style={tempBlockStyle(accent, selected)}>
+    <div style={tempBlockStyle(accent, selected, alarm)}>
       <div style={{ color: labelColor, fontSize: 12, fontWeight: 900, letterSpacing: 1 }}>
         {label}
       </div>
@@ -389,7 +401,7 @@ function TempCard({ label, value, family, subtitle, selected }) {
   )
 }
 
-function CompressorPill({ comp, wide = false }) {
+function CompressorPill({ comp, wide = false, alarm = false }) {
   return (
     <div
       style={{
@@ -398,8 +410,8 @@ function CompressorPill({ comp, wide = false }) {
         gap: 8,
         padding: '7px 11px',
         borderRadius: 999,
-        background: 'rgba(8,15,30,0.78)',
-        border: '1px solid rgba(148,163,184,0.14)',
+        background: alarm ? 'rgba(34, 10, 16, 0.84)' : 'rgba(8,15,30,0.78)',
+        border: `1px solid ${alarm ? 'rgba(248,113,113,0.22)' : 'rgba(148,163,184,0.14)'}`,
         minWidth: wide ? 62 : 46,
         justifyContent: 'center',
       }}
@@ -435,16 +447,23 @@ export default function ChillerIllustration({
   const compressors = useMemo(() => getCompressors(points, assetCode), [points, assetCode])
   const fluidTemps = useMemo(() => getFluidTemps(points, assetCode), [points, assetCode])
 
-  const frameStroke = selected
+  const normalFrameStroke = selected
     ? 'rgba(34, 211, 238, 0.95)'
     : 'rgba(148, 163, 184, 0.25)'
 
-  const outerGlow = selected
+  const frameStroke = alarm ? 'rgba(248, 113, 113, 0.82)' : normalFrameStroke
+
+  const normalOuterGlow = selected
     ? '0 0 0 1px rgba(34, 211, 238, 0.3), 0 18px 40px rgba(8, 47, 73, 0.55)'
     : '0 16px 36px rgba(2, 6, 23, 0.45)'
 
+  const alarmOuterGlow =
+    '0 0 0 1px rgba(248,113,113,0.32), 0 0 22px rgba(239,68,68,0.18), 0 20px 42px rgba(60,10,16,0.55)'
+
+  const outerGlow = alarm ? alarmOuterGlow : normalOuterGlow
+
   const cardBg = alarm
-    ? 'linear-gradient(180deg, rgba(69,10,10,0.78) 0%, rgba(24,24,27,0.92) 100%)'
+    ? 'linear-gradient(180deg, rgba(58,10,18,0.92) 0%, rgba(24,10,16,0.96) 35%, rgba(10,10,18,0.98) 100%)'
     : 'linear-gradient(180deg, rgba(15,23,42,0.92) 0%, rgba(3,7,18,0.96) 100%)'
 
   const leftTopLabel = sixComp ? 'CHILLER IN 1' : 'CHW IN'
@@ -474,8 +493,45 @@ export default function ChillerIllustration({
         textAlign: 'left',
         cursor: 'pointer',
         boxShadow: outerGlow,
+        animation: alarm ? 'chillerAlarmPulse 1.2s ease-in-out infinite' : 'none',
+        position: 'relative',
       }}
     >
+      <style>{`
+        @keyframes chillerAlarmPulse {
+          0% {
+            box-shadow:
+              0 0 0 1px rgba(248,113,113,0.18),
+              0 0 10px rgba(239,68,68,0.10),
+              0 16px 34px rgba(35,8,14,0.45);
+          }
+          50% {
+            box-shadow:
+              0 0 0 1px rgba(248,113,113,0.50),
+              0 0 24px rgba(239,68,68,0.24),
+              0 24px 48px rgba(60,10,16,0.62);
+          }
+          100% {
+            box-shadow:
+              0 0 0 1px rgba(248,113,113,0.18),
+              0 0 10px rgba(239,68,68,0.10),
+              0 16px 34px rgba(35,8,14,0.45);
+          }
+        }
+
+        @keyframes alarmBadgeBlink {
+          0% { opacity: 0.72; }
+          50% { opacity: 1; }
+          100% { opacity: 0.72; }
+        }
+
+        @keyframes alarmInnerBlink {
+          0% { border-color: rgba(248,113,113,0.12); }
+          50% { border-color: rgba(248,113,113,0.30); }
+          100% { border-color: rgba(248,113,113,0.12); }
+        }
+      `}</style>
+
       <div
         style={{
           display: 'flex',
@@ -492,7 +548,7 @@ export default function ChillerIllustration({
               fontSize: 12,
               fontWeight: 900,
               letterSpacing: 1.1,
-              color: '#67e8f9',
+              color: alarm ? '#fda4af' : '#67e8f9',
             }}
           >
             CHILLER
@@ -546,10 +602,11 @@ export default function ChillerIllustration({
                 padding: '6px 10px',
                 borderRadius: 999,
                 fontSize: 12,
-                fontWeight: 800,
-                background: 'rgba(251,146,60,0.16)',
-                color: '#fb923c',
-                border: '1px solid rgba(251,146,60,0.28)',
+                fontWeight: 900,
+                background: 'rgba(127,29,29,0.34)',
+                color: '#fca5a5',
+                border: '1px solid rgba(248,113,113,0.42)',
+                animation: 'alarmBadgeBlink 0.9s ease-in-out infinite',
               }}
             >
               ALARM
@@ -561,10 +618,14 @@ export default function ChillerIllustration({
       <div
         style={{
           borderRadius: 22,
-          border: '1px solid rgba(148,163,184,0.14)',
-          background:
-            'radial-gradient(circle at 20% 0%, rgba(8,145,178,0.10), transparent 35%), linear-gradient(180deg, rgba(2,6,23,0.92), rgba(3,7,18,0.98))',
+          border: alarm
+            ? '1px solid rgba(248,113,113,0.18)'
+            : '1px solid rgba(148,163,184,0.14)',
+          background: alarm
+            ? 'radial-gradient(circle at 20% 0%, rgba(127,29,29,0.16), transparent 35%), linear-gradient(180deg, rgba(24,6,12,0.92), rgba(8,7,14,0.98))'
+            : 'radial-gradient(circle at 20% 0%, rgba(8,145,178,0.10), transparent 35%), linear-gradient(180deg, rgba(2,6,23,0.92), rgba(3,7,18,0.98))',
           padding: isMobile ? 12 : 18,
+          animation: alarm ? 'alarmInnerBlink 1.2s ease-in-out infinite' : 'none',
         }}
       >
         <div
@@ -582,6 +643,7 @@ export default function ChillerIllustration({
               family="blue"
               subtitle={leftTopSubtitle}
               selected={selected}
+              alarm={alarm}
             />
 
             <TempCard
@@ -590,6 +652,7 @@ export default function ChillerIllustration({
               family={sixComp ? 'blue' : 'red'}
               subtitle={leftBottomSubtitle}
               selected={selected}
+              alarm={alarm}
             />
           </div>
 
@@ -599,8 +662,12 @@ export default function ChillerIllustration({
               borderRadius: 24,
               position: 'relative',
               overflow: 'hidden',
-              background: 'linear-gradient(180deg, rgba(15,23,42,0.72), rgba(10,15,28,0.88))',
-              border: '1px solid rgba(148,163,184,0.12)',
+              background: alarm
+                ? 'linear-gradient(180deg, rgba(30,10,16,0.80), rgba(14,8,14,0.92))'
+                : 'linear-gradient(180deg, rgba(15,23,42,0.72), rgba(10,15,28,0.88))',
+              border: alarm
+                ? '1px solid rgba(248,113,113,0.18)'
+                : '1px solid rgba(148,163,184,0.12)',
             }}
           >
             <svg
@@ -625,13 +692,13 @@ export default function ChillerIllustration({
                 </filter>
 
                 <linearGradient id="hxShell" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#1b2945" />
-                  <stop offset="100%" stopColor="#10192f" />
+                  <stop offset="0%" stopColor={alarm ? '#3a1620' : '#1b2945'} />
+                  <stop offset="100%" stopColor={alarm ? '#1d1117' : '#10192f'} />
                 </linearGradient>
 
                 <linearGradient id="hxInner" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="#24324d" />
-                  <stop offset="100%" stopColor="#111a2f" />
+                  <stop offset="0%" stopColor={alarm ? '#45212a' : '#24324d'} />
+                  <stop offset="100%" stopColor={alarm ? '#1d1217' : '#111a2f'} />
                 </linearGradient>
               </defs>
 
@@ -714,7 +781,7 @@ export default function ChillerIllustration({
                 rx="34"
                 ry="34"
                 fill="url(#hxShell)"
-                stroke="rgba(148,163,184,0.28)"
+                stroke={alarm ? 'rgba(248,113,113,0.28)' : 'rgba(148,163,184,0.28)'}
                 strokeWidth="2"
               />
 
@@ -726,7 +793,7 @@ export default function ChillerIllustration({
                 rx="22"
                 ry="22"
                 fill="url(#hxInner)"
-                stroke="rgba(148,163,184,0.12)"
+                stroke={alarm ? 'rgba(248,113,113,0.16)' : 'rgba(148,163,184,0.12)'}
                 strokeWidth="1.4"
               />
 
@@ -794,7 +861,7 @@ export default function ChillerIllustration({
                 }}
               >
                 {compRow1.map((comp) => (
-                  <CompressorPill key={comp.key} comp={comp} wide={sixComp} />
+                  <CompressorPill key={comp.key} comp={comp} wide={sixComp} alarm={alarm} />
                 ))}
               </div>
 
@@ -808,7 +875,7 @@ export default function ChillerIllustration({
                   }}
                 >
                   {compRow2.map((comp) => (
-                    <CompressorPill key={comp.key} comp={comp} wide={sixComp} />
+                    <CompressorPill key={comp.key} comp={comp} wide={sixComp} alarm={alarm} />
                   ))}
                 </div>
               ) : null}
@@ -822,6 +889,7 @@ export default function ChillerIllustration({
               family="blue"
               subtitle={rightTopSubtitle}
               selected={selected}
+              alarm={alarm}
             />
 
             <TempCard
@@ -830,6 +898,7 @@ export default function ChillerIllustration({
               family={sixComp ? 'blue' : 'red'}
               subtitle={rightBottomSubtitle}
               selected={selected}
+              alarm={alarm}
             />
           </div>
         </div>
