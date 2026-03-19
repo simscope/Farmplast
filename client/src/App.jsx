@@ -62,13 +62,7 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-  path="/accounting"
-  element={
-    <ProtectedRoute>
-      <AccountingPage />
-    </ProtectedRoute>
-  }
+      }
 />
       </Routes>
     </AuthProvider>
