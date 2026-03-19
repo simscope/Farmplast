@@ -64,6 +64,7 @@ export default function MonitoringNJPage() {
       }
 
       const normalized = Array.isArray(data) ? data.map(normalizeRow) : []
+
       setRows(normalized)
 
       if (!normalized.length) {
@@ -112,25 +113,25 @@ export default function MonitoringNJPage() {
   const assets = useMemo(() => groupAssets(rows), [rows])
 
   const njAssets = useMemo(() => {
-    return assets.filter((a) => {
-      const code = String(a.asset_code || '').toUpperCase()
-      return code.includes('-NJ-') || code === 'CH2' || code === 'CH3'
+    return assets.filter((asset) => {
+      const code = String(asset.asset_code || '').toUpperCase()
+      return code.includes('-NJ-')
     })
   }, [assets])
 
   const chillers = useMemo(() => {
-    return njAssets.filter((a) => String(a.asset_type || '').toLowerCase() === 'chiller')
+    return njAssets.filter((asset) => String(asset.asset_type || '').toLowerCase() === 'chiller')
   }, [njAssets])
 
   const barrels = useMemo(() => {
     return njAssets
-      .filter((a) => String(a.asset_type || '').toLowerCase() === 'barrel')
+      .filter((asset) => String(asset.asset_type || '').toLowerCase() === 'barrel')
       .sort(barrelSort)
   }, [njAssets])
 
   const selectedAsset = useMemo(() => {
     if (!chillers.length) return null
-    return chillers.find((a) => a.asset_code === selectedAssetCode) || chillers[0]
+    return chillers.find((asset) => asset.asset_code === selectedAssetCode) || chillers[0]
   }, [chillers, selectedAssetCode])
 
   useEffect(() => {
@@ -140,20 +141,29 @@ export default function MonitoringNJPage() {
   }, [selectedAsset, chillers])
 
   const summary = useMemo(() => {
-    const online = njAssets.filter((a) => getAssetStatus(a.points).online).length
+    const online = njAssets.filter((asset) => getAssetStatus(asset).online).length
     const offline = njAssets.length - online
 
     const compressorsOn = njAssets
-      .flatMap((a) => a.points)
-      .filter((p) => {
+      .flatMap((asset) => asset.points)
+      .filter((point) => {
+        const group = String(point.point_group || '').toUpperCase()
+        const code = String(point.point_code || '').toUpperCase()
+
         const isCompressorPoint =
-          p.point_group === 'compressors' || String(p.point_code || '').toUpperCase().includes('COMP')
-        return isCompressorPoint && p.value_boolean === true
+          group.includes('COMPRESSOR') ||
+          group.includes('COMPRESSORS') ||
+          code.includes('COMP')
+
+        return isCompressorPoint && point.value_boolean === true
       }).length
 
-    const barrelLevelPoint = njAssets
-      .flatMap((a) => a.points)
-      .find((p) => String(p.point_code || '').toUpperCase() === 'LEVEL_PERCENT')
+    const barrelLevelPoint = barrels
+      .flatMap((asset) => asset.points)
+      .find((point) => {
+        const code = String(point.point_code || '').toUpperCase()
+        return code === 'LEVEL_PERCENT' || code.includes('RADAR') || code.includes('LEVEL')
+      })
 
     return {
       total: njAssets.length,
@@ -165,7 +175,7 @@ export default function MonitoringNJPage() {
           ? null
           : Number(barrelLevelPoint.value_number),
     }
-  }, [njAssets])
+  }, [njAssets, barrels])
 
   const pagePadding = isMobile ? 12 : 16
   const mainGridColumns = isDesktop ? '1.3fr 0.9fr' : '1fr'
@@ -179,7 +189,8 @@ export default function MonitoringNJPage() {
     <div
       style={{
         minHeight: '100vh',
-        background: 'radial-gradient(circle at top, #0f766e 0%, #031323 24%, #020617 58%, #01030a 100%)',
+        background:
+          'radial-gradient(circle at top, #0f766e 0%, #031323 24%, #020617 58%, #01030a 100%)',
         color: '#f8fafc',
         padding: pagePadding,
       }}
@@ -212,7 +223,14 @@ export default function MonitoringNJPage() {
               Back to locations
             </button>
 
-            <div style={{ color: '#67e8f9', fontSize: 13, fontWeight: 900, letterSpacing: 1.2 }}>
+            <div
+              style={{
+                color: '#67e8f9',
+                fontSize: 13,
+                fontWeight: 900,
+                letterSpacing: 1.2,
+              }}
+            >
               FARMPLAST / NEW JERSEY
             </div>
 
@@ -407,9 +425,10 @@ export default function MonitoringNJPage() {
 
                 <div style={{ display: 'grid', gap: 10, color: '#cbd5e1', fontSize: 14 }}>
                   <div>• Demo mode is fully removed</div>
-                  <div>• Online status is based only on fresh telemetry timestamps</div>
-                  <div>• If data stops updating for more than 15 seconds, the asset becomes OFFLINE</div>
-                  <div>• If Supabase returns no rows or fails, the page shows a real error instead of fake values</div>
+                  <div>• Online status uses fresh live telemetry timestamps</div>
+                  <div>• Asset type is now respected when determining ONLINE/OFFLINE</div>
+                  <div>• Chillers and barrels are validated differently</div>
+                  <div>• No fake fallback values are shown when live data is missing</div>
                 </div>
               </div>
             </div>
