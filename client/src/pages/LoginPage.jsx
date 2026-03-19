@@ -1,114 +1,6 @@
-//loginpage
 import React, { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { supabase } from '../lib/supabase.js'
-
-const pageStyle = {
-  minHeight: '100vh',
-  display: 'flex',
-  alignItems: 'center',
-  justifyContent: 'center',
-  padding: '24px',
-  background:
-    'radial-gradient(circle at top, rgba(20,184,166,0.20), transparent 28%), #020817',
-  fontFamily: 'Arial, sans-serif',
-}
-
-const cardStyle = {
-  width: '100%',
-  maxWidth: '430px',
-  background: 'rgba(15, 23, 42, 0.95)',
-  border: '1px solid rgba(51, 65, 85, 0.8)',
-  borderRadius: '24px',
-  padding: '28px',
-  boxShadow: '0 20px 60px rgba(2, 8, 23, 0.55)',
-  color: '#e5eefb',
-}
-
-const topLabelStyle = {
-  margin: 0,
-  color: '#22d3ee',
-  fontSize: '13px',
-  fontWeight: 800,
-  letterSpacing: '0.08em',
-  textTransform: 'uppercase',
-}
-
-const titleStyle = {
-  margin: '10px 0 8px',
-  fontSize: '38px',
-  fontWeight: 800,
-  lineHeight: 1.1,
-  color: '#f8fafc',
-}
-
-const subtitleStyle = {
-  margin: 0,
-  fontSize: '14px',
-  color: '#94a3b8',
-  lineHeight: 1.5,
-}
-
-const formStyle = {
-  marginTop: '24px',
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '16px',
-}
-
-const fieldStyle = {
-  display: 'flex',
-  flexDirection: 'column',
-  gap: '8px',
-}
-
-const labelStyle = {
-  fontSize: '13px',
-  fontWeight: 700,
-  color: '#cbd5e1',
-  letterSpacing: '0.02em',
-}
-
-const inputStyle = {
-  width: '100%',
-  borderRadius: '14px',
-  border: '1px solid #334155',
-  background: '#0f172a',
-  color: '#f8fafc',
-  padding: '14px 15px',
-  fontSize: '15px',
-  outline: 'none',
-}
-
-const buttonStyle = {
-  border: 'none',
-  borderRadius: '14px',
-  background: 'linear-gradient(135deg, #2563eb, #14b8a6)',
-  color: '#ffffff',
-  padding: '14px 16px',
-  fontWeight: 800,
-  fontSize: '15px',
-  cursor: 'pointer',
-  marginTop: '4px',
-}
-
-const errorStyle = {
-  marginTop: '2px',
-  padding: '12px 14px',
-  borderRadius: '12px',
-  background: 'rgba(248, 113, 113, 0.10)',
-  border: '1px solid rgba(248, 113, 113, 0.30)',
-  color: '#fca5a5',
-  fontSize: '14px',
-  fontWeight: 700,
-}
-
-const hintStyle = {
-  marginTop: '18px',
-  fontSize: '12px',
-  color: '#64748b',
-  lineHeight: 1.5,
-}
+import { supabase } from './lib/supabase.js'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -117,27 +9,36 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [checkingSession, setCheckingSession] = useState(true)
-  const [error, setError] = useState('')
+  const [errorText, setErrorText] = useState('')
+  const [successText, setSuccessText] = useState('')
 
   useEffect(() => {
-    let active = true
+    let mounted = true
 
     async function checkSession() {
       try {
+        setCheckingSession(true)
+
         const {
           data: { session },
+          error,
         } = await supabase.auth.getSession()
 
-        if (!active) return
+        if (!mounted) return
+
+        if (error) {
+          console.error('GET SESSION ERROR:', error)
+          setErrorText('')
+          return
+        }
 
         if (session) {
           navigate('/dashboard', { replace: true })
-          return
         }
       } catch (err) {
-        console.error('Session check error:', err)
+        console.error('CHECK SESSION EXCEPTION:', err)
       } finally {
-        if (active) {
+        if (mounted) {
           setCheckingSession(false)
         }
       }
@@ -146,34 +47,46 @@ export default function LoginPage() {
     checkSession()
 
     return () => {
-      active = false
+      mounted = false
     }
   }, [navigate])
 
-  async function handleSubmit(event) {
-    event.preventDefault()
+  async function handleSubmit(e) {
+    e.preventDefault()
 
     try {
       setLoading(true)
-      setError('')
+      setErrorText('')
+      setSuccessText('')
 
       const cleanEmail = email.trim()
 
       if (!cleanEmail || !password) {
-        throw new Error('Enter email and password')
+        setErrorText('Enter email and password')
+        return
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password,
       })
 
-      if (error) throw error
+      console.log('LOGIN RESULT:', { data, error })
 
-      navigate('/dashboard', { replace: true })
+      if (error) {
+        setErrorText(error.message || 'Login failed')
+        return
+      }
+
+      setSuccessText('Login successful')
+
+      // Небольшая пауза, чтобы Supabase успел записать session
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true })
+      }, 150)
     } catch (err) {
-      console.error('Login error:', err)
-      setError(err.message || 'Login failed')
+      console.error('LOGIN EXCEPTION:', err)
+      setErrorText(err.message || 'Unexpected error')
     } finally {
       setLoading(false)
     }
@@ -181,66 +94,185 @@ export default function LoginPage() {
 
   if (checkingSession) {
     return (
-      <div style={pageStyle}>
-        <div style={cardStyle}>
-          <p style={topLabelStyle}>Farmplast / SimScope</p>
-          <h1 style={titleStyle}>Loading...</h1>
-          <p style={subtitleStyle}>Checking active session.</p>
-        </div>
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: '#06152b',
+          color: '#fff',
+          fontSize: '18px',
+        }}
+      >
+        Checking session...
       </div>
     )
   }
 
   return (
-    <div style={pageStyle}>
-      <div style={cardStyle}>
-        <p style={topLabelStyle}>Farmplast / SimScope</p>
-        <h1 style={titleStyle}>Sign in</h1>
-        <p style={subtitleStyle}>
-          Enter your work email and password to open dashboard, accounting, employees, and admin pages.
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(180deg, #06152b 0%, #0b1f3a 100%)',
+        padding: '20px',
+      }}
+    >
+      <div
+        style={{
+          width: '100%',
+          maxWidth: '420px',
+          background: 'rgba(10, 20, 40, 0.95)',
+          border: '1px solid rgba(120, 170, 255, 0.18)',
+          borderRadius: '18px',
+          padding: '28px',
+          boxShadow: '0 20px 60px rgba(0,0,0,0.35)',
+          color: '#fff',
+        }}
+      >
+        <h1
+          style={{
+            margin: '0 0 8px',
+            fontSize: '28px',
+            fontWeight: 700,
+            textAlign: 'center',
+          }}
+        >
+          Farmplast
+        </h1>
+
+        <p
+          style={{
+            margin: '0 0 24px',
+            textAlign: 'center',
+            color: 'rgba(255,255,255,0.7)',
+            fontSize: '14px',
+          }}
+        >
+          Sign in to dashboard
         </p>
 
-        <form onSubmit={handleSubmit} style={formStyle}>
-          <div style={fieldStyle}>
-            <label htmlFor="login-email" style={labelStyle}>
+        <form onSubmit={handleSubmit}>
+          <div style={{ marginBottom: '14px' }}>
+            <label
+              style={{
+                display: 'block',
+                marginBottom: '6px',
+                fontSize: '14px',
+                color: 'rgba(255,255,255,0.85)',
+              }}
+            >
               Email
             </label>
+
             <input
-              id="login-email"
               type="email"
-              autoComplete="username"
-              placeholder="you@example.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              style={inputStyle}
+              autoComplete="email"
+              placeholder="Enter your email"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.06)',
+                color: '#fff',
+                outline: 'none',
+                fontSize: '15px',
+              }}
             />
           </div>
 
-          <div style={fieldStyle}>
-            <label htmlFor="login-password" style={labelStyle}>
+          <div style={{ marginBottom: '16px' }}>
+            <label
+              style={{
+                display: 'block',
+                marginBottom: '6px',
+                fontSize: '14px',
+                color: 'rgba(255,255,255,0.85)',
+              }}
+            >
               Password
             </label>
+
             <input
-              id="login-password"
               type="password"
-              autoComplete="current-password"
-              placeholder="Enter password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              style={inputStyle}
+              autoComplete="current-password"
+              placeholder="Enter your password"
+              style={{
+                width: '100%',
+                boxSizing: 'border-box',
+                padding: '12px 14px',
+                borderRadius: '12px',
+                border: '1px solid rgba(255,255,255,0.12)',
+                background: 'rgba(255,255,255,0.06)',
+                color: '#fff',
+                outline: 'none',
+                fontSize: '15px',
+              }}
             />
           </div>
 
-          {error ? <div style={errorStyle}>{error}</div> : null}
+          {errorText ? (
+            <div
+              style={{
+                marginBottom: '14px',
+                padding: '10px 12px',
+                borderRadius: '12px',
+                background: 'rgba(255, 80, 80, 0.12)',
+                border: '1px solid rgba(255, 80, 80, 0.28)',
+                color: '#ff9b9b',
+                fontSize: '14px',
+              }}
+            >
+              {errorText}
+            </div>
+          ) : null}
 
-          <button type="submit" style={buttonStyle} disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign in'}
+          {successText ? (
+            <div
+              style={{
+                marginBottom: '14px',
+                padding: '10px 12px',
+                borderRadius: '12px',
+                background: 'rgba(70, 200, 120, 0.12)',
+                border: '1px solid rgba(70, 200, 120, 0.28)',
+                color: '#91f0b0',
+                fontSize: '14px',
+              }}
+            >
+              {successText}
+            </div>
+          ) : null}
+
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              width: '100%',
+              padding: '12px 14px',
+              borderRadius: '12px',
+              border: 'none',
+              background: loading
+                ? 'rgba(90, 130, 190, 0.7)'
+                : 'linear-gradient(135deg, #2e7cf6 0%, #39a0ff 100%)',
+              color: '#fff',
+              fontSize: '15px',
+              fontWeight: 600,
+              cursor: loading ? 'not-allowed' : 'pointer',
+              transition: '0.2s ease',
+            }}
+          >
+            {loading ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-
-        <div style={hintStyle}>
-          After login you will be redirected to <strong>/dashboard</strong>.
-        </div>
       </div>
     </div>
   )
