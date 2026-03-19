@@ -94,19 +94,7 @@ export default function HomePage() {
               >
                 Farmplast Monitoring System
               </h1>
-
-              <p
-                style={{
-                  margin: '10px 0 0 0',
-                  color: 'rgba(226, 232, 240, 0.82)',
-                  fontSize: '16px',
-                  lineHeight: 1.5,
-                  maxWidth: '760px',
-                }}
-              >
-                Public monitoring access for chillers. Login is only for internal
-                sections such as accounting and administration.
-              </p>
+             
             </div>
           </div>
 
