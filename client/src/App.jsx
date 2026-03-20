@@ -11,9 +11,9 @@ import MonitoringPage from './pages/MonitoringPage'
 import MonitoringNJPage from './pages/MonitoringNJPage'
 import MonitoringPAPage from './pages/MonitoringPAPage'
 import AdminPage from './pages/AdminPage'
-import AccountingPage from './pages/AccountingPage'
 import EmployeesPage from './pages/EmployeesPage'
 import EmployeeDetailsPage from './pages/EmployeeDetailsPage'
+
 export default function App() {
   return (
     <AuthProvider>
@@ -44,15 +44,6 @@ export default function App() {
         />
 
         <Route
-          path="/accounting"
-          element={
-            <ProtectedRoute roles={['admin', 'accountant']}>
-              <AccountingPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
           path="/employees"
           element={
             <ProtectedRoute roles={['admin']}>
@@ -60,16 +51,16 @@ export default function App() {
             </ProtectedRoute>
           }
         />
+
+        <Route
+          path="/employees/:id"
+          element={
+            <ProtectedRoute>
+              <EmployeeDetailsPage />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </AuthProvider>
-    
-    <Route
-  path="/employees/:id"
-  element={
-    <ProtectedRoute>
-      <EmployeeDetailsPage />
-    </ProtectedRoute>
-  }
-/>
   )
 }
