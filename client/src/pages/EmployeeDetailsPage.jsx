@@ -11,6 +11,7 @@ import {
   Wallet,
   User,
   Hash,
+  CheckCircle2,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -20,12 +21,14 @@ const pageCard =
 const darkInput =
   'w-full rounded-xl border border-slate-700 bg-[#0b1220] px-4 py-3 text-white outline-none transition focus:border-cyan-500'
 
-const whiteInput =
-  'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-slate-500'
-
 function money(value) {
   const num = Number(value || 0)
   return `$${num.toFixed(2)}`
+}
+
+function formatDate(value) {
+  if (!value) return '—'
+  return value
 }
 
 function calcHours(timeIn, timeOut, lunchHours) {
@@ -63,27 +66,119 @@ function buildEmptyRow() {
     lunch_hours: '0',
     reg_hours: '0',
     labor_amount: '0',
-    notes: '',
-    isNew: true,
   }
+}
+
+function getSaturdayToFridayRange(baseDate = new Date()) {
+  const d = new Date(baseDate)
+  const day = d.getDay() // 0 Sun, 6 Sat
+
+  const distanceToSaturday = day === 6 ? 0 : day + 1
+  const saturday = new Date(d)
+  saturday.setHours(0, 0, 0, 0)
+  saturday.setDate(d.getDate() - distanceToSaturday)
+
+  const friday = new Date(saturday)
+  friday.setDate(saturday.getDate() + 6)
+
+  return {
+    start: saturday.toISOString().slice(0, 10),
+    end: friday.toISOString().slice(0, 10),
+  }
+}
+
+function numberToWordsUnder1000(n) {
+  const ones = [
+    'zero',
+    'one',
+    'two',
+    'three',
+    'four',
+    'five',
+    'six',
+    'seven',
+    'eight',
+    'nine',
+    'ten',
+    'eleven',
+    'twelve',
+    'thirteen',
+    'fourteen',
+    'fifteen',
+    'sixteen',
+    'seventeen',
+    'eighteen',
+    'nineteen',
+  ]
+
+  const tens = [
+    '',
+    '',
+    'twenty',
+    'thirty',
+    'forty',
+    'fifty',
+    'sixty',
+    'seventy',
+    'eighty',
+    'ninety',
+  ]
+
+  if (n < 20) return ones[n]
+  if (n < 100) {
+    const ten = Math.floor(n / 10)
+    const rest = n % 10
+    return rest ? `${tens[ten]}-${ones[rest]}` : tens[ten]
+  }
+
+  const hundred = Math.floor(n / 100)
+  const rest = n % 100
+  return rest
+    ? `${ones[hundred]} hundred ${numberToWordsUnder1000(rest)}`
+    : `${ones[hundred]} hundred`
+}
+
+function numberToWords(n) {
+  const num = Math.floor(Number(n || 0))
+
+  if (num === 0) return 'zero'
+  if (num < 1000) return numberToWordsUnder1000(num)
+
+  if (num < 1000000) {
+    const thousands = Math.floor(num / 1000)
+    const rest = num % 1000
+    return rest
+      ? `${numberToWordsUnder1000(thousands)} thousand ${numberToWordsUnder1000(rest)}`
+      : `${numberToWordsUnder1000(thousands)} thousand`
+  }
+
+  const millions = Math.floor(num / 1000000)
+  const rest = num % 1000000
+  if (rest === 0) return `${numberToWords(millions)} million`
+  return `${numberToWords(millions)} million ${numberToWords(rest)}`
+}
+
+function amountToWords(amount) {
+  const value = Number(amount || 0)
+  const dollars = Math.floor(value)
+  const cents = Math.round((value - dollars) * 100)
+  return `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
 }
 
 export default function EmployeeDetailsPage() {
   const { id } = useParams()
+  const currentWeek = getSaturdayToFridayRange()
 
   const [employee, setEmployee] = useState(null)
   const [logs, setLogs] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [paying, setPaying] = useState(false)
   const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
-  const [periodStart, setPeriodStart] = useState(() => {
-    const d = new Date()
-    d.setDate(1)
-    return d.toISOString().slice(0, 10)
-  })
-
-  const [periodEnd, setPeriodEnd] = useState(() => new Date().toISOString().slice(0, 10))
+  const [periodStart, setPeriodStart] = useState(currentWeek.start)
+  const [periodEnd, setPeriodEnd] = useState(currentWeek.end)
 
   const [tax, setTax] = useState('0')
   const [rent, setRent] = useState('0')
@@ -100,6 +195,7 @@ export default function EmployeeDetailsPage() {
     try {
       setLoading(true)
       setError('')
+      setSuccess('')
 
       const { data: employeeData, error: employeeError } = await supabase
         .from('employees')
@@ -137,6 +233,12 @@ export default function EmployeeDetailsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function setCurrentWeek() {
+    const range = getSaturdayToFridayRange()
+    setPeriodStart(range.start)
+    setPeriodEnd(range.end)
   }
 
   function addRow() {
@@ -181,6 +283,7 @@ export default function EmployeeDetailsPage() {
     try {
       setSaving(true)
       setError('')
+      setSuccess('')
 
       if (!row.work_date) {
         setError('Date is required')
@@ -195,7 +298,6 @@ export default function EmployeeDetailsPage() {
         lunch_hours: Number(row.lunch_hours || 0),
         reg_hours: Number(row.reg_hours || 0),
         labor_amount: Number(row.labor_amount || 0),
-        notes: row.notes?.trim() || null,
       }
 
       if (String(row.id).startsWith('new-')) {
@@ -210,6 +312,7 @@ export default function EmployeeDetailsPage() {
         if (error) throw error
       }
 
+      setSuccess('Row saved')
       await loadPage()
     } catch (err) {
       console.error('saveRow error:', err)
@@ -222,6 +325,7 @@ export default function EmployeeDetailsPage() {
   async function deleteRow(row) {
     try {
       setError('')
+      setSuccess('')
 
       if (String(row.id).startsWith('new-')) {
         setLogs((prev) => prev.filter((item) => item.id !== row.id))
@@ -238,15 +342,12 @@ export default function EmployeeDetailsPage() {
 
       if (error) throw error
 
+      setSuccess('Row deleted')
       await loadPage()
     } catch (err) {
       console.error('deleteRow error:', err)
       setError(err.message || 'Failed to delete row')
     }
-  }
-
-  function handlePrintCheck() {
-    window.print()
   }
 
   const filteredLogs = useMemo(() => {
@@ -279,7 +380,7 @@ export default function EmployeeDetailsPage() {
     const deductions =
       taxNum + rentNum + electricNum + waterNum + cleanNum + transportNum
 
-    const gTotal = totalLabor - deductions
+    const netPay = totalLabor - deductions
 
     return {
       totalReg,
@@ -290,34 +391,105 @@ export default function EmployeeDetailsPage() {
       waterNum,
       cleanNum,
       transportNum,
-      gTotal,
+      netPay,
     }
   }, [filteredLogs, tax, rent, electric, water, clean, transport])
 
   const fullName =
     [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || '—'
 
+  const checkWords = amountToWords(totals.netPay)
+
+  async function handlePayAndPrint() {
+    try {
+      setPaying(true)
+      setError('')
+      setSuccess('')
+
+      const netPay = Number(totals.netPay || 0)
+
+      if (netPay <= 0) {
+        setError('Net pay must be greater than 0')
+        return
+      }
+
+      const today = new Date().toISOString().slice(0, 10)
+
+      const { error: paymentError } = await supabase.from('employee_payments').insert({
+        employee_id: id,
+        period_start: periodStart,
+        period_end: periodEnd,
+        total_labor: Number(totals.totalLabor || 0),
+        tax: Number(totals.taxNum || 0),
+        rent: Number(totals.rentNum || 0),
+        electric: Number(totals.electricNum || 0),
+        water: Number(totals.waterNum || 0),
+        clean: Number(totals.cleanNum || 0),
+        transport: Number(totals.transportNum || 0),
+        net_pay: netPay,
+      })
+
+      if (paymentError) throw paymentError
+
+      const { error: employeeUpdateError } = await supabase
+        .from('employees')
+        .update({
+          last_payment_date: today,
+          last_payment_amount: netPay,
+        })
+        .eq('id', id)
+
+      if (employeeUpdateError) throw employeeUpdateError
+
+      setEmployee((prev) =>
+        prev
+          ? {
+              ...prev,
+              last_payment_date: today,
+              last_payment_amount: netPay,
+            }
+          : prev
+      )
+
+      setSuccess('Payment saved')
+      setTimeout(() => {
+        window.print()
+      }, 200)
+    } catch (err) {
+      console.error('handlePayAndPrint error:', err)
+      setError(err.message || 'Failed to save payment')
+    } finally {
+      setPaying(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-[#020817] text-white print:bg-white print:text-black">
       <style>{`
+        @page {
+          size: auto;
+          margin: 0;
+        }
+
         @media print {
           body * {
             visibility: hidden;
           }
 
-          .print-sheet,
-          .print-sheet * {
+          .real-check-print,
+          .real-check-print * {
             visibility: visible;
           }
 
-          .print-sheet {
-            position: absolute;
+          .real-check-print {
+            position: fixed;
             left: 0;
             top: 0;
             width: 100%;
+            min-height: 100vh;
             background: white;
             color: black;
-            padding: 24px;
+            z-index: 9999;
           }
 
           .print-hide {
@@ -343,6 +515,23 @@ export default function EmployeeDetailsPage() {
             <Plus size={18} />
             Add row
           </button>
+
+          <button
+            onClick={setCurrentWeek}
+            className="inline-flex items-center gap-2 rounded-xl border border-emerald-500/30 bg-emerald-600/10 px-4 py-3 font-semibold text-emerald-300 transition hover:bg-emerald-600/20"
+          >
+            <CalendarDays size={18} />
+            Set Current Week
+          </button>
+
+          <button
+            onClick={handlePayAndPrint}
+            disabled={paying}
+            className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 font-semibold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-60"
+          >
+            <Printer size={18} />
+            {paying ? 'Paying...' : 'Pay & Print Check'}
+          </button>
         </div>
 
         {loading ? (
@@ -360,11 +549,11 @@ export default function EmployeeDetailsPage() {
                 <div>
                   <h1 className="text-3xl font-bold text-white">{fullName}</h1>
                   <p className="mt-2 text-slate-400">
-                    Employee payroll card with daily work table
+                    Weekly payroll card. Default week is Saturday → Friday.
                   </p>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
                   <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
                     <div className="flex items-center gap-2 text-slate-400">
                       <Hash size={16} />
@@ -404,10 +593,30 @@ export default function EmployeeDetailsPage() {
                         : money(employee?.hourly_rate)}
                     </div>
                   </div>
+
+                  <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <CheckCircle2 size={16} />
+                      Last payment date
+                    </div>
+                    <div className="mt-2 text-xl font-bold text-white">
+                      {formatDate(employee?.last_payment_date)}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <DollarSign size={16} />
+                      Last payment amount
+                    </div>
+                    <div className="mt-2 text-xl font-bold text-emerald-300">
+                      {money(employee?.last_payment_amount)}
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                 <div>
                   <label className="mb-2 block text-sm text-slate-300">Period start</label>
                   <input
@@ -447,12 +656,28 @@ export default function EmployeeDetailsPage() {
                     {money(totals.totalLabor)}
                   </div>
                 </div>
+
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-600/10 p-4">
+                  <div className="flex items-center gap-2 text-emerald-300">
+                    <Wallet size={16} />
+                    Net Pay
+                  </div>
+                  <div className="mt-2 text-2xl font-bold text-emerald-200">
+                    {money(totals.netPay)}
+                  </div>
+                </div>
               </div>
             </div>
 
             {error ? (
               <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-300 print-hide">
                 {error}
+              </div>
+            ) : null}
+
+            {success ? (
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-300 print-hide">
+                {success}
               </div>
             ) : null}
 
@@ -465,23 +690,22 @@ export default function EmployeeDetailsPage() {
                   <div>
                     <h2 className="text-2xl font-bold text-white">Work log</h2>
                     <p className="text-slate-400">
-                      Table like the paper sheet: date, time, lunch, reg, labor
+                      Date, time, lunch, reg, labor
                     </p>
                   </div>
                 </div>
               </div>
 
               <div className="overflow-x-auto">
-                <div className="min-w-[1220px]">
-                  <div className="grid grid-cols-[1fr_0.9fr_0.9fr_0.8fr_0.8fr_0.9fr_1.1fr_1fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
+                <div className="min-w-[1080px]">
+                  <div className="grid grid-cols-[1fr_0.95fr_0.95fr_0.8fr_0.8fr_0.95fr_0.8fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
                     <div>Date</div>
                     <div>Time In</div>
                     <div>Time Out</div>
                     <div>Lunch</div>
                     <div>Reg</div>
                     <div>Labor</div>
-                    <div>Notes</div>
-                    <div>Actions</div>
+                    <div>Delete</div>
                   </div>
 
                   {logs.length === 0 ? (
@@ -492,93 +716,69 @@ export default function EmployeeDetailsPage() {
                     logs.map((row) => (
                       <div
                         key={row.id}
-                        className="grid grid-cols-[1fr_0.9fr_0.9fr_0.8fr_0.8fr_0.9fr_1.1fr_1fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-3"
+                        className="grid grid-cols-[1fr_0.95fr_0.95fr_0.8fr_0.8fr_0.95fr_0.8fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-3"
                       >
-                        <div>
-                          <input
-                            type="date"
-                            value={row.work_date || ''}
-                            onChange={(e) =>
-                              updateRowValue(row.id, 'work_date', e.target.value)
-                            }
-                            className={darkInput}
-                          />
-                        </div>
+                        <input
+                          type="date"
+                          value={row.work_date || ''}
+                          onChange={(e) =>
+                            updateRowValue(row.id, 'work_date', e.target.value)
+                          }
+                          className={darkInput}
+                        />
 
-                        <div>
-                          <input
-                            type="time"
-                            value={row.time_in || ''}
-                            onChange={(e) =>
-                              updateRowValue(row.id, 'time_in', e.target.value)
-                            }
-                            className={darkInput}
-                          />
-                        </div>
+                        <input
+                          type="time"
+                          value={row.time_in || ''}
+                          onChange={(e) =>
+                            updateRowValue(row.id, 'time_in', e.target.value)
+                          }
+                          className={darkInput}
+                        />
 
-                        <div>
-                          <input
-                            type="time"
-                            value={row.time_out || ''}
-                            onChange={(e) =>
-                              updateRowValue(row.id, 'time_out', e.target.value)
-                            }
-                            className={darkInput}
-                          />
-                        </div>
+                        <input
+                          type="time"
+                          value={row.time_out || ''}
+                          onChange={(e) =>
+                            updateRowValue(row.id, 'time_out', e.target.value)
+                          }
+                          className={darkInput}
+                        />
 
-                        <div>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={row.lunch_hours ?? '0'}
-                            onChange={(e) =>
-                              updateRowValue(row.id, 'lunch_hours', e.target.value)
-                            }
-                            className={darkInput}
-                          />
-                        </div>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={row.lunch_hours ?? '0'}
+                          onChange={(e) =>
+                            updateRowValue(row.id, 'lunch_hours', e.target.value)
+                          }
+                          className={darkInput}
+                        />
 
-                        <div>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={row.reg_hours ?? '0'}
-                            onChange={(e) =>
-                              updateRowValue(row.id, 'reg_hours', e.target.value)
-                            }
-                            className={darkInput}
-                          />
-                        </div>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={row.reg_hours ?? '0'}
+                          onChange={(e) =>
+                            updateRowValue(row.id, 'reg_hours', e.target.value)
+                          }
+                          className={darkInput}
+                        />
 
-                        <div>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={row.labor_amount ?? '0'}
-                            onChange={(e) =>
-                              updateRowValue(row.id, 'labor_amount', e.target.value)
-                            }
-                            className={darkInput}
-                          />
-                        </div>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={row.labor_amount ?? '0'}
+                          onChange={(e) =>
+                            updateRowValue(row.id, 'labor_amount', e.target.value)
+                          }
+                          className={darkInput}
+                        />
 
-                        <div>
-                          <input
-                            type="text"
-                            value={row.notes || ''}
-                            onChange={(e) =>
-                              updateRowValue(row.id, 'notes', e.target.value)
-                            }
-                            placeholder="Optional note"
-                            className={darkInput}
-                          />
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex gap-2">
                           <button
                             onClick={() => saveRow(row)}
                             disabled={saving}
@@ -601,231 +801,187 @@ export default function EmployeeDetailsPage() {
               </div>
             </div>
 
-            <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
-              <div className={`${pageCard} p-6 print-hide`}>
-                <h2 className="mb-5 text-2xl font-bold text-white">Deductions</h2>
+            <div className={`${pageCard} p-6 print-hide`}>
+              <h2 className="mb-5 text-2xl font-bold text-white">Deductions</h2>
 
-                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Tax</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={tax}
-                      onChange={(e) => setTax(e.target.value)}
-                      className={darkInput}
-                    />
-                  </div>
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div>
+                  <label className="mb-2 block text-sm text-slate-300">Tax</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={tax}
+                    onChange={(e) => setTax(e.target.value)}
+                    className={darkInput}
+                  />
+                </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Rent</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={rent}
-                      onChange={(e) => setRent(e.target.value)}
-                      className={darkInput}
-                    />
-                  </div>
+                <div>
+                  <label className="mb-2 block text-sm text-slate-300">Rent</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={rent}
+                    onChange={(e) => setRent(e.target.value)}
+                    className={darkInput}
+                  />
+                </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Electric</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={electric}
-                      onChange={(e) => setElectric(e.target.value)}
-                      className={darkInput}
-                    />
-                  </div>
+                <div>
+                  <label className="mb-2 block text-sm text-slate-300">Electric</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={electric}
+                    onChange={(e) => setElectric(e.target.value)}
+                    className={darkInput}
+                  />
+                </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Water</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={water}
-                      onChange={(e) => setWater(e.target.value)}
-                      className={darkInput}
-                    />
-                  </div>
+                <div>
+                  <label className="mb-2 block text-sm text-slate-300">Water</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={water}
+                    onChange={(e) => setWater(e.target.value)}
+                    className={darkInput}
+                  />
+                </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Clean</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={clean}
-                      onChange={(e) => setClean(e.target.value)}
-                      className={darkInput}
-                    />
-                  </div>
+                <div>
+                  <label className="mb-2 block text-sm text-slate-300">Clean</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={clean}
+                    onChange={(e) => setClean(e.target.value)}
+                    className={darkInput}
+                  />
+                </div>
 
-                  <div>
-                    <label className="mb-2 block text-sm text-slate-300">Transport</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={transport}
-                      onChange={(e) => setTransport(e.target.value)}
-                      className={darkInput}
-                    />
-                  </div>
+                <div>
+                  <label className="mb-2 block text-sm text-slate-300">Transport</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={transport}
+                    onChange={(e) => setTransport(e.target.value)}
+                    className={darkInput}
+                  />
                 </div>
               </div>
 
-              <div className="print-sheet rounded-3xl border border-slate-300 bg-white p-8 text-slate-900 shadow-2xl">
-                <div className="mb-6 flex items-start justify-between gap-4 border-b border-slate-300 pb-5">
-                  <div>
-                    <div className="text-sm uppercase tracking-[0.18em] text-slate-500">
-                      Payroll sheet
-                    </div>
-                    <h2 className="mt-2 text-3xl font-bold">Employee Payment Check</h2>
-                  </div>
-
-                  <button
-                    onClick={handlePrintCheck}
-                    className="print-hide inline-flex items-center gap-2 rounded-xl border border-slate-300 bg-slate-100 px-4 py-2 font-semibold text-slate-800 transition hover:bg-slate-200"
-                  >
-                    <Printer size={16} />
-                    Print Check
-                  </button>
-                </div>
-
-                <div className="grid gap-5 md:grid-cols-2">
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                      Employee
-                    </div>
-                    <div className="mt-2 text-lg font-semibold">{fullName}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                      Employee #
-                    </div>
-                    <div className="mt-2 text-lg font-semibold">
-                      {employee?.employee_number ?? '—'}
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                      Period start
-                    </div>
-                    <div className="mt-2 text-lg font-semibold">{periodStart || '—'}</div>
-                  </div>
-
-                  <div>
-                    <div className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                      Period end
-                    </div>
-                    <div className="mt-2 text-lg font-semibold">{periodEnd || '—'}</div>
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+                <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
+                  <div className="text-sm text-slate-400">Total labor</div>
+                  <div className="mt-2 text-2xl font-bold text-white">
+                    {money(totals.totalLabor)}
                   </div>
                 </div>
 
-                <div className="my-6 border-t border-slate-300" />
-
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between text-base">
-                    <span className="text-slate-600">Total hours</span>
-                    <span className="font-semibold">{totals.totalReg.toFixed(2)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-base">
-                    <span className="text-slate-600">Total labor</span>
-                    <span className="font-semibold">{money(totals.totalLabor)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-base">
-                    <span className="text-slate-600">Tax</span>
-                    <span className="font-semibold">{money(totals.taxNum)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-base">
-                    <span className="text-slate-600">Rent</span>
-                    <span className="font-semibold">{money(totals.rentNum)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-base">
-                    <span className="text-slate-600">Electric</span>
-                    <span className="font-semibold">{money(totals.electricNum)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-base">
-                    <span className="text-slate-600">Water</span>
-                    <span className="font-semibold">{money(totals.waterNum)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-base">
-                    <span className="text-slate-600">Clean</span>
-                    <span className="font-semibold">{money(totals.cleanNum)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between text-base">
-                    <span className="text-slate-600">Transport</span>
-                    <span className="font-semibold">{money(totals.transportNum)}</span>
-                  </div>
-
-                  <div className="flex items-center justify-between border-t border-slate-300 pt-4 text-xl">
-                    <span className="font-bold">G.Total</span>
-                    <span className="font-bold">{money(totals.gTotal)}</span>
-                  </div>
-                </div>
-
-                <div className="mt-8 grid gap-8 md:grid-cols-2">
-                  <div>
-                    <div className="border-t border-slate-400 pt-2 text-sm text-slate-600">
-                      Employee signature
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="border-t border-slate-400 pt-2 text-sm text-slate-600">
-                      Authorized signature
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-8">
-                  <div className="text-xs uppercase tracking-[0.16em] text-slate-500">
-                    Dates in period
-                  </div>
-
-                  <div className="mt-3 overflow-hidden rounded-2xl border border-slate-300">
-                    <div className="grid grid-cols-[1fr_1fr_1fr_0.8fr_0.8fr] bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700">
-                      <div>Date</div>
-                      <div>Time In</div>
-                      <div>Time Out</div>
-                      <div>Reg</div>
-                      <div>Labor</div>
-                    </div>
-
-                    {filteredLogs.length === 0 ? (
-                      <div className="px-4 py-6 text-sm text-slate-500">
-                        No work rows in selected period
-                      </div>
-                    ) : (
-                      filteredLogs.map((row) => (
-                        <div
-                          key={`print-${row.id}`}
-                          className="grid grid-cols-[1fr_1fr_1fr_0.8fr_0.8fr] border-t border-slate-200 px-4 py-3 text-sm"
-                        >
-                          <div>{row.work_date || '—'}</div>
-                          <div>{row.time_in || '—'}</div>
-                          <div>{row.time_out || '—'}</div>
-                          <div>{Number(row.reg_hours || 0).toFixed(2)}</div>
-                          <div>{money(row.labor_amount)}</div>
-                        </div>
-                      ))
+                <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
+                  <div className="text-sm text-slate-400">Total deductions</div>
+                  <div className="mt-2 text-2xl font-bold text-red-300">
+                    {money(
+                      totals.taxNum +
+                        totals.rentNum +
+                        totals.electricNum +
+                        totals.waterNum +
+                        totals.cleanNum +
+                        totals.transportNum
                     )}
                   </div>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-600/10 p-4 xl:col-span-2">
+                  <div className="text-sm text-emerald-300">Net Pay</div>
+                  <div className="mt-2 text-3xl font-bold text-emerald-200">
+                    {money(totals.netPay)}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="real-check-print">
+              <div
+                style={{
+                  position: 'relative',
+                  width: '100%',
+                  minHeight: '100vh',
+                  background: '#ffffff',
+                }}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '0.45in',
+                    right: '0.7in',
+                    fontSize: '16pt',
+                    fontWeight: 600,
+                    color: '#000',
+                  }}
+                >
+                  {new Date().toISOString().slice(0, 10)}
+                </div>
+
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '1.18in',
+                    left: '0.9in',
+                    fontSize: '18pt',
+                    fontWeight: 600,
+                    color: '#000',
+                  }}
+                >
+                  {fullName}
+                </div>
+
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '1.18in',
+                    right: '0.7in',
+                    fontSize: '18pt',
+                    fontWeight: 700,
+                    color: '#000',
+                  }}
+                >
+                  {money(totals.netPay)}
+                </div>
+
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '1.68in',
+                    left: '0.9in',
+                    width: '7.1in',
+                    fontSize: '14pt',
+                    fontWeight: 500,
+                    color: '#000',
+                    textTransform: 'capitalize',
+                  }}
+                >
+                  {checkWords}
+                </div>
+
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: '2.28in',
+                    left: '1.05in',
+                    fontSize: '12pt',
+                    color: '#000',
+                  }}
+                >
+                  Payroll {periodStart} - {periodEnd}
                 </div>
               </div>
             </div>
