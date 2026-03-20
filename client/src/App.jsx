@@ -21,12 +21,10 @@ export default function App() {
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
 
-        {/* PUBLIC MONITORING */}
         <Route path="/monitoring" element={<MonitoringPage />} />
         <Route path="/monitoring/nj" element={<MonitoringNJPage />} />
         <Route path="/monitoring/pa" element={<MonitoringPAPage />} />
 
-        {/* PROTECTED */}
         <Route
           path="/dashboard"
           element={
@@ -62,8 +60,6 @@ export default function App() {
             </ProtectedRoute>
           }
         />
-      }
-/>
       </Routes>
     </AuthProvider>
   )
