@@ -13,7 +13,7 @@ import MonitoringPAPage from './pages/MonitoringPAPage'
 import AdminPage from './pages/AdminPage'
 import AccountingPage from './pages/AccountingPage'
 import EmployeesPage from './pages/EmployeesPage'
-
+import EmployeeDetailsPage from './pages/EmployeeDetailsPage'
 export default function App() {
   return (
     <AuthProvider>
@@ -62,5 +62,14 @@ export default function App() {
         />
       </Routes>
     </AuthProvider>
+    
+    <Route
+  path="/employees/:id"
+  element={
+    <ProtectedRoute>
+      <EmployeeDetailsPage />
+    </ProtectedRoute>
+  }
+/>
   )
 }
