@@ -878,7 +878,7 @@ export default function DashboardPage() {
   Mail,
   Briefcase,
   Calculator,
-}
+    
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
