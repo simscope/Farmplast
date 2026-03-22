@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import ChillerIllustration from '../components/monitoring/ChillerIllustration'
@@ -40,6 +41,8 @@ function barrelSort(a, b) {
 }
 
 export default function MonitoringNJPage() {
+  const navigate = useNavigate()
+
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -184,6 +187,17 @@ export default function MonitoringNJPage() {
     : isTablet
       ? 'repeat(3, minmax(0, 1fr))'
       : 'repeat(5, minmax(120px, 1fr))'
+
+  function handleChillerSelect(asset) {
+    const code = String(asset?.asset_code || '').toUpperCase()
+
+    if (code === 'CH-NJ-02') {
+      navigate('/monitoring/nj/chiller-2')
+      return
+    }
+
+    setSelectedAssetCode(asset.asset_code)
+  }
 
   return (
     <div
@@ -364,13 +378,18 @@ export default function MonitoringNJPage() {
             <div style={{ display: 'grid', gap: 18 }}>
               {chillers.length ? (
                 chillers.map((asset) => (
-                  <ChillerIllustration
+                  <div
                     key={asset.asset_code}
-                    asset={asset}
-                    selected={selectedAsset?.asset_code === asset.asset_code}
-                    onSelect={() => setSelectedAssetCode(asset.asset_code)}
-                    isMobile={isMobile}
-                  />
+                    onClick={() => handleChillerSelect(asset)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <ChillerIllustration
+                      asset={asset}
+                      selected={selectedAsset?.asset_code === asset.asset_code}
+                      onSelect={() => {}}
+                      isMobile={isMobile}
+                    />
+                  </div>
                 ))
               ) : (
                 <div style={statCardStyle(isMobile)}>No live chiller telemetry yet.</div>
@@ -407,7 +426,6 @@ export default function MonitoringNJPage() {
                   </div>
                 </div>
               )}
-
             </div>
           </div>
         )}
