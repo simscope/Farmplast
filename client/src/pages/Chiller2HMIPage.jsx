@@ -114,6 +114,7 @@ export default function Chiller2HMIPage() {
           .filter(Boolean)
           .sort()
           .at(-1)
+
         setLastSync(latest || null)
       }
     } catch (err) {
@@ -154,54 +155,112 @@ export default function Chiller2HMIPage() {
   }
 
   const summary = useMemo(() => {
+    // ===== General =====
+    const plcVersion = getNumber('CH2_R40021')
+    const localCompressorCount = getNumber('CH2_R40022')
+    const setpoint = getNumber('CH2_R40023')
+    const chwIn = getNumber('CH2_R40024')
+    const chwOut = getNumber('CH2_R40025')
+
+    const condOutC1 = getNumber('CH2_R40028')
+    const condOutC2 = getNumber('CH2_R40029')
+    const suctionTempC1 = getNumber('CH2_R40030')
+    const suctionTempC2 = getNumber('CH2_R40031')
+    const suctionPressureC1 = getNumber('CH2_R40032')
+    const suctionPressureC2 = getNumber('CH2_R40033')
+    const liquidTempC1 = getNumber('CH2_R40034')
+    const liquidTempC2 = getNumber('CH2_R40035')
+    const dischargePressureC1 = getNumber('CH2_R40036')
+    const dischargePressureC2 = getNumber('CH2_R40037')
+    const diffPressure = getNumber('CH2_R40038')
+    const pumpPressure = getNumber('CH2_R40039')
+    const hgbPositionC1 = getNumber('CH2_R40040')
+
+    const hgbPositionC2 = getNumber('CH2_R40041')
+    const hgbModeC1 = getNumber('CH2_R40042')
+    const hgbModeC2 = getNumber('CH2_R40043')
+
+    // ===== C1 FIXED by your actual values =====
+    const flowC1 = getNumber('CH2_R40053')
+    const capacityC1 = getNumber('CH2_R40056')
+    const evapOutC1 = getNumber('CH2_R40055')
+    const compAHoursC1 = getNumber('CH2_R40050')
+    const compBHoursC1 = getNumber('CH2_R40045')
+    const compCHoursC1 = getNumber('CH2_R40046')
+
+    const comp1A = getBool('CH2_R40011_B0')
+    const comp1B = getBool('CH2_R40011_B1')
+    const comp1C = getBool('CH2_R40011_B2')
+    const compressorsOnC1 =
+      (comp1A ? 1 : 0) +
+      (comp1B ? 1 : 0) +
+      (comp1C ? 1 : 0)
+
+    // ===== C2 keep current mapping for now =====
+    const compAHoursC2 = getNumber('CH2_R40047')
+    const compBHoursC2 = getNumber('CH2_R40048')
+    const compCHoursC2 = getNumber('CH2_R40049')
+    const flowC2 = getNumber('CH2_R40051')
+    const capacityC2 = getNumber('CH2_R40052')
+    const hmiMessage = getNumber('CH2_R40054')
+    const evapOutC2 = getNumber('CH2_R40056')
+    const compressorsOnC2 = getNumber('CH2_R40058')
+    const deltaT = getNumber('CH2_R40059')
+    const systemDemand = getNumber('CH2_R40060')
+
+    const runningGuess = getBool('CH2_R40012_B1') || getBool('CH2_R40011_B14')
+    const alarmGuess =
+      getBool('CH2_R40011_B6') ||
+      getBool('CH2_R40011_B7') ||
+      getBool('CH2_R40012_B0') ||
+      getBool('CH2_R40011_B10')
+
     return {
-      plcVersion: getNumber('CH2_R40021'),
-      localCompressorCount: getNumber('CH2_R40022'),
-      setpoint: getNumber('CH2_R40023'),
-      chwIn: getNumber('CH2_R40024'),
-      chwOut: getNumber('CH2_R40025'),
+      plcVersion,
+      localCompressorCount,
+      setpoint,
+      chwIn,
+      chwOut,
 
-      condOutC1: getNumber('CH2_R40028'),
-      condOutC2: getNumber('CH2_R40029'),
-      suctionTempC1: getNumber('CH2_R40030'),
-      suctionTempC2: getNumber('CH2_R40031'),
-      suctionPressureC1: getNumber('CH2_R40032'),
-      suctionPressureC2: getNumber('CH2_R40033'),
-      liquidTempC1: getNumber('CH2_R40034'),
-      liquidTempC2: getNumber('CH2_R40035'),
-      dischargePressureC1: getNumber('CH2_R40036'),
-      dischargePressureC2: getNumber('CH2_R40037'),
-      diffPressure: getNumber('CH2_R40038'),
-      pumpPressure: getNumber('CH2_R40039'),
-      hgbPositionC1: getNumber('CH2_R40040'),
+      condOutC1,
+      condOutC2,
+      suctionTempC1,
+      suctionTempC2,
+      suctionPressureC1,
+      suctionPressureC2,
+      liquidTempC1,
+      liquidTempC2,
+      dischargePressureC1,
+      dischargePressureC2,
+      diffPressure,
+      pumpPressure,
+      hgbPositionC1,
+      hgbPositionC2,
+      hgbModeC1,
+      hgbModeC2,
 
-      hgbPositionC2: getNumber('CH2_R40041'),
-      hgbModeC1: getNumber('CH2_R40042'),
-      hgbModeC2: getNumber('CH2_R40043'),
-      compAHoursC1: getNumber('CH2_R40044'),
-      compBHoursC1: getNumber('CH2_R40045'),
-      compCHoursC1: getNumber('CH2_R40046'),
-      compAHoursC2: getNumber('CH2_R40047'),
-      compBHoursC2: getNumber('CH2_R40048'),
-      compCHoursC2: getNumber('CH2_R40049'),
-      flowC1: getNumber('CH2_R40050'),
-      flowC2: getNumber('CH2_R40051'),
-      capacityC1: getNumber('CH2_R40052'),
-      capacityC2: getNumber('CH2_R40053'),
-      hmiMessage: getNumber('CH2_R40054'),
-      evapOutC1: getNumber('CH2_R40055'),
-      evapOutC2: getNumber('CH2_R40056'),
-      compressorsOnC1: getNumber('CH2_R40057'),
-      compressorsOnC2: getNumber('CH2_R40058'),
-      deltaT: getNumber('CH2_R40059'),
-      systemDemand: getNumber('CH2_R40060'),
+      flowC1,
+      capacityC1,
+      evapOutC1,
+      compAHoursC1,
+      compBHoursC1,
+      compCHoursC1,
+      compressorsOnC1,
 
-      runningGuess: getBool('CH2_R40012_B1') || getBool('CH2_R40011_B14'),
-      alarmGuess:
-        getBool('CH2_R40011_B6') ||
-        getBool('CH2_R40011_B7') ||
-        getBool('CH2_R40012_B0') ||
-        getBool('CH2_R40011_B10'),
+      flowC2,
+      capacityC2,
+      evapOutC2,
+      compAHoursC2,
+      compBHoursC2,
+      compCHoursC2,
+      compressorsOnC2,
+
+      hmiMessage,
+      deltaT,
+      systemDemand,
+
+      runningGuess,
+      alarmGuess,
     }
   }, [pointMap])
 
