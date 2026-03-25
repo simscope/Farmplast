@@ -12,6 +12,10 @@ import {
   User,
   Hash,
   CheckCircle2,
+  Upload,
+  Loader2,
+  Save,
+  BadgeDollarSign,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -71,7 +75,7 @@ function buildEmptyRow() {
 
 function getSaturdayToFridayRange(baseDate = new Date()) {
   const d = new Date(baseDate)
-  const day = d.getDay() // 0 Sun, 6 Sat
+  const day = d.getDay()
 
   const distanceToSaturday = day === 6 ? 0 : day + 1
   const saturday = new Date(d)
@@ -165,6 +169,13 @@ function amountToWords(amount) {
   return `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
 }
 
+function sanitizeFileName(name) {
+  return String(name || 'file')
+    .toLowerCase()
+    .replace(/[^a-z0-9.\-_]+/g, '-')
+    .replace(/-+/g, '-')
+}
+
 export default function EmployeeDetailsPage() {
   const { id } = useParams()
   const currentWeek = getSaturdayToFridayRange()
@@ -174,6 +185,8 @@ export default function EmployeeDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [paying, setPaying] = useState(false)
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -186,6 +199,22 @@ export default function EmployeeDetailsPage() {
   const [water, setWater] = useState('0')
   const [clean, setClean] = useState('0')
   const [transport, setTransport] = useState('0')
+
+  const [profileForm, setProfileForm] = useState({
+    first_name: '',
+    last_name: '',
+    employee_number: '',
+    phone: '',
+    email: '',
+    position: '',
+    status: 'active',
+    pay_type: 'hourly',
+    hourly_rate: '',
+    monthly_salary: '',
+    hire_date: '',
+    employer_form: 'W2',
+    photo_url: '',
+  })
 
   useEffect(() => {
     loadPage()
@@ -213,6 +242,28 @@ export default function EmployeeDetailsPage() {
       }
 
       setEmployee(employeeData)
+      setProfileForm({
+        first_name: employeeData.first_name ?? '',
+        last_name: employeeData.last_name ?? '',
+        employee_number: employeeData.employee_number ?? '',
+        phone: employeeData.phone ?? '',
+        email: employeeData.email ?? '',
+        position: employeeData.position ?? 'worker',
+        status: employeeData.status ?? 'active',
+        pay_type: employeeData.pay_type ?? 'hourly',
+        hourly_rate:
+          employeeData.hourly_rate !== null && employeeData.hourly_rate !== undefined
+            ? String(employeeData.hourly_rate)
+            : '',
+        monthly_salary:
+          employeeData.monthly_salary !== null &&
+          employeeData.monthly_salary !== undefined
+            ? String(employeeData.monthly_salary)
+            : '',
+        hire_date: employeeData.hire_date ?? '',
+        employer_form: employeeData.employer_form ?? 'W2',
+        photo_url: employeeData.photo_url ?? '',
+      })
 
       const { data: logsData, error: logsError } = await supabase
         .from('employee_work_logs')
@@ -347,6 +398,119 @@ export default function EmployeeDetailsPage() {
     } catch (err) {
       console.error('deleteRow error:', err)
       setError(err.message || 'Failed to delete row')
+    }
+  }
+
+  async function handlePhotoUpload(e) {
+    try {
+      const file = e.target.files?.[0]
+      if (!file) return
+
+      setUploadingPhoto(true)
+      setError('')
+      setSuccess('')
+
+      const ext = file.name.split('.').pop() || 'jpg'
+      const safeName = sanitizeFileName(file.name.replace(/\.[^.]+$/, ''))
+      const filePath = `employees/${id}/${Date.now()}-${safeName}.${ext}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('employee-photos')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+        })
+
+      if (uploadError) throw uploadError
+
+      const { data: publicData } = supabase.storage
+        .from('employee-photos')
+        .getPublicUrl(filePath)
+
+      setProfileForm((prev) => ({
+        ...prev,
+        photo_url: publicData?.publicUrl || '',
+      }))
+
+      setSuccess('Photo uploaded. Click "Save profile" to save employee card.')
+    } catch (err) {
+      console.error('handlePhotoUpload error:', err)
+      setError(err.message || 'Failed to upload photo')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  async function saveProfile() {
+    try {
+      setProfileSaving(true)
+      setError('')
+      setSuccess('')
+
+      if (!profileForm.first_name.trim()) {
+        setError('First name is required')
+        return
+      }
+
+      if (!profileForm.last_name.trim()) {
+        setError('Last name is required')
+        return
+      }
+
+      if (!String(profileForm.employee_number).trim()) {
+        setError('Employee number is required')
+        return
+      }
+
+      if (profileForm.pay_type === 'hourly' && !String(profileForm.hourly_rate).trim()) {
+        setError('Hourly rate is required')
+        return
+      }
+
+      if (
+        profileForm.pay_type === 'monthly' &&
+        !String(profileForm.monthly_salary).trim()
+      ) {
+        setError('Monthly salary is required')
+        return
+      }
+
+      const payload = {
+        first_name: profileForm.first_name.trim(),
+        last_name: profileForm.last_name.trim(),
+        employee_number: String(profileForm.employee_number).trim(),
+        phone: profileForm.phone.trim() || null,
+        email: profileForm.email.trim() || null,
+        position: profileForm.position.trim() || 'worker',
+        status: profileForm.status || 'active',
+        pay_type: profileForm.pay_type || 'hourly',
+        hourly_rate:
+          profileForm.pay_type === 'hourly'
+            ? Number(profileForm.hourly_rate || 0)
+            : null,
+        monthly_salary:
+          profileForm.pay_type === 'monthly'
+            ? Number(profileForm.monthly_salary || 0)
+            : null,
+        hire_date: profileForm.hire_date || null,
+        employer_form: profileForm.employer_form || null,
+        photo_url: profileForm.photo_url || null,
+      }
+
+      const { error: updateError } = await supabase
+        .from('employees')
+        .update(payload)
+        .eq('id', id)
+
+      if (updateError) throw updateError
+
+      setSuccess('Employee profile saved')
+      await loadPage()
+    } catch (err) {
+      console.error('saveProfile error:', err)
+      setError(err.message || 'Failed to save employee profile')
+    } finally {
+      setProfileSaving(false)
     }
   }
 
@@ -545,6 +709,266 @@ export default function EmployeeDetailsPage() {
         ) : (
           <div className="space-y-6">
             <div className={`${pageCard} p-6 print-hide`}>
+              <div className="mb-6 flex items-center gap-3">
+                <div className="rounded-2xl bg-cyan-500/10 p-3 text-cyan-400">
+                  <User size={20} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-bold text-white">Employee profile</h2>
+                  <p className="text-slate-400">
+                    Photo, hire date, employer form and payment settings
+                  </p>
+                </div>
+              </div>
+
+              <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
+                <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-5">
+                  <div className="mx-auto h-48 w-48 overflow-hidden rounded-3xl border border-slate-700 bg-[#07101d]">
+                    {profileForm.photo_url ? (
+                      <img
+                        src={profileForm.photo_url}
+                        alt={fullName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
+                        No photo
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="mt-4">
+                    <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 font-semibold text-cyan-300 transition hover:bg-cyan-500/20">
+                      {uploadingPhoto ? (
+                        <Loader2 size={18} className="animate-spin" />
+                      ) : (
+                        <Upload size={18} />
+                      )}
+                      {uploadingPhoto ? 'Uploading...' : 'Upload photo'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                        disabled={uploadingPhoto}
+                      />
+                    </label>
+                    <p className="mt-2 text-center text-xs text-slate-500">
+                      SPEEDFace V5L photo or manual upload
+                    </p>
+                  </div>
+                </div>
+
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="mb-2 block text-sm text-slate-300">Employee #</label>
+                    <input
+                      type="text"
+                      value={profileForm.employee_number}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          employee_number: e.target.value,
+                        }))
+                      }
+                      className={darkInput}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm text-slate-300">Status</label>
+                    <select
+                      value={profileForm.status}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          status: e.target.value,
+                        }))
+                      }
+                      className={darkInput}
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm text-slate-300">First name</label>
+                    <input
+                      type="text"
+                      value={profileForm.first_name}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          first_name: e.target.value,
+                        }))
+                      }
+                      className={darkInput}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm text-slate-300">Last name</label>
+                    <input
+                      type="text"
+                      value={profileForm.last_name}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          last_name: e.target.value,
+                        }))
+                      }
+                      className={darkInput}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm text-slate-300">Phone</label>
+                    <input
+                      type="text"
+                      value={profileForm.phone}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          phone: e.target.value,
+                        }))
+                      }
+                      className={darkInput}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm text-slate-300">Email</label>
+                    <input
+                      type="email"
+                      value={profileForm.email}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          email: e.target.value,
+                        }))
+                      }
+                      className={darkInput}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm text-slate-300">Position</label>
+                    <input
+                      type="text"
+                      value={profileForm.position}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          position: e.target.value,
+                        }))
+                      }
+                      className={darkInput}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm text-slate-300">Hire date</label>
+                    <input
+                      type="date"
+                      value={profileForm.hire_date}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          hire_date: e.target.value,
+                        }))
+                      }
+                      className={darkInput}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm text-slate-300">Form Employer</label>
+                    <select
+                      value={profileForm.employer_form}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          employer_form: e.target.value,
+                        }))
+                      }
+                      className={darkInput}
+                    >
+                      <option value="W2">W2</option>
+                      <option value="1099">1099</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-2 block text-sm text-slate-300">Payment type</label>
+                    <select
+                      value={profileForm.pay_type}
+                      onChange={(e) =>
+                        setProfileForm((prev) => ({
+                          ...prev,
+                          pay_type: e.target.value,
+                        }))
+                      }
+                      className={darkInput}
+                    >
+                      <option value="hourly">Hourly</option>
+                      <option value="monthly">Monthly</option>
+                    </select>
+                  </div>
+
+                  {profileForm.pay_type === 'hourly' ? (
+                    <div>
+                      <label className="mb-2 block text-sm text-slate-300">Hourly rate</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={profileForm.hourly_rate}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            hourly_rate: e.target.value,
+                          }))
+                        }
+                        className={darkInput}
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="mb-2 block text-sm text-slate-300">Monthly salary</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={profileForm.monthly_salary}
+                        onChange={(e) =>
+                          setProfileForm((prev) => ({
+                            ...prev,
+                            monthly_salary: e.target.value,
+                          }))
+                        }
+                        className={darkInput}
+                      />
+                    </div>
+                  )}
+
+                  <div className="md:col-span-2 flex justify-end pt-2">
+                    <button
+                      onClick={saveProfile}
+                      disabled={profileSaving || uploadingPhoto}
+                      className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-3 font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
+                    >
+                      <Save size={18} />
+                      {profileSaving ? 'Saving...' : 'Save profile'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={`${pageCard} p-6 print-hide`}>
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                   <h1 className="text-3xl font-bold text-white">{fullName}</h1>
@@ -553,7 +977,7 @@ export default function EmployeeDetailsPage() {
                   </p>
                 </div>
 
-                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+                <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-8">
                   <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
                     <div className="flex items-center gap-2 text-slate-400">
                       <Hash size={16} />
@@ -579,6 +1003,26 @@ export default function EmployeeDetailsPage() {
                     </div>
                     <div className="mt-2 text-xl font-bold capitalize text-white">
                       {employee?.pay_type || '—'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <BadgeDollarSign size={16} />
+                      Employer form
+                    </div>
+                    <div className="mt-2 text-xl font-bold text-white">
+                      {employee?.employer_form || '—'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
+                    <div className="flex items-center gap-2 text-slate-400">
+                      <CalendarDays size={16} />
+                      Hire date
+                    </div>
+                    <div className="mt-2 text-xl font-bold text-white">
+                      {formatDate(employee?.hire_date)}
                     </div>
                   </div>
 
@@ -689,9 +1133,7 @@ export default function EmployeeDetailsPage() {
                   </div>
                   <div>
                     <h2 className="text-2xl font-bold text-white">Work log</h2>
-                    <p className="text-slate-400">
-                      Date, time, lunch, reg, labor
-                    </p>
+                    <p className="text-slate-400">Date, time, lunch, reg, labor</p>
                   </div>
                 </div>
               </div>
