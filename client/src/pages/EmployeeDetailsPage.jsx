@@ -17,6 +17,7 @@ import {
   History,
   ChevronDown,
   ChevronUp,
+  X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -193,6 +194,7 @@ export default function EmployeeDetailsPage() {
   const [logs, setLogs] = useState([])
   const [payments, setPayments] = useState([])
   const [paymentsOpen, setPaymentsOpen] = useState(false)
+  const [printPreviewOpen, setPrintPreviewOpen] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -326,7 +328,9 @@ export default function EmployeeDetailsPage() {
           nextRow.reg_hours = String(computedHours)
 
           if (employee?.pay_type === 'hourly') {
-            nextRow.labor_amount = String(Number((computedHours * hourlyRate).toFixed(2)))
+            nextRow.labor_amount = String(
+              Number((computedHours * hourlyRate).toFixed(2))
+            )
           }
         }
 
@@ -482,7 +486,7 @@ export default function EmployeeDetailsPage() {
 
   const checkWords = amountToWords(totals.netPay)
 
-  async function handlePayAndPrint() {
+  async function handlePayAndOpenPrint() {
     try {
       setPaying(true)
       setError('')
@@ -543,15 +547,17 @@ export default function EmployeeDetailsPage() {
       await loadPaymentsOnly()
 
       setSuccess('Payment saved')
-      setTimeout(() => {
-        window.print()
-      }, 200)
+      setPrintPreviewOpen(true)
     } catch (err) {
-      console.error('handlePayAndPrint error:', err)
+      console.error('handlePayAndOpenPrint error:', err)
       setError(err.message || 'Failed to save payment')
     } finally {
       setPaying(false)
     }
+  }
+
+  function handlePrintNow() {
+    window.print()
   }
 
   return (
@@ -559,38 +565,43 @@ export default function EmployeeDetailsPage() {
       <style>{`
         @page {
           size: auto;
-          margin: 0;
+          margin: 12mm;
         }
 
         @media print {
           body * {
-            visibility: hidden;
+            visibility: hidden !important;
           }
 
-          .real-check-print,
-          .real-check-print * {
-            visibility: visible;
+          .print-modal-sheet,
+          .print-modal-sheet * {
+            visibility: visible !important;
           }
 
-          .real-check-print {
-            position: fixed;
-            left: 0;
-            top: 0;
-            width: 100%;
-            min-height: 100vh;
-            background: white;
-            color: black;
-            z-index: 9999;
+          .print-modal-sheet {
+            position: absolute !important;
+            inset: 0 !important;
+            width: 100% !important;
+            background: white !important;
+            color: black !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            z-index: 99999 !important;
           }
 
-          .print-hide {
+          .print-break {
+            page-break-before: always;
+            break-before: page;
+          }
+
+          .no-print {
             display: none !important;
           }
         }
       `}</style>
 
       <div className="mx-auto max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
-        <div className="mb-6 flex flex-wrap gap-3 print-hide">
+        <div className="mb-6 flex flex-wrap gap-3 no-print">
           <Link
             to="/dashboard"
             className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 font-semibold text-white transition hover:border-cyan-500"
@@ -616,7 +627,7 @@ export default function EmployeeDetailsPage() {
           </button>
 
           <button
-            onClick={handlePayAndPrint}
+            onClick={handlePayAndOpenPrint}
             disabled={paying}
             className="inline-flex items-center gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 font-semibold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-60"
           >
@@ -635,7 +646,7 @@ export default function EmployeeDetailsPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            <div className={`${pageCard} p-6 print-hide`}>
+            <div className={`${pageCard} p-6 no-print`}>
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex items-center gap-5">
                   <div className="h-24 w-24 overflow-hidden rounded-3xl border border-slate-700 bg-[#07101d]">
@@ -807,18 +818,18 @@ export default function EmployeeDetailsPage() {
             </div>
 
             {error ? (
-              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-300 print-hide">
+              <div className="rounded-2xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-300 no-print">
                 {error}
               </div>
             ) : null}
 
             {success ? (
-              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-300 print-hide">
+              <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-emerald-300 no-print">
                 {success}
               </div>
             ) : null}
 
-            <div className={`${pageCard} overflow-hidden print-hide`}>
+            <div className={`${pageCard} overflow-hidden no-print`}>
               <button
                 type="button"
                 onClick={() => setPaymentsOpen((prev) => !prev)}
@@ -939,7 +950,7 @@ export default function EmployeeDetailsPage() {
               )}
             </div>
 
-            <div className={`${pageCard} overflow-hidden print-hide`}>
+            <div className={`${pageCard} overflow-hidden no-print`}>
               <div className="border-b border-slate-800 px-6 py-5">
                 <div className="flex items-center gap-3">
                   <div className="rounded-2xl bg-cyan-500/10 p-3 text-cyan-400">
@@ -1057,7 +1068,7 @@ export default function EmployeeDetailsPage() {
               </div>
             </div>
 
-            <div className={`${pageCard} p-6 print-hide`}>
+            <div className={`${pageCard} p-6 no-print`}>
               <h2 className="mb-5 text-2xl font-bold text-white">Deductions</h2>
 
               <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
@@ -1184,82 +1195,278 @@ export default function EmployeeDetailsPage() {
               </div>
             </div>
 
-            <div className="real-check-print">
-              <div
-                style={{
-                  position: 'relative',
-                  width: '100%',
-                  minHeight: '100vh',
-                  background: '#ffffff',
-                }}
-              >
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '0.45in',
-                    right: '0.7in',
-                    fontSize: '16pt',
-                    fontWeight: 600,
-                    color: '#000',
-                  }}
-                >
-                  {new Date().toISOString().slice(0, 10)}
-                </div>
+            {printPreviewOpen && (
+              <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4 no-print">
+                <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-3xl border border-slate-700 bg-[#07111f] shadow-2xl">
+                  <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+                    <div>
+                      <h2 className="text-2xl font-bold text-white">Print preview</h2>
+                      <p className="mt-1 text-sm text-slate-400">
+                        Check on top, payroll calculation below
+                      </p>
+                    </div>
 
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '1.18in',
-                    left: '0.9in',
-                    fontSize: '18pt',
-                    fontWeight: 600,
-                    color: '#000',
-                  }}
-                >
-                  {fullName}
-                </div>
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handlePrintNow}
+                        className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 font-semibold text-white transition hover:bg-cyan-500"
+                      >
+                        <Printer size={18} />
+                        Print
+                      </button>
 
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '1.18in',
-                    right: '0.7in',
-                    fontSize: '18pt',
-                    fontWeight: 700,
-                    color: '#000',
-                  }}
-                >
-                  {money(totals.netPay)}
-                </div>
+                      <button
+                        onClick={() => setPrintPreviewOpen(false)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 font-semibold text-white transition hover:border-red-500"
+                      >
+                        <X size={18} />
+                        Close
+                      </button>
+                    </div>
+                  </div>
 
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '1.68in',
-                    left: '0.9in',
-                    width: '7.1in',
-                    fontSize: '14pt',
-                    fontWeight: 500,
-                    color: '#000',
-                    textTransform: 'capitalize',
-                  }}
-                >
-                  {checkWords}
-                </div>
+                  <div className="flex-1 overflow-y-auto bg-slate-200 p-6">
+                    <div className="print-modal-sheet mx-auto max-w-[900px] bg-white text-black shadow-lg">
+                      <div className="px-10 py-10">
+                        <div className="mb-10 rounded border border-gray-300 p-8">
+                          <div className="mb-8 flex items-start justify-between">
+                            <div>
+                              <div className="text-3xl font-bold">PAYROLL CHECK</div>
+                              <div className="mt-2 text-sm text-gray-600">
+                                Date: {new Date().toISOString().slice(0, 10)}
+                              </div>
+                            </div>
 
-                <div
-                  style={{
-                    position: 'absolute',
-                    top: '2.28in',
-                    left: '1.05in',
-                    fontSize: '12pt',
-                    color: '#000',
-                  }}
-                >
-                  Payroll {periodStart} - {periodEnd}
+                            <div className="text-right">
+                              <div className="text-sm text-gray-600">Amount</div>
+                              <div className="text-3xl font-bold">
+                                {money(totals.netPay)}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="mb-6">
+                            <div className="text-sm text-gray-600">Pay to the order of</div>
+                            <div className="mt-1 text-2xl font-bold">{fullName}</div>
+                          </div>
+
+                          <div className="mb-6">
+                            <div className="text-sm text-gray-600">Amount in words</div>
+                            <div className="mt-1 border-b border-gray-400 pb-2 text-lg capitalize">
+                              {checkWords}
+                            </div>
+                          </div>
+
+                          <div className="grid gap-4 md:grid-cols-3">
+                            <div>
+                              <div className="text-sm text-gray-600">Employee #</div>
+                              <div className="mt-1 font-semibold">
+                                {employee?.employee_number ?? '—'}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-sm text-gray-600">Period</div>
+                              <div className="mt-1 font-semibold">
+                                {periodStart} - {periodEnd}
+                              </div>
+                            </div>
+
+                            <div>
+                              <div className="text-sm text-gray-600">Pay type</div>
+                              <div className="mt-1 font-semibold capitalize">
+                                {employee?.pay_type || '—'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="print-break" />
+
+                        <div className="mb-6">
+                          <h3 className="text-2xl font-bold">Payroll calculation</h3>
+                          <p className="mt-1 text-sm text-gray-600">
+                            Breakdown of how the payment was calculated
+                          </p>
+                        </div>
+
+                        <div className="mb-8 grid gap-4 md:grid-cols-2">
+                          <div className="rounded border border-gray-300 p-4">
+                            <div className="mb-3 text-lg font-bold">Employee info</div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Name</span>
+                                <span className="font-medium">{fullName}</span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Employee #</span>
+                                <span className="font-medium">
+                                  {employee?.employee_number ?? '—'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Employer form</span>
+                                <span className="font-medium">
+                                  {employee?.employer_form || '—'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Pay type</span>
+                                <span className="font-medium capitalize">
+                                  {employee?.pay_type || '—'}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Rate / Salary</span>
+                                <span className="font-medium">
+                                  {employee?.pay_type === 'monthly' ||
+                                  employee?.pay_type === 'one_time'
+                                    ? money(employee?.monthly_salary)
+                                    : money(employee?.hourly_rate)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Period</span>
+                                <span className="font-medium">
+                                  {periodStart} - {periodEnd}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="rounded border border-gray-300 p-4">
+                            <div className="mb-3 text-lg font-bold">Payment summary</div>
+                            <div className="space-y-2 text-sm">
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Total regular hours</span>
+                                <span className="font-medium">
+                                  {totals.totalReg.toFixed(2)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Total labor</span>
+                                <span className="font-medium">
+                                  {money(totals.totalLabor)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Employee tax</span>
+                                <span className="font-medium">
+                                  {money(totals.employeeTaxNum)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Employer tax</span>
+                                <span className="font-medium">
+                                  {money(totals.employerTaxNum)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Rent</span>
+                                <span className="font-medium">
+                                  {money(totals.rentNum)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Electric</span>
+                                <span className="font-medium">
+                                  {money(totals.electricNum)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Water</span>
+                                <span className="font-medium">
+                                  {money(totals.waterNum)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Clean</span>
+                                <span className="font-medium">
+                                  {money(totals.cleanNum)}
+                                </span>
+                              </div>
+                              <div className="flex justify-between gap-4">
+                                <span className="text-gray-600">Transport</span>
+                                <span className="font-medium">
+                                  {money(totals.transportNum)}
+                                </span>
+                              </div>
+                              <div className="mt-2 border-t border-gray-300 pt-2" />
+                              <div className="flex justify-between gap-4 font-bold">
+                                <span>Net Pay</span>
+                                <span>{money(totals.netPay)}</span>
+                              </div>
+                              <div className="flex justify-between gap-4 font-bold">
+                                <span>Total company cost</span>
+                                <span>{money(totals.totalCompanyCost)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="mb-4">
+                          <h4 className="text-xl font-bold">Work log used in calculation</h4>
+                        </div>
+
+                        <div className="overflow-hidden rounded border border-gray-300">
+                          <div className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.7fr_0.7fr_0.9fr] bg-gray-100 px-4 py-3 text-sm font-bold">
+                            <div>Date</div>
+                            <div>Time In</div>
+                            <div>Time Out</div>
+                            <div>Lunch</div>
+                            <div>Reg</div>
+                            <div>Labor</div>
+                          </div>
+
+                          {filteredLogs.length === 0 ? (
+                            <div className="px-4 py-8 text-center text-sm text-gray-500">
+                              No work log rows in selected period
+                            </div>
+                          ) : (
+                            filteredLogs.map((row) => (
+                              <div
+                                key={row.id}
+                                className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.7fr_0.7fr_0.9fr] border-t border-gray-200 px-4 py-3 text-sm"
+                              >
+                                <div>{row.work_date || '—'}</div>
+                                <div>{row.time_in || '—'}</div>
+                                <div>{row.time_out || '—'}</div>
+                                <div>{Number(row.lunch_hours || 0).toFixed(2)}</div>
+                                <div>{Number(row.reg_hours || 0).toFixed(2)}</div>
+                                <div>{money(row.labor_amount)}</div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+
+                        <div className="mt-6 grid gap-4 md:grid-cols-3">
+                          <div className="rounded border border-gray-300 p-4">
+                            <div className="text-sm text-gray-600">Total regular hours</div>
+                            <div className="mt-2 text-2xl font-bold">
+                              {totals.totalReg.toFixed(2)}
+                            </div>
+                          </div>
+
+                          <div className="rounded border border-gray-300 p-4">
+                            <div className="text-sm text-gray-600">Total labor</div>
+                            <div className="mt-2 text-2xl font-bold">
+                              {money(totals.totalLabor)}
+                            </div>
+                          </div>
+
+                          <div className="rounded border border-gray-300 p-4">
+                            <div className="text-sm text-gray-600">Net pay</div>
+                            <div className="mt-2 text-2xl font-bold">
+                              {money(totals.netPay)}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
           </div>
         )}
       </div>
