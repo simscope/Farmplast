@@ -18,6 +18,10 @@ import {
   Mail,
   Briefcase,
   ExternalLink,
+  Upload,
+  Loader2,
+  CalendarDays,
+  BadgeDollarSign,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -28,6 +32,31 @@ const cardClass =
 const inputClass =
   'w-full rounded-xl border border-slate-700 bg-[#0b1220] px-4 py-3 text-white outline-none transition focus:border-cyan-500'
 
+function sanitizeFileName(name) {
+  return String(name || 'file')
+    .toLowerCase()
+    .replace(/[^a-z0-9.\-_]+/g, '-')
+    .replace(/-+/g, '-')
+}
+
+async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
+  const ext = file.name.split('.').pop() || 'jpg'
+  const safeName = sanitizeFileName(file.name.replace(/\.[^.]+$/, ''))
+  const filePath = `employees/${employeeIdOrTemp}/${Date.now()}-${safeName}.${ext}`
+
+  const { error: uploadError } = await supabase.storage
+    .from('employee-photos')
+    .upload(filePath, file, {
+      cacheControl: '3600',
+      upsert: true,
+    })
+
+  if (uploadError) throw uploadError
+
+  const { data } = supabase.storage.from('employee-photos').getPublicUrl(filePath)
+  return data?.publicUrl || ''
+}
+
 function EmployeeModal({
   open,
   onClose,
@@ -37,11 +66,43 @@ function EmployeeModal({
   saving,
   isEditing,
 }) {
+  const [uploadingPhoto, setUploadingPhoto] = useState(false)
+  const [uploadError, setUploadError] = useState('')
+
+  useEffect(() => {
+    if (!open) {
+      setUploadingPhoto(false)
+      setUploadError('')
+    }
+  }, [open])
+
   if (!open) return null
+
+  async function handlePhotoUpload(e) {
+    try {
+      const file = e.target.files?.[0]
+      if (!file) return
+
+      setUploadingPhoto(true)
+      setUploadError('')
+
+      const photoUrl = await uploadEmployeePhoto(file, form.id || 'temp')
+
+      setForm((prev) => ({
+        ...prev,
+        photo_url: photoUrl,
+      }))
+    } catch (err) {
+      console.error('handlePhotoUpload error:', err)
+      setUploadError(err.message || 'Failed to upload photo')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-700 bg-[#07111f] shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-700 bg-[#07111f] shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
           <div>
             <h2 className="text-2xl font-bold text-white">
@@ -61,169 +122,253 @@ function EmployeeModal({
           </button>
         </div>
 
-        <form onSubmit={onSave} className="space-y-6 px-6 py-6">
-          <div className="grid gap-5 md:grid-cols-2">
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                Employee number
-              </label>
-              <input
-                type="number"
-                className={inputClass}
-                value={form.employee_number}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    employee_number: e.target.value,
-                  }))
-                }
-                placeholder="Employee number"
-              />
+        <form onSubmit={onSave} className="space-y-6 overflow-y-auto px-6 py-6">
+          <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
+            <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-5">
+              <div className="mx-auto h-48 w-48 overflow-hidden rounded-3xl border border-slate-700 bg-[#07101d]">
+                {form.photo_url ? (
+                  <img
+                    src={form.photo_url}
+                    alt="Employee"
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
+                    No photo
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4">
+                <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 font-semibold text-cyan-300 transition hover:bg-cyan-500/20">
+                  {uploadingPhoto ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Upload size={18} />
+                  )}
+                  {uploadingPhoto ? 'Uploading...' : 'Upload photo'}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={handlePhotoUpload}
+                    className="hidden"
+                    disabled={uploadingPhoto || saving}
+                  />
+                </label>
+
+                <p className="mt-2 text-center text-xs text-slate-500">
+                  SPEEDFace V5L photo or manual upload
+                </p>
+
+                {uploadError ? (
+                  <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                    {uploadError}
+                  </div>
+                ) : null}
+              </div>
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                First name
-              </label>
-              <input
-                className={inputClass}
-                value={form.first_name}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, first_name: e.target.value }))
-                }
-                placeholder="First name"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                Last name
-              </label>
-              <input
-                className={inputClass}
-                value={form.last_name}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, last_name: e.target.value }))
-                }
-                placeholder="Last name"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">Phone</label>
-              <input
-                className={inputClass}
-                value={form.phone}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, phone: e.target.value }))
-                }
-                placeholder="Phone number"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">Email</label>
-              <input
-                type="email"
-                className={inputClass}
-                value={form.email}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, email: e.target.value }))
-                }
-                placeholder="Email"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                Position
-              </label>
-              <input
-                className={inputClass}
-                value={form.position}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, position: e.target.value }))
-                }
-                placeholder="worker"
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">
-                Payment type
-              </label>
-              <select
-                className={inputClass}
-                value={form.pay_type}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    pay_type: e.target.value,
-                  }))
-                }
-              >
-                <option value="hourly">Hourly</option>
-                <option value="monthly">Monthly fixed</option>
-              </select>
-            </div>
-
-            {form.pay_type === 'hourly' ? (
+            <div className="grid gap-5 md:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm text-slate-300">
-                  Hourly rate
+                  Employee number
                 </label>
                 <input
                   type="number"
-                  step="0.01"
-                  min="0"
                   className={inputClass}
-                  value={form.hourly_rate}
+                  value={form.employee_number}
                   onChange={(e) =>
                     setForm((prev) => ({
                       ...prev,
-                      hourly_rate: e.target.value,
+                      employee_number: e.target.value,
                     }))
                   }
-                  placeholder="0.00"
+                  placeholder="Employee number"
                 />
               </div>
-            ) : (
+
               <div>
                 <label className="mb-2 block text-sm text-slate-300">
-                  Monthly salary
+                  First name
                 </label>
                 <input
-                  type="number"
-                  step="0.01"
-                  min="0"
                   className={inputClass}
-                  value={form.monthly_salary}
+                  value={form.first_name}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, first_name: e.target.value }))
+                  }
+                  placeholder="First name"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">
+                  Last name
+                </label>
+                <input
+                  className={inputClass}
+                  value={form.last_name}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, last_name: e.target.value }))
+                  }
+                  placeholder="Last name"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">Phone</label>
+                <input
+                  className={inputClass}
+                  value={form.phone}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, phone: e.target.value }))
+                  }
+                  placeholder="Phone number"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">Email</label>
+                <input
+                  type="email"
+                  className={inputClass}
+                  value={form.email}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, email: e.target.value }))
+                  }
+                  placeholder="Email"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">
+                  Position
+                </label>
+                <input
+                  className={inputClass}
+                  value={form.position}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, position: e.target.value }))
+                  }
+                  placeholder="worker"
+                />
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">
+                  Hire date
+                </label>
+                <input
+                  type="date"
+                  className={inputClass}
+                  value={form.hire_date}
                   onChange={(e) =>
                     setForm((prev) => ({
                       ...prev,
-                      monthly_salary: e.target.value,
+                      hire_date: e.target.value,
                     }))
                   }
-                  placeholder="0.00"
                 />
               </div>
-            )}
 
-            <div>
-              <label className="mb-2 block text-sm text-slate-300">Status</label>
-              <select
-                className={inputClass}
-                value={form.active ? 'true' : 'false'}
-                onChange={(e) =>
-                  setForm((prev) => ({
-                    ...prev,
-                    active: e.target.value === 'true',
-                  }))
-                }
-              >
-                <option value="true">Active</option>
-                <option value="false">Inactive</option>
-              </select>
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">
+                  Form Employer
+                </label>
+                <select
+                  className={inputClass}
+                  value={form.employer_form}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      employer_form: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="W2">W2</option>
+                  <option value="1099">1099</option>
+                  <option value="Cash">Cash</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">
+                  Payment type
+                </label>
+                <select
+                  className={inputClass}
+                  value={form.pay_type}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      pay_type: e.target.value,
+                    }))
+                  }
+                >
+                  <option value="hourly">Hourly</option>
+                  <option value="monthly">Monthly fixed</option>
+                </select>
+              </div>
+
+              {form.pay_type === 'hourly' ? (
+                <div>
+                  <label className="mb-2 block text-sm text-slate-300">
+                    Hourly rate
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className={inputClass}
+                    value={form.hourly_rate}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        hourly_rate: e.target.value,
+                      }))
+                    }
+                    placeholder="0.00"
+                  />
+                </div>
+              ) : (
+                <div>
+                  <label className="mb-2 block text-sm text-slate-300">
+                    Monthly salary
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    className={inputClass}
+                    value={form.monthly_salary}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        monthly_salary: e.target.value,
+                      }))
+                    }
+                    placeholder="0.00"
+                  />
+                </div>
+              )}
+
+              <div>
+                <label className="mb-2 block text-sm text-slate-300">Status</label>
+                <select
+                  className={inputClass}
+                  value={form.active ? 'true' : 'false'}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      active: e.target.value === 'true',
+                    }))
+                  }
+                >
+                  <option value="true">Active</option>
+                  <option value="false">Inactive</option>
+                </select>
+              </div>
             </div>
           </div>
 
@@ -238,7 +383,7 @@ function EmployeeModal({
 
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || uploadingPhoto}
               className="rounded-xl bg-cyan-600 px-5 py-3 font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? 'Saving...' : isEditing ? 'Save changes' : 'Add employee'}
@@ -271,6 +416,9 @@ export default function DashboardPage() {
     hourly_rate: '',
     monthly_salary: '',
     active: true,
+    hire_date: '',
+    employer_form: 'W2',
+    photo_url: '',
   }
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -290,7 +438,7 @@ export default function DashboardPage() {
       const { data, error } = await supabase
         .from('employees')
         .select(
-          'id, employee_number, first_name, last_name, phone, email, position, pay_type, hourly_rate, monthly_salary, active, created_at'
+          'id, employee_number, first_name, last_name, phone, email, position, pay_type, hourly_rate, monthly_salary, active, hire_date, employer_form, photo_url, created_at'
         )
         .order('created_at', { ascending: false })
 
@@ -318,6 +466,9 @@ export default function DashboardPage() {
       hourly_rate: '',
       monthly_salary: '',
       active: true,
+      hire_date: '',
+      employer_form: 'W2',
+      photo_url: '',
     })
     setModalOpen(true)
   }
@@ -344,6 +495,9 @@ export default function DashboardPage() {
           ? ''
           : employee.monthly_salary,
       active: employee.active ?? true,
+      hire_date: employee.hire_date || '',
+      employer_form: employee.employer_form || 'W2',
+      photo_url: employee.photo_url || '',
     })
     setModalOpen(true)
   }
@@ -401,6 +555,9 @@ export default function DashboardPage() {
             ? Number(form.monthly_salary)
             : null,
         active: Boolean(form.active),
+        hire_date: form.hire_date || null,
+        employer_form: form.employer_form || null,
+        photo_url: form.photo_url || null,
       }
 
       if (form.id) {
@@ -499,7 +656,8 @@ export default function DashboardPage() {
         (employee.phone || '').toLowerCase().includes(q) ||
         (employee.email || '').toLowerCase().includes(q) ||
         (employee.position || '').toLowerCase().includes(q) ||
-        (employee.pay_type || '').toLowerCase().includes(q)
+        (employee.pay_type || '').toLowerCase().includes(q) ||
+        (employee.employer_form || '').toLowerCase().includes(q)
       )
     })
   }, [employees, search])
@@ -662,13 +820,15 @@ export default function DashboardPage() {
             ) : (
               <>
                 <div className="hidden overflow-x-auto rounded-2xl border border-slate-800 lg:block">
-                  <div className="min-w-[1380px]">
-                    <div className="grid grid-cols-[0.7fr_1.4fr_1fr_1.3fr_1fr_1.2fr_0.8fr_1.8fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
+                  <div className="min-w-[1680px]">
+                    <div className="grid grid-cols-[0.7fr_1.1fr_1fr_1fr_1fr_0.9fr_0.9fr_1.1fr_0.8fr_1.8fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
                       <div>No.</div>
                       <div>Name</div>
                       <div>Phone</div>
                       <div>Email</div>
                       <div>Position</div>
+                      <div>Hire date</div>
+                      <div>Form</div>
                       <div>Payment</div>
                       <div>Status</div>
                       <div>Actions</div>
@@ -682,24 +842,36 @@ export default function DashboardPage() {
                       filteredEmployees.map((employee) => (
                         <div
                           key={employee.id}
-                          className="grid grid-cols-[0.7fr_1.4fr_1fr_1.3fr_1fr_1.2fr_0.8fr_1.8fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
+                          className="grid grid-cols-[0.7fr_1.1fr_1fr_1fr_1fr_0.9fr_0.9fr_1.1fr_0.8fr_1.8fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
                         >
                           <div className="font-semibold text-cyan-300">
                             {employee.employee_number ?? '—'}
                           </div>
 
-                          <div className="font-semibold text-white">
-                            {getFullName(employee)}
+                          <div className="flex items-center gap-3 font-semibold text-white">
+                            <div className="h-10 w-10 overflow-hidden rounded-xl border border-slate-700 bg-[#07101d]">
+                              {employee.photo_url ? (
+                                <img
+                                  src={employee.photo_url}
+                                  alt={getFullName(employee)}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : null}
+                            </div>
+                            <span>{getFullName(employee)}</span>
                           </div>
 
                           <div className="whitespace-nowrap">{employee.phone || '—'}</div>
-
                           <div className="truncate">{employee.email || '—'}</div>
-
                           <div className="whitespace-nowrap">
                             {employee.position || 'worker'}
                           </div>
-
+                          <div className="whitespace-nowrap">
+                            {employee.hire_date || '—'}
+                          </div>
+                          <div className="whitespace-nowrap font-semibold text-sky-300">
+                            {employee.employer_form || '—'}
+                          </div>
                           <div className="whitespace-nowrap font-semibold text-cyan-300">
                             {getPayLabel(employee)}
                           </div>
@@ -769,17 +941,29 @@ export default function DashboardPage() {
                         className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4"
                       >
                         <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <div className="flex items-center gap-2 text-sm text-cyan-300">
-                              <Hash size={14} />
-                              {employee.employee_number ?? '—'}
+                          <div className="flex gap-3">
+                            <div className="h-14 w-14 overflow-hidden rounded-2xl border border-slate-700 bg-[#07101d]">
+                              {employee.photo_url ? (
+                                <img
+                                  src={employee.photo_url}
+                                  alt={getFullName(employee)}
+                                  className="h-full w-full object-cover"
+                                />
+                              ) : null}
                             </div>
-                            <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-white">
-                              <User size={16} />
-                              {getFullName(employee)}
-                            </div>
-                            <div className="mt-1 text-sm text-slate-400">
-                              {employee.position || 'worker'}
+
+                            <div>
+                              <div className="flex items-center gap-2 text-sm text-cyan-300">
+                                <Hash size={14} />
+                                {employee.employee_number ?? '—'}
+                              </div>
+                              <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-white">
+                                <User size={16} />
+                                {getFullName(employee)}
+                              </div>
+                              <div className="mt-1 text-sm text-slate-400">
+                                {employee.position || 'worker'}
+                              </div>
                             </div>
                           </div>
 
@@ -806,6 +990,14 @@ export default function DashboardPage() {
                           <div className="flex items-center gap-2 text-slate-300">
                             <Briefcase size={15} className="text-cyan-400" />
                             {employee.position || 'worker'}
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-300">
+                            <CalendarDays size={15} className="text-cyan-400" />
+                            {employee.hire_date || '—'}
+                          </div>
+                          <div className="flex items-center gap-2 text-slate-300">
+                            <BadgeDollarSign size={15} className="text-cyan-400" />
+                            {employee.employer_form || '—'}
                           </div>
                           <div className="flex items-center gap-2 text-slate-300">
                             <DollarSign size={15} className="text-cyan-400" />
