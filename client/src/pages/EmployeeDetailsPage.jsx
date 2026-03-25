@@ -15,6 +15,8 @@ import {
   BadgeDollarSign,
   RefreshCw,
   History,
+  ChevronDown,
+  ChevronUp,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -190,6 +192,8 @@ export default function EmployeeDetailsPage() {
   const [employee, setEmployee] = useState(null)
   const [logs, setLogs] = useState([])
   const [payments, setPayments] = useState([])
+  const [paymentsOpen, setPaymentsOpen] = useState(false)
+
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [paying, setPaying] = useState(false)
@@ -815,7 +819,11 @@ export default function EmployeeDetailsPage() {
             ) : null}
 
             <div className={`${pageCard} overflow-hidden print-hide`}>
-              <div className="flex items-center justify-between border-b border-slate-800 px-6 py-5">
+              <button
+                type="button"
+                onClick={() => setPaymentsOpen((prev) => !prev)}
+                className="flex w-full items-center justify-between border-b border-slate-800 px-6 py-5 text-left transition hover:bg-white/5"
+              >
                 <div className="flex items-center gap-3">
                   <div className="rounded-2xl bg-cyan-500/10 p-3 text-cyan-400">
                     <History size={20} />
@@ -826,85 +834,109 @@ export default function EmployeeDetailsPage() {
                   </div>
                 </div>
 
-                <button
-                  onClick={loadPaymentsOnly}
-                  disabled={refreshingPayments}
-                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 font-semibold text-white transition hover:border-cyan-500 disabled:opacity-60"
-                >
-                  <RefreshCw size={16} className={refreshingPayments ? 'animate-spin' : ''} />
-                  Refresh
-                </button>
-              </div>
-
-              <div className="grid gap-4 border-b border-slate-800 bg-[#0b1220] px-6 py-4 md:grid-cols-3">
-                <div className="rounded-2xl border border-slate-800 bg-[#07101d] p-4">
-                  <div className="text-sm text-slate-400">Payments count</div>
-                  <div className="mt-2 text-2xl font-bold text-white">
-                    {paymentStats.count}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-800 bg-[#07101d] p-4">
-                  <div className="text-sm text-slate-400">Total paid</div>
-                  <div className="mt-2 text-2xl font-bold text-emerald-300">
-                    {money(paymentStats.totalPaid)}
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-800 bg-[#07101d] p-4">
-                  <div className="text-sm text-slate-400">Total labor paid</div>
-                  <div className="mt-2 text-2xl font-bold text-cyan-300">
-                    {money(paymentStats.totalLaborPaid)}
-                  </div>
-                </div>
-              </div>
-
-              <div className="overflow-x-auto">
-                <div className="min-w-[1250px]">
-                  <div className="grid grid-cols-[1fr_1fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr_0.8fr_0.8fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
-                    <div>Date paid</div>
-                    <div>Period</div>
-                    <div>Net pay</div>
-                    <div>Total labor</div>
-                    <div>Employee tax</div>
-                    <div>Employer tax</div>
-                    <div>Rent</div>
-                    <div>Utilities</div>
-                    <div>Transport</div>
-                  </div>
-
-                  {payments.length === 0 ? (
-                    <div className="bg-[#0b1220] px-4 py-10 text-center text-slate-400">
-                      No payment history yet
-                    </div>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-slate-400">
+                    {paymentsOpen ? 'Hide' : 'Show'}
+                  </span>
+                  {paymentsOpen ? (
+                    <ChevronUp size={20} className="text-slate-300" />
                   ) : (
-                    payments.map((row) => (
-                      <div
-                        key={row.id}
-                        className="grid grid-cols-[1fr_1fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr_0.8fr_0.8fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
-                      >
-                        <div>{formatDateTime(row.paid_at || row.created_at)}</div>
-                        <div>
-                          {row.period_start || '—'} - {row.period_end || '—'}
-                        </div>
-                        <div className="font-semibold text-emerald-300">
-                          {money(row.net_pay)}
-                        </div>
-                        <div className="font-semibold text-cyan-300">
-                          {money(row.total_labor)}
-                        </div>
-                        <div>{money(row.employee_tax)}</div>
-                        <div>{money(row.employer_tax)}</div>
-                        <div>{money(row.rent)}</div>
-                        <div>
-                          {money(Number(row.electric || 0) + Number(row.water || 0) + Number(row.clean || 0))}
-                        </div>
-                        <div>{money(row.transport)}</div>
-                      </div>
-                    ))
+                    <ChevronDown size={20} className="text-slate-300" />
                   )}
                 </div>
-              </div>
+              </button>
+
+              {paymentsOpen && (
+                <>
+                  <div className="flex justify-end border-b border-slate-800 bg-[#0b1220] px-6 py-4">
+                    <button
+                      onClick={loadPaymentsOnly}
+                      disabled={refreshingPayments}
+                      className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 font-semibold text-white transition hover:border-cyan-500 disabled:opacity-60"
+                    >
+                      <RefreshCw
+                        size={16}
+                        className={refreshingPayments ? 'animate-spin' : ''}
+                      />
+                      Refresh
+                    </button>
+                  </div>
+
+                  <div className="grid gap-4 border-b border-slate-800 bg-[#0b1220] px-6 py-4 md:grid-cols-3">
+                    <div className="rounded-2xl border border-slate-800 bg-[#07101d] p-4">
+                      <div className="text-sm text-slate-400">Payments count</div>
+                      <div className="mt-2 text-2xl font-bold text-white">
+                        {paymentStats.count}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-800 bg-[#07101d] p-4">
+                      <div className="text-sm text-slate-400">Total paid</div>
+                      <div className="mt-2 text-2xl font-bold text-emerald-300">
+                        {money(paymentStats.totalPaid)}
+                      </div>
+                    </div>
+
+                    <div className="rounded-2xl border border-slate-800 bg-[#07101d] p-4">
+                      <div className="text-sm text-slate-400">Total labor paid</div>
+                      <div className="mt-2 text-2xl font-bold text-cyan-300">
+                        {money(paymentStats.totalLaborPaid)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[1250px]">
+                      <div className="grid grid-cols-[1fr_1fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr_0.8fr_0.8fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
+                        <div>Date paid</div>
+                        <div>Period</div>
+                        <div>Net pay</div>
+                        <div>Total labor</div>
+                        <div>Employee tax</div>
+                        <div>Employer tax</div>
+                        <div>Rent</div>
+                        <div>Utilities</div>
+                        <div>Transport</div>
+                      </div>
+
+                      {payments.length === 0 ? (
+                        <div className="bg-[#0b1220] px-4 py-10 text-center text-slate-400">
+                          No payment history yet
+                        </div>
+                      ) : (
+                        payments.map((row) => (
+                          <div
+                            key={row.id}
+                            className="grid grid-cols-[1fr_1fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr_0.8fr_0.8fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
+                          >
+                            <div>{formatDateTime(row.paid_at || row.created_at)}</div>
+                            <div>
+                              {row.period_start || '—'} - {row.period_end || '—'}
+                            </div>
+                            <div className="font-semibold text-emerald-300">
+                              {money(row.net_pay)}
+                            </div>
+                            <div className="font-semibold text-cyan-300">
+                              {money(row.total_labor)}
+                            </div>
+                            <div>{money(row.employee_tax)}</div>
+                            <div>{money(row.employer_tax)}</div>
+                            <div>{money(row.rent)}</div>
+                            <div>
+                              {money(
+                                Number(row.electric || 0) +
+                                  Number(row.water || 0) +
+                                  Number(row.clean || 0)
+                              )}
+                            </div>
+                            <div>{money(row.transport)}</div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
 
             <div className={`${pageCard} overflow-hidden print-hide`}>
