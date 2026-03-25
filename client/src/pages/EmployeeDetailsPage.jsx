@@ -13,6 +13,8 @@ import {
   Hash,
   CheckCircle2,
   BadgeDollarSign,
+  RefreshCw,
+  History,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -30,6 +32,21 @@ function money(value) {
 function formatDate(value) {
   if (!value) return '—'
   return value
+}
+
+function formatDateTime(value) {
+  if (!value) return '—'
+  try {
+    return new Date(value).toLocaleString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  } catch {
+    return value
+  }
 }
 
 function calcHours(timeIn, timeOut, lunchHours) {
@@ -172,9 +189,11 @@ export default function EmployeeDetailsPage() {
 
   const [employee, setEmployee] = useState(null)
   const [logs, setLogs] = useState([])
+  const [payments, setPayments] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [paying, setPaying] = useState(false)
+  const [refreshingPayments, setRefreshingPayments] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
@@ -193,6 +212,27 @@ export default function EmployeeDetailsPage() {
     loadPage()
   }, [id])
 
+  async function loadPaymentsOnly() {
+    try {
+      setRefreshingPayments(true)
+
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('employee_payments')
+        .select('*')
+        .eq('employee_id', id)
+        .order('paid_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false, nullsFirst: false })
+
+      if (paymentsError) throw paymentsError
+      setPayments(paymentsData || [])
+    } catch (err) {
+      console.error('loadPaymentsOnly error:', err)
+      setError(err.message || 'Failed to load payment history')
+    } finally {
+      setRefreshingPayments(false)
+    }
+  }
+
   async function loadPage() {
     try {
       setLoading(true)
@@ -210,6 +250,7 @@ export default function EmployeeDetailsPage() {
       if (!employeeData) {
         setEmployee(null)
         setLogs([])
+        setPayments([])
         setError('Employee not found')
         return
       }
@@ -228,6 +269,20 @@ export default function EmployeeDetailsPage() {
         setLogs([])
       } else {
         setLogs(logsData || [])
+      }
+
+      const { data: paymentsData, error: paymentsError } = await supabase
+        .from('employee_payments')
+        .select('*')
+        .eq('employee_id', id)
+        .order('paid_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false, nullsFirst: false })
+
+      if (paymentsError) {
+        console.error('employee_payments load error:', paymentsError)
+        setPayments([])
+      } else {
+        setPayments(paymentsData || [])
       }
     } catch (err) {
       console.error('loadPage error:', err)
@@ -384,7 +439,6 @@ export default function EmployeeDetailsPage() {
       employeeTaxNum + rentNum + electricNum + waterNum + cleanNum + transportNum
 
     const companyExtras = employerTaxNum
-
     const netPay = totalLabor - employeeDeductions
     const totalCompanyCost = totalLabor + companyExtras
 
@@ -405,6 +459,20 @@ export default function EmployeeDetailsPage() {
     }
   }, [filteredLogs, employeeTax, employerTax, rent, electric, water, clean, transport])
 
+  const paymentStats = useMemo(() => {
+    const totalPaid = payments.reduce((sum, row) => sum + Number(row.net_pay || 0), 0)
+    const totalLaborPaid = payments.reduce(
+      (sum, row) => sum + Number(row.total_labor || 0),
+      0
+    )
+
+    return {
+      count: payments.length,
+      totalPaid,
+      totalLaborPaid,
+    }
+  }, [payments])
+
   const fullName =
     [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || '—'
 
@@ -423,20 +491,23 @@ export default function EmployeeDetailsPage() {
         return
       }
 
-      const today = new Date().toISOString().slice(0, 10)
+      const nowIso = new Date().toISOString()
+      const today = nowIso.slice(0, 10)
 
       const payload = {
         employee_id: id,
         period_start: periodStart,
         period_end: periodEnd,
         total_labor: Number(totals.totalLabor || 0),
-        tax: Number(totals.employeeTaxNum || 0),
+        employee_tax: Number(totals.employeeTaxNum || 0),
+        employer_tax: Number(totals.employerTaxNum || 0),
         rent: Number(totals.rentNum || 0),
         electric: Number(totals.electricNum || 0),
         water: Number(totals.waterNum || 0),
         clean: Number(totals.cleanNum || 0),
         transport: Number(totals.transportNum || 0),
         net_pay: netPay,
+        paid_at: nowIso,
       }
 
       const { error: paymentError } = await supabase
@@ -464,6 +535,8 @@ export default function EmployeeDetailsPage() {
             }
           : prev
       )
+
+      await loadPaymentsOnly()
 
       setSuccess('Payment saved')
       setTimeout(() => {
@@ -740,6 +813,99 @@ export default function EmployeeDetailsPage() {
                 {success}
               </div>
             ) : null}
+
+            <div className={`${pageCard} overflow-hidden print-hide`}>
+              <div className="flex items-center justify-between border-b border-slate-800 px-6 py-5">
+                <div className="flex items-center gap-3">
+                  <div className="rounded-2xl bg-cyan-500/10 p-3 text-cyan-400">
+                    <History size={20} />
+                  </div>
+                  <div>
+                    <h2 className="text-2xl font-bold text-white">Payment history</h2>
+                    <p className="text-slate-400">When and how much was paid</p>
+                  </div>
+                </div>
+
+                <button
+                  onClick={loadPaymentsOnly}
+                  disabled={refreshingPayments}
+                  className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2 font-semibold text-white transition hover:border-cyan-500 disabled:opacity-60"
+                >
+                  <RefreshCw size={16} className={refreshingPayments ? 'animate-spin' : ''} />
+                  Refresh
+                </button>
+              </div>
+
+              <div className="grid gap-4 border-b border-slate-800 bg-[#0b1220] px-6 py-4 md:grid-cols-3">
+                <div className="rounded-2xl border border-slate-800 bg-[#07101d] p-4">
+                  <div className="text-sm text-slate-400">Payments count</div>
+                  <div className="mt-2 text-2xl font-bold text-white">
+                    {paymentStats.count}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-800 bg-[#07101d] p-4">
+                  <div className="text-sm text-slate-400">Total paid</div>
+                  <div className="mt-2 text-2xl font-bold text-emerald-300">
+                    {money(paymentStats.totalPaid)}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-800 bg-[#07101d] p-4">
+                  <div className="text-sm text-slate-400">Total labor paid</div>
+                  <div className="mt-2 text-2xl font-bold text-cyan-300">
+                    {money(paymentStats.totalLaborPaid)}
+                  </div>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <div className="min-w-[1250px]">
+                  <div className="grid grid-cols-[1fr_1fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr_0.8fr_0.8fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
+                    <div>Date paid</div>
+                    <div>Period</div>
+                    <div>Net pay</div>
+                    <div>Total labor</div>
+                    <div>Employee tax</div>
+                    <div>Employer tax</div>
+                    <div>Rent</div>
+                    <div>Utilities</div>
+                    <div>Transport</div>
+                  </div>
+
+                  {payments.length === 0 ? (
+                    <div className="bg-[#0b1220] px-4 py-10 text-center text-slate-400">
+                      No payment history yet
+                    </div>
+                  ) : (
+                    payments.map((row) => (
+                      <div
+                        key={row.id}
+                        className="grid grid-cols-[1fr_1fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr_0.8fr_0.8fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
+                      >
+                        <div>{formatDateTime(row.paid_at || row.created_at)}</div>
+                        <div>
+                          {row.period_start || '—'} - {row.period_end || '—'}
+                        </div>
+                        <div className="font-semibold text-emerald-300">
+                          {money(row.net_pay)}
+                        </div>
+                        <div className="font-semibold text-cyan-300">
+                          {money(row.total_labor)}
+                        </div>
+                        <div>{money(row.employee_tax)}</div>
+                        <div>{money(row.employer_tax)}</div>
+                        <div>{money(row.rent)}</div>
+                        <div>
+                          {money(Number(row.electric || 0) + Number(row.water || 0) + Number(row.clean || 0))}
+                        </div>
+                        <div>{money(row.transport)}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
 
             <div className={`${pageCard} overflow-hidden print-hide`}>
               <div className="border-b border-slate-800 px-6 py-5">
