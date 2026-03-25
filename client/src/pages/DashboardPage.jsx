@@ -308,6 +308,7 @@ function EmployeeModal({
                 >
                   <option value="hourly">Hourly</option>
                   <option value="monthly">Monthly fixed</option>
+                  <option value="one_time">One-time</option>
                 </select>
               </div>
 
@@ -334,7 +335,7 @@ function EmployeeModal({
               ) : (
                 <div>
                   <label className="mb-2 block text-sm text-slate-300">
-                    Monthly salary
+                    {form.pay_type === 'monthly' ? 'Monthly salary' : 'One-time amount'}
                   </label>
                   <input
                     type="number"
@@ -527,9 +528,9 @@ export default function DashboardPage() {
       }
     }
 
-    if (form.pay_type === 'monthly') {
+    if (form.pay_type === 'monthly' || form.pay_type === 'one_time') {
       if (form.monthly_salary !== '' && Number.isNaN(Number(form.monthly_salary))) {
-        setError('Monthly salary is invalid')
+        setError('Amount is invalid')
         return
       }
     }
@@ -551,7 +552,8 @@ export default function DashboardPage() {
             ? Number(form.hourly_rate)
             : null,
         monthly_salary:
-          form.pay_type === 'monthly' && form.monthly_salary !== ''
+          (form.pay_type === 'monthly' || form.pay_type === 'one_time') &&
+          form.monthly_salary !== ''
             ? Number(form.monthly_salary)
             : null,
         active: Boolean(form.active),
@@ -630,6 +632,12 @@ export default function DashboardPage() {
     if (employee.pay_type === 'monthly') {
       return employee.monthly_salary !== null && employee.monthly_salary !== undefined
         ? `$${employee.monthly_salary} / month`
+        : '—'
+    }
+
+    if (employee.pay_type === 'one_time') {
+      return employee.monthly_salary !== null && employee.monthly_salary !== undefined
+        ? `$${employee.monthly_salary} one-time`
         : '—'
     }
 
