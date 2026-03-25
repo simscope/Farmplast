@@ -181,7 +181,8 @@ export default function EmployeeDetailsPage() {
   const [periodStart, setPeriodStart] = useState(currentWeek.start)
   const [periodEnd, setPeriodEnd] = useState(currentWeek.end)
 
-  const [tax, setTax] = useState('0')
+  const [employeeTax, setEmployeeTax] = useState('0')
+  const [employerTax, setEmployerTax] = useState('0')
   const [rent, setRent] = useState('0')
   const [electric, setElectric] = useState('0')
   const [water, setWater] = useState('0')
@@ -371,30 +372,38 @@ export default function EmployeeDetailsPage() {
       0
     )
 
-    const taxNum = Number(tax || 0)
+    const employeeTaxNum = Number(employeeTax || 0)
+    const employerTaxNum = Number(employerTax || 0)
     const rentNum = Number(rent || 0)
     const electricNum = Number(electric || 0)
     const waterNum = Number(water || 0)
     const cleanNum = Number(clean || 0)
     const transportNum = Number(transport || 0)
 
-    const deductions =
-      taxNum + rentNum + electricNum + waterNum + cleanNum + transportNum
+    const employeeDeductions =
+      employeeTaxNum + rentNum + electricNum + waterNum + cleanNum + transportNum
 
-    const netPay = totalLabor - deductions
+    const companyExtras = employerTaxNum
+
+    const netPay = totalLabor - employeeDeductions
+    const totalCompanyCost = totalLabor + companyExtras
 
     return {
       totalReg,
       totalLabor,
-      taxNum,
+      employeeTaxNum,
+      employerTaxNum,
       rentNum,
       electricNum,
       waterNum,
       cleanNum,
       transportNum,
+      employeeDeductions,
+      companyExtras,
       netPay,
+      totalCompanyCost,
     }
-  }, [filteredLogs, tax, rent, electric, water, clean, transport])
+  }, [filteredLogs, employeeTax, employerTax, rent, electric, water, clean, transport])
 
   const fullName =
     [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || '—'
@@ -416,19 +425,23 @@ export default function EmployeeDetailsPage() {
 
       const today = new Date().toISOString().slice(0, 10)
 
-      const { error: paymentError } = await supabase.from('employee_payments').insert({
+      const payload = {
         employee_id: id,
         period_start: periodStart,
         period_end: periodEnd,
         total_labor: Number(totals.totalLabor || 0),
-        tax: Number(totals.taxNum || 0),
+        tax: Number(totals.employeeTaxNum || 0),
         rent: Number(totals.rentNum || 0),
         electric: Number(totals.electricNum || 0),
         water: Number(totals.waterNum || 0),
         clean: Number(totals.cleanNum || 0),
         transport: Number(totals.transportNum || 0),
         net_pay: netPay,
-      })
+      }
+
+      const { error: paymentError } = await supabase
+        .from('employee_payments')
+        .insert(payload)
 
       if (paymentError) throw paymentError
 
@@ -547,11 +560,27 @@ export default function EmployeeDetailsPage() {
           <div className="space-y-6">
             <div className={`${pageCard} p-6 print-hide`}>
               <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
-                <div>
-                  <h1 className="text-3xl font-bold text-white">{fullName}</h1>
-                  <p className="mt-2 text-slate-400">
-                    Weekly payroll card. Default week is Saturday → Friday.
-                  </p>
+                <div className="flex items-center gap-5">
+                  <div className="h-24 w-24 overflow-hidden rounded-3xl border border-slate-700 bg-[#07101d]">
+                    {employee?.photo_url ? (
+                      <img
+                        src={employee.photo_url}
+                        alt={fullName}
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
+                        No photo
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <h1 className="text-3xl font-bold text-white">{fullName}</h1>
+                    <p className="mt-2 text-slate-400">
+                      Weekly payroll card. Default week is Saturday → Friday.
+                    </p>
+                  </div>
                 </div>
 
                 <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-8">
@@ -637,7 +666,7 @@ export default function EmployeeDetailsPage() {
                 </div>
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+              <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
                 <div>
                   <label className="mb-2 block text-sm text-slate-300">Period start</label>
                   <input
@@ -675,6 +704,16 @@ export default function EmployeeDetailsPage() {
                   </div>
                   <div className="mt-2 text-2xl font-bold text-cyan-300">
                     {money(totals.totalLabor)}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
+                  <div className="flex items-center gap-2 text-slate-400">
+                    <DollarSign size={16} />
+                    Employer tax
+                  </div>
+                  <div className="mt-2 text-2xl font-bold text-amber-300">
+                    {money(totals.employerTaxNum)}
                   </div>
                 </div>
 
@@ -823,15 +862,27 @@ export default function EmployeeDetailsPage() {
             <div className={`${pageCard} p-6 print-hide`}>
               <h2 className="mb-5 text-2xl font-bold text-white">Deductions</h2>
 
-              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <div>
-                  <label className="mb-2 block text-sm text-slate-300">Tax</label>
+                  <label className="mb-2 block text-sm text-slate-300">Employee tax</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
-                    value={tax}
-                    onChange={(e) => setTax(e.target.value)}
+                    value={employeeTax}
+                    onChange={(e) => setEmployeeTax(e.target.value)}
+                    className={darkInput}
+                  />
+                </div>
+
+                <div>
+                  <label className="mb-2 block text-sm text-slate-300">Employer tax</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={employerTax}
+                    onChange={(e) => setEmployerTax(e.target.value)}
                     className={darkInput}
                   />
                 </div>
@@ -906,24 +957,31 @@ export default function EmployeeDetailsPage() {
                 </div>
 
                 <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
-                  <div className="text-sm text-slate-400">Total deductions</div>
+                  <div className="text-sm text-slate-400">Employee deductions</div>
                   <div className="mt-2 text-2xl font-bold text-red-300">
-                    {money(
-                      totals.taxNum +
-                        totals.rentNum +
-                        totals.electricNum +
-                        totals.waterNum +
-                        totals.cleanNum +
-                        totals.transportNum
-                    )}
+                    {money(totals.employeeDeductions)}
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-600/10 p-4 xl:col-span-2">
+                <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
+                  <div className="text-sm text-slate-400">Employer tax</div>
+                  <div className="mt-2 text-2xl font-bold text-amber-300">
+                    {money(totals.employerTaxNum)}
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-emerald-500/30 bg-emerald-600/10 p-4">
                   <div className="text-sm text-emerald-300">Net Pay</div>
                   <div className="mt-2 text-3xl font-bold text-emerald-200">
                     {money(totals.netPay)}
                   </div>
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
+                <div className="text-sm text-slate-400">Total company cost</div>
+                <div className="mt-2 text-2xl font-bold text-orange-300">
+                  {money(totals.totalCompanyCost)}
                 </div>
               </div>
             </div>
