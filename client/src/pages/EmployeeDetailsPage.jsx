@@ -1193,7 +1193,7 @@ export default function EmployeeDetailsPage() {
                             key={row.id}
                             className="grid grid-cols-[1fr_1fr_0.9fr_0.9fr_0.9fr_0.8fr_0.8fr_0.8fr_0.8fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
                           >
-                            <div>{formatDateTime(row.paid_at || row.created_at)}</div>
+                            <div>{formatDateTime(row.paid_at)}</div>
                             <div>
                               {row.period_start || '—'} - {row.period_end || '—'}
                             </div>
@@ -1248,12 +1248,12 @@ export default function EmployeeDetailsPage() {
                     <div>Delete</div>
                   </div>
 
-                  {logs.length === 0 ? (
+                  {filteredLogs.length === 0 ? (
                     <div className="bg-[#0b1220] px-4 py-10 text-center text-slate-400">
-                      No rows yet. Click "Add row".
+                      No rows in selected period
                     </div>
                   ) : (
-                    logs.map((row) => (
+                    filteredLogs.map((row) => (
                       <div
                         key={row.id}
                         className="grid grid-cols-[1fr_0.95fr_0.95fr_0.8fr_0.8fr_0.95fr_0.8fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-3"
