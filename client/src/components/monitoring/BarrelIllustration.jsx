@@ -1,5 +1,5 @@
 import React from 'react'
-import { Radar } from 'lucide-react'
+import { Radar, Ruler, Waves } from 'lucide-react'
 import StatusPill from './StatusPill'
 import { getAssetStatus, statCardStyle } from '../../utils/monitoringHelpers'
 
@@ -12,18 +12,59 @@ function getNumeric(point, fallback = 0) {
   return Number.isFinite(n) ? n : fallback
 }
 
-export default function BarrelIllustration({ asset, isMobile }) {
-  const status = getAssetStatus(asset?.points || [])
+function getBoolean(point, fallback = null) {
+  if (typeof point?.value_boolean === 'boolean') return point.value_boolean
+  if (typeof point?.value_boolean === 'string') {
+    const v = point.value_boolean.toLowerCase()
+    if (v === 'true') return true
+    if (v === 'false') return false
+  }
+  return fallback
+}
 
-  const levelPercentPoint = findPoint(
+export default function BarrelIllustration({ asset, isMobile }) {
+  const derivedStatus = getAssetStatus(asset?.points || [])
+
+  const onlinePoint = findPoint(
     asset,
-    (code) => code.includes('LEVEL_PERCENT') || code.includes('PERCENT')
+    (code) =>
+      code === 'BARREL1_ONLINE' ||
+      code.endsWith('_ONLINE') ||
+      code.includes('ONLINE')
   )
 
-  const levelPercent = Math.max(0, Math.min(100, getNumeric(levelPercentPoint, 0)))
+  const percentPoint = findPoint(
+    asset,
+    (code) =>
+      code === 'BARREL1_LEVEL_PERCENT' ||
+      code.includes('LEVEL_PERCENT') ||
+      code.includes('PERCENT')
+  )
+
+  const heightPoint = findPoint(
+    asset,
+    (code) =>
+      code === 'BARREL1_LEVEL_HEIGHT_M' ||
+      code.includes('LEVEL_HEIGHT_M') ||
+      code.includes('HEIGHT_M')
+  )
+
+  const distancePoint = findPoint(
+    asset,
+    (code) =>
+      code === 'BARREL1_DISTANCE_M' ||
+      code.includes('DISTANCE_M')
+  )
+
+  const levelPercent = Math.max(0, Math.min(100, getNumeric(percentPoint, 0)))
+  const levelHeightM = getNumeric(heightPoint, 0)
+  const distanceM = getNumeric(distancePoint, 0)
+
+  const explicitOnline = getBoolean(onlinePoint, null)
+  const online = explicitOnline ?? derivedStatus.online
 
   const fillColor =
-    levelPercent < 20 ? '#ef4444' : levelPercent < 40 ? '#f59e0b' : '#22c55e'
+    levelPercent < 10 ? '#ef4444' : levelPercent < 20 ? '#f59e0b' : levelPercent < 40 ? '#eab308' : '#22c55e'
 
   const fillHeight = Math.max(8, (levelPercent / 100) * 240)
 
@@ -35,6 +76,8 @@ export default function BarrelIllustration({ asset, isMobile }) {
         : levelPercent < 40
           ? 'WATCH LEVEL'
           : 'NORMAL'
+
+  const metaText = online ? 'LIVE DATA' : 'OFFLINE / NO FRESH DATA'
 
   return (
     <div style={{ ...statCardStyle(isMobile), minHeight: isMobile ? 'auto' : 460 }}>
@@ -55,9 +98,12 @@ export default function BarrelIllustration({ asset, isMobile }) {
           <div style={{ fontSize: isMobile ? 22 : 28, fontWeight: 900, marginTop: 4 }}>
             {asset?.asset_name || 'Material Barrel'}
           </div>
+          <div style={{ marginTop: 6, color: '#64748b', fontSize: 11, fontWeight: 800 }}>
+            {metaText}
+          </div>
         </div>
 
-        <StatusPill online={status.online} />
+        <StatusPill online={online} />
       </div>
 
       <div
@@ -167,7 +213,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
 
             <text
               x="140"
-              y="188"
+              y="180"
               textAnchor="middle"
               fill="#f8fafc"
               fontSize="40"
@@ -178,13 +224,35 @@ export default function BarrelIllustration({ asset, isMobile }) {
 
             <text
               x="140"
-              y="214"
+              y="206"
               textAnchor="middle"
               fill="#cbd5e1"
               fontSize="14"
               fontWeight="700"
             >
               MATERIAL LEVEL
+            </text>
+
+            <text
+              x="140"
+              y="235"
+              textAnchor="middle"
+              fill="#94a3b8"
+              fontSize="13"
+              fontWeight="700"
+            >
+              H {levelHeightM.toFixed(2)} m
+            </text>
+
+            <text
+              x="140"
+              y="255"
+              textAnchor="middle"
+              fill="#94a3b8"
+              fontSize="13"
+              fontWeight="700"
+            >
+              D {distanceM.toFixed(2)} m
             </text>
           </svg>
         </div>
@@ -212,6 +280,56 @@ export default function BarrelIllustration({ asset, isMobile }) {
 
             <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900 }}>
               {levelPercent.toFixed(1)}%
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: 'rgba(2,6,23,0.46)',
+              borderRadius: 18,
+              padding: 14,
+              border: '1px solid rgba(148,163,184,0.08)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                color: '#cbd5e1',
+                fontWeight: 800,
+              }}
+            >
+              <Waves size={16} /> Material height
+            </div>
+
+            <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900 }}>
+              {levelHeightM.toFixed(2)} m
+            </div>
+          </div>
+
+          <div
+            style={{
+              background: 'rgba(2,6,23,0.46)',
+              borderRadius: 18,
+              padding: 14,
+              border: '1px solid rgba(148,163,184,0.08)',
+            }}
+          >
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                color: '#cbd5e1',
+                fontWeight: 800,
+              }}
+            >
+              <Ruler size={16} /> Distance to material
+            </div>
+
+            <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900 }}>
+              {distanceM.toFixed(2)} m
             </div>
           </div>
 
