@@ -9,7 +9,6 @@ import {
   Printer,
   Trash2,
   Wallet,
-  User,
   Hash,
   CheckCircle2,
   BadgeDollarSign,
@@ -63,7 +62,6 @@ function timeToMinutes(value) {
   return h * 60 + m
 }
 
-// максимум 12 часов в день, обед вычитается всегда
 function calcDayHours(timeIn, timeOut, lunchHours) {
   const start = timeToMinutes(timeIn)
   let end = timeToMinutes(timeOut)
@@ -1025,7 +1023,7 @@ export default function EmployeeDetailsPage() {
             <div className={`${pageCard} p-4 no-print`}>
               <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="h-20 w-20 overflow-hidden rounded-2xl border border-slate-700 bg-[#07101d]">
+                  <div className="h-40 w-40 shrink-0 overflow-hidden rounded-2xl border border-slate-700 bg-[#07101d]">
                     {employee?.photo_url ? (
                       <img
                         src={employee.photo_url}
@@ -1033,7 +1031,7 @@ export default function EmployeeDetailsPage() {
                         className="h-full w-full object-cover"
                       />
                     ) : (
-                      <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
+                      <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
                         No photo
                       </div>
                     )}
@@ -1047,7 +1045,7 @@ export default function EmployeeDetailsPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-8">
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
                   <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
                     <div className="flex items-center gap-2 text-xs text-slate-400">
                       <Hash size={14} />
@@ -1056,14 +1054,6 @@ export default function EmployeeDetailsPage() {
                     <div className="mt-1 text-lg font-bold text-white">
                       {employee?.employee_number ?? '—'}
                     </div>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                      <User size={14} />
-                      Name
-                    </div>
-                    <div className="mt-1 text-lg font-bold text-white">{fullName}</div>
                   </div>
 
                   <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
@@ -1084,6 +1074,11 @@ export default function EmployeeDetailsPage() {
                     <div className="mt-1 text-lg font-bold text-white">
                       {employee?.employer_form || '—'}
                     </div>
+                    {employee?.employer_form === 'Other' && employee?.company_name ? (
+                      <div className="mt-1 text-[11px] leading-tight text-slate-500">
+                        {employee.company_name}
+                      </div>
+                    ) : null}
                   </div>
 
                   <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
@@ -1111,17 +1106,10 @@ export default function EmployeeDetailsPage() {
                   <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
                     <div className="flex items-center gap-2 text-xs text-slate-400">
                       <CheckCircle2 size={14} />
-                      Last payment date
+                      Last payment
                     </div>
-                    <div className="mt-1 text-lg font-bold text-white">
+                    <div className="mt-1 text-sm font-bold text-white">
                       {formatDate(employee?.last_payment_date)}
-                    </div>
-                  </div>
-
-                  <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-                    <div className="flex items-center gap-2 text-xs text-slate-400">
-                      <DollarSign size={14} />
-                      Last payment amount
                     </div>
                     <div className="mt-1 text-lg font-bold text-emerald-300">
                       {money(employee?.last_payment_amount)}
