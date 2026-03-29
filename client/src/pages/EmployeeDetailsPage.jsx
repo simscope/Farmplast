@@ -17,6 +17,7 @@ import {
   ChevronDown,
   ChevronUp,
   X,
+  Move,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -25,6 +26,35 @@ const pageCard =
 
 const darkInput =
   'w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
+
+const COORDS_STORAGE_KEY = 'farmplast_check_print_coords_v1'
+
+const defaultCoords = {
+  payee: { x: 54, y: 30.5 },
+  amountWords: { x: 47, y: 66.5 },
+  date: { x: 169, y: 54.5 },
+  amountNumber: { x: 181.5, y: 68.2 },
+  amountCents: { x: 199.2, y: 63.3 },
+  globalOffset: { x: 0, y: 0 },
+}
+
+function loadSavedCoords() {
+  try {
+    const raw = localStorage.getItem(COORDS_STORAGE_KEY)
+    if (!raw) return defaultCoords
+    const parsed = JSON.parse(raw)
+    return {
+      payee: { ...defaultCoords.payee, ...(parsed.payee || {}) },
+      amountWords: { ...defaultCoords.amountWords, ...(parsed.amountWords || {}) },
+      date: { ...defaultCoords.date, ...(parsed.date || {}) },
+      amountNumber: { ...defaultCoords.amountNumber, ...(parsed.amountNumber || {}) },
+      amountCents: { ...defaultCoords.amountCents, ...(parsed.amountCents || {}) },
+      globalOffset: { ...defaultCoords.globalOffset, ...(parsed.globalOffset || {}) },
+    }
+  } catch {
+    return defaultCoords
+  }
+}
 
 function money(value) {
   const num = Number(value || 0)
@@ -62,7 +92,6 @@ function timeToMinutes(value) {
   return h * 60 + m
 }
 
-// максимум 12 часов в день, обед вычитается всегда
 function calcDayHours(timeIn, timeOut, lunchHours) {
   const start = timeToMinutes(timeIn)
   let end = timeToMinutes(timeOut)
@@ -211,8 +240,9 @@ function numberToWords(n) {
 
   const millions = Math.floor(num / 1000000)
   const rest = num % 1000000
-  if (rest === 0) return `${numberToWords(millions)} million`
-  return `${numberToWords(millions)} million ${numberToWords(rest)}`
+  return rest
+    ? `${numberToWords(millions)} million ${numberToWords(rest)}`
+    : `${numberToWords(millions)} million`
 }
 
 function amountToWords(amount) {
@@ -222,7 +252,7 @@ function amountToWords(amount) {
   return `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
 }
 
-function CheckStockPrint({ employee, fullName, totals }) {
+function CheckStockPrint({ employee, fullName, totals, coords }) {
   const payeeName =
     employee?.employer_form === 'Other' && employee?.company_name
       ? employee.company_name
@@ -233,19 +263,26 @@ function CheckStockPrint({ employee, fullName, totals }) {
     dateObj.getFullYear()
   ).slice(-2)}`
 
-  const amountNumber = Number(totals.netPay || 0).toFixed(2)
-  const amountWords = amountToWords(totals.netPay)
+  const amount = Number(totals.netPay || 0)
+  const dollars = Math.floor(amount)
+  const cents = Math.round((amount - dollars) * 100)
 
-  // КАЛИБРОВКА ПОД ПРИНТЕР
-  const offsetX = 0
-  const offsetY = 0
+  const amountNumberMain = String(dollars)
+  const amountNumberCents = String(cents).padStart(2, '0')
+  const amountWords = amountToWords(amount)
 
-  const field = (left, top, extra = {}) => ({
-    position: 'absolute',
-    left: `calc(${left}mm + ${offsetX}mm)`,
-    top: `calc(${top}mm + ${offsetY}mm)`,
-    ...extra,
-  })
+  const field = (name, extra = {}) => {
+    const pos = coords[name]
+    const gx = coords.globalOffset.x
+    const gy = coords.globalOffset.y
+
+    return {
+      position: 'absolute',
+      left: `calc(${pos.x}mm + ${gx}mm)`,
+      top: `calc(${pos.y}mm + ${gy}mm)`,
+      ...extra,
+    }
+  }
 
   return (
     <div
@@ -258,36 +295,9 @@ function CheckStockPrint({ employee, fullName, totals }) {
         fontFamily: 'Arial, sans-serif',
       }}
     >
-      {/* COMPANY BLOCK */}
       <div
-        style={field(121, 12, {
-          width: '38mm',
-          fontSize: '4.6mm',
-          fontWeight: 700,
-          lineHeight: 1.1,
-          textAlign: 'left',
-          whiteSpace: 'pre-line',
-        })}
-      >
-        {`FARMPLAST MFG, LLC\n125 EAST HALSEY ROAD\nPARSIPPANY, NJ 07054`}
-      </div>
-
-      {/* DATE */}
-      <div
-        style={field(169, 55, {
-          fontSize: '4.8mm',
-          fontWeight: 500,
-          whiteSpace: 'nowrap',
-          letterSpacing: '0.2mm',
-        })}
-      >
-        {dateText}
-      </div>
-
-      {/* PAY TO THE ORDER OF */}
-      <div
-        style={field(55, 31, {
-          fontSize: '6mm',
+        style={field('payee', {
+          fontSize: '5.8mm',
           fontWeight: 500,
           width: '92mm',
           whiteSpace: 'nowrap',
@@ -297,31 +307,191 @@ function CheckStockPrint({ employee, fullName, totals }) {
         {payeeName}
       </div>
 
-      {/* AMOUNT NUMERIC */}
       <div
-        style={field(171, 69, {
-          fontSize: '6.5mm',
+        style={field('amountWords', {
+          fontSize: '4.9mm',
           fontWeight: 500,
-          whiteSpace: 'nowrap',
-          width: '26mm',
-          textAlign: 'left',
-        })}
-      >
-        {amountNumber}
-      </div>
-
-      {/* AMOUNT IN WORDS */}
-      <div
-        style={field(47, 67, {
-          fontSize: '5.2mm',
-          fontWeight: 500,
-          width: '120mm',
+          width: '112mm',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textTransform: 'capitalize',
         })}
       >
         {amountWords}
+      </div>
+
+      <div
+        style={field('date', {
+          fontSize: '4.8mm',
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          letterSpacing: '0.15mm',
+        })}
+      >
+        {dateText}
+      </div>
+
+      <div
+        style={field('amountNumber', {
+          fontSize: '6.2mm',
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          textAlign: 'left',
+        })}
+      >
+        {amountNumberMain}
+      </div>
+
+      <div
+        style={field('amountCents', {
+          fontSize: '3.3mm',
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          textAlign: 'left',
+        })}
+      >
+        {amountNumberCents}
+      </div>
+    </div>
+  )
+}
+
+function PrintPaymentReport({
+  employee,
+  fullName,
+  periodStart,
+  periodEnd,
+  totals,
+  displayLogs,
+}) {
+  const payeeName =
+    employee?.employer_form === 'Other' && employee?.company_name
+      ? employee.company_name
+      : fullName
+
+  return (
+    <div className="bg-white px-8 py-8 text-black">
+      <div className="mb-6">
+        <div className="text-2xl font-bold">PAYMENT REPORT</div>
+        <div className="mt-1 text-sm text-slate-600">
+          Breakdown of what was paid and what was deducted
+        </div>
+      </div>
+
+      <div className="mb-6 grid gap-4 md:grid-cols-2">
+        <div className="rounded border border-slate-300 p-4">
+          <div className="mb-3 text-lg font-bold">Recipient</div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Pay to</span>
+              <span className="font-medium">{payeeName}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Employee #</span>
+              <span className="font-medium">{employee?.employee_number ?? '—'}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Employer form</span>
+              <span className="font-medium">{employee?.employer_form || '—'}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Pay type</span>
+              <span className="font-medium capitalize">{employee?.pay_type || '—'}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Period</span>
+              <span className="font-medium">
+                {periodStart} - {periodEnd}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded border border-slate-300 p-4">
+          <div className="mb-3 text-lg font-bold">Payment summary</div>
+          <div className="space-y-2 text-sm">
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Total regular hours</span>
+              <span className="font-medium">{totals.totalReg.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Taxable hours</span>
+              <span className="font-medium">{totals.taxableHours.toFixed(2)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Total labor paid</span>
+              <span className="font-medium">{money(totals.totalLabor)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Taxable labor</span>
+              <span className="font-medium">{money(totals.taxableLabor)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Employee tax</span>
+              <span className="font-medium">{money(totals.employeeTaxNum)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Rent</span>
+              <span className="font-medium">{money(totals.rentNum)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Electric</span>
+              <span className="font-medium">{money(totals.electricNum)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Water</span>
+              <span className="font-medium">{money(totals.waterNum)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Clean</span>
+              <span className="font-medium">{money(totals.cleanNum)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Transport</span>
+              <span className="font-medium">{money(totals.transportNum)}</span>
+            </div>
+            <div className="border-t border-slate-300 pt-2" />
+            <div className="flex justify-between gap-4 font-bold">
+              <span>Net Pay</span>
+              <span>{money(totals.netPay)}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="mb-3 text-lg font-bold">Work log used in calculation</div>
+
+      <div className="overflow-hidden rounded border border-slate-300">
+        <div className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] bg-slate-100 px-4 py-3 text-sm font-bold">
+          <div>Date</div>
+          <div>Time In</div>
+          <div>Time Out</div>
+          <div>Shift</div>
+          <div>Lunch</div>
+          <div>Reg</div>
+          <div>Labor</div>
+        </div>
+
+        {displayLogs.length === 0 ? (
+          <div className="px-4 py-8 text-center text-sm text-slate-500">
+            No work log rows in selected period
+          </div>
+        ) : (
+          displayLogs.map((row) => (
+            <div
+              key={row.id}
+              className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] border-t border-slate-200 px-4 py-3 text-sm"
+            >
+              <div>{row.work_date || '—'}</div>
+              <div>{row.time_in || '—'}</div>
+              <div>{row.time_out || '—'}</div>
+              <div>{row.shift_letter || getShiftLetter(row.time_in)}</div>
+              <div>{Number(row.lunch_hours || 0).toFixed(2)}</div>
+              <div>{Number(row.reg_hours || 0).toFixed(2)}</div>
+              <div>{money(row.labor_amount)}</div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   )
@@ -335,6 +505,10 @@ function PrintPreviewModal({
   employee,
   fullName,
   totals,
+  coords,
+  periodStart,
+  periodEnd,
+  displayLogs,
 }) {
   if (!open) return null
 
@@ -345,7 +519,7 @@ function PrintPreviewModal({
           <div>
             <h2 className="text-xl font-bold text-white">Print preview</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Printing on real Farmplast check stock
+              Check + payment report
             </p>
           </div>
 
@@ -371,7 +545,183 @@ function PrintPreviewModal({
 
         <div className="flex-1 overflow-auto bg-slate-200 p-5">
           <div className="print-modal-sheet mx-auto bg-white shadow-lg">
-            <CheckStockPrint employee={employee} fullName={fullName} totals={totals} />
+            <CheckStockPrint
+              employee={employee}
+              fullName={fullName}
+              totals={totals}
+              coords={coords}
+            />
+          </div>
+
+          <div className="print-report-sheet mx-auto mt-6 max-w-[920px] bg-white shadow-lg">
+            <PrintPaymentReport
+              employee={employee}
+              fullName={fullName}
+              periodStart={periodStart}
+              periodEnd={periodEnd}
+              totals={totals}
+              displayLogs={displayLogs}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function CoordEditor({ coords, setCoords, onReset }) {
+  function setField(name, axis, value) {
+    setCoords((prev) => ({
+      ...prev,
+      [name]: {
+        ...prev[name],
+        [axis]: Number(value || 0),
+      },
+    }))
+  }
+
+  return (
+    <div className={`${pageCard} p-4 no-print`}>
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Move size={18} className="text-cyan-400" />
+          <h2 className="text-xl font-bold text-white">Check print coordinates</h2>
+        </div>
+
+        <button
+          onClick={onReset}
+          className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:border-red-500"
+        >
+          Reset coords
+        </button>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
+          <div className="mb-2 text-sm font-semibold text-white">Payee</div>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="number"
+              step="0.1"
+              value={coords.payee.x}
+              onChange={(e) => setField('payee', 'x', e.target.value)}
+              className={darkInput}
+              placeholder="X"
+            />
+            <input
+              type="number"
+              step="0.1"
+              value={coords.payee.y}
+              onChange={(e) => setField('payee', 'y', e.target.value)}
+              className={darkInput}
+              placeholder="Y"
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
+          <div className="mb-2 text-sm font-semibold text-white">Amount words</div>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="number"
+              step="0.1"
+              value={coords.amountWords.x}
+              onChange={(e) => setField('amountWords', 'x', e.target.value)}
+              className={darkInput}
+              placeholder="X"
+            />
+            <input
+              type="number"
+              step="0.1"
+              value={coords.amountWords.y}
+              onChange={(e) => setField('amountWords', 'y', e.target.value)}
+              className={darkInput}
+              placeholder="Y"
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
+          <div className="mb-2 text-sm font-semibold text-white">Date</div>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="number"
+              step="0.1"
+              value={coords.date.x}
+              onChange={(e) => setField('date', 'x', e.target.value)}
+              className={darkInput}
+              placeholder="X"
+            />
+            <input
+              type="number"
+              step="0.1"
+              value={coords.date.y}
+              onChange={(e) => setField('date', 'y', e.target.value)}
+              className={darkInput}
+              placeholder="Y"
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
+          <div className="mb-2 text-sm font-semibold text-white">Amount number</div>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="number"
+              step="0.1"
+              value={coords.amountNumber.x}
+              onChange={(e) => setField('amountNumber', 'x', e.target.value)}
+              className={darkInput}
+              placeholder="X"
+            />
+            <input
+              type="number"
+              step="0.1"
+              value={coords.amountNumber.y}
+              onChange={(e) => setField('amountNumber', 'y', e.target.value)}
+              className={darkInput}
+              placeholder="Y"
+            />
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
+          <div className="mb-2 text-sm font-semibold text-white">Cents + Global offset</div>
+          <div className="mb-2 grid grid-cols-2 gap-2">
+            <input
+              type="number"
+              step="0.1"
+              value={coords.amountCents.x}
+              onChange={(e) => setField('amountCents', 'x', e.target.value)}
+              className={darkInput}
+              placeholder="Cents X"
+            />
+            <input
+              type="number"
+              step="0.1"
+              value={coords.amountCents.y}
+              onChange={(e) => setField('amountCents', 'y', e.target.value)}
+              className={darkInput}
+              placeholder="Cents Y"
+            />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <input
+              type="number"
+              step="0.1"
+              value={coords.globalOffset.x}
+              onChange={(e) => setField('globalOffset', 'x', e.target.value)}
+              className={darkInput}
+              placeholder="Global X"
+            />
+            <input
+              type="number"
+              step="0.1"
+              value={coords.globalOffset.y}
+              onChange={(e) => setField('globalOffset', 'y', e.target.value)}
+              className={darkInput}
+              placeholder="Global Y"
+            />
           </div>
         </div>
       </div>
@@ -406,9 +756,19 @@ export default function EmployeeDetailsPage() {
   const [clean, setClean] = useState('0')
   const [transport, setTransport] = useState('0')
 
+  const [coords, setCoords] = useState(() => loadSavedCoords())
+
+  useEffect(() => {
+    localStorage.setItem(COORDS_STORAGE_KEY, JSON.stringify(coords))
+  }, [coords])
+
   useEffect(() => {
     loadPage()
   }, [id])
+
+  function resetCoords() {
+    setCoords(defaultCoords)
+  }
 
   async function loadPaymentsOnly() {
     try {
@@ -818,7 +1178,7 @@ export default function EmployeeDetailsPage() {
     <div className="min-h-screen bg-[#020817] text-white print:bg-white print:text-black">
       <style>{`
         @page {
-          size: 215.9mm 88.9mm;
+          size: 215.9mm auto;
           margin: 0;
         }
 
@@ -829,6 +1189,11 @@ export default function EmployeeDetailsPage() {
 
           .print-modal-sheet,
           .print-modal-sheet * {
+            visibility: visible !important;
+          }
+
+          .print-report-sheet,
+          .print-report-sheet * {
             visibility: visible !important;
           }
 
@@ -843,6 +1208,17 @@ export default function EmployeeDetailsPage() {
             background: white !important;
             box-shadow: none !important;
             overflow: hidden !important;
+          }
+
+          .print-report-sheet {
+            position: absolute !important;
+            left: 0 !important;
+            top: 95mm !important;
+            width: 210mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            box-shadow: none !important;
           }
 
           .no-print {
@@ -1056,6 +1432,12 @@ export default function EmployeeDetailsPage() {
                 </div>
               </div>
             </div>
+
+            <CoordEditor
+              coords={coords}
+              setCoords={setCoords}
+              onReset={resetCoords}
+            />
 
             {error ? (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300 no-print">
@@ -1443,6 +1825,10 @@ export default function EmployeeDetailsPage() {
           employee={employee}
           fullName={fullName}
           totals={totals}
+          coords={coords}
+          periodStart={periodStart}
+          periodEnd={periodEnd}
+          displayLogs={displayLogs}
         />
       </div>
     </div>
