@@ -62,6 +62,7 @@ function timeToMinutes(value) {
   return h * 60 + m
 }
 
+// максимум 12 часов в день, обед вычитается всегда
 function calcDayHours(timeIn, timeOut, lunchHours) {
   const start = timeToMinutes(timeIn)
   let end = timeToMinutes(timeOut)
@@ -221,6 +222,111 @@ function amountToWords(amount) {
   return `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
 }
 
+function CheckStockPrint({ employee, fullName, totals }) {
+  const payeeName =
+    employee?.employer_form === 'Other' && employee?.company_name
+      ? employee.company_name
+      : fullName
+
+  const dateObj = new Date()
+  const dateText = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${String(
+    dateObj.getFullYear()
+  ).slice(-2)}`
+
+  const amountNumber = Number(totals.netPay || 0).toFixed(2)
+  const amountWords = amountToWords(totals.netPay)
+
+  // КАЛИБРОВКА ПОД ПРИНТЕР
+  const offsetX = 0
+  const offsetY = 0
+
+  const field = (left, top, extra = {}) => ({
+    position: 'absolute',
+    left: `calc(${left}mm + ${offsetX}mm)`,
+    top: `calc(${top}mm + ${offsetY}mm)`,
+    ...extra,
+  })
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        width: '215.9mm',
+        height: '88.9mm',
+        background: 'white',
+        color: 'black',
+        fontFamily: 'Arial, sans-serif',
+      }}
+    >
+      {/* COMPANY BLOCK */}
+      <div
+        style={field(121, 12, {
+          width: '38mm',
+          fontSize: '4.6mm',
+          fontWeight: 700,
+          lineHeight: 1.1,
+          textAlign: 'left',
+          whiteSpace: 'pre-line',
+        })}
+      >
+        {`FARMPLAST MFG, LLC\n125 EAST HALSEY ROAD\nPARSIPPANY, NJ 07054`}
+      </div>
+
+      {/* DATE */}
+      <div
+        style={field(169, 55, {
+          fontSize: '4.8mm',
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          letterSpacing: '0.2mm',
+        })}
+      >
+        {dateText}
+      </div>
+
+      {/* PAY TO THE ORDER OF */}
+      <div
+        style={field(55, 31, {
+          fontSize: '6mm',
+          fontWeight: 500,
+          width: '92mm',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+        })}
+      >
+        {payeeName}
+      </div>
+
+      {/* AMOUNT NUMERIC */}
+      <div
+        style={field(171, 69, {
+          fontSize: '6.5mm',
+          fontWeight: 500,
+          whiteSpace: 'nowrap',
+          width: '26mm',
+          textAlign: 'left',
+        })}
+      >
+        {amountNumber}
+      </div>
+
+      {/* AMOUNT IN WORDS */}
+      <div
+        style={field(47, 67, {
+          fontSize: '5.2mm',
+          fontWeight: 500,
+          width: '120mm',
+          whiteSpace: 'nowrap',
+          overflow: 'hidden',
+          textTransform: 'capitalize',
+        })}
+      >
+        {amountWords}
+      </div>
+    </div>
+  )
+}
+
 function PrintPreviewModal({
   open,
   onClose,
@@ -228,14 +334,9 @@ function PrintPreviewModal({
   printing,
   employee,
   fullName,
-  periodStart,
-  periodEnd,
   totals,
-  filteredLogs,
 }) {
   if (!open) return null
-
-  const checkWords = amountToWords(totals.netPay)
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4 no-print">
@@ -244,7 +345,7 @@ function PrintPreviewModal({
           <div>
             <h2 className="text-xl font-bold text-white">Print preview</h2>
             <p className="mt-1 text-sm text-slate-400">
-              Check on top, payroll calculation and work log below
+              Printing on real Farmplast check stock
             </p>
           </div>
 
@@ -268,230 +369,9 @@ function PrintPreviewModal({
           </div>
         </div>
 
-        <div className="flex-1 overflow-y-auto bg-slate-200 p-5">
-          <div className="print-modal-sheet mx-auto max-w-[920px] bg-white text-black shadow-lg">
-            <div className="px-10 py-10">
-              <div className="mb-10 overflow-hidden rounded border-2 border-gray-300">
-                <div className="border-b border-gray-300 bg-gray-50 px-8 py-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="text-3xl font-bold tracking-wide">SIM SCOPE INC.</div>
-                      <div className="mt-1 text-sm text-gray-600">PAYROLL CHECK</div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-xs uppercase tracking-wider text-gray-500">Date</div>
-                      <div className="mt-1 text-lg font-semibold">
-                        {new Date().toISOString().slice(0, 10)}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="px-8 py-8">
-                  <div className="mb-6 flex items-start justify-between gap-6">
-                    <div className="flex-1">
-                      <div className="text-sm text-gray-500">Pay to the order of</div>
-                      <div className="mt-2 border-b border-gray-400 pb-2 text-2xl font-bold">
-                        {fullName}
-                      </div>
-                    </div>
-
-                    <div className="min-w-[220px] rounded border-2 border-gray-400 px-4 py-3 text-right">
-                      <div className="text-xs uppercase tracking-wider text-gray-500">
-                        Amount
-                      </div>
-                      <div className="mt-1 text-3xl font-bold">{money(totals.netPay)}</div>
-                    </div>
-                  </div>
-
-                  <div className="mb-6">
-                    <div className="text-sm text-gray-500">Amount in words</div>
-                    <div className="mt-2 border-b border-gray-400 pb-2 text-lg capitalize">
-                      {checkWords}
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div>
-                      <div className="text-sm text-gray-500">Employee #</div>
-                      <div className="mt-1 font-semibold">
-                        {employee?.employee_number ?? '—'}
-                      </div>
-                    </div>
-
-                    <div>
-                      <div className="text-sm text-gray-500">Memo / Period</div>
-                      <div className="mt-1 font-semibold">
-                        Payroll {periodStart} - {periodEnd}
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <div className="text-sm text-gray-500">Authorized signature</div>
-                      <div className="mt-8 border-b border-gray-500" />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="print-break" />
-
-              <div className="mb-6">
-                <h3 className="text-2xl font-bold">Payroll calculation</h3>
-                <p className="mt-1 text-sm text-gray-600">
-                  Breakdown of how the payment was calculated
-                </p>
-              </div>
-
-              <div className="mb-8 grid gap-4 md:grid-cols-2">
-                <div className="rounded border border-gray-300 p-4">
-                  <div className="mb-3 text-lg font-bold">Employee info</div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Name</span>
-                      <span className="font-medium">{fullName}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Employee #</span>
-                      <span className="font-medium">{employee?.employee_number ?? '—'}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Employer form</span>
-                      <span className="font-medium">{employee?.employer_form || '—'}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Pay type</span>
-                      <span className="font-medium capitalize">{employee?.pay_type || '—'}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Rate / Salary</span>
-                      <span className="font-medium">
-                        {employee?.pay_type === 'monthly' || employee?.pay_type === 'one_time'
-                          ? money(employee?.monthly_salary)
-                          : money(employee?.hourly_rate)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Period</span>
-                      <span className="font-medium">
-                        {periodStart} - {periodEnd}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="rounded border border-gray-300 p-4">
-                  <div className="mb-3 text-lg font-bold">Payment summary</div>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Total regular hours</span>
-                      <span className="font-medium">{totals.totalReg.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Taxable hours</span>
-                      <span className="font-medium">{totals.taxableHours.toFixed(2)}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Total labor</span>
-                      <span className="font-medium">{money(totals.totalLabor)}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Taxable labor</span>
-                      <span className="font-medium">{money(totals.taxableLabor)}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Employee tax</span>
-                      <span className="font-medium">{money(totals.employeeTaxNum)}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Rent</span>
-                      <span className="font-medium">{money(totals.rentNum)}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Electric</span>
-                      <span className="font-medium">{money(totals.electricNum)}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Water</span>
-                      <span className="font-medium">{money(totals.waterNum)}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Clean</span>
-                      <span className="font-medium">{money(totals.cleanNum)}</span>
-                    </div>
-                    <div className="flex justify-between gap-4">
-                      <span className="text-gray-600">Transport</span>
-                      <span className="font-medium">{money(totals.transportNum)}</span>
-                    </div>
-                    <div className="mt-2 border-t border-gray-300 pt-2" />
-                    <div className="flex justify-between gap-4 font-bold">
-                      <span>Net Pay</span>
-                      <span>{money(totals.netPay)}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="mb-4">
-                <h4 className="text-xl font-bold">Work log used in calculation</h4>
-              </div>
-
-              <div className="overflow-hidden rounded border border-gray-300">
-                <div className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] bg-gray-100 px-4 py-3 text-sm font-bold">
-                  <div>Date</div>
-                  <div>Time In</div>
-                  <div>Time Out</div>
-                  <div>Shift</div>
-                  <div>Lunch</div>
-                  <div>Reg</div>
-                  <div>Labor</div>
-                </div>
-
-                {filteredLogs.length === 0 ? (
-                  <div className="px-4 py-8 text-center text-sm text-gray-500">
-                    No work log rows in selected period
-                  </div>
-                ) : (
-                  filteredLogs.map((row) => (
-                    <div
-                      key={row.id}
-                      className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] border-t border-gray-200 px-4 py-3 text-sm"
-                    >
-                      <div>{row.work_date || '—'}</div>
-                      <div>{row.time_in || '—'}</div>
-                      <div>{row.time_out || '—'}</div>
-                      <div>{row.shift_letter || getShiftLetter(row.time_in)}</div>
-                      <div>{Number(row.lunch_hours || 0).toFixed(2)}</div>
-                      <div>{Number(row.reg_hours || 0).toFixed(2)}</div>
-                      <div>{money(row.labor_amount)}</div>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              <div className="mt-6 grid gap-4 md:grid-cols-4">
-                <div className="rounded border border-gray-300 p-4">
-                  <div className="text-sm text-gray-600">Total regular hours</div>
-                  <div className="mt-2 text-2xl font-bold">{totals.totalReg.toFixed(2)}</div>
-                </div>
-
-                <div className="rounded border border-gray-300 p-4">
-                  <div className="text-sm text-gray-600">Taxable hours</div>
-                  <div className="mt-2 text-2xl font-bold">{totals.taxableHours.toFixed(2)}</div>
-                </div>
-
-                <div className="rounded border border-gray-300 p-4">
-                  <div className="text-sm text-gray-600">Total labor</div>
-                  <div className="mt-2 text-2xl font-bold">{money(totals.totalLabor)}</div>
-                </div>
-
-                <div className="rounded border border-gray-300 p-4">
-                  <div className="text-sm text-gray-600">Net pay</div>
-                  <div className="mt-2 text-2xl font-bold">{money(totals.netPay)}</div>
-                </div>
-              </div>
-            </div>
+        <div className="flex-1 overflow-auto bg-slate-200 p-5">
+          <div className="print-modal-sheet mx-auto bg-white shadow-lg">
+            <CheckStockPrint employee={employee} fullName={fullName} totals={totals} />
           </div>
         </div>
       </div>
@@ -938,8 +818,8 @@ export default function EmployeeDetailsPage() {
     <div className="min-h-screen bg-[#020817] text-white print:bg-white print:text-black">
       <style>{`
         @page {
-          size: auto;
-          margin: 12mm;
+          size: 215.9mm 88.9mm;
+          margin: 0;
         }
 
         @media print {
@@ -954,19 +834,15 @@ export default function EmployeeDetailsPage() {
 
           .print-modal-sheet {
             position: absolute !important;
-            inset: 0 !important;
-            width: 100% !important;
-            background: white !important;
-            color: black !important;
-            padding: 0 !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 215.9mm !important;
+            height: 88.9mm !important;
             margin: 0 !important;
-            z-index: 99999 !important;
+            padding: 0 !important;
+            background: white !important;
             box-shadow: none !important;
-          }
-
-          .print-break {
-            page-break-before: always;
-            break-before: page;
+            overflow: hidden !important;
           }
 
           .no-print {
@@ -1566,10 +1442,7 @@ export default function EmployeeDetailsPage() {
           printing={paying}
           employee={employee}
           fullName={fullName}
-          periodStart={periodStart}
-          periodEnd={periodEnd}
           totals={totals}
-          filteredLogs={displayLogs}
         />
       </div>
     </div>
