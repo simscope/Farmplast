@@ -29,15 +29,16 @@ const darkInput =
 
 const COORDS_STORAGE_KEY = 'farmplast_check_print_coords_v1'
 
-const defaultCoords = {
-  payee: { x: 30, y: 32 },
-  amountWords: { x: 15, y: 43 },
-  date: { x: 150, y: 24 },
-  amountNumber: { x: 175, y: 35 },
-  amountCents: { x: 10, y: 63.3 },
-  globalOffset: { x: 0, y: 0 },
-}
+export default function EmployeeDetailsPage() {
 
+  const [coords, setCoords] = useState({
+    payee: { x: 10, y: 10 },
+    amountWords: { x: 10, y: 20 },
+    date: { x: 10, y: 30 },
+    amountNumber: { x: 10, y: 40 },
+    amountCents: { x: 10, y: 50 },
+    globalOffset: { x: 0, y: 0 },
+  })
 function loadSavedCoords() {
   try {
     const raw = localStorage.getItem(COORDS_STORAGE_KEY)
