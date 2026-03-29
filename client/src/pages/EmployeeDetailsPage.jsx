@@ -27,28 +27,30 @@ const pageCard =
 const darkInput =
   'w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
-const COORDS_STORAGE_KEY = 'farmplast_check_print_coords_v1'
+const COORDS_STORAGE_KEY = 'farmplast_check_print_coords_v2'
 
 const defaultCoords = {
-  payee: { x: 10, y: 10 },
-  amountWords: { x: 10, y: 20 },
-  date: { x: 10, y: 30 },
-  amountNumber: { x: 10, y: 40 },
-  amountCents: { x: 10, y: 50 },
+  payee: { x: 40, y: 30 },
+  amountWords: { x: 35, y: 58 },
+  date: { x: 126, y: 47 },
+  amountNumber: { x: 135, y: 57 },
   globalOffset: { x: 0, y: 0 },
 }
 
 function loadSavedCoords() {
   try {
+    if (typeof window === 'undefined') return defaultCoords
+
     const raw = localStorage.getItem(COORDS_STORAGE_KEY)
     if (!raw) return defaultCoords
+
     const parsed = JSON.parse(raw)
+
     return {
       payee: { ...defaultCoords.payee, ...(parsed.payee || {}) },
       amountWords: { ...defaultCoords.amountWords, ...(parsed.amountWords || {}) },
       date: { ...defaultCoords.date, ...(parsed.date || {}) },
       amountNumber: { ...defaultCoords.amountNumber, ...(parsed.amountNumber || {}) },
-      amountCents: { ...defaultCoords.amountCents, ...(parsed.amountCents || {}) },
       globalOffset: { ...defaultCoords.globalOffset, ...(parsed.globalOffset || {}) },
     }
   } catch {
@@ -273,8 +275,8 @@ function CheckStockPrint({ employee, fullName, totals, coords }) {
 
   const field = (name, extra = {}) => {
     const pos = coords[name]
-    const gx = coords.globalOffset.x
-    const gy = coords.globalOffset.y
+    const gx = Number(coords?.globalOffset?.x || 0)
+    const gy = Number(coords?.globalOffset?.y || 0)
 
     return {
       position: 'absolute',
@@ -293,6 +295,7 @@ function CheckStockPrint({ employee, fullName, totals, coords }) {
         background: 'white',
         color: 'black',
         fontFamily: 'Arial, sans-serif',
+        overflow: 'hidden',
       }}
     >
       <div
@@ -311,7 +314,7 @@ function CheckStockPrint({ employee, fullName, totals, coords }) {
         style={field('amountWords', {
           fontSize: '4.9mm',
           fontWeight: 500,
-          width: '112mm',
+          width: '118mm',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textTransform: 'capitalize',
@@ -333,24 +336,33 @@ function CheckStockPrint({ employee, fullName, totals, coords }) {
 
       <div
         style={field('amountNumber', {
-          fontSize: '6.2mm',
-          fontWeight: 500,
+          display: 'inline-flex',
+          alignItems: 'flex-start',
+          gap: '1mm',
           whiteSpace: 'nowrap',
-          textAlign: 'left',
+          lineHeight: 1,
         })}
       >
-        {amountNumberMain}
-      </div>
+        <span
+          style={{
+            fontSize: '6.2mm',
+            fontWeight: 500,
+            display: 'inline-block',
+          }}
+        >
+          {amountNumberMain}
+        </span>
 
-      <div
-        style={field('amountCents', {
-          fontSize: '3.3mm',
-          fontWeight: 500,
-          whiteSpace: 'nowrap',
-          textAlign: 'left',
-        })}
-      >
-        {amountNumberCents}
+        <span
+          style={{
+            fontSize: '3.1mm',
+            fontWeight: 500,
+            display: 'inline-block',
+            transform: 'translateY(-0.6mm)',
+          }}
+        >
+          {amountNumberCents}
+        </span>
       </div>
     </div>
   )
@@ -518,9 +530,7 @@ function PrintPreviewModal({
         <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
           <div>
             <h2 className="text-xl font-bold text-white">Print preview</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Check + payment report
-            </p>
+            <p className="mt-1 text-sm text-slate-400">Check + payment report</p>
           </div>
 
           <div className="flex items-center gap-3">
@@ -569,7 +579,7 @@ function PrintPreviewModal({
   )
 }
 
-function CoordEditor({ coords, setCoords, onReset }) {
+function CoordEditor({ coords, setCoords, onReset, onClearStorage }) {
   function setField(name, axis, value) {
     setCoords((prev) => ({
       ...prev,
@@ -582,21 +592,34 @@ function CoordEditor({ coords, setCoords, onReset }) {
 
   return (
     <div className={`${pageCard} p-4 no-print`}>
-      <div className="mb-4 flex items-center justify-between gap-3">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
           <Move size={18} className="text-cyan-400" />
           <h2 className="text-xl font-bold text-white">Check print coordinates</h2>
         </div>
 
-        <button
-          onClick={onReset}
-          className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:border-red-500"
-        >
-          Reset coords
-        </button>
+        <div className="flex flex-wrap gap-2">
+          <button
+            onClick={onReset}
+            className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:border-red-500"
+          >
+            Reset coords
+          </button>
+
+          <button
+            onClick={onClearStorage}
+            className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20"
+          >
+            Clear saved coords
+          </button>
+        </div>
       </div>
 
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+      <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 text-sm text-cyan-200">
+        Preview updates immediately. Cents are attached to the amount number and move together with it.
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
         <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
           <div className="mb-2 text-sm font-semibold text-white">Payee</div>
           <div className="grid grid-cols-2 gap-2">
@@ -664,8 +687,8 @@ function CoordEditor({ coords, setCoords, onReset }) {
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-          <div className="mb-2 text-sm font-semibold text-white">Amount number</div>
-          <div className="grid grid-cols-2 gap-2">
+          <div className="mb-2 text-sm font-semibold text-white">Amount number + cents</div>
+          <div className="mb-2 grid grid-cols-2 gap-2">
             <input
               type="number"
               step="0.1"
@@ -683,28 +706,7 @@ function CoordEditor({ coords, setCoords, onReset }) {
               placeholder="Y"
             />
           </div>
-        </div>
 
-        <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-          <div className="mb-2 text-sm font-semibold text-white">Cents + Global offset</div>
-          <div className="mb-2 grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              step="0.1"
-              value={coords.amountCents.x}
-              onChange={(e) => setField('amountCents', 'x', e.target.value)}
-              className={darkInput}
-              placeholder="Cents X"
-            />
-            <input
-              type="number"
-              step="0.1"
-              value={coords.amountCents.y}
-              onChange={(e) => setField('amountCents', 'y', e.target.value)}
-              className={darkInput}
-              placeholder="Cents Y"
-            />
-          </div>
           <div className="grid grid-cols-2 gap-2">
             <input
               type="number"
@@ -759,6 +761,7 @@ export default function EmployeeDetailsPage() {
   const [coords, setCoords] = useState(() => loadSavedCoords())
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
     localStorage.setItem(COORDS_STORAGE_KEY, JSON.stringify(coords))
   }, [coords])
 
@@ -768,6 +771,14 @@ export default function EmployeeDetailsPage() {
 
   function resetCoords() {
     setCoords(defaultCoords)
+  }
+
+  function clearSavedCoords() {
+    try {
+      localStorage.removeItem(COORDS_STORAGE_KEY)
+    } catch {}
+    setCoords(defaultCoords)
+    setSuccess('Saved coordinates cleared')
   }
 
   async function loadPaymentsOnly() {
@@ -1437,6 +1448,7 @@ export default function EmployeeDetailsPage() {
               coords={coords}
               setCoords={setCoords}
               onReset={resetCoords}
+              onClearStorage={clearSavedCoords}
             />
 
             {error ? (
