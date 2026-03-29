@@ -56,25 +56,19 @@ function round2(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
 }
 
+function timeToMinutes(value) {
+  if (!value) return null
+  const [h, m] = String(value).split(':').map(Number)
+  if (Number.isNaN(h) || Number.isNaN(m)) return null
+  return h * 60 + m
+}
+
 // максимум 12 часов в день, обед вычитается всегда
 function calcDayHours(timeIn, timeOut, lunchHours) {
-  if (!timeIn || !timeOut) return 0
+  const start = timeToMinutes(timeIn)
+  let end = timeToMinutes(timeOut)
 
-  const [inH, inM] = String(timeIn).split(':').map(Number)
-  const [outH, outM] = String(timeOut).split(':').map(Number)
-
-  if (
-    Number.isNaN(inH) ||
-    Number.isNaN(inM) ||
-    Number.isNaN(outH) ||
-    Number.isNaN(outM)
-  ) {
-    return 0
-  }
-
-  const start = inH * 60 + inM
-  let end = outH * 60 + outM
-
+  if (start === null || end === null) return 0
   if (end < start) end += 24 * 60
 
   const rawHours = (end - start) / 60
@@ -82,6 +76,17 @@ function calcDayHours(timeIn, timeOut, lunchHours) {
   const lunch = Number(lunchHours || 0)
 
   return Math.max(0, round2(cappedHours - lunch))
+}
+
+// D = day, N = night
+function getShiftLetter(timeIn) {
+  const start = timeToMinutes(timeIn)
+  if (start === null) return '—'
+
+  const hour = Math.floor(start / 60)
+
+  if (hour >= 18 || hour < 6) return 'N'
+  return 'D'
 }
 
 function buildEmptyRow() {
@@ -112,6 +117,19 @@ function getSaturdayToFridayRange(baseDate = new Date()) {
     start: saturday.toISOString().slice(0, 10),
     end: friday.toISOString().slice(0, 10),
   }
+}
+
+function getWeeksInSelectedPeriod(periodStart, periodEnd) {
+  if (!periodStart || !periodEnd) return 1
+
+  const start = new Date(`${periodStart}T00:00:00`)
+  const end = new Date(`${periodEnd}T00:00:00`)
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1
+  if (end < start) return 1
+
+  const daysInclusive = Math.floor((end - start) / 86400000) + 1
+  return Math.max(1, Math.ceil(daysInclusive / 7))
 }
 
 function numberToWordsUnder1000(n) {
@@ -401,10 +419,11 @@ function PrintPreviewModal({
               </div>
 
               <div className="overflow-hidden rounded border border-gray-300">
-                <div className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.7fr_0.7fr_0.9fr] bg-gray-100 px-4 py-3 text-sm font-bold">
+                <div className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] bg-gray-100 px-4 py-3 text-sm font-bold">
                   <div>Date</div>
                   <div>Time In</div>
                   <div>Time Out</div>
+                  <div>Shift</div>
                   <div>Lunch</div>
                   <div>Reg</div>
                   <div>Labor</div>
@@ -418,11 +437,12 @@ function PrintPreviewModal({
                   filteredLogs.map((row) => (
                     <div
                       key={row.id}
-                      className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.7fr_0.7fr_0.9fr] border-t border-gray-200 px-4 py-3 text-sm"
+                      className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] border-t border-gray-200 px-4 py-3 text-sm"
                     >
                       <div>{row.work_date || '—'}</div>
                       <div>{row.time_in || '—'}</div>
                       <div>{row.time_out || '—'}</div>
+                      <div>{getShiftLetter(row.time_in)}</div>
                       <div>{Number(row.lunch_hours || 0).toFixed(2)}</div>
                       <div>{Number(row.reg_hours || 0).toFixed(2)}</div>
                       <div>{money(row.labor_amount)}</div>
@@ -698,9 +718,13 @@ export default function EmployeeDetailsPage() {
 
     const recalculated = sorted.map((row) => {
       const baseHours = calcDayHours(row.time_in, row.time_out, row.lunch_hours)
+      const regHours = employee?.pay_type === 'hourly'
+        ? Math.max(0, Math.min(baseHours, 40 - usedWeekHours))
+        : Number(row.reg_hours || 0)
 
-      const regHours = Math.max(0, Math.min(baseHours, 40 - usedWeekHours))
-      usedWeekHours += regHours
+      if (employee?.pay_type === 'hourly') {
+        usedWeekHours += regHours
+      }
 
       let laborAmount = Number(row.labor_amount || 0)
 
@@ -710,6 +734,7 @@ export default function EmployeeDetailsPage() {
 
       return {
         ...row,
+        shift_letter: getShiftLetter(row.time_in),
         reg_hours: regHours,
         labor_amount: laborAmount,
       }
@@ -720,12 +745,22 @@ export default function EmployeeDetailsPage() {
       0
     )
 
-    const totalLabor = recalculated.reduce(
+    let totalLabor = recalculated.reduce(
       (sum, row) => sum + Number(row.labor_amount || 0),
       0
     )
 
-    const employeeTaxNum = Number(employeeTax || 0)
+    const weeksCount = getWeeksInSelectedPeriod(periodStart, periodEnd)
+
+    if (employee?.pay_type === 'monthly') {
+      totalLabor = round2((Number(employee?.monthly_salary || 0) / 4) * weeksCount)
+    }
+
+    if (employee?.pay_type === 'one_time') {
+      totalLabor = round2(Number(employee?.monthly_salary || 0))
+    }
+
+    const employeeTaxPercent = Number(employeeTax || 0)
     const rentNum = Number(rent || 0)
     const electricNum = Number(electric || 0)
     const waterNum = Number(water || 0)
@@ -735,7 +770,7 @@ export default function EmployeeDetailsPage() {
     const otherDeductions =
       rentNum + electricNum + waterNum + cleanNum + transportNum
 
-    const employeeTaxAmount = round2((totalLabor * employeeTaxNum) / 100)
+    const employeeTaxAmount = round2((totalLabor * employeeTaxPercent) / 100)
     const employeeDeductions = round2(employeeTaxAmount + otherDeductions)
     const netPay = round2(totalLabor - employeeDeductions)
 
@@ -743,10 +778,11 @@ export default function EmployeeDetailsPage() {
       filteredForView: recalculated.sort((a, b) =>
         String(b.work_date || '').localeCompare(String(a.work_date || ''))
       ),
+      weeksCount,
       totalReg: round2(totalReg),
       totalLabor: round2(totalLabor),
       employeeTaxNum: employeeTaxAmount,
-      employeeTaxPercent: employeeTaxNum,
+      employeeTaxPercent,
       rentNum,
       electricNum,
       waterNum,
@@ -755,7 +791,7 @@ export default function EmployeeDetailsPage() {
       employeeDeductions,
       netPay,
     }
-  }, [filteredLogs, employee, employeeTax, rent, electric, water, clean, transport])
+  }, [filteredLogs, employee, employeeTax, rent, electric, water, clean, transport, periodStart, periodEnd])
 
   const paymentStats = useMemo(() => {
     const totalPaid = payments.reduce((sum, row) => sum + Number(row.net_pay || 0), 0)
@@ -1166,7 +1202,7 @@ export default function EmployeeDetailsPage() {
                     </button>
                   </div>
 
-                  <div className="grid gap-3 border-b border-slate-800 bg-[#0b1220] px-5 py-3 md:grid-cols-3">
+                  <div className="grid grid-cols-1 gap-3 border-b border-slate-800 bg-[#0b1220] px-5 py-3 lg:grid-cols-3">
                     <div className="rounded-xl border border-slate-800 bg-[#07101d] p-3">
                       <div className="text-xs text-slate-400">Payments count</div>
                       <div className="mt-1 text-xl font-bold text-white">
@@ -1257,11 +1293,12 @@ export default function EmployeeDetailsPage() {
               </div>
 
               <div className="overflow-x-auto">
-                <div className="min-w-[1080px]">
-                  <div className="grid grid-cols-[1fr_0.95fr_0.95fr_0.8fr_0.8fr_0.95fr_0.8fr] bg-slate-900/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                <div className="min-w-[1160px]">
+                  <div className="grid grid-cols-[1fr_0.95fr_0.95fr_0.45fr_0.8fr_0.8fr_0.95fr_0.8fr] bg-slate-900/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>Date</div>
                     <div>Time In</div>
                     <div>Time Out</div>
+                    <div>S</div>
                     <div>Lunch</div>
                     <div>Reg</div>
                     <div>Labor</div>
@@ -1276,7 +1313,7 @@ export default function EmployeeDetailsPage() {
                     displayLogs.map((row) => (
                       <div
                         key={row.id}
-                        className="grid grid-cols-[1fr_0.95fr_0.95fr_0.8fr_0.8fr_0.95fr_0.8fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-2.5"
+                        className="grid grid-cols-[1fr_0.95fr_0.95fr_0.45fr_0.8fr_0.8fr_0.95fr_0.8fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-2.5"
                       >
                         <input
                           type="date"
@@ -1304,6 +1341,10 @@ export default function EmployeeDetailsPage() {
                           }
                           className={darkInput}
                         />
+
+                        <div className="rounded-lg border border-slate-800 bg-[#07101d] px-3 py-2 text-center text-sm font-bold text-cyan-300">
+                          {getShiftLetter(row.time_in)}
+                        </div>
 
                         <input
                           type="number"
@@ -1437,6 +1478,13 @@ export default function EmployeeDetailsPage() {
                   />
                 </div>
               </div>
+
+              {employee?.pay_type === 'monthly' ? (
+                <div className="mt-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 text-sm text-cyan-200">
+                  Monthly pay calculation: {money(employee?.monthly_salary)} / 4 × {totals.weeksCount} week(s) ={' '}
+                  <span className="font-bold">{money(totals.totalLabor)}</span>
+                </div>
+              ) : null}
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
