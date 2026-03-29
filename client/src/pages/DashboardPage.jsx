@@ -7,8 +7,6 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
-  DollarSign,
-  CheckCircle2,
   XCircle,
   X,
   Users,
@@ -26,11 +24,10 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
-const cardClass =
-  'rounded-2xl border border-slate-800 bg-[#0f172a] shadow-[0_10px_30px_rgba(0,0,0,0.25)]'
+const cardClass = 'rounded-2xl border border-slate-800 bg-[#0b1220] shadow-sm'
 
 const inputClass =
-  'w-full rounded-xl border border-slate-700 bg-[#0b1220] px-4 py-3 text-white outline-none transition focus:border-cyan-500'
+  'w-full rounded-xl border border-slate-700 bg-[#08101c] px-4 py-3 text-white outline-none transition focus:border-cyan-500'
 
 function sanitizeFileName(name) {
   return String(name || 'file')
@@ -102,14 +99,14 @@ function EmployeeModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-700 bg-[#07111f] shadow-2xl">
+      <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-700 bg-[#07111f] shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
           <div>
-            <h2 className="text-2xl font-bold text-white">
+            <h2 className="text-xl font-bold text-white">
               {isEditing ? 'Edit employee' : 'Add employee'}
             </h2>
             <p className="mt-1 text-sm text-slate-400">
-              Employee card with payment settings
+              Basic worker information and payment settings
             </p>
           </div>
 
@@ -123,9 +120,9 @@ function EmployeeModal({
         </div>
 
         <form onSubmit={onSave} className="space-y-6 overflow-y-auto px-6 py-6">
-          <div className="grid gap-6 xl:grid-cols-[280px_1fr]">
-            <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-5">
-              <div className="mx-auto h-48 w-48 overflow-hidden rounded-3xl border border-slate-700 bg-[#07101d]">
+          <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+            <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
+              <div className="mx-auto h-40 w-40 overflow-hidden rounded-3xl border border-slate-700 bg-[#07101d]">
                 {form.photo_url ? (
                   <img
                     src={form.photo_url}
@@ -156,10 +153,6 @@ function EmployeeModal({
                   />
                 </label>
 
-                <p className="mt-2 text-center text-xs text-slate-500">
-                  SPEEDFace V5L photo or manual upload
-                </p>
-
                 {uploadError ? (
                   <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
                     {uploadError}
@@ -168,7 +161,7 @@ function EmployeeModal({
               </div>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="mb-2 block text-sm text-slate-300">
                   Employee number
@@ -282,6 +275,8 @@ function EmployeeModal({
                     setForm((prev) => ({
                       ...prev,
                       employer_form: e.target.value,
+                      company_name:
+                        e.target.value === 'Other' ? prev.company_name || '' : '',
                     }))
                   }
                 >
@@ -291,6 +286,22 @@ function EmployeeModal({
                   <option value="Other">Other</option>
                 </select>
               </div>
+
+              {form.employer_form === 'Other' ? (
+                <div className="md:col-span-2">
+                  <label className="mb-2 block text-sm text-slate-300">
+                    Company name
+                  </label>
+                  <input
+                    className={inputClass}
+                    value={form.company_name}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, company_name: e.target.value }))
+                    }
+                    placeholder="Enter company name"
+                  />
+                </div>
+              ) : null}
 
               <div>
                 <label className="mb-2 block text-sm text-slate-300">
@@ -419,6 +430,7 @@ export default function DashboardPage() {
     active: true,
     hire_date: '',
     employer_form: 'W2',
+    company_name: '',
     photo_url: '',
   }
 
@@ -439,7 +451,7 @@ export default function DashboardPage() {
       const { data, error } = await supabase
         .from('employees')
         .select(
-          'id, employee_number, first_name, last_name, phone, email, position, pay_type, hourly_rate, monthly_salary, active, hire_date, employer_form, photo_url, created_at'
+          'id, employee_number, first_name, last_name, phone, email, position, pay_type, hourly_rate, monthly_salary, active, hire_date, employer_form, company_name, photo_url, created_at'
         )
         .order('created_at', { ascending: false })
 
@@ -469,6 +481,7 @@ export default function DashboardPage() {
       active: true,
       hire_date: '',
       employer_form: 'W2',
+      company_name: '',
       photo_url: '',
     })
     setModalOpen(true)
@@ -498,6 +511,7 @@ export default function DashboardPage() {
       active: employee.active ?? true,
       hire_date: employee.hire_date || '',
       employer_form: employee.employer_form || 'W2',
+      company_name: employee.company_name || '',
       photo_url: employee.photo_url || '',
     })
     setModalOpen(true)
@@ -518,6 +532,11 @@ export default function DashboardPage() {
 
     if (!form.first_name.trim()) {
       setError('First name is required')
+      return
+    }
+
+    if (form.employer_form === 'Other' && !form.company_name.trim()) {
+      setError('Company name is required when Form Employer is Other')
       return
     }
 
@@ -559,6 +578,8 @@ export default function DashboardPage() {
         active: Boolean(form.active),
         hire_date: form.hire_date || null,
         employer_form: form.employer_form || null,
+        company_name:
+          form.employer_form === 'Other' ? form.company_name.trim() || null : null,
         photo_url: form.photo_url || null,
       }
 
@@ -665,42 +686,34 @@ export default function DashboardPage() {
         (employee.email || '').toLowerCase().includes(q) ||
         (employee.position || '').toLowerCase().includes(q) ||
         (employee.pay_type || '').toLowerCase().includes(q) ||
-        (employee.employer_form || '').toLowerCase().includes(q)
+        (employee.employer_form || '').toLowerCase().includes(q) ||
+        (employee.company_name || '').toLowerCase().includes(q)
       )
     })
   }, [employees, search])
 
-  const stats = useMemo(() => {
-    const total = employees.length
-    const active = employees.filter((e) => e.active).length
-    const inactive = employees.filter((e) => !e.active).length
-
-    const hourlyRates = employees
-      .filter((e) => e.pay_type === 'hourly')
-      .map((e) => Number(e.hourly_rate))
-      .filter((n) => !Number.isNaN(n) && n > 0)
-
-    const avgRate = hourlyRates.length
-      ? (hourlyRates.reduce((sum, value) => sum + value, 0) / hourlyRates.length).toFixed(2)
-      : '0.00'
-
-    return { total, active, inactive, avgRate }
+  const counts = useMemo(() => {
+    return {
+      total: employees.length,
+      active: employees.filter((e) => e.active).length,
+      inactive: employees.filter((e) => !e.active).length,
+    }
   }, [employees])
 
   return (
     <div className="min-h-screen bg-[#020817] text-white">
-      <div className="mx-auto max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
-        <div className={`${cardClass} mb-6 overflow-hidden`}>
-          <div className="flex flex-col gap-6 p-6 lg:flex-row lg:items-center lg:justify-between">
+      <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
+        <div className={`${cardClass} mb-6 p-5`}>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-4">
-              <div className="rounded-3xl bg-cyan-500/10 p-4 text-cyan-400">
-                <LayoutDashboard size={32} />
+              <div className="rounded-2xl bg-cyan-500/10 p-3 text-cyan-400">
+                <LayoutDashboard size={26} />
               </div>
 
               <div>
-                <h1 className="text-3xl font-bold text-white">Employees Dashboard</h1>
-                <p className="mt-2 max-w-2xl text-slate-400">
-                  Employees only. Add, edit, activate, deactivate and open worker card.
+                <h1 className="text-2xl font-bold text-white">Employees</h1>
+                <p className="mt-1 text-sm text-slate-400">
+                  Total: {counts.total} · Active: {counts.active} · Inactive: {counts.inactive}
                 </p>
               </div>
             </div>
@@ -708,113 +721,59 @@ export default function DashboardPage() {
             <div className="flex flex-wrap gap-3">
               <button
                 onClick={loadEmployees}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 font-semibold text-white transition hover:border-cyan-500"
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 font-medium text-white transition hover:border-cyan-500"
               >
-                <RefreshCw size={18} />
+                <RefreshCw size={16} />
                 Refresh
               </button>
 
               <button
                 onClick={openAddModal}
-                className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-5 py-3 font-semibold text-white transition hover:bg-cyan-500"
+                className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 font-medium text-white transition hover:bg-cyan-500"
               >
-                <Plus size={18} />
+                <Plus size={16} />
                 Add employee
               </button>
 
               <button
                 onClick={handleLogout}
-                className="inline-flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-600/10 px-5 py-3 font-semibold text-red-300 transition hover:bg-red-600/20"
+                className="inline-flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-600/10 px-4 py-2.5 font-medium text-red-300 transition hover:bg-red-600/20"
               >
-                <LogOut size={18} />
+                <LogOut size={16} />
                 Logout
               </button>
             </div>
           </div>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <div className={`${cardClass} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <div className="rounded-2xl bg-cyan-500/10 p-3 text-cyan-400">
-                <Users size={22} />
-              </div>
-              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                total
-              </span>
+        <div className={cardClass}>
+          <div className="flex flex-col gap-4 border-b border-slate-800 p-5 lg:flex-row lg:items-center lg:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-white">Workers list</h2>
+              <p className="mt-1 text-sm text-slate-400">
+                Data is loaded from public.employees
+              </p>
             </div>
-            <div className="text-3xl font-bold text-white">{stats.total}</div>
-            <div className="mt-2 text-sm text-slate-400">All employees</div>
+
+            <div className="flex flex-col gap-3 sm:flex-row">
+              <input
+                type="text"
+                placeholder="Search by number, name, phone, email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full min-w-[280px] rounded-xl border border-slate-700 bg-[#08101c] px-4 py-3 text-white outline-none focus:border-cyan-500"
+              />
+              <button
+                onClick={openAddModal}
+                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 font-medium text-white transition hover:bg-cyan-500"
+              >
+                <Plus size={18} />
+                Add
+              </button>
+            </div>
           </div>
 
-          <div className={`${cardClass} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <div className="rounded-2xl bg-emerald-500/10 p-3 text-emerald-400">
-                <CheckCircle2 size={22} />
-              </div>
-              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                active
-              </span>
-            </div>
-            <div className="text-3xl font-bold text-white">{stats.active}</div>
-            <div className="mt-2 text-sm text-slate-400">Active workers</div>
-          </div>
-
-          <div className={`${cardClass} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <div className="rounded-2xl bg-red-500/10 p-3 text-red-400">
-                <XCircle size={22} />
-              </div>
-              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                inactive
-              </span>
-            </div>
-            <div className="text-3xl font-bold text-white">{stats.inactive}</div>
-            <div className="mt-2 text-sm text-slate-400">Inactive workers</div>
-          </div>
-
-          <div className={`${cardClass} p-5`}>
-            <div className="mb-4 flex items-center justify-between">
-              <div className="rounded-2xl bg-amber-500/10 p-3 text-amber-400">
-                <DollarSign size={22} />
-              </div>
-              <span className="text-xs uppercase tracking-[0.18em] text-slate-500">
-                avg hourly
-              </span>
-            </div>
-            <div className="text-3xl font-bold text-white">${stats.avgRate}</div>
-            <div className="mt-2 text-sm text-slate-400">Average hourly rate</div>
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <div className={`${cardClass} p-6`}>
-            <div className="mb-5 flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-              <div>
-                <h2 className="text-2xl font-bold text-white">Workers</h2>
-                <p className="mt-1 text-slate-400">
-                  Data is loaded from public.employees
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-3 sm:flex-row">
-                <input
-                  type="text"
-                  placeholder="Search by number, name, phone, email, position..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full min-w-[320px] rounded-xl border border-slate-700 bg-[#0b1220] px-4 py-3 text-white outline-none focus:border-cyan-500"
-                />
-                <button
-                  onClick={openAddModal}
-                  className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 font-semibold text-white transition hover:bg-cyan-500"
-                >
-                  <Plus size={18} />
-                  Add
-                </button>
-              </div>
-            </div>
-
+          <div className="p-5">
             {error ? (
               <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-300">
                 {error}
@@ -822,20 +781,19 @@ export default function DashboardPage() {
             ) : null}
 
             {loading ? (
-              <div className="rounded-2xl border border-slate-800 bg-[#0b1220] px-4 py-12 text-center text-slate-400">
+              <div className="rounded-2xl border border-slate-800 bg-[#08101c] px-4 py-12 text-center text-slate-400">
                 Loading employees...
               </div>
             ) : (
               <>
                 <div className="hidden overflow-x-auto rounded-2xl border border-slate-800 lg:block">
-                  <div className="min-w-[1680px]">
-                    <div className="grid grid-cols-[0.7fr_1.1fr_1fr_1fr_1fr_0.9fr_0.9fr_1.1fr_0.8fr_1.8fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
+                  <div className="min-w-[1450px]">
+                    <div className="grid grid-cols-[0.7fr_1.2fr_1fr_1fr_1fr_0.9fr_1fr_0.9fr_1.7fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
                       <div>No.</div>
                       <div>Name</div>
                       <div>Phone</div>
                       <div>Email</div>
                       <div>Position</div>
-                      <div>Hire date</div>
                       <div>Form</div>
                       <div>Payment</div>
                       <div>Status</div>
@@ -843,14 +801,14 @@ export default function DashboardPage() {
                     </div>
 
                     {filteredEmployees.length === 0 ? (
-                      <div className="bg-[#0b1220] px-4 py-10 text-center text-slate-400">
+                      <div className="bg-[#08101c] px-4 py-10 text-center text-slate-400">
                         No employees found
                       </div>
                     ) : (
                       filteredEmployees.map((employee) => (
                         <div
                           key={employee.id}
-                          className="grid grid-cols-[0.7fr_1.1fr_1fr_1fr_1fr_0.9fr_0.9fr_1.1fr_0.8fr_1.8fr] items-center border-t border-slate-800 bg-[#0b1220] px-4 py-4 text-sm text-slate-200"
+                          className="grid grid-cols-[0.7fr_1.2fr_1fr_1fr_1fr_0.9fr_1fr_0.9fr_1.7fr] items-center border-t border-slate-800 bg-[#08101c] px-4 py-3 text-sm text-slate-200"
                         >
                           <div className="font-semibold text-cyan-300">
                             {employee.employee_number ?? '—'}
@@ -866,7 +824,14 @@ export default function DashboardPage() {
                                 />
                               ) : null}
                             </div>
-                            <span>{getFullName(employee)}</span>
+                            <div className="min-w-0">
+                              <div>{getFullName(employee)}</div>
+                              {employee.company_name ? (
+                                <div className="truncate text-xs font-normal text-slate-400">
+                                  {employee.company_name}
+                                </div>
+                              ) : null}
+                            </div>
                           </div>
 
                           <div className="whitespace-nowrap">{employee.phone || '—'}</div>
@@ -874,12 +839,13 @@ export default function DashboardPage() {
                           <div className="whitespace-nowrap">
                             {employee.position || 'worker'}
                           </div>
-                          <div className="whitespace-nowrap">
-                            {employee.hire_date || '—'}
-                          </div>
+
                           <div className="whitespace-nowrap font-semibold text-sky-300">
-                            {employee.employer_form || '—'}
+                            {employee.employer_form === 'Other' && employee.company_name
+                              ? `Other`
+                              : employee.employer_form || '—'}
                           </div>
+
                           <div className="whitespace-nowrap font-semibold text-cyan-300">
                             {getPayLabel(employee)}
                           </div>
@@ -902,7 +868,7 @@ export default function DashboardPage() {
                               className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-600/10 px-3 py-2 text-cyan-300 transition hover:bg-cyan-600/20"
                             >
                               <ExternalLink size={16} />
-                              Open card
+                              Open
                             </Link>
 
                             <button
@@ -939,14 +905,14 @@ export default function DashboardPage() {
 
                 <div className="space-y-4 lg:hidden">
                   {filteredEmployees.length === 0 ? (
-                    <div className="rounded-2xl border border-slate-800 bg-[#0b1220] px-4 py-10 text-center text-slate-400">
+                    <div className="rounded-2xl border border-slate-800 bg-[#08101c] px-4 py-10 text-center text-slate-400">
                       No employees found
                     </div>
                   ) : (
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4"
+                        className="rounded-2xl border border-slate-800 bg-[#08101c] p-4"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex gap-3">
@@ -972,6 +938,11 @@ export default function DashboardPage() {
                               <div className="mt-1 text-sm text-slate-400">
                                 {employee.position || 'worker'}
                               </div>
+                              {employee.company_name ? (
+                                <div className="mt-1 text-xs text-slate-500">
+                                  {employee.company_name}
+                                </div>
+                              ) : null}
                             </div>
                           </div>
 
@@ -1008,7 +979,6 @@ export default function DashboardPage() {
                             {employee.employer_form || '—'}
                           </div>
                           <div className="flex items-center gap-2 text-slate-300">
-                            <DollarSign size={15} className="text-cyan-400" />
                             {getPayLabel(employee)}
                           </div>
                         </div>
@@ -1019,7 +989,7 @@ export default function DashboardPage() {
                             className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-600/10 px-3 py-2 text-cyan-300"
                           >
                             <ExternalLink size={16} />
-                            Open card
+                            Open
                           </Link>
 
                           <button
