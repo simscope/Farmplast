@@ -78,13 +78,11 @@ function calcDayHours(timeIn, timeOut, lunchHours) {
   return Math.max(0, round2(cappedHours - lunch))
 }
 
-// D = day, N = night
 function getShiftLetter(timeIn) {
   const start = timeToMinutes(timeIn)
   if (start === null) return '—'
 
   const hour = Math.floor(start / 60)
-
   if (hour >= 18 || hour < 6) return 'N'
   return 'D'
 }
@@ -130,6 +128,21 @@ function getWeeksInSelectedPeriod(periodStart, periodEnd) {
 
   const daysInclusive = Math.floor((end - start) / 86400000) + 1
   return Math.max(1, Math.ceil(daysInclusive / 7))
+}
+
+function getWeekStartSaturday(dateStr) {
+  if (!dateStr) return 'unknown'
+  const d = new Date(`${dateStr}T00:00:00`)
+  if (Number.isNaN(d.getTime())) return 'unknown'
+
+  const day = d.getDay()
+  const distanceToSaturday = day === 6 ? 0 : day + 1
+
+  const saturday = new Date(d)
+  saturday.setHours(0, 0, 0, 0)
+  saturday.setDate(d.getDate() - distanceToSaturday)
+
+  return saturday.toISOString().slice(0, 10)
 }
 
 function numberToWordsUnder1000(n) {
@@ -378,8 +391,16 @@ function PrintPreviewModal({
                       <span className="font-medium">{totals.totalReg.toFixed(2)}</span>
                     </div>
                     <div className="flex justify-between gap-4">
+                      <span className="text-gray-600">Taxable hours</span>
+                      <span className="font-medium">{totals.taxableHours.toFixed(2)}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
                       <span className="text-gray-600">Total labor</span>
                       <span className="font-medium">{money(totals.totalLabor)}</span>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span className="text-gray-600">Taxable labor</span>
+                      <span className="font-medium">{money(totals.taxableLabor)}</span>
                     </div>
                     <div className="flex justify-between gap-4">
                       <span className="text-gray-600">Employee tax</span>
@@ -442,7 +463,7 @@ function PrintPreviewModal({
                       <div>{row.work_date || '—'}</div>
                       <div>{row.time_in || '—'}</div>
                       <div>{row.time_out || '—'}</div>
-                      <div>{getShiftLetter(row.time_in)}</div>
+                      <div>{row.shift_letter || getShiftLetter(row.time_in)}</div>
                       <div>{Number(row.lunch_hours || 0).toFixed(2)}</div>
                       <div>{Number(row.reg_hours || 0).toFixed(2)}</div>
                       <div>{money(row.labor_amount)}</div>
@@ -451,10 +472,15 @@ function PrintPreviewModal({
                 )}
               </div>
 
-              <div className="mt-6 grid gap-4 md:grid-cols-3">
+              <div className="mt-6 grid gap-4 md:grid-cols-4">
                 <div className="rounded border border-gray-300 p-4">
                   <div className="text-sm text-gray-600">Total regular hours</div>
                   <div className="mt-2 text-2xl font-bold">{totals.totalReg.toFixed(2)}</div>
+                </div>
+
+                <div className="rounded border border-gray-300 p-4">
+                  <div className="text-sm text-gray-600">Taxable hours</div>
+                  <div className="mt-2 text-2xl font-bold">{totals.taxableHours.toFixed(2)}</div>
                 </div>
 
                 <div className="rounded border border-gray-300 p-4">
@@ -714,40 +740,32 @@ export default function EmployeeDetailsPage() {
       String(a.work_date || '').localeCompare(String(b.work_date || ''))
     )
 
-    let usedWeekHours = 0
-
     const recalculated = sorted.map((row) => {
-      const baseHours = calcDayHours(row.time_in, row.time_out, row.lunch_hours)
-      const regHours = employee?.pay_type === 'hourly'
-        ? Math.max(0, Math.min(baseHours, 40 - usedWeekHours))
-        : Number(row.reg_hours || 0)
-
-      if (employee?.pay_type === 'hourly') {
-        usedWeekHours += regHours
-      }
+      const fullHours =
+        employee?.pay_type === 'hourly'
+          ? calcDayHours(row.time_in, row.time_out, row.lunch_hours)
+          : Number(row.reg_hours || 0)
 
       let laborAmount = Number(row.labor_amount || 0)
 
       if (employee?.pay_type === 'hourly') {
-        laborAmount = round2(regHours * Number(employee?.hourly_rate || 0))
+        laborAmount = round2(fullHours * Number(employee?.hourly_rate || 0))
       }
 
       return {
         ...row,
         shift_letter: getShiftLetter(row.time_in),
-        reg_hours: regHours,
+        reg_hours: round2(fullHours),
         labor_amount: laborAmount,
       }
     })
 
-    const totalReg = recalculated.reduce(
-      (sum, row) => sum + Number(row.reg_hours || 0),
-      0
+    const totalReg = round2(
+      recalculated.reduce((sum, row) => sum + Number(row.reg_hours || 0), 0)
     )
 
-    let totalLabor = recalculated.reduce(
-      (sum, row) => sum + Number(row.labor_amount || 0),
-      0
+    let totalLabor = round2(
+      recalculated.reduce((sum, row) => sum + Number(row.labor_amount || 0), 0)
     )
 
     const weeksCount = getWeeksInSelectedPeriod(periodStart, periodEnd)
@@ -760,6 +778,33 @@ export default function EmployeeDetailsPage() {
       totalLabor = round2(Number(employee?.monthly_salary || 0))
     }
 
+    let taxableHours = 0
+    let taxableLabor = totalLabor
+
+    if (employee?.pay_type === 'hourly') {
+      const hourlyRate = Number(employee?.hourly_rate || 0)
+      const weeklyHoursMap = {}
+
+      recalculated.forEach((row) => {
+        const weekKey = getWeekStartSaturday(row.work_date)
+        weeklyHoursMap[weekKey] = (weeklyHoursMap[weekKey] || 0) + Number(row.reg_hours || 0)
+      })
+
+      taxableHours = round2(
+        Object.values(weeklyHoursMap).reduce(
+          (sum, weekHours) => sum + Math.min(Number(weekHours || 0), 40),
+          0
+        )
+      )
+
+      taxableLabor = round2(taxableHours * hourlyRate)
+    }
+
+    if (employee?.pay_type === 'monthly' || employee?.pay_type === 'one_time') {
+      taxableHours = 0
+      taxableLabor = totalLabor
+    }
+
     const employeeTaxPercent = Number(employeeTax || 0)
     const rentNum = Number(rent || 0)
     const electricNum = Number(electric || 0)
@@ -770,7 +815,7 @@ export default function EmployeeDetailsPage() {
     const otherDeductions =
       rentNum + electricNum + waterNum + cleanNum + transportNum
 
-    const employeeTaxAmount = round2((totalLabor * employeeTaxPercent) / 100)
+    const employeeTaxAmount = round2((taxableLabor * employeeTaxPercent) / 100)
     const employeeDeductions = round2(employeeTaxAmount + otherDeductions)
     const netPay = round2(totalLabor - employeeDeductions)
 
@@ -779,8 +824,10 @@ export default function EmployeeDetailsPage() {
         String(b.work_date || '').localeCompare(String(a.work_date || ''))
       ),
       weeksCount,
-      totalReg: round2(totalReg),
-      totalLabor: round2(totalLabor),
+      totalReg,
+      taxableHours,
+      totalLabor,
+      taxableLabor,
       employeeTaxNum: employeeTaxAmount,
       employeeTaxPercent,
       rentNum,
@@ -1116,21 +1163,21 @@ export default function EmployeeDetailsPage() {
 
                 <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
                   <div className="flex items-center gap-2 text-xs text-slate-400">
-                    <DollarSign size={14} />
-                    Total labor
+                    <Clock3 size={14} />
+                    Taxable h
                   </div>
-                  <div className="mt-1 text-xl font-bold text-cyan-300">
-                    {money(totals.totalLabor)}
+                  <div className="mt-1 text-xl font-bold text-yellow-200">
+                    {totals.taxableHours.toFixed(2)}
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <DollarSign size={14} />
-                    Employee tax
+                    Total labor
                   </div>
-                  <div className="mt-1 text-xl font-bold text-yellow-300">
-                    {money(totals.employeeTaxNum)}
+                  <div className="mt-1 text-xl font-bold text-cyan-300">
+                    {money(totals.totalLabor)}
                   </div>
                 </div>
 
@@ -1202,7 +1249,7 @@ export default function EmployeeDetailsPage() {
                     </button>
                   </div>
 
-                  <div className="grid grid-cols-1 gap-3 border-b border-slate-800 bg-[#0b1220] px-5 py-3 lg:grid-cols-3">
+                  <div className="grid gap-3 border-b border-slate-800 bg-[#0b1220] px-5 py-3 lg:grid-cols-3">
                     <div className="rounded-xl border border-slate-800 bg-[#07101d] p-3">
                       <div className="text-xs text-slate-400">Payments count</div>
                       <div className="mt-1 text-xl font-bold text-white">
@@ -1286,7 +1333,7 @@ export default function EmployeeDetailsPage() {
                   <div>
                     <h2 className="text-xl font-bold text-white">Work log</h2>
                     <p className="text-sm text-slate-400">
-                      Max 12h/day, lunch deducted, max 40h/week
+                      Max 12h/day, lunch deducted. 40h/week only for tax base.
                     </p>
                   </div>
                 </div>
@@ -1495,16 +1542,21 @@ export default function EmployeeDetailsPage() {
                 </div>
 
                 <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-                  <div className="text-xs text-slate-400">Employee deductions</div>
-                  <div className="mt-1 text-xl font-bold text-red-300">
-                    {money(totals.employeeDeductions)}
+                  <div className="text-xs text-slate-400">Taxable labor</div>
+                  <div className="mt-1 text-xl font-bold text-yellow-200">
+                    {money(totals.taxableLabor)}
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    {employee?.pay_type === 'hourly'
+                      ? `${totals.taxableHours.toFixed(2)} h taxable`
+                      : 'Tax base'}
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-                  <div className="text-xs text-slate-400">Employee tax</div>
-                  <div className="mt-1 text-xl font-bold text-amber-300">
-                    {money(totals.employeeTaxNum)}
+                  <div className="text-xs text-slate-400">Employee deductions</div>
+                  <div className="mt-1 text-xl font-bold text-red-300">
+                    {money(totals.employeeDeductions)}
                   </div>
                 </div>
 
