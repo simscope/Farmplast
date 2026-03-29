@@ -7,9 +7,7 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
-  XCircle,
   X,
-  Users,
   Hash,
   User,
   Phone,
@@ -24,10 +22,10 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
-const cardClass = 'rounded-2xl border border-slate-800 bg-[#0b1220] shadow-sm'
+const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 
 const inputClass =
-  'w-full rounded-xl border border-slate-700 bg-[#08101c] px-4 py-3 text-white outline-none transition focus:border-cyan-500'
+  'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
 function sanitizeFileName(name) {
   return String(name || 'file')
@@ -98,14 +96,14 @@ function EmployeeModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4 py-6 backdrop-blur-sm">
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-hidden rounded-3xl border border-slate-700 bg-[#07111f] shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-800 px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3 py-4 backdrop-blur-sm">
+      <div className="max-h-[92vh] w-full max-w-4xl overflow-hidden rounded-2xl border border-slate-700 bg-[#07111f] shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
           <div>
-            <h2 className="text-xl font-bold text-white">
+            <h2 className="text-lg font-bold text-white">
               {isEditing ? 'Edit employee' : 'Add employee'}
             </h2>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-0.5 text-xs text-slate-400">
               Basic worker information and payment settings
             </p>
           </div>
@@ -113,16 +111,16 @@ function EmployeeModal({
           <button
             onClick={onClose}
             type="button"
-            className="rounded-xl border border-slate-700 bg-slate-900 p-2 text-slate-300 transition hover:border-red-500 hover:text-white"
+            className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 transition hover:border-red-500 hover:text-white"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        <form onSubmit={onSave} className="space-y-6 overflow-y-auto px-6 py-6">
-          <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-            <div className="rounded-2xl border border-slate-800 bg-[#0b1220] p-4">
-              <div className="mx-auto h-40 w-40 overflow-hidden rounded-3xl border border-slate-700 bg-[#07101d]">
+        <form onSubmit={onSave} className="space-y-4 overflow-y-auto px-4 py-4">
+          <div className="grid gap-4 lg:grid-cols-[180px_1fr]">
+            <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
+              <div className="mx-auto h-28 w-28 overflow-hidden rounded-2xl border border-slate-700 bg-[#07101d]">
                 {form.photo_url ? (
                   <img
                     src={form.photo_url}
@@ -130,18 +128,18 @@ function EmployeeModal({
                     className="h-full w-full object-cover"
                   />
                 ) : (
-                  <div className="flex h-full w-full items-center justify-center text-sm text-slate-500">
+                  <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
                     No photo
                   </div>
                 )}
               </div>
 
-              <div className="mt-4">
-                <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-4 py-3 font-semibold text-cyan-300 transition hover:bg-cyan-500/20">
+              <div className="mt-3">
+                <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20">
                   {uploadingPhoto ? (
-                    <Loader2 size={18} className="animate-spin" />
+                    <Loader2 size={16} className="animate-spin" />
                   ) : (
-                    <Upload size={18} />
+                    <Upload size={16} />
                   )}
                   {uploadingPhoto ? 'Uploading...' : 'Upload photo'}
                   <input
@@ -154,16 +152,16 @@ function EmployeeModal({
                 </label>
 
                 {uploadError ? (
-                  <div className="mt-3 rounded-xl border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                  <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
                     {uploadError}
                   </div>
                 ) : null}
               </div>
             </div>
 
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <label className="mb-2 block text-sm text-slate-300">
+                <label className="mb-1 block text-xs text-slate-300">
                   Employee number
                 </label>
                 <input
@@ -181,7 +179,7 @@ function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-slate-300">
+                <label className="mb-1 block text-xs text-slate-300">
                   First name
                 </label>
                 <input
@@ -195,7 +193,7 @@ function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-slate-300">
+                <label className="mb-1 block text-xs text-slate-300">
                   Last name
                 </label>
                 <input
@@ -209,7 +207,7 @@ function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-slate-300">Phone</label>
+                <label className="mb-1 block text-xs text-slate-300">Phone</label>
                 <input
                   className={inputClass}
                   value={form.phone}
@@ -221,7 +219,7 @@ function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-slate-300">Email</label>
+                <label className="mb-1 block text-xs text-slate-300">Email</label>
                 <input
                   type="email"
                   className={inputClass}
@@ -234,7 +232,7 @@ function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-slate-300">
+                <label className="mb-1 block text-xs text-slate-300">
                   Position
                 </label>
                 <input
@@ -248,7 +246,7 @@ function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-slate-300">
+                <label className="mb-1 block text-xs text-slate-300">
                   Hire date
                 </label>
                 <input
@@ -265,7 +263,7 @@ function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-2 block text-sm text-slate-300">
+                <label className="mb-1 block text-xs text-slate-300">
                   Form Employer
                 </label>
                 <select
@@ -289,7 +287,7 @@ function EmployeeModal({
 
               {form.employer_form === 'Other' ? (
                 <div className="md:col-span-2">
-                  <label className="mb-2 block text-sm text-slate-300">
+                  <label className="mb-1 block text-xs text-slate-300">
                     Company name
                   </label>
                   <input
@@ -304,7 +302,7 @@ function EmployeeModal({
               ) : null}
 
               <div>
-                <label className="mb-2 block text-sm text-slate-300">
+                <label className="mb-1 block text-xs text-slate-300">
                   Payment type
                 </label>
                 <select
@@ -325,7 +323,7 @@ function EmployeeModal({
 
               {form.pay_type === 'hourly' ? (
                 <div>
-                  <label className="mb-2 block text-sm text-slate-300">
+                  <label className="mb-1 block text-xs text-slate-300">
                     Hourly rate
                   </label>
                   <input
@@ -345,7 +343,7 @@ function EmployeeModal({
                 </div>
               ) : (
                 <div>
-                  <label className="mb-2 block text-sm text-slate-300">
+                  <label className="mb-1 block text-xs text-slate-300">
                     {form.pay_type === 'monthly' ? 'Monthly salary' : 'One-time amount'}
                   </label>
                   <input
@@ -366,7 +364,7 @@ function EmployeeModal({
               )}
 
               <div>
-                <label className="mb-2 block text-sm text-slate-300">Status</label>
+                <label className="mb-1 block text-xs text-slate-300">Status</label>
                 <select
                   className={inputClass}
                   value={form.active ? 'true' : 'false'}
@@ -384,11 +382,11 @@ function EmployeeModal({
             </div>
           </div>
 
-          <div className="flex flex-col gap-3 border-t border-slate-800 pt-5 sm:flex-row sm:justify-end">
+          <div className="flex flex-col gap-2 border-t border-slate-800 pt-3 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={onClose}
-              className="rounded-xl border border-slate-700 bg-slate-900 px-5 py-3 font-semibold text-white transition hover:border-slate-500"
+              className="rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:border-slate-500"
             >
               Cancel
             </button>
@@ -396,7 +394,7 @@ function EmployeeModal({
             <button
               type="submit"
               disabled={saving || uploadingPhoto}
-              className="rounded-xl bg-cyan-600 px-5 py-3 font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? 'Saving...' : isEditing ? 'Save changes' : 'Add employee'}
             </button>
@@ -652,7 +650,7 @@ export default function DashboardPage() {
   function getPayLabel(employee) {
     if (employee.pay_type === 'monthly') {
       return employee.monthly_salary !== null && employee.monthly_salary !== undefined
-        ? `$${employee.monthly_salary} / month`
+        ? `$${employee.monthly_salary}/mo`
         : '—'
     }
 
@@ -663,7 +661,7 @@ export default function DashboardPage() {
     }
 
     return employee.hourly_rate !== null && employee.hourly_rate !== undefined
-      ? `$${employee.hourly_rate} / hr`
+      ? `$${employee.hourly_rate}/hr`
       : '—'
   }
 
@@ -702,44 +700,44 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#020817] text-white">
-      <div className="mx-auto max-w-[1600px] px-4 py-6 sm:px-6 lg:px-8">
-        <div className={`${cardClass} mb-6 p-5`}>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-start gap-4">
-              <div className="rounded-2xl bg-cyan-500/10 p-3 text-cyan-400">
-                <LayoutDashboard size={26} />
+      <div className="mx-auto max-w-[1900px] px-3 py-4 sm:px-4 lg:px-5">
+        <div className={`${cardClass} mb-4 p-3`}>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-cyan-500/10 p-2.5 text-cyan-400">
+                <LayoutDashboard size={22} />
               </div>
 
               <div>
-                <h1 className="text-2xl font-bold text-white">Employees</h1>
-                <p className="mt-1 text-sm text-slate-400">
+                <h1 className="text-xl font-bold text-white">Employees</h1>
+                <p className="mt-0.5 text-xs text-slate-400">
                   Total: {counts.total} · Active: {counts.active} · Inactive: {counts.inactive}
                 </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-3">
+            <div className="flex flex-wrap gap-2">
               <button
                 onClick={loadEmployees}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-4 py-2.5 font-medium text-white transition hover:border-cyan-500"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:border-cyan-500"
               >
-                <RefreshCw size={16} />
+                <RefreshCw size={15} />
                 Refresh
               </button>
 
               <button
                 onClick={openAddModal}
-                className="inline-flex items-center gap-2 rounded-xl bg-cyan-600 px-4 py-2.5 font-medium text-white transition hover:bg-cyan-500"
+                className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
               >
-                <Plus size={16} />
+                <Plus size={15} />
                 Add employee
               </button>
 
               <button
                 onClick={handleLogout}
-                className="inline-flex items-center gap-2 rounded-xl border border-red-500/40 bg-red-600/10 px-4 py-2.5 font-medium text-red-300 transition hover:bg-red-600/20"
+                className="inline-flex items-center gap-2 rounded-lg border border-red-500/40 bg-red-600/10 px-3 py-2 text-sm font-medium text-red-300 transition hover:bg-red-600/20"
               >
-                <LogOut size={16} />
+                <LogOut size={15} />
                 Logout
               </button>
             </div>
@@ -747,48 +745,48 @@ export default function DashboardPage() {
         </div>
 
         <div className={cardClass}>
-          <div className="flex flex-col gap-4 border-b border-slate-800 p-5 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3 border-b border-slate-800 p-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-white">Workers list</h2>
-              <p className="mt-1 text-sm text-slate-400">
+              <h2 className="text-base font-semibold text-white">Workers list</h2>
+              <p className="mt-0.5 text-xs text-slate-400">
                 Data is loaded from public.employees
               </p>
             </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
+            <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 type="text"
                 placeholder="Search by number, name, phone, email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full min-w-[280px] rounded-xl border border-slate-700 bg-[#08101c] px-4 py-3 text-white outline-none focus:border-cyan-500"
+                className="w-full min-w-[260px] rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
               />
               <button
                 onClick={openAddModal}
-                className="inline-flex items-center justify-center gap-2 rounded-xl bg-cyan-600 px-4 py-3 font-medium text-white transition hover:bg-cyan-500"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
               >
-                <Plus size={18} />
+                <Plus size={16} />
                 Add
               </button>
             </div>
           </div>
 
-          <div className="p-5">
+          <div className="p-3">
             {error ? (
-              <div className="mb-4 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-red-300">
+              <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
                 {error}
               </div>
             ) : null}
 
             {loading ? (
-              <div className="rounded-2xl border border-slate-800 bg-[#08101c] px-4 py-12 text-center text-slate-400">
+              <div className="rounded-xl border border-slate-800 bg-[#08101c] px-4 py-10 text-center text-sm text-slate-400">
                 Loading employees...
               </div>
             ) : (
               <>
-                <div className="hidden overflow-x-auto rounded-2xl border border-slate-800 lg:block">
-                  <div className="min-w-[1450px]">
-                    <div className="grid grid-cols-[0.7fr_1.2fr_1fr_1fr_1fr_0.9fr_1fr_0.9fr_1.7fr] bg-slate-900/70 px-4 py-3 text-sm font-semibold text-slate-300">
+                <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
+                  <div className="min-w-[1500px]">
+                    <div className="grid grid-cols-[70px_220px_150px_220px_140px_95px_120px_90px_260px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                       <div>No.</div>
                       <div>Name</div>
                       <div>Phone</div>
@@ -801,21 +799,21 @@ export default function DashboardPage() {
                     </div>
 
                     {filteredEmployees.length === 0 ? (
-                      <div className="bg-[#08101c] px-4 py-10 text-center text-slate-400">
+                      <div className="bg-[#08101c] px-4 py-8 text-center text-sm text-slate-400">
                         No employees found
                       </div>
                     ) : (
                       filteredEmployees.map((employee) => (
                         <div
                           key={employee.id}
-                          className="grid grid-cols-[0.7fr_1.2fr_1fr_1fr_1fr_0.9fr_1fr_0.9fr_1.7fr] items-center border-t border-slate-800 bg-[#08101c] px-4 py-3 text-sm text-slate-200"
+                          className="grid grid-cols-[70px_220px_150px_220px_140px_95px_120px_90px_260px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
                         >
                           <div className="font-semibold text-cyan-300">
                             {employee.employee_number ?? '—'}
                           </div>
 
-                          <div className="flex items-center gap-3 font-semibold text-white">
-                            <div className="h-10 w-10 overflow-hidden rounded-xl border border-slate-700 bg-[#07101d]">
+                          <div className="flex min-w-0 items-center gap-2 font-semibold text-white">
+                            <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-[#07101d]">
                               {employee.photo_url ? (
                                 <img
                                   src={employee.photo_url}
@@ -824,35 +822,36 @@ export default function DashboardPage() {
                                 />
                               ) : null}
                             </div>
-                            <div className="min-w-0">
-                              <div>{getFullName(employee)}</div>
+
+                            <div className="min-w-0 leading-tight">
+                              <div className="truncate">{getFullName(employee)}</div>
                               {employee.company_name ? (
-                                <div className="truncate text-xs font-normal text-slate-400">
+                                <div className="truncate text-[11px] font-normal text-slate-400">
                                   {employee.company_name}
                                 </div>
                               ) : null}
                             </div>
                           </div>
 
-                          <div className="whitespace-nowrap">{employee.phone || '—'}</div>
+                          <div className="truncate whitespace-nowrap">
+                            {employee.phone || '—'}
+                          </div>
                           <div className="truncate">{employee.email || '—'}</div>
-                          <div className="whitespace-nowrap">
+                          <div className="truncate whitespace-nowrap">
                             {employee.position || 'worker'}
                           </div>
 
-                          <div className="whitespace-nowrap font-semibold text-sky-300">
-                            {employee.employer_form === 'Other' && employee.company_name
-                              ? `Other`
-                              : employee.employer_form || '—'}
+                          <div className="truncate whitespace-nowrap font-semibold text-sky-300">
+                            {employee.employer_form || '—'}
                           </div>
 
-                          <div className="whitespace-nowrap font-semibold text-cyan-300">
+                          <div className="truncate whitespace-nowrap font-semibold text-cyan-300">
                             {getPayLabel(employee)}
                           </div>
 
                           <div>
                             <span
-                              className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                              className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                                 employee.active
                                   ? 'bg-emerald-500/15 text-emerald-300'
                                   : 'bg-red-500/15 text-red-300'
@@ -862,26 +861,26 @@ export default function DashboardPage() {
                             </span>
                           </div>
 
-                          <div className="flex flex-wrap gap-2">
+                          <div className="flex flex-wrap gap-1.5">
                             <Link
                               to={`/employees/${employee.id}`}
-                              className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-600/10 px-3 py-2 text-cyan-300 transition hover:bg-cyan-600/20"
+                              className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-600/10 px-2 py-1.5 text-cyan-300 transition hover:bg-cyan-600/20"
                             >
-                              <ExternalLink size={16} />
+                              <ExternalLink size={13} />
                               Open
                             </Link>
 
                             <button
                               onClick={() => openEditModal(employee)}
-                              className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white transition hover:border-cyan-500"
+                              className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-white transition hover:border-cyan-500"
                             >
-                              <Pencil size={16} />
+                              <Pencil size={13} />
                               Edit
                             </button>
 
                             <button
                               onClick={() => toggleActive(employee)}
-                              className={`rounded-xl px-3 py-2 text-sm font-medium transition ${
+                              className={`rounded-lg px-2 py-1.5 font-medium transition ${
                                 employee.active
                                   ? 'border border-amber-500/30 bg-amber-500/10 text-amber-300 hover:bg-amber-500/20'
                                   : 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300 hover:bg-emerald-500/20'
@@ -892,9 +891,9 @@ export default function DashboardPage() {
 
                             <button
                               onClick={() => handleDelete(employee.id)}
-                              className="rounded-xl border border-red-500/30 bg-red-600/10 px-3 py-2 text-red-300 transition hover:bg-red-600/20"
+                              className="rounded-lg border border-red-500/30 bg-red-600/10 px-2 py-1.5 text-red-300 transition hover:bg-red-600/20"
                             >
-                              <Trash2 size={16} />
+                              <Trash2 size={13} />
                             </button>
                           </div>
                         </div>
@@ -903,20 +902,20 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="space-y-4 lg:hidden">
+                <div className="space-y-3 lg:hidden">
                   {filteredEmployees.length === 0 ? (
-                    <div className="rounded-2xl border border-slate-800 bg-[#08101c] px-4 py-10 text-center text-slate-400">
+                    <div className="rounded-xl border border-slate-800 bg-[#08101c] px-4 py-8 text-center text-sm text-slate-400">
                       No employees found
                     </div>
                   ) : (
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="rounded-2xl border border-slate-800 bg-[#08101c] p-4"
+                        className="rounded-xl border border-slate-800 bg-[#08101c] p-3"
                       >
                         <div className="flex items-start justify-between gap-3">
                           <div className="flex gap-3">
-                            <div className="h-14 w-14 overflow-hidden rounded-2xl border border-slate-700 bg-[#07101d]">
+                            <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-700 bg-[#07101d]">
                               {employee.photo_url ? (
                                 <img
                                   src={employee.photo_url}
@@ -926,20 +925,20 @@ export default function DashboardPage() {
                               ) : null}
                             </div>
 
-                            <div>
-                              <div className="flex items-center gap-2 text-sm text-cyan-300">
-                                <Hash size={14} />
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 text-xs text-cyan-300">
+                                <Hash size={13} />
                                 {employee.employee_number ?? '—'}
                               </div>
-                              <div className="mt-1 flex items-center gap-2 text-lg font-semibold text-white">
-                                <User size={16} />
-                                {getFullName(employee)}
+                              <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-white">
+                                <User size={14} />
+                                <span className="truncate">{getFullName(employee)}</span>
                               </div>
-                              <div className="mt-1 text-sm text-slate-400">
+                              <div className="mt-0.5 text-xs text-slate-400">
                                 {employee.position || 'worker'}
                               </div>
                               {employee.company_name ? (
-                                <div className="mt-1 text-xs text-slate-500">
+                                <div className="mt-0.5 text-[11px] text-slate-500">
                                   {employee.company_name}
                                 </div>
                               ) : null}
@@ -947,7 +946,7 @@ export default function DashboardPage() {
                           </div>
 
                           <span
-                            className={`rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide ${
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
                               employee.active
                                 ? 'bg-emerald-500/15 text-emerald-300'
                                 : 'bg-red-500/15 text-red-300'
@@ -957,52 +956,50 @@ export default function DashboardPage() {
                           </span>
                         </div>
 
-                        <div className="mt-4 grid gap-3 text-sm">
+                        <div className="mt-3 grid gap-2 text-xs">
                           <div className="flex items-center gap-2 text-slate-300">
-                            <Phone size={15} className="text-cyan-400" />
+                            <Phone size={13} className="text-cyan-400" />
                             {employee.phone || '—'}
                           </div>
                           <div className="flex items-center gap-2 text-slate-300">
-                            <Mail size={15} className="text-cyan-400" />
+                            <Mail size={13} className="text-cyan-400" />
                             {employee.email || '—'}
                           </div>
                           <div className="flex items-center gap-2 text-slate-300">
-                            <Briefcase size={15} className="text-cyan-400" />
+                            <Briefcase size={13} className="text-cyan-400" />
                             {employee.position || 'worker'}
                           </div>
                           <div className="flex items-center gap-2 text-slate-300">
-                            <CalendarDays size={15} className="text-cyan-400" />
+                            <CalendarDays size={13} className="text-cyan-400" />
                             {employee.hire_date || '—'}
                           </div>
                           <div className="flex items-center gap-2 text-slate-300">
-                            <BadgeDollarSign size={15} className="text-cyan-400" />
+                            <BadgeDollarSign size={13} className="text-cyan-400" />
                             {employee.employer_form || '—'}
                           </div>
-                          <div className="flex items-center gap-2 text-slate-300">
-                            {getPayLabel(employee)}
-                          </div>
+                          <div className="text-slate-300">{getPayLabel(employee)}</div>
                         </div>
 
-                        <div className="mt-4 flex flex-wrap gap-2">
+                        <div className="mt-3 flex flex-wrap gap-1.5">
                           <Link
                             to={`/employees/${employee.id}`}
-                            className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-600/10 px-3 py-2 text-cyan-300"
+                            className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-600/10 px-2 py-1.5 text-xs text-cyan-300"
                           >
-                            <ExternalLink size={16} />
+                            <ExternalLink size={13} />
                             Open
                           </Link>
 
                           <button
                             onClick={() => openEditModal(employee)}
-                            className="inline-flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-white"
+                            className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs text-white"
                           >
-                            <Pencil size={16} />
+                            <Pencil size={13} />
                             Edit
                           </button>
 
                           <button
                             onClick={() => toggleActive(employee)}
-                            className={`rounded-xl px-3 py-2 text-sm font-medium ${
+                            className={`rounded-lg px-2 py-1.5 text-xs font-medium ${
                               employee.active
                                 ? 'border border-amber-500/30 bg-amber-500/10 text-amber-300'
                                 : 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
@@ -1013,9 +1010,9 @@ export default function DashboardPage() {
 
                           <button
                             onClick={() => handleDelete(employee.id)}
-                            className="rounded-xl border border-red-500/30 bg-red-600/10 px-3 py-2 text-red-300"
+                            className="rounded-lg border border-red-500/30 bg-red-600/10 px-2 py-1.5 text-red-300"
                           >
-                            <Trash2 size={16} />
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </div>
