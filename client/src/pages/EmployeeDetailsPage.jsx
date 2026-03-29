@@ -29,14 +29,14 @@ const darkInput =
 
 const COORDS_STORAGE_KEY = 'farmplast_check_print_coords_v1'
 
-const [coords, setCoords] = useState({
+const [coords, setCoords] = useState{
   payee: { x: 10, y: 10 },
   amountWords: { x: 10, y: 20 },
   date: { x: 10, y: 30 },
   amountNumber: { x: 10, y: 40 },
   amountCents: { x: 10, y: 50 },
   globalOffset: { x: 0, y: 0 },
-})
+}
 
 function loadSavedCoords() {
   try {
