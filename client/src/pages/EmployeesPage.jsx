@@ -4,14 +4,14 @@ import { supabase } from '../lib/supabase'
 const pageStyle = {
   minHeight: '100vh',
   background:
-    'radial-gradient(circle at top, rgba(20,184,166,0.18), transparent 28%), #020817',
+    'radial-gradient(circle at top, rgba(20,184,166,0.12), transparent 24%), #020817',
   color: '#e5eefb',
-  padding: '32px 20px 48px',
+  padding: '16px 12px 24px',
   fontFamily: 'Arial, sans-serif',
 }
 
 const wrapperStyle = {
-  maxWidth: '1400px',
+  maxWidth: '1820px',
   margin: '0 auto',
 }
 
@@ -19,68 +19,73 @@ const headerRowStyle = {
   display: 'flex',
   justifyContent: 'space-between',
   alignItems: 'flex-start',
-  gap: '16px',
+  gap: '10px',
   flexWrap: 'wrap',
-  marginBottom: '24px',
+  marginBottom: '12px',
 }
 
 const titleStyle = {
   margin: 0,
-  fontSize: '42px',
+  fontSize: '28px',
   fontWeight: 800,
   letterSpacing: '-0.02em',
   color: '#f8fafc',
+  lineHeight: 1.1,
 }
 
 const subtitleStyle = {
-  marginTop: '8px',
+  marginTop: '4px',
   marginBottom: 0,
   color: '#94a3b8',
-  fontSize: '15px',
+  fontSize: '12px',
+  lineHeight: 1.35,
 }
 
 const cardStyle = {
-  background: 'rgba(15, 23, 42, 0.9)',
+  background: 'rgba(15, 23, 42, 0.92)',
   border: '1px solid rgba(51, 65, 85, 0.7)',
-  borderRadius: '22px',
-  boxShadow: '0 12px 40px rgba(2, 8, 23, 0.45)',
+  borderRadius: '14px',
+  boxShadow: '0 8px 28px rgba(2, 8, 23, 0.35)',
 }
 
 const formCardStyle = {
   ...cardStyle,
-  padding: '22px',
-  marginBottom: '22px',
+  padding: '14px',
+  marginBottom: '12px',
 }
 
 const gridStyle = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-  gap: '14px',
-  marginBottom: '16px',
+  gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))',
+  gap: '10px',
+  marginBottom: '10px',
 }
 
 const fieldStyle = {
   display: 'flex',
   flexDirection: 'column',
-  gap: '8px',
+  gap: '5px',
 }
 
 const labelStyle = {
-  fontSize: '13px',
+  fontSize: '11px',
   fontWeight: 700,
   color: '#cbd5e1',
   letterSpacing: '0.02em',
+  lineHeight: 1.2,
 }
 
 const inputStyle = {
   width: '100%',
-  borderRadius: '12px',
+  borderRadius: '9px',
   border: '1px solid #334155',
   background: '#0f172a',
   color: '#f8fafc',
-  padding: '12px 14px',
-  fontSize: '14px',
+  padding: '8px 10px',
+  fontSize: '12px',
   outline: 'none',
+  lineHeight: 1.2,
+  boxSizing: 'border-box',
 }
 
 const selectStyle = {
@@ -91,62 +96,67 @@ const selectStyle = {
 const checkboxRowStyle = {
   display: 'flex',
   alignItems: 'center',
-  gap: '10px',
-  paddingTop: '8px',
+  gap: '8px',
+  paddingTop: '4px',
+  minHeight: '32px',
 }
 
 const actionsRowStyle = {
   display: 'flex',
-  gap: '12px',
+  gap: '8px',
   flexWrap: 'wrap',
-  marginTop: '8px',
+  marginTop: '4px',
 }
 
 const primaryButtonStyle = {
   border: 'none',
-  borderRadius: '12px',
+  borderRadius: '9px',
   background: 'linear-gradient(135deg, #2563eb, #14b8a6)',
   color: '#ffffff',
-  padding: '12px 18px',
+  padding: '9px 12px',
   fontWeight: 700,
-  fontSize: '14px',
+  fontSize: '12px',
   cursor: 'pointer',
+  lineHeight: 1.2,
 }
 
 const secondaryButtonStyle = {
   border: '1px solid #334155',
-  borderRadius: '12px',
+  borderRadius: '9px',
   background: '#0f172a',
   color: '#e2e8f0',
-  padding: '12px 18px',
+  padding: '8px 12px',
   fontWeight: 700,
-  fontSize: '14px',
+  fontSize: '12px',
   cursor: 'pointer',
+  lineHeight: 1.2,
+  whiteSpace: 'nowrap',
 }
 
 const statGridStyle = {
   display: 'grid',
-  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-  gap: '14px',
-  marginBottom: '22px',
+  gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
+  gap: '10px',
+  marginBottom: '12px',
 }
 
 const statCardStyle = {
   ...cardStyle,
-  padding: '18px',
+  padding: '12px',
 }
 
 const statLabelStyle = {
-  fontSize: '12px',
+  fontSize: '10px',
   textTransform: 'uppercase',
   color: '#64748b',
   fontWeight: 800,
-  letterSpacing: '0.08em',
-  marginBottom: '10px',
+  letterSpacing: '0.07em',
+  marginBottom: '6px',
+  lineHeight: 1.2,
 }
 
 const statValueStyle = {
-  fontSize: '34px',
+  fontSize: '24px',
   fontWeight: 800,
   color: '#f8fafc',
   lineHeight: 1,
@@ -164,38 +174,45 @@ const tableWrapStyle = {
 const tableStyle = {
   width: '100%',
   borderCollapse: 'collapse',
-  minWidth: '980px',
+  minWidth: '1060px',
 }
 
 const thStyle = {
   textAlign: 'left',
-  fontSize: '12px',
+  fontSize: '10px',
   textTransform: 'uppercase',
-  letterSpacing: '0.07em',
+  letterSpacing: '0.06em',
   color: '#94a3b8',
-  padding: '14px 16px',
+  padding: '8px 10px',
   borderBottom: '1px solid rgba(51, 65, 85, 0.8)',
   background: 'rgba(15, 23, 42, 0.98)',
+  whiteSpace: 'nowrap',
+  position: 'sticky',
+  top: 0,
+  zIndex: 1,
 }
 
 const tdStyle = {
-  padding: '14px 16px',
+  padding: '7px 10px',
   borderBottom: '1px solid rgba(30, 41, 59, 0.9)',
-  fontSize: '14px',
+  fontSize: '12px',
   color: '#e2e8f0',
-  verticalAlign: 'top',
+  verticalAlign: 'middle',
+  lineHeight: 1.25,
 }
 
 const badgeBaseStyle = {
   display: 'inline-flex',
   alignItems: 'center',
   justifyContent: 'center',
-  minWidth: '88px',
-  padding: '6px 10px',
+  minWidth: '70px',
+  padding: '4px 8px',
   borderRadius: '999px',
-  fontSize: '12px',
+  fontSize: '10px',
   fontWeight: 800,
   letterSpacing: '0.03em',
+  lineHeight: 1.1,
+  whiteSpace: 'nowrap',
 }
 
 function getStatusBadgeStyle(active) {
@@ -215,29 +232,30 @@ function getStatusBadgeStyle(active) {
 }
 
 const infoTextStyle = {
-  marginTop: '10px',
-  fontSize: '14px',
+  marginTop: '4px',
+  fontSize: '12px',
   color: '#94a3b8',
+  lineHeight: 1.35,
 }
 
 const errorTextStyle = {
-  marginTop: '10px',
-  fontSize: '14px',
+  marginTop: '8px',
+  fontSize: '12px',
   color: '#f87171',
   fontWeight: 700,
 }
 
 const successTextStyle = {
-  marginTop: '10px',
-  fontSize: '14px',
+  marginTop: '8px',
+  fontSize: '12px',
   color: '#4ade80',
   fontWeight: 700,
 }
 
 const emptyStateStyle = {
-  padding: '26px 18px',
+  padding: '18px 14px',
   color: '#94a3b8',
-  fontSize: '15px',
+  fontSize: '13px',
 }
 
 const initialForm = {
@@ -389,10 +407,11 @@ export default function EmployeesPage() {
               style={{
                 margin: 0,
                 color: '#22d3ee',
-                fontSize: '13px',
+                fontSize: '10px',
                 fontWeight: 800,
                 letterSpacing: '0.08em',
                 textTransform: 'uppercase',
+                lineHeight: 1.2,
               }}
             >
               Payroll / Accounting
@@ -430,9 +449,10 @@ export default function EmployeesPage() {
           <h2
             style={{
               marginTop: 0,
-              marginBottom: '18px',
-              fontSize: '22px',
+              marginBottom: '10px',
+              fontSize: '16px',
               color: '#f8fafc',
+              lineHeight: 1.2,
             }}
           >
             Add employee
@@ -539,7 +559,7 @@ export default function EmployeesPage() {
                     checked={form.active}
                     onChange={handleChange}
                   />
-                  <label htmlFor="employee-active" style={{ color: '#cbd5e1', fontSize: '14px' }}>
+                  <label htmlFor="employee-active" style={{ color: '#cbd5e1', fontSize: '12px' }}>
                     Active employee
                   </label>
                 </div>
@@ -564,15 +584,16 @@ export default function EmployeesPage() {
         <div style={listCardStyle}>
           <div
             style={{
-              padding: '18px 20px',
+              padding: '12px 14px',
               borderBottom: '1px solid rgba(51, 65, 85, 0.85)',
             }}
           >
             <h2
               style={{
                 margin: 0,
-                fontSize: '22px',
+                fontSize: '16px',
                 color: '#f8fafc',
+                lineHeight: 1.2,
               }}
             >
               Employees list
@@ -591,29 +612,65 @@ export default function EmployeesPage() {
               <table style={tableStyle}>
                 <thead>
                   <tr>
-                    <th style={thStyle}>Employee #</th>
-                    <th style={thStyle}>Name</th>
-                    <th style={thStyle}>Position</th>
-                    <th style={thStyle}>Phone</th>
-                    <th style={thStyle}>Email</th>
-                    <th style={thStyle}>Hourly rate</th>
-                    <th style={thStyle}>Status</th>
-                    <th style={thStyle}>Action</th>
+                    <th style={{ ...thStyle, width: '90px' }}>Employee #</th>
+                    <th style={{ ...thStyle, width: '190px' }}>Name</th>
+                    <th style={{ ...thStyle, width: '120px' }}>Position</th>
+                    <th style={{ ...thStyle, width: '140px' }}>Phone</th>
+                    <th style={{ ...thStyle, width: '220px' }}>Email</th>
+                    <th style={{ ...thStyle, width: '100px' }}>Hourly rate</th>
+                    <th style={{ ...thStyle, width: '90px' }}>Status</th>
+                    <th style={{ ...thStyle, width: '110px' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {employees.map((employee) => (
                     <tr key={employee.id}>
-                      <td style={tdStyle}>{employee.employee_number}</td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>{employee.employee_number}</td>
                       <td style={tdStyle}>
-                        <div style={{ fontWeight: 700, color: '#f8fafc' }}>
+                        <div
+                          style={{
+                            fontWeight: 700,
+                            color: '#f8fafc',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                          }}
+                        >
                           {employee.first_name} {employee.last_name}
                         </div>
                       </td>
-                      <td style={tdStyle}>{employee.position || '-'}</td>
-                      <td style={tdStyle}>{employee.phone || '-'}</td>
-                      <td style={tdStyle}>{employee.email || '-'}</td>
-                      <td style={tdStyle}>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {employee.position || '-'}
+                      </td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                        }}
+                      >
+                        {employee.phone || '-'}
+                      </td>
+                      <td
+                        style={{
+                          ...tdStyle,
+                          whiteSpace: 'nowrap',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          maxWidth: '220px',
+                        }}
+                      >
+                        {employee.email || '-'}
+                      </td>
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                         {employee.hourly_rate == null ? '-' : formatMoney(employee.hourly_rate)}
                       </td>
                       <td style={tdStyle}>
