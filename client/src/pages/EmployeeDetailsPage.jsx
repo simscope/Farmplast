@@ -29,33 +29,12 @@ const darkInput =
 
 const COORDS_STORAGE_KEY = 'farmplast_check_print_coords_v2'
 
-const defaultCoords = {
+const CHECK_COORDS = {
   payee: { x: 40, y: 30 },
   amountWords: { x: 35, y: 58 },
   date: { x: 126, y: 47 },
   amountNumber: { x: 135, y: 57 },
   globalOffset: { x: 0, y: 0 },
-}
-
-function loadSavedCoords() {
-  try {
-    if (typeof window === 'undefined') return defaultCoords
-
-    const raw = localStorage.getItem(COORDS_STORAGE_KEY)
-    if (!raw) return defaultCoords
-
-    const parsed = JSON.parse(raw)
-
-    return {
-      payee: { ...defaultCoords.payee, ...(parsed.payee || {}) },
-      amountWords: { ...defaultCoords.amountWords, ...(parsed.amountWords || {}) },
-      date: { ...defaultCoords.date, ...(parsed.date || {}) },
-      amountNumber: { ...defaultCoords.amountNumber, ...(parsed.amountNumber || {}) },
-      globalOffset: { ...defaultCoords.globalOffset, ...(parsed.globalOffset || {}) },
-    }
-  } catch {
-    return defaultCoords
-  }
 }
 
 function money(value) {
