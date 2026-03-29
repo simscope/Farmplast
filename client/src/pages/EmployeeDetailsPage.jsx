@@ -34,7 +34,7 @@ const defaultCoords = {
   amountWords: { x: 15, y: 43 },
   date: { x: 150, y: 24 },
   amountNumber: { x: 175, y: 35 },
-  amountCents: { x: 199.2, y: 63.3 },
+  amountCents: { x: 10, y: 63.3 },
   globalOffset: { x: 0, y: 0 },
 }
 
