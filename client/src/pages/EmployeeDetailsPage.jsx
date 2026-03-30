@@ -266,8 +266,8 @@ function CheckStockPrint({ employee, fullName, totals }) {
     <div
       style={{
         position: 'relative',
-        width: '215.9mm',
-        height: '88.9mm',
+        width: '210mm',
+        height: '78mm',
         background: 'white',
         color: 'black',
         fontFamily: 'Arial, sans-serif',
