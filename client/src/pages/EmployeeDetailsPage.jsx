@@ -17,7 +17,6 @@ import {
   ChevronDown,
   ChevronUp,
   X,
-  Move,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
@@ -26,8 +25,6 @@ const pageCard =
 
 const darkInput =
   'w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
-
-const COORDS_STORAGE_KEY = 'farmplast_check_print_coords_v2'
 
 const CHECK_COORDS = {
   payee: { x: 40, y: 30 },
@@ -233,7 +230,7 @@ function amountToWords(amount) {
   return `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
 }
 
-function CheckStockPrint({ employee, fullName, totals, coords }) {
+function CheckStockPrint({ employee, fullName, totals }) {
   const payeeName =
     employee?.employer_form === 'Other' && employee?.company_name
       ? employee.company_name
@@ -253,9 +250,9 @@ function CheckStockPrint({ employee, fullName, totals, coords }) {
   const amountWords = amountToWords(amount)
 
   const field = (name, extra = {}) => {
-    const pos = coords[name]
-    const gx = Number(coords?.globalOffset?.x || 0)
-    const gy = Number(coords?.globalOffset?.y || 0)
+    const pos = CHECK_COORDS[name]
+    const gx = Number(CHECK_COORDS?.globalOffset?.x || 0)
+    const gy = Number(CHECK_COORDS?.globalOffset?.y || 0)
 
     return {
       position: 'absolute',
@@ -496,7 +493,6 @@ function PrintPreviewModal({
   employee,
   fullName,
   totals,
-  coords,
   periodStart,
   periodEnd,
   displayLogs,
@@ -534,12 +530,7 @@ function PrintPreviewModal({
 
         <div className="flex-1 overflow-auto bg-slate-200 p-5">
           <div className="print-modal-sheet mx-auto bg-white shadow-lg">
-            <CheckStockPrint
-              employee={employee}
-              fullName={fullName}
-              totals={totals}
-              coords={coords}
-            />
+            <CheckStockPrint employee={employee} fullName={fullName} totals={totals} />
           </div>
 
           <div className="print-report-sheet mx-auto mt-6 max-w-[920px] bg-white shadow-lg">
@@ -550,158 +541,6 @@ function PrintPreviewModal({
               periodEnd={periodEnd}
               totals={totals}
               displayLogs={displayLogs}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function CoordEditor({ coords, setCoords, onReset, onClearStorage }) {
-  function setField(name, axis, value) {
-    setCoords((prev) => ({
-      ...prev,
-      [name]: {
-        ...prev[name],
-        [axis]: Number(value || 0),
-      },
-    }))
-  }
-
-  return (
-    <div className={`${pageCard} p-4 no-print`}>
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <Move size={18} className="text-cyan-400" />
-          <h2 className="text-xl font-bold text-white">Check print coordinates</h2>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          <button
-            onClick={onReset}
-            className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:border-red-500"
-          >
-            Reset coords
-          </button>
-
-          <button
-            onClick={onClearStorage}
-            className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20"
-          >
-            Clear saved coords
-          </button>
-        </div>
-      </div>
-
-      <div className="mb-4 rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 text-sm text-cyan-200">
-        Preview updates immediately. Cents are attached to the amount number and move together with it.
-      </div>
-
-      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-          <div className="mb-2 text-sm font-semibold text-white">Payee</div>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              step="0.1"
-              value={coords.payee.x}
-              onChange={(e) => setField('payee', 'x', e.target.value)}
-              className={darkInput}
-              placeholder="X"
-            />
-            <input
-              type="number"
-              step="0.1"
-              value={coords.payee.y}
-              onChange={(e) => setField('payee', 'y', e.target.value)}
-              className={darkInput}
-              placeholder="Y"
-            />
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-          <div className="mb-2 text-sm font-semibold text-white">Amount words</div>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              step="0.1"
-              value={coords.amountWords.x}
-              onChange={(e) => setField('amountWords', 'x', e.target.value)}
-              className={darkInput}
-              placeholder="X"
-            />
-            <input
-              type="number"
-              step="0.1"
-              value={coords.amountWords.y}
-              onChange={(e) => setField('amountWords', 'y', e.target.value)}
-              className={darkInput}
-              placeholder="Y"
-            />
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-          <div className="mb-2 text-sm font-semibold text-white">Date</div>
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              step="0.1"
-              value={coords.date.x}
-              onChange={(e) => setField('date', 'x', e.target.value)}
-              className={darkInput}
-              placeholder="X"
-            />
-            <input
-              type="number"
-              step="0.1"
-              value={coords.date.y}
-              onChange={(e) => setField('date', 'y', e.target.value)}
-              className={darkInput}
-              placeholder="Y"
-            />
-          </div>
-        </div>
-
-        <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-          <div className="mb-2 text-sm font-semibold text-white">Amount number + cents</div>
-          <div className="mb-2 grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              step="0.1"
-              value={coords.amountNumber.x}
-              onChange={(e) => setField('amountNumber', 'x', e.target.value)}
-              className={darkInput}
-              placeholder="X"
-            />
-            <input
-              type="number"
-              step="0.1"
-              value={coords.amountNumber.y}
-              onChange={(e) => setField('amountNumber', 'y', e.target.value)}
-              className={darkInput}
-              placeholder="Y"
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              step="0.1"
-              value={coords.globalOffset.x}
-              onChange={(e) => setField('globalOffset', 'x', e.target.value)}
-              className={darkInput}
-              placeholder="Global X"
-            />
-            <input
-              type="number"
-              step="0.1"
-              value={coords.globalOffset.y}
-              onChange={(e) => setField('globalOffset', 'y', e.target.value)}
-              className={darkInput}
-              placeholder="Global Y"
             />
           </div>
         </div>
@@ -737,28 +576,9 @@ export default function EmployeeDetailsPage() {
   const [clean, setClean] = useState('0')
   const [transport, setTransport] = useState('0')
 
-  const [coords, setCoords] = useState(() => loadSavedCoords())
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    localStorage.setItem(COORDS_STORAGE_KEY, JSON.stringify(coords))
-  }, [coords])
-
   useEffect(() => {
     loadPage()
   }, [id])
-
-  function resetCoords() {
-    setCoords(defaultCoords)
-  }
-
-  function clearSavedCoords() {
-    try {
-      localStorage.removeItem(COORDS_STORAGE_KEY)
-    } catch {}
-    setCoords(defaultCoords)
-    setSuccess('Saved coordinates cleared')
-  }
 
   async function loadPaymentsOnly() {
     try {
@@ -1423,13 +1243,6 @@ export default function EmployeeDetailsPage() {
               </div>
             </div>
 
-            <CoordEditor
-              coords={coords}
-              setCoords={setCoords}
-              onReset={resetCoords}
-              onClearStorage={clearSavedCoords}
-            />
-
             {error ? (
               <div className="rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300 no-print">
                 {error}
@@ -1765,7 +1578,8 @@ export default function EmployeeDetailsPage() {
 
               {employee?.pay_type === 'monthly' ? (
                 <div className="mt-3 rounded-xl border border-cyan-500/20 bg-cyan-500/5 px-4 py-3 text-sm text-cyan-200">
-                  Monthly pay calculation: {money(employee?.monthly_salary)} / 4 × {totals.weeksCount} week(s) ={' '}
+                  Monthly pay calculation: {money(employee?.monthly_salary)} / 4 ×{' '}
+                  {totals.weeksCount} week(s) ={' '}
                   <span className="font-bold">{money(totals.totalLabor)}</span>
                 </div>
               ) : null}
@@ -1816,7 +1630,6 @@ export default function EmployeeDetailsPage() {
           employee={employee}
           fullName={fullName}
           totals={totals}
-          coords={coords}
           periodStart={periodStart}
           periodEnd={periodEnd}
           displayLogs={displayLogs}
