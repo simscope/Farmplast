@@ -27,10 +27,10 @@ const darkInput =
   'w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
 const CHECK_COORDS = {
-  payee: { x: 40, y: 30 },
-  amountWords: { x: 35, y: 58 },
-  date: { x: 126, y: 47 },
-  amountNumber: { x: 135, y: 57 },
+  payee: { x: 40, y: 34 },
+  amountWords: { x: 20, y: 44 },
+  date: { x: 150, y: 25 },
+  amountNumber: { x: 174, y: 35 },
   globalOffset: { x: 0, y: 0 },
 }
 
