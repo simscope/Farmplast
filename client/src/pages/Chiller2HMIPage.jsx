@@ -9,15 +9,22 @@ import {
   AlertTriangle,
   Cpu,
   Clock3,
+  Wifi,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
-const DEVICE_CODE = 'ESP32-CH2-PLC'
 const POLL_MS = 3000
 
 function formatNumber(value, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
   return Number(value).toFixed(digits)
+}
+
+function formatDateTime(value) {
+  if (!value) return '—'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return '—'
+  return d.toLocaleString()
 }
 
 function StatCard({ title, value, unit = '', icon: Icon, accent = 'blue' }) {
@@ -88,35 +95,32 @@ function BitBadge({ label, active }) {
 
 export default function Chiller2HMIPage() {
   const navigate = useNavigate()
-  const [rows, setRows] = useState([])
+
+  const [dashboard, setDashboard] = useState(null)
+  const [rawRows, setRawRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [lastError, setLastError] = useState('')
-  const [lastSync, setLastSync] = useState(null)
 
   async function loadData(silent = false) {
     try {
       if (!silent) setLoading(true)
       setLastError('')
 
-      const { data, error } = await supabase
-        .from('chiller_raw_points')
-        .select('point_code, value_number, value_boolean, updated_at')
-        .eq('device_code', DEVICE_CODE)
-        .order('point_code', { ascending: true })
+      const [{ data: dashboardData, error: dashboardError }, { data: rawData, error: rawError }] =
+        await Promise.all([
+          supabase.from('v_ch2_dashboard').select('*').single(),
+          supabase
+            .from('ch2_latest')
+            .select('point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at')
+            .like('point_code', 'CH2_R%')
+            .order('raw_register', { ascending: true }),
+        ])
 
-      if (error) throw error
+      if (dashboardError) throw dashboardError
+      if (rawError) throw rawError
 
-      setRows(data || [])
-
-      if (data?.length) {
-        const latest = [...data]
-          .map((row) => row.updated_at)
-          .filter(Boolean)
-          .sort()
-          .at(-1)
-
-        setLastSync(latest || null)
-      }
+      setDashboard(dashboardData || null)
+      setRawRows(rawData || [])
     } catch (err) {
       setLastError(err?.message || 'Failed to load chiller data')
     } finally {
@@ -126,153 +130,76 @@ export default function Chiller2HMIPage() {
 
   useEffect(() => {
     loadData()
-    const timer = setInterval(() => loadData(true), POLL_MS)
-    return () => clearInterval(timer)
-  }, [])
 
-  const pointMap = useMemo(() => {
-    const map = {}
-    for (const row of rows) {
-      map[row.point_code] = row
+    const timer = setInterval(() => {
+      loadData(true)
+    }, POLL_MS)
+
+    const latestChannel = supabase
+      .channel('ch2-hmi-latest')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'ch2_latest' },
+        () => {
+          loadData(true)
+        }
+      )
+      .subscribe()
+
+    return () => {
+      clearInterval(timer)
+      supabase.removeChannel(latestChannel)
     }
-    return map
-  }, [rows])
-
-  function getNumber(code) {
-    const row = pointMap[code]
-    if (!row) return null
-    return row.value_number ?? null
-  }
-
-  function getBool(code) {
-    const row = pointMap[code]
-    if (!row) return false
-    return row.value_boolean === true
-  }
+  }, [])
 
   const summary = useMemo(() => {
     return {
-      // ===== General by manual =====
-      plcVersion: getNumber('CH2_R40021') !== null ? getNumber('CH2_R40021') / 1000 : null,
-      localCompressorCount: getNumber('CH2_R40022'),
-      setpoint: getNumber('CH2_R40023') !== null ? getNumber('CH2_R40023') / 10 : null,
-      chwIn: getNumber('CH2_R40024') !== null ? getNumber('CH2_R40024') / 10 : null,
-      chwOut: getNumber('CH2_R40025') !== null ? getNumber('CH2_R40025') / 10 : null,
-      compressorsAvailable: getNumber('CH2_R40026'),
-      stagedCondenseTemp: getNumber('CH2_R40027'),
+      assetCode: dashboard?.asset_code || 'CH-NJ-02',
+      deviceCode: dashboard?.device_code || 'ESP32-CH2-PLC',
 
-      // ===== Process by manual =====
-      condOutC1: getNumber('CH2_R40028'),
-      condOutC2: getNumber('CH2_R40029'),
-      suctionTempC1: getNumber('CH2_R40030'),
-      suctionTempC2: getNumber('CH2_R40031'),
-      suctionPressureC1: getNumber('CH2_R40032'),
-      suctionPressureC2: getNumber('CH2_R40033'),
-      liquidTempC1: getNumber('CH2_R40034'),
-      liquidTempC2: getNumber('CH2_R40035'),
-      dischargePressureC1: getNumber('CH2_R40036'),
-      dischargePressureC2: getNumber('CH2_R40037'),
-      diffPressure: getNumber('CH2_R40038'),
-      pumpPressure: getNumber('CH2_R40039'),
-      hgbPositionC1: getNumber('CH2_R40040'),
-      hgbPositionC2: getNumber('CH2_R40041'),
-      hgbModeC1: getNumber('CH2_R40042'),
-      hgbModeC2: getNumber('CH2_R40043'),
+      online: !!dashboard?.is_online,
+      heartbeat: !!dashboard?.heartbeat,
+      systemRunning: !!dashboard?.system_running,
 
-      // ===== Hours / flow / capacity =====
-      compAHoursC1: getNumber('CH2_R40044'),
-      compBHoursC1: getNumber('CH2_R40045'),
-      compCHoursC1: getNumber('CH2_R40046'),
-      compAHoursC2: getNumber('CH2_R40047'),
-      compBHoursC2: getNumber('CH2_R40048'),
-      compCHoursC2: getNumber('CH2_R40049'),
-      flowC1: getNumber('CH2_R40050'),
-      flowC2: getNumber('CH2_R40051'),
-      capacityC1: getNumber('CH2_R40052'),
-      capacityC2: getNumber('CH2_R40053'),
-      hmiMessage: getNumber('CH2_R40054'),
-      evapOutC1: getNumber('CH2_R40055'),
-      evapOutC2: getNumber('CH2_R40056'),
-      compressorsOnC1: getNumber('CH2_R40057'),
-      compressorsOnC2: getNumber('CH2_R40058'),
-      deltaT: getNumber('CH2_R40059') !== null ? getNumber('CH2_R40059') / 10 : null,
-      systemDemand: getNumber('CH2_R40060'),
+      comp1A: !!dashboard?.comp_1a_enabled,
+      comp1B: !!dashboard?.comp_1b_enabled,
+      comp1C: !!dashboard?.comp_1c_enabled,
 
-      // ===== Status bits by manual =====
-      heartBeat: getBool('CH2_R40011_B0'),
-      condenserTypeWaterAir: getBool('CH2_R40011_B1'),
-      antifreezeWarning: getBool('CH2_R40011_B2'),
-      masterMode: getBool('CH2_R40011_B4'),
-      dualCircuit: getBool('CH2_R40011_B5'),
-      alarmProcess: getBool('CH2_R40011_B6'),
-      alarmCritical: getBool('CH2_R40011_B7'),
-      softStopActive: getBool('CH2_R40011_B9'),
-      alarmEStop: getBool('CH2_R40011_B10'),
-      systemRunning: getBool('CH2_R40011_B14'),
-      systemShuttingDown: getBool('CH2_R40011_B15'),
+      comp2A: !!dashboard?.comp_2a_enabled,
+      comp2B: !!dashboard?.comp_2b_enabled,
+      comp2C: !!dashboard?.comp_2c_enabled,
 
-      c1AlarmRefrigerant: getBool('CH2_R40012_B0'),
-      c1Running: getBool('CH2_R40012_B1'),
-      c1HgbStartupDone: getBool('CH2_R40012_B2'),
-      c1HgbStartupPosition: getBool('CH2_R40012_B3'),
-      c1HgbPidEnabled: getBool('CH2_R40012_B4'),
-      c1CompAWaiting: getBool('CH2_R40012_B5'),
-      c1CompBWaiting: getBool('CH2_R40012_B6'),
-      c1CompCWaiting: getBool('CH2_R40012_B7'),
-      c1CompAEnabled: getBool('CH2_R40012_B8'),
-      c1CompBEnabled: getBool('CH2_R40012_B9'),
-      c1CompCEnabled: getBool('CH2_R40012_B10'),
-      c1CircuitDisabled: getBool('CH2_R40012_B15'),
+      enteringFluidF: dashboard?.chiller_entering_f,
+      leavingFluidF: dashboard?.chiller_leaving_f,
 
-      c2AlarmRefrigerant: getBool('CH2_R40013_B0'),
-      c2Running: getBool('CH2_R40013_B1'),
-      c2HgbStartupDone: getBool('CH2_R40013_B2'),
-      c2HgbStartupPosition: getBool('CH2_R40013_B3'),
-      c2HgbPidEnabled: getBool('CH2_R40013_B4'),
-      c2CompAWaiting: getBool('CH2_R40013_B5'),
-      c2CompBWaiting: getBool('CH2_R40013_B6'),
-      c2CompCWaiting: getBool('CH2_R40013_B7'),
-      c2CompAEnabled: getBool('CH2_R40013_B8'),
-      c2CompBEnabled: getBool('CH2_R40013_B9'),
-      c2CompCEnabled: getBool('CH2_R40013_B10'),
-      c2CircuitDisabled: getBool('CH2_R40013_B15'),
+      flowC1: dashboard?.flow_c1_gpm,
+      flowC2: dashboard?.flow_c2_gpm,
 
-      hgbOptionEnabled: getBool('CH2_R40014_B0'),
-      flowSensorEnabled: getBool('CH2_R40014_B1'),
+      capacityC1: dashboard?.capacity_c1_tons,
+
+      evapOutC1: dashboard?.evap_out_c1_f,
+      evapOutC2: dashboard?.evap_out_c2_f,
+
+      deltaT: dashboard?.process_delta_t_f,
+
+      heartbeatUpdatedAt: dashboard?.heartbeat_updated_at,
+      latestUpdatedAt: dashboard?.latest_updated_at,
     }
-  }, [pointMap])
+  }, [dashboard])
 
   const importantBits = [
+    { label: 'Online', active: summary.online },
+    { label: 'Heartbeat', active: summary.heartbeat },
     { label: 'System Running', active: summary.systemRunning },
-    { label: 'System Shutting Down', active: summary.systemShuttingDown },
-    { label: 'Alarm Process', active: summary.alarmProcess },
-    { label: 'Alarm Critical', active: summary.alarmCritical },
-    { label: 'Alarm E-Stop', active: summary.alarmEStop },
-    { label: 'Antifreeze Warning', active: summary.antifreezeWarning },
 
-    { label: 'C1 Running', active: summary.c1Running },
-    { label: 'C1 Alarm Refrigerant', active: summary.c1AlarmRefrigerant },
-    { label: 'C1 HGB PID Enabled', active: summary.c1HgbPidEnabled },
-    { label: 'C1 Comp A Enabled', active: summary.c1CompAEnabled },
-    { label: 'C1 Comp B Enabled', active: summary.c1CompBEnabled },
-    { label: 'C1 Comp C Enabled', active: summary.c1CompCEnabled },
-    { label: 'C1 Circuit Disabled', active: summary.c1CircuitDisabled },
+    { label: 'C1 Comp A', active: summary.comp1A },
+    { label: 'C1 Comp B', active: summary.comp1B },
+    { label: 'C1 Comp C', active: summary.comp1C },
 
-    { label: 'C2 Running', active: summary.c2Running },
-    { label: 'C2 Alarm Refrigerant', active: summary.c2AlarmRefrigerant },
-    { label: 'C2 HGB PID Enabled', active: summary.c2HgbPidEnabled },
-    { label: 'C2 Comp A Enabled', active: summary.c2CompAEnabled },
-    { label: 'C2 Comp B Enabled', active: summary.c2CompBEnabled },
-    { label: 'C2 Comp C Enabled', active: summary.c2CompCEnabled },
-    { label: 'C2 Circuit Disabled', active: summary.c2CircuitDisabled },
-
-    { label: 'HGB Option Enabled', active: summary.hgbOptionEnabled },
-    { label: 'Flow Sensor Enabled', active: summary.flowSensorEnabled },
+    { label: 'C2 Comp A', active: summary.comp2A },
+    { label: 'C2 Comp B', active: summary.comp2B },
+    { label: 'C2 Comp C', active: summary.comp2C },
   ]
-
-  const rawRows = useMemo(() => {
-    return [...rows].sort((a, b) => a.point_code.localeCompare(b.point_code))
-  }, [rows])
 
   return (
     <div className="min-h-screen bg-[#020617] text-white">
@@ -290,13 +217,22 @@ export default function Chiller2HMIPage() {
             <div>
               <div className="text-2xl font-semibold tracking-tight">Chiller 2 HMI</div>
               <div className="mt-1 text-sm text-white/50">
-                Device: {DEVICE_CODE}
-                {lastSync ? ` • Last update: ${new Date(lastSync).toLocaleString()}` : ''}
+                Asset: {summary.assetCode} • Device: {summary.deviceCode}
               </div>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <div
+              className={`rounded-xl border px-3 py-2 text-sm font-medium ${
+                summary.online
+                  ? 'border-emerald-500/40 bg-emerald-500/15 text-emerald-300'
+                  : 'border-red-500/40 bg-red-500/15 text-red-300'
+              }`}
+            >
+              Online: {summary.online ? 'YES' : 'NO'}
+            </div>
+
             <div
               className={`rounded-xl border px-3 py-2 text-sm font-medium ${
                 summary.systemRunning
@@ -305,16 +241,6 @@ export default function Chiller2HMIPage() {
               }`}
             >
               Running: {summary.systemRunning ? 'ON' : 'OFF'}
-            </div>
-
-            <div
-              className={`rounded-xl border px-3 py-2 text-sm font-medium ${
-                summary.alarmProcess || summary.alarmCritical || summary.alarmEStop
-                  ? 'border-red-500/40 bg-red-500/15 text-red-300'
-                  : 'border-white/10 bg-white/5 text-white/60'
-              }`}
-            >
-              Alarm: {summary.alarmProcess || summary.alarmCritical || summary.alarmEStop ? 'ACTIVE' : 'NORMAL'}
             </div>
 
             <button
@@ -340,22 +266,66 @@ export default function Chiller2HMIPage() {
         ) : (
           <>
             <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
-              <StatCard title="Setpoint" value={formatNumber(summary.setpoint, 1)} unit="°F" icon={Thermometer} accent="blue" />
-              <StatCard title="Entering Fluid" value={formatNumber(summary.chwIn, 1)} unit="°F" icon={Thermometer} accent="green" />
-              <StatCard title="Leaving Fluid" value={formatNumber(summary.chwOut, 1)} unit="°F" icon={Thermometer} accent="green" />
-              <StatCard title="Delta T" value={formatNumber(summary.deltaT, 1)} unit="°F" icon={Activity} accent="yellow" />
-              <StatCard title="System Demand" value={formatNumber(summary.systemDemand, 0)} unit="%" icon={Gauge} accent="purple" />
-              <StatCard title="PLC Version" value={formatNumber(summary.plcVersion, 3)} icon={Cpu} accent="blue" />
+              <StatCard
+                title="Entering Fluid"
+                value={formatNumber(summary.enteringFluidF, 1)}
+                unit="°F"
+                icon={Thermometer}
+                accent="green"
+              />
+              <StatCard
+                title="Leaving Fluid"
+                value={formatNumber(summary.leavingFluidF, 1)}
+                unit="°F"
+                icon={Thermometer}
+                accent="green"
+              />
+              <StatCard
+                title="Delta T"
+                value={formatNumber(summary.deltaT, 1)}
+                unit="°F"
+                icon={Activity}
+                accent="yellow"
+              />
+              <StatCard
+                title="Flow C1"
+                value={formatNumber(summary.flowC1, 0)}
+                unit="GPM"
+                icon={Gauge}
+                accent="blue"
+              />
+              <StatCard
+                title="Flow C2"
+                value={formatNumber(summary.flowC2, 0)}
+                unit="GPM"
+                icon={Gauge}
+                accent="blue"
+              />
+              <StatCard
+                title="Capacity C1"
+                value={formatNumber(summary.capacityC1, 0)}
+                unit="TONS"
+                icon={Cpu}
+                accent="purple"
+              />
             </div>
 
             <div className="mb-6 grid grid-cols-1 gap-6 xl:grid-cols-3">
-              <SectionCard title="General">
-                <ValueRow label="Local compressor count" value={formatNumber(summary.localCompressorCount, 0)} />
-                <ValueRow label="Compressors available" value={formatNumber(summary.compressorsAvailable, 0)} />
-                <ValueRow label="Staged condense temp" value={formatNumber(summary.stagedCondenseTemp, 0)} />
-                <ValueRow label="Differential pressure" value={formatNumber(summary.diffPressure, 0)} />
-                <ValueRow label="Process pump pressure" value={formatNumber(summary.pumpPressure, 0)} />
-                <ValueRow label="HMI message" value={formatNumber(summary.hmiMessage, 0)} />
+              <SectionCard
+                title="General"
+                right={
+                  <div className="inline-flex items-center gap-2 rounded-xl border border-cyan-500/30 bg-cyan-500/10 px-3 py-1 text-xs font-medium text-cyan-300">
+                    <Wifi size={14} />
+                    CH2
+                  </div>
+                }
+              >
+                <ValueRow label="Asset Code" value={summary.assetCode} />
+                <ValueRow label="Device Code" value={summary.deviceCode} />
+                <ValueRow label="Heartbeat" value={summary.heartbeat ? 'ON' : 'OFF'} />
+                <ValueRow label="System Running" value={summary.systemRunning ? 'ON' : 'OFF'} />
+                <ValueRow label="Heartbeat Updated" value={formatDateTime(summary.heartbeatUpdatedAt)} />
+                <ValueRow label="Latest Updated" value={formatDateTime(summary.latestUpdatedAt)} />
               </SectionCard>
 
               <SectionCard
@@ -366,20 +336,12 @@ export default function Chiller2HMIPage() {
                   </div>
                 }
               >
-                <ValueRow label="Condenser fluid out C1" value={formatNumber(summary.condOutC1, 0)} />
-                <ValueRow label="Suction temp C1" value={formatNumber(summary.suctionTempC1, 0)} />
-                <ValueRow label="Suction pressure C1" value={formatNumber(summary.suctionPressureC1, 0)} />
-                <ValueRow label="Liquid temp C1" value={formatNumber(summary.liquidTempC1, 0)} />
-                <ValueRow label="Discharge pressure C1" value={formatNumber(summary.dischargePressureC1, 0)} />
-                <ValueRow label="HGB position C1" value={formatNumber(summary.hgbPositionC1, 0)} />
-                <ValueRow label="HGB mode C1" value={formatNumber(summary.hgbModeC1, 0)} />
-                <ValueRow label="Comp A hours C1" value={formatNumber(summary.compAHoursC1, 0)} />
-                <ValueRow label="Comp B hours C1" value={formatNumber(summary.compBHoursC1, 0)} />
-                <ValueRow label="Comp C hours C1" value={formatNumber(summary.compCHoursC1, 0)} />
-                <ValueRow label="Flow C1" value={formatNumber(summary.flowC1, 0)} />
-                <ValueRow label="Capacity C1" value={formatNumber(summary.capacityC1, 0)} />
-                <ValueRow label="Evap out C1" value={formatNumber(summary.evapOutC1, 0)} />
-                <ValueRow label="Compressors ON C1" value={formatNumber(summary.compressorsOnC1, 0)} />
+                <ValueRow label="Comp 1A Enabled" value={summary.comp1A ? 'ON' : 'OFF'} />
+                <ValueRow label="Comp 1B Enabled" value={summary.comp1B ? 'ON' : 'OFF'} />
+                <ValueRow label="Comp 1C Enabled" value={summary.comp1C ? 'ON' : 'OFF'} />
+                <ValueRow label="Flow C1" value={formatNumber(summary.flowC1, 0)} unit="GPM" />
+                <ValueRow label="Capacity C1" value={formatNumber(summary.capacityC1, 0)} unit="TONS" />
+                <ValueRow label="Evap Out C1" value={formatNumber(summary.evapOutC1, 1)} unit="°F" />
               </SectionCard>
 
               <SectionCard
@@ -390,30 +352,21 @@ export default function Chiller2HMIPage() {
                   </div>
                 }
               >
-                <ValueRow label="Condenser fluid out C2" value={formatNumber(summary.condOutC2, 0)} />
-                <ValueRow label="Suction temp C2" value={formatNumber(summary.suctionTempC2, 0)} />
-                <ValueRow label="Suction pressure C2" value={formatNumber(summary.suctionPressureC2, 0)} />
-                <ValueRow label="Liquid temp C2" value={formatNumber(summary.liquidTempC2, 0)} />
-                <ValueRow label="Discharge pressure C2" value={formatNumber(summary.dischargePressureC2, 0)} />
-                <ValueRow label="HGB position C2" value={formatNumber(summary.hgbPositionC2, 0)} />
-                <ValueRow label="HGB mode C2" value={formatNumber(summary.hgbModeC2, 0)} />
-                <ValueRow label="Comp A hours C2" value={formatNumber(summary.compAHoursC2, 0)} />
-                <ValueRow label="Comp B hours C2" value={formatNumber(summary.compBHoursC2, 0)} />
-                <ValueRow label="Comp C hours C2" value={formatNumber(summary.compCHoursC2, 0)} />
-                <ValueRow label="Flow C2" value={formatNumber(summary.flowC2, 0)} />
-                <ValueRow label="Capacity C2" value={formatNumber(summary.capacityC2, 0)} />
-                <ValueRow label="Evap out C2" value={formatNumber(summary.evapOutC2, 0)} />
-                <ValueRow label="Compressors ON C2" value={formatNumber(summary.compressorsOnC2, 0)} />
+                <ValueRow label="Comp 2A Enabled" value={summary.comp2A ? 'ON' : 'OFF'} />
+                <ValueRow label="Comp 2B Enabled" value={summary.comp2B ? 'ON' : 'OFF'} />
+                <ValueRow label="Comp 2C Enabled" value={summary.comp2C ? 'ON' : 'OFF'} />
+                <ValueRow label="Flow C2" value={formatNumber(summary.flowC2, 0)} unit="GPM" />
+                <ValueRow label="Evap Out C2" value={formatNumber(summary.evapOutC2, 1)} unit="°F" />
               </SectionCard>
             </div>
 
             <div className="mb-6 rounded-2xl border border-white/10 bg-[#0b1220] p-4 shadow-xl">
               <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
                 <AlertTriangle size={18} />
-                Status / Manual Bits
+                Status Bits
               </div>
 
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-6">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-5">
                 {importantBits.map((bit) => (
                   <BitBadge key={bit.label} label={bit.label} active={bit.active} />
                 ))}
@@ -423,7 +376,7 @@ export default function Chiller2HMIPage() {
             <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-4 shadow-xl">
               <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
                 <Clock3 size={18} />
-                RAW Table
+                RAW Registers Table
               </div>
 
               <div className="overflow-x-auto">
@@ -434,10 +387,13 @@ export default function Chiller2HMIPage() {
                         Point Code
                       </th>
                       <th className="sticky top-0 border-b border-white/10 bg-[#0b1220] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/50">
-                        Value Number
+                        Point Name
                       </th>
                       <th className="sticky top-0 border-b border-white/10 bg-[#0b1220] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/50">
-                        Value Boolean
+                        Raw Register
+                      </th>
+                      <th className="sticky top-0 border-b border-white/10 bg-[#0b1220] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/50">
+                        Raw Value
                       </th>
                       <th className="sticky top-0 border-b border-white/10 bg-[#0b1220] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/50">
                         Updated At
@@ -447,12 +403,17 @@ export default function Chiller2HMIPage() {
                   <tbody>
                     {rawRows.map((row) => (
                       <tr key={row.point_code} className="transition hover:bg-white/[0.03]">
-                        <td className="border-b border-white/5 px-3 py-2 text-sm text-cyan-300">{row.point_code}</td>
-                        <td className="border-b border-white/5 px-3 py-2 text-sm text-white/80">
-                          {row.value_number === null ? '—' : row.value_number}
+                        <td className="border-b border-white/5 px-3 py-2 text-sm text-cyan-300">
+                          {row.point_code}
                         </td>
                         <td className="border-b border-white/5 px-3 py-2 text-sm text-white/80">
-                          {row.value_boolean === null ? '—' : row.value_boolean ? 'true' : 'false'}
+                          {row.point_name || '—'}
+                        </td>
+                        <td className="border-b border-white/5 px-3 py-2 text-sm text-white/80">
+                          {row.raw_register ?? '—'}
+                        </td>
+                        <td className="border-b border-white/5 px-3 py-2 text-sm text-white/80">
+                          {row.raw_value ?? row.value_number ?? '—'}
                         </td>
                         <td className="border-b border-white/5 px-3 py-2 text-sm text-white/50">
                           {row.updated_at ? new Date(row.updated_at).toLocaleString() : '—'}
