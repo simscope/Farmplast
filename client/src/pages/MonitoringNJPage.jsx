@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft } from 'lucide-react'
+import { AlertTriangle, ArrowLeft, Activity, Thermometer, Gauge, Cpu } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import ChillerIllustration from '../components/monitoring/ChillerIllustration'
 import BarrelIllustration from '../components/monitoring/BarrelIllustration'
@@ -40,6 +40,409 @@ function barrelSort(a, b) {
   return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
 }
 
+function fmtNumber(value, digits = 1) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
+  return Number(value).toFixed(digits)
+}
+
+function SmallMetric({ title, value, unit, subtitle, accent = 'cyan' }) {
+  const border =
+    accent === 'red'
+      ? 'rgba(251,113,133,0.28)'
+      : accent === 'green'
+        ? 'rgba(52,211,153,0.28)'
+        : 'rgba(34,211,238,0.28)'
+
+  const glow =
+    accent === 'red'
+      ? 'rgba(127,29,29,0.22)'
+      : accent === 'green'
+        ? 'rgba(6,78,59,0.22)'
+        : 'rgba(8,47,73,0.22)'
+
+  return (
+    <div
+      style={{
+        border: `1px solid ${border}`,
+        background: glow,
+        borderRadius: 22,
+        padding: '16px 18px',
+        minHeight: 108,
+      }}
+    >
+      <div style={{ color: '#67e8f9', fontSize: 13, fontWeight: 900, letterSpacing: 0.8 }}>
+        {title}
+      </div>
+      <div
+        style={{
+          marginTop: 6,
+          fontSize: 30,
+          lineHeight: 1,
+          fontWeight: 900,
+          color: '#93c5fd',
+        }}
+      >
+        {value}
+        {unit ? <span style={{ marginLeft: 2 }}>{unit}</span> : null}
+      </div>
+      {subtitle ? (
+        <div style={{ marginTop: 8, fontSize: 14, color: '#94a3b8' }}>{subtitle}</div>
+      ) : null}
+    </div>
+  )
+}
+
+function Badge({ children, tone = 'slate' }) {
+  const styles = {
+    slate: {
+      border: '1px solid rgba(148,163,184,0.20)',
+      background: 'rgba(255,255,255,0.05)',
+      color: '#e2e8f0',
+    },
+    red: {
+      border: '1px solid rgba(248,113,113,0.28)',
+      background: 'rgba(127,29,29,0.22)',
+      color: '#fca5a5',
+    },
+    green: {
+      border: '1px solid rgba(74,222,128,0.28)',
+      background: 'rgba(20,83,45,0.22)',
+      color: '#86efac',
+    },
+    cyan: {
+      border: '1px solid rgba(34,211,238,0.28)',
+      background: 'rgba(8,47,73,0.22)',
+      color: '#67e8f9',
+    },
+  }
+
+  return (
+    <div
+      style={{
+        ...styles[tone],
+        borderRadius: 999,
+        padding: '8px 14px',
+        fontSize: 12,
+        fontWeight: 900,
+        letterSpacing: 0.5,
+        textTransform: 'uppercase',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function StatusDot({ active, label }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        borderRadius: 999,
+        padding: '8px 12px',
+        border: active ? '1px solid rgba(74,222,128,0.28)' : '1px solid rgba(148,163,184,0.18)',
+        background: active ? 'rgba(20,83,45,0.22)' : 'rgba(255,255,255,0.04)',
+        color: active ? '#86efac' : '#cbd5e1',
+        fontSize: 13,
+        fontWeight: 700,
+      }}
+    >
+      <span
+        style={{
+          width: 10,
+          height: 10,
+          borderRadius: 999,
+          background: active ? '#22c55e' : '#64748b',
+          boxShadow: active ? '0 0 12px rgba(34,197,94,0.7)' : 'none',
+        }}
+      />
+      {label}
+    </div>
+  )
+}
+
+function Chiller2DashboardCard({ row, isMobile, onClick }) {
+  const online = !!row?.is_online
+  const hasAlarm = !online
+
+  return (
+    <div
+      onClick={onClick}
+      style={{
+        cursor: 'pointer',
+        borderRadius: 28,
+        border: '1px solid rgba(239,68,68,0.45)',
+        background:
+          'linear-gradient(180deg, rgba(127, 29, 29, 0.34) 0%, rgba(69, 10, 10, 0.20) 100%)',
+        boxShadow: '0 0 0 1px rgba(248,113,113,0.08) inset, 0 20px 50px rgba(0,0,0,0.25)',
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ padding: isMobile ? 18 : 20 }}>
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            gap: 12,
+            flexWrap: 'wrap',
+            marginBottom: 18,
+          }}
+        >
+          <div>
+            <div
+              style={{
+                color: '#fca5a5',
+                fontSize: 13,
+                fontWeight: 900,
+                letterSpacing: 1,
+              }}
+            >
+              CHILLER
+            </div>
+            <div
+              style={{
+                marginTop: 6,
+                fontSize: isMobile ? 28 : 40,
+                lineHeight: 1,
+                fontWeight: 900,
+              }}
+            >
+              Chiller 2
+            </div>
+            <div style={{ marginTop: 10, fontSize: 14, color: '#cbd5e1' }}>
+              {row?.asset_code || 'CH-NJ-02'}
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <Badge tone={online ? 'green' : 'red'}>{online ? 'Online' : 'Offline'}</Badge>
+            <Badge tone={hasAlarm ? 'red' : 'slate'}>{hasAlarm ? 'Alarm' : 'Normal'}</Badge>
+          </div>
+        </div>
+
+        <div
+          style={{
+            borderRadius: 24,
+            border: '1px solid rgba(248,113,113,0.14)',
+            background: 'rgba(15, 23, 42, 0.32)',
+            padding: isMobile ? 16 : 18,
+          }}
+        >
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr minmax(280px, 0.9fr) 1fr',
+              gap: 16,
+              alignItems: 'stretch',
+            }}
+          >
+            <div style={{ display: 'grid', gap: 16 }}>
+              <SmallMetric
+                title="CHILLER IN 1"
+                value={fmtNumber(row?.chiller_entering_f, 1)}
+                unit="°F"
+                subtitle="section 1 entering fluid"
+                accent="cyan"
+              />
+              <SmallMetric
+                title="CHILLER IN 2"
+                value={fmtNumber(row?.chiller_entering_f, 1)}
+                unit="°F"
+                subtitle="section 2 entering fluid"
+                accent="cyan"
+              />
+            </div>
+
+            <div
+              style={{
+                minHeight: isMobile ? 220 : 260,
+                borderRadius: 24,
+                border: '1px solid rgba(248,113,113,0.14)',
+                background:
+                  'radial-gradient(circle at center, rgba(59,130,246,0.12) 0%, rgba(15,23,42,0.4) 60%, rgba(2,6,23,0.72) 100%)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                padding: 16,
+                position: 'relative',
+              }}
+            >
+              <div
+                style={{
+                  width: 180,
+                  height: 150,
+                  borderRadius: 28,
+                  border: '1px solid rgba(96,165,250,0.35)',
+                  background: 'rgba(30,41,59,0.75)',
+                  position: 'relative',
+                  boxShadow: 'inset 0 0 30px rgba(59,130,246,0.08)',
+                }}
+              >
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 16,
+                    borderRadius: 18,
+                    background: 'rgba(30,41,59,0.72)',
+                    border: '1px solid rgba(96,165,250,0.12)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    textAlign: 'center',
+                    padding: 14,
+                    color: '#e2e8f0',
+                    fontWeight: 800,
+                    fontSize: 14,
+                    lineHeight: 1.2,
+                  }}
+                >
+                  PLATE HEAT
+                  <br />
+                  EXCHANGER
+                </div>
+
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div
+                    key={`blue-${i}`}
+                    style={{
+                      position: 'absolute',
+                      top: 32 + i * 4,
+                      left: 58 + i * 16,
+                      width: 3,
+                      height: 86,
+                      background: '#7dd3fc',
+                      transform: 'rotate(-12deg)',
+                      borderRadius: 999,
+                    }}
+                  />
+                ))}
+
+                {[0, 1, 2, 3, 4].map((i) => (
+                  <div
+                    key={`red-${i}`}
+                    style={{
+                      position: 'absolute',
+                      top: 32 + i * 4,
+                      right: 58 + i * 16,
+                      width: 3,
+                      height: 86,
+                      background: '#fda4af',
+                      transform: 'rotate(12deg)',
+                      borderRadius: 999,
+                    }}
+                  />
+                ))}
+              </div>
+
+              <div
+                style={{
+                  marginTop: 12,
+                  fontSize: 12,
+                  fontWeight: 900,
+                  color: '#94a3b8',
+                  letterSpacing: 0.4,
+                }}
+              >
+                COMPRESSOR SECTIONS
+              </div>
+
+              <div
+                style={{
+                  marginTop: 16,
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(3, minmax(54px, 1fr))',
+                  gap: 10,
+                  width: '100%',
+                  maxWidth: 240,
+                }}
+              >
+                <StatusDot active={!!row?.comp_1a_enabled} label="1A" />
+                <StatusDot active={!!row?.comp_1b_enabled} label="1B" />
+                <StatusDot active={!!row?.comp_1c_enabled} label="1C" />
+                <StatusDot active={!!row?.comp_2a_enabled} label="2A" />
+                <StatusDot active={!!row?.comp_2b_enabled} label="2B" />
+                <StatusDot active={!!row?.comp_2c_enabled} label="2C" />
+              </div>
+            </div>
+
+            <div style={{ display: 'grid', gap: 16 }}>
+              <SmallMetric
+                title="CHILLER OUT 1"
+                value={fmtNumber(row?.chiller_leaving_f, 1)}
+                unit="°F"
+                subtitle="section 1 leaving fluid"
+                accent="red"
+              />
+              <SmallMetric
+                title="CHILLER OUT 2"
+                value={fmtNumber(row?.chiller_leaving_f, 1)}
+                unit="°F"
+                subtitle="section 2 leaving fluid"
+                accent="red"
+              />
+            </div>
+          </div>
+
+          <div
+            style={{
+              marginTop: 18,
+              display: 'grid',
+              gridTemplateColumns: isMobile ? 'repeat(2, minmax(0,1fr))' : 'repeat(6, minmax(0,1fr))',
+              gap: 12,
+            }}
+          >
+            <div style={statCardStyle(isMobile)}>
+              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>FLOW C1</div>
+              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#38bdf8' }}>
+                {row?.flow_c1_gpm == null ? '—' : Number(row.flow_c1_gpm).toFixed(0)}
+              </div>
+            </div>
+
+            <div style={statCardStyle(isMobile)}>
+              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>FLOW C2</div>
+              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#38bdf8' }}>
+                {row?.flow_c2_gpm == null ? '—' : Number(row.flow_c2_gpm).toFixed(0)}
+              </div>
+            </div>
+
+            <div style={statCardStyle(isMobile)}>
+              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>CAPACITY C1</div>
+              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#c084fc' }}>
+                {row?.capacity_c1_tons == null ? '—' : Number(row.capacity_c1_tons).toFixed(0)}
+              </div>
+            </div>
+
+            <div style={statCardStyle(isMobile)}>
+              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>EVAP OUT C1</div>
+              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#4ade80' }}>
+                {row?.evap_out_c1_f == null ? '—' : Number(row.evap_out_c1_f).toFixed(1)}
+              </div>
+            </div>
+
+            <div style={statCardStyle(isMobile)}>
+              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>EVAP OUT C2</div>
+              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#4ade80' }}>
+                {row?.evap_out_c2_f == null ? '—' : Number(row.evap_out_c2_f).toFixed(1)}
+              </div>
+            </div>
+
+            <div style={statCardStyle(isMobile)}>
+              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>DELTA T</div>
+              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#facc15' }}>
+                {row?.process_delta_t_f == null ? '—' : Number(row.process_delta_t_f).toFixed(1)}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function MonitoringNJPage() {
   const navigate = useNavigate()
 
@@ -47,6 +450,7 @@ export default function MonitoringNJPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedAssetCode, setSelectedAssetCode] = useState('CH-NJ-01')
+  const [ch2Dashboard, setCh2Dashboard] = useState(null)
 
   const { isMobile, isTablet, isDesktop } = useViewport()
 
@@ -56,27 +460,36 @@ export default function MonitoringNJPage() {
         setLoading(true)
       }
 
-      const { data, error: fetchError } = await supabase
-        .from('v_asset_points_latest')
-        .select('*')
-        .order('asset_code', { ascending: true })
-        .order('display_order', { ascending: true })
+      const [{ data, error: fetchError }, { data: ch2Data, error: ch2Error }] = await Promise.all([
+        supabase
+          .from('v_asset_points_latest')
+          .select('*')
+          .order('asset_code', { ascending: true })
+          .order('display_order', { ascending: true }),
+        supabase.from('v_ch2_dashboard').select('*').single(),
+      ])
 
       if (fetchError) {
         throw fetchError
       }
 
+      if (ch2Error && ch2Error.code !== 'PGRST116') {
+        throw ch2Error
+      }
+
       const normalized = Array.isArray(data) ? data.map(normalizeRow) : []
 
       setRows(normalized)
+      setCh2Dashboard(ch2Data || null)
 
-      if (!normalized.length) {
-        setError('No live telemetry rows returned from v_asset_points_latest.')
+      if (!normalized.length && !ch2Data) {
+        setError('No live telemetry rows returned from the live sources.')
       } else {
         setError('')
       }
     } catch (err) {
       setRows([])
+      setCh2Dashboard(null)
       setError(err?.message || 'Failed to load live telemetry.')
     } finally {
       if (!silent) {
@@ -92,7 +505,7 @@ export default function MonitoringNJPage() {
       fetchData({ silent: true })
     }, POLL_INTERVAL_MS)
 
-    const channel = supabase
+    const latestChannel = supabase
       .channel('monitoring-telemetry-latest')
       .on(
         'postgres_changes',
@@ -105,11 +518,22 @@ export default function MonitoringNJPage() {
           fetchData({ silent: true })
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ch2_latest',
+        },
+        () => {
+          fetchData({ silent: true })
+        }
+      )
       .subscribe()
 
     return () => {
       clearInterval(timer)
-      supabase.removeChannel(channel)
+      supabase.removeChannel(latestChannel)
     }
   }, [])
 
@@ -122,8 +546,11 @@ export default function MonitoringNJPage() {
     })
   }, [assets])
 
-  const chillers = useMemo(() => {
-    return njAssets.filter((asset) => String(asset.asset_type || '').toLowerCase() === 'chiller')
+  const oldChillers = useMemo(() => {
+    return njAssets.filter((asset) => {
+      const code = String(asset.asset_code || '').toUpperCase()
+      return String(asset.asset_type || '').toLowerCase() === 'chiller' && code !== 'CH-NJ-02'
+    })
   }, [njAssets])
 
   const barrels = useMemo(() => {
@@ -133,21 +560,40 @@ export default function MonitoringNJPage() {
   }, [njAssets])
 
   const selectedAsset = useMemo(() => {
-    if (!chillers.length) return null
-    return chillers.find((asset) => asset.asset_code === selectedAssetCode) || chillers[0]
-  }, [chillers, selectedAssetCode])
+    if (!oldChillers.length) return null
+    return oldChillers.find((asset) => asset.asset_code === selectedAssetCode) || oldChillers[0]
+  }, [oldChillers, selectedAssetCode])
 
   useEffect(() => {
-    if (!selectedAsset && chillers[0]) {
-      setSelectedAssetCode(chillers[0].asset_code)
+    if (!selectedAsset && oldChillers[0]) {
+      setSelectedAssetCode(oldChillers[0].asset_code)
     }
-  }, [selectedAsset, chillers])
+  }, [selectedAsset, oldChillers])
 
   const summary = useMemo(() => {
-    const online = njAssets.filter((asset) => getAssetStatus(asset).online).length
-    const offline = njAssets.length - online
+    const onlineOld = njAssets.filter((asset) => getAssetStatus(asset).online).length
+    const ch2Online = ch2Dashboard?.is_online ? 1 : 0
 
-    const compressorsOn = njAssets
+    const oldWithoutCh2Count = njAssets.filter(
+      (asset) => String(asset.asset_code || '').toUpperCase() !== 'CH-NJ-02'
+    ).length
+
+    const total =
+      oldWithoutCh2Count +
+      (ch2Dashboard ? 1 : njAssets.some((asset) => String(asset.asset_code || '').toUpperCase() === 'CH-NJ-02') ? 1 : 0) +
+      barrels.length
+
+    const online =
+      njAssets
+        .filter((asset) => {
+          const code = String(asset.asset_code || '').toUpperCase()
+          return code !== 'CH-NJ-02' && getAssetStatus(asset).online
+        })
+        .length + ch2Online
+
+    const offline = Math.max(total - online, 0)
+
+    const compressorsOnOld = njAssets
       .flatMap((asset) => asset.points)
       .filter((point) => {
         const group = String(point.point_group || '').toUpperCase()
@@ -161,6 +607,14 @@ export default function MonitoringNJPage() {
         return isCompressorPoint && point.value_boolean === true
       }).length
 
+    const compressorsOnCh2 =
+      (ch2Dashboard?.comp_1a_enabled ? 1 : 0) +
+      (ch2Dashboard?.comp_1b_enabled ? 1 : 0) +
+      (ch2Dashboard?.comp_1c_enabled ? 1 : 0) +
+      (ch2Dashboard?.comp_2a_enabled ? 1 : 0) +
+      (ch2Dashboard?.comp_2b_enabled ? 1 : 0) +
+      (ch2Dashboard?.comp_2c_enabled ? 1 : 0)
+
     const barrelLevelPoint = barrels
       .flatMap((asset) => asset.points)
       .find((point) => {
@@ -169,16 +623,16 @@ export default function MonitoringNJPage() {
       })
 
     return {
-      total: njAssets.length,
+      total,
       online,
       offline,
-      compressorsOn,
+      compressorsOn: compressorsOnOld + compressorsOnCh2,
       barrelLevel:
         barrelLevelPoint?.value_number === null || barrelLevelPoint?.value_number === undefined
           ? null
           : Number(barrelLevelPoint.value_number),
     }
-  }, [njAssets, barrels])
+  }, [njAssets, barrels, ch2Dashboard])
 
   const pagePadding = isMobile ? 12 : 16
   const mainGridColumns = isDesktop ? '1.3fr 0.9fr' : '1fr'
@@ -359,13 +813,6 @@ export default function MonitoringNJPage() {
 
         {loading ? (
           <div style={statCardStyle(isMobile)}>Loading live dashboard…</div>
-        ) : !njAssets.length ? (
-          <div style={statCardStyle(isMobile)}>
-            <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 8 }}>No live NJ telemetry</div>
-            <div style={{ color: '#94a3b8', fontSize: 14 }}>
-              The page is running, but no New Jersey assets were returned from the live source.
-            </div>
-          </div>
         ) : (
           <div
             style={{
@@ -376,8 +823,8 @@ export default function MonitoringNJPage() {
             }}
           >
             <div style={{ display: 'grid', gap: 18 }}>
-              {chillers.length ? (
-                chillers.map((asset) => (
+              {oldChillers.length ? (
+                oldChillers.map((asset) => (
                   <div
                     key={asset.asset_code}
                     onClick={() => handleChillerSelect(asset)}
@@ -391,8 +838,16 @@ export default function MonitoringNJPage() {
                     />
                   </div>
                 ))
+              ) : null}
+
+              {ch2Dashboard ? (
+                <Chiller2DashboardCard
+                  row={ch2Dashboard}
+                  isMobile={isMobile}
+                  onClick={() => navigate('/monitoring/nj/chiller-2')}
+                />
               ) : (
-                <div style={statCardStyle(isMobile)}>No live chiller telemetry yet.</div>
+                <div style={statCardStyle(isMobile)}>No live Chiller 2 telemetry yet.</div>
               )}
             </div>
 
