@@ -231,7 +231,9 @@ export default function Chiller2HMIPage() {
           supabase.from('v_ch2_dashboard').select('*').single(),
           supabase
             .from('ch2_latest')
-            .select('point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at')
+            .select(
+              'point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at'
+            )
             .like('point_code', 'CH2_R%')
             .order('raw_register', { ascending: true }),
         ])
@@ -289,7 +291,7 @@ export default function Chiller2HMIPage() {
     const rawDemand = getRawRegisterValue(rawRows, 40061)
 
     const setpoint =
-      getSetpointFromDashboard(dashboard) ?? (rawSetpoint != null ? rawSetpoint / 10 : null)
+      rawSetpoint != null ? rawSetpoint / 10 : getSetpointFromDashboard(dashboard)
 
     return {
       assetCode: dashboard?.asset_code || 'CH-NJ-02',
@@ -308,22 +310,56 @@ export default function Chiller2HMIPage() {
       comp2C: !!dashboard?.comp_2c_enabled,
 
       setpointF: setpoint,
+
       enteringFluidF:
-        dashboard?.chiller_entering_f ?? (rawEntering != null ? rawEntering / 10 : null),
+        rawEntering != null
+          ? rawEntering / 10
+          : dashboard?.chiller_entering_f,
+
       leavingFluidF:
-        dashboard?.chiller_leaving_f ?? (rawLeaving != null ? rawLeaving / 10 : null),
+        rawLeaving != null
+          ? rawLeaving / 10
+          : dashboard?.chiller_leaving_f,
 
-      flowC1: dashboard?.flow_c1_gpm ?? rawFlowC1,
-      flowC2: dashboard?.flow_c2_gpm ?? rawFlowC2,
+      flowC1:
+        rawFlowC1 != null
+          ? rawFlowC1
+          : dashboard?.flow_c1_gpm,
 
-      capacityC1: dashboard?.capacity_c1_tons ?? rawCapacityC1,
-      capacityC2: dashboard?.capacity_c2_tons ?? rawCapacityC2,
+      flowC2:
+        rawFlowC2 != null
+          ? rawFlowC2
+          : dashboard?.flow_c2_gpm,
 
-      evapOutC1: dashboard?.evap_out_c1_f ?? rawEvapOutC1,
-      evapOutC2: dashboard?.evap_out_c2_f ?? rawEvapOutC2,
+      capacityC1:
+        rawCapacityC1 != null
+          ? rawCapacityC1
+          : dashboard?.capacity_c1_tons,
 
-      deltaT: dashboard?.process_delta_t_f ?? (rawDeltaT != null ? rawDeltaT / 10 : null),
-      demandPercent: dashboard?.system_demand_percent ?? rawDemand,
+      capacityC2:
+        rawCapacityC2 != null
+          ? rawCapacityC2
+          : dashboard?.capacity_c2_tons,
+
+      evapOutC1:
+        rawEvapOutC1 != null
+          ? rawEvapOutC1
+          : dashboard?.evap_out_c1_f,
+
+      evapOutC2:
+        rawEvapOutC2 != null
+          ? rawEvapOutC2
+          : dashboard?.evap_out_c2_f,
+
+      deltaT:
+        rawDeltaT != null
+          ? rawDeltaT / 10
+          : dashboard?.process_delta_t_f,
+
+      demandPercent:
+        rawDemand != null
+          ? rawDemand
+          : dashboard?.system_demand_percent,
 
       heartbeatUpdatedAt: dashboard?.heartbeat_updated_at,
       latestUpdatedAt: dashboard?.latest_updated_at,
