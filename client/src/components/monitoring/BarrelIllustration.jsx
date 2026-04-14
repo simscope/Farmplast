@@ -1,5 +1,5 @@
 import React from 'react'
-import { Radar, Ruler, Waves } from 'lucide-react'
+import { Radar, Ruler, Thermometer } from 'lucide-react'
 import StatusPill from './StatusPill'
 import { getAssetStatus, statCardStyle } from '../../utils/monitoringHelpers'
 
@@ -41,14 +41,6 @@ export default function BarrelIllustration({ asset, isMobile }) {
       code.includes('PERCENT')
   )
 
-  const heightPoint = findPoint(
-    asset,
-    (code) =>
-      code === 'BARREL1_LEVEL_HEIGHT_M' ||
-      code.includes('LEVEL_HEIGHT_M') ||
-      code.includes('HEIGHT_M')
-  )
-
   const distancePoint = findPoint(
     asset,
     (code) =>
@@ -56,9 +48,17 @@ export default function BarrelIllustration({ asset, isMobile }) {
       code.includes('DISTANCE_M')
   )
 
+  const tempPoint = findPoint(
+    asset,
+    (code) =>
+      code === 'BARREL1_SENSOR_TEMP_C' ||
+      code.includes('SENSOR_TEMP_C') ||
+      code.includes('TEMP_C')
+  )
+
   const levelPercent = Math.max(0, Math.min(100, getNumeric(percentPoint, 0)))
-  const levelHeightM = getNumeric(heightPoint, 0)
   const distanceM = getNumeric(distancePoint, 0)
+  const tempC = getNumeric(tempPoint, 0)
 
   const explicitOnline = getBoolean(onlinePoint, null)
   const online = explicitOnline ?? derivedStatus.online
@@ -241,7 +241,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
               fontSize="13"
               fontWeight="700"
             >
-              H {levelHeightM.toFixed(2)} m
+              T {tempC.toFixed(1)} °C
             </text>
 
             <text
@@ -300,11 +300,11 @@ export default function BarrelIllustration({ asset, isMobile }) {
                 fontWeight: 800,
               }}
             >
-              <Waves size={16} /> Material height
+              <Thermometer size={16} /> Sensor temperature
             </div>
 
             <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900 }}>
-              {levelHeightM.toFixed(2)} m
+              {tempC.toFixed(1)} °C
             </div>
           </div>
 
