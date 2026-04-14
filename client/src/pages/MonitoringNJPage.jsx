@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { AlertTriangle, ArrowLeft, Activity, Thermometer, Gauge, Cpu } from 'lucide-react'
+import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import ChillerIllustration from '../components/monitoring/ChillerIllustration'
 import BarrelIllustration from '../components/monitoring/BarrelIllustration'
@@ -165,7 +165,14 @@ function StatusDot({ active, label }) {
 
 function Chiller2DashboardCard({ row, isMobile, onClick }) {
   const online = !!row?.is_online
-  const hasAlarm = !online
+  const hasAlarm = row?.alarm_active === true || !online
+
+  const shellBorder = hasAlarm ? '1px solid rgba(239,68,68,0.45)' : '1px solid rgba(34,211,238,0.38)'
+  const shellBackground = hasAlarm
+    ? 'linear-gradient(180deg, rgba(127, 29, 29, 0.34) 0%, rgba(69, 10, 10, 0.20) 100%)'
+    : 'linear-gradient(180deg, rgba(8, 47, 73, 0.28) 0%, rgba(2, 6, 23, 0.20) 100%)'
+
+  const innerBorder = hasAlarm ? '1px solid rgba(248,113,113,0.14)' : '1px solid rgba(34,211,238,0.14)'
 
   return (
     <div
@@ -173,10 +180,11 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
       style={{
         cursor: 'pointer',
         borderRadius: 28,
-        border: '1px solid rgba(239,68,68,0.45)',
-        background:
-          'linear-gradient(180deg, rgba(127, 29, 29, 0.34) 0%, rgba(69, 10, 10, 0.20) 100%)',
-        boxShadow: '0 0 0 1px rgba(248,113,113,0.08) inset, 0 20px 50px rgba(0,0,0,0.25)',
+        border: shellBorder,
+        background: shellBackground,
+        boxShadow: hasAlarm
+          ? '0 0 0 1px rgba(248,113,113,0.08) inset, 0 20px 50px rgba(0,0,0,0.25)'
+          : '0 0 0 1px rgba(34,211,238,0.08) inset, 0 20px 50px rgba(0,0,0,0.25)',
         overflow: 'hidden',
       }}
     >
@@ -194,7 +202,7 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
           <div>
             <div
               style={{
-                color: '#fca5a5',
+                color: hasAlarm ? '#fca5a5' : '#67e8f9',
                 fontSize: 13,
                 fontWeight: 900,
                 letterSpacing: 1,
@@ -226,7 +234,7 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
         <div
           style={{
             borderRadius: 24,
-            border: '1px solid rgba(248,113,113,0.14)',
+            border: innerBorder,
             background: 'rgba(15, 23, 42, 0.32)',
             padding: isMobile ? 16 : 18,
           }}
@@ -260,7 +268,9 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
               style={{
                 minHeight: isMobile ? 220 : 260,
                 borderRadius: 24,
-                border: '1px solid rgba(248,113,113,0.14)',
+                border: hasAlarm
+                  ? '1px solid rgba(248,113,113,0.14)'
+                  : '1px solid rgba(34,211,238,0.14)',
                 background:
                   'radial-gradient(circle at center, rgba(59,130,246,0.12) 0%, rgba(15,23,42,0.4) 60%, rgba(2,6,23,0.72) 100%)',
                 display: 'flex',
@@ -372,16 +382,16 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
             <div style={{ display: 'grid', gap: 16 }}>
               <SmallMetric
                 title="CHILLER OUT 1"
-                value={fmtNumber(row?.chiller_leaving_f, 1)}
+                value={fmtNumber(row?.evap_out_c1_f, 1)}
                 unit="°F"
-                subtitle="section 1 leaving fluid"
+                subtitle="evaporator out 1"
                 accent="red"
               />
               <SmallMetric
                 title="CHILLER OUT 2"
-                value={fmtNumber(row?.chiller_leaving_f, 1)}
+                value={fmtNumber(row?.evap_out_c2_f, 1)}
                 unit="°F"
-                subtitle="section 2 leaving fluid"
+                subtitle="evaporator out 2"
                 accent="red"
               />
             </div>
@@ -391,49 +401,30 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
             style={{
               marginTop: 18,
               display: 'grid',
-              gridTemplateColumns: isMobile ? 'repeat(2, minmax(0,1fr))' : 'repeat(6, minmax(0,1fr))',
-              gap: 12,
+              gridTemplateColumns: 'minmax(180px, 260px)',
+              justifyContent: 'center',
             }}
           >
-            <div style={statCardStyle(isMobile)}>
-              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>FLOW C1</div>
-              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#38bdf8' }}>
-                {row?.flow_c1_gpm == null ? '—' : Number(row.flow_c1_gpm).toFixed(0)}
-              </div>
-            </div>
-
-            <div style={statCardStyle(isMobile)}>
-              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>FLOW C2</div>
-              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#38bdf8' }}>
-                {row?.flow_c2_gpm == null ? '—' : Number(row.flow_c2_gpm).toFixed(0)}
-              </div>
-            </div>
-
-            <div style={statCardStyle(isMobile)}>
-              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>CAPACITY C1</div>
-              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#c084fc' }}>
-                {row?.capacity_c1_tons == null ? '—' : Number(row.capacity_c1_tons).toFixed(0)}
-              </div>
-            </div>
-
-            <div style={statCardStyle(isMobile)}>
-              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>EVAP OUT C1</div>
-              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#4ade80' }}>
-                {row?.evap_out_c1_f == null ? '—' : Number(row.evap_out_c1_f).toFixed(1)}
-              </div>
-            </div>
-
-            <div style={statCardStyle(isMobile)}>
-              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>EVAP OUT C2</div>
-              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#4ade80' }}>
-                {row?.evap_out_c2_f == null ? '—' : Number(row.evap_out_c2_f).toFixed(1)}
-              </div>
-            </div>
-
-            <div style={statCardStyle(isMobile)}>
-              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>DELTA T</div>
-              <div style={{ marginTop: 4, fontSize: 24, fontWeight: 900, color: '#facc15' }}>
-                {row?.process_delta_t_f == null ? '—' : Number(row.process_delta_t_f).toFixed(1)}
+            <div
+              style={{
+                border: '1px solid rgba(34,211,238,0.18)',
+                background: 'rgba(15,23,42,0.72)',
+                borderRadius: 22,
+                padding: '14px 18px',
+                textAlign: 'center',
+              }}
+            >
+              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>SETPOINT</div>
+              <div
+                style={{
+                  marginTop: 6,
+                  fontSize: 30,
+                  fontWeight: 900,
+                  color: '#facc15',
+                  lineHeight: 1,
+                }}
+              >
+                {row?.setpoint_f == null ? '—' : Number(row.setpoint_f).toFixed(1)}°F
               </div>
             </div>
           </div>
@@ -460,13 +451,22 @@ export default function MonitoringNJPage() {
         setLoading(true)
       }
 
-      const [{ data, error: fetchError }, { data: ch2Data, error: ch2Error }] = await Promise.all([
+      const [
+        { data, error: fetchError },
+        { data: ch2Data, error: ch2Error },
+        { data: setpointRows, error: setpointError },
+      ] = await Promise.all([
         supabase
           .from('v_asset_points_latest')
           .select('*')
           .order('asset_code', { ascending: true })
           .order('display_order', { ascending: true }),
         supabase.from('v_ch2_dashboard').select('*').single(),
+        supabase
+          .from('ch2_latest')
+          .select('value_number')
+          .eq('point_code', 'CH2_R40023')
+          .limit(1),
       ])
 
       if (fetchError) {
@@ -477,10 +477,22 @@ export default function MonitoringNJPage() {
         throw ch2Error
       }
 
+      if (setpointError) {
+        throw setpointError
+      }
+
       const normalized = Array.isArray(data) ? data.map(normalizeRow) : []
+      const setpointRaw = Array.isArray(setpointRows) && setpointRows[0] ? setpointRows[0].value_number : null
 
       setRows(normalized)
-      setCh2Dashboard(ch2Data || null)
+      setCh2Dashboard(
+        ch2Data
+          ? {
+              ...ch2Data,
+              setpoint_f: setpointRaw === null || setpointRaw === undefined ? null : Number(setpointRaw) / 10,
+            }
+          : null
+      )
 
       if (!normalized.length && !ch2Data) {
         setError('No live telemetry rows returned from the live sources.')
@@ -571,34 +583,24 @@ export default function MonitoringNJPage() {
   }, [selectedAsset, oldChillers])
 
   const summary = useMemo(() => {
-    const onlineOld = njAssets.filter((asset) => getAssetStatus(asset).online).length
-    const ch2Online = ch2Dashboard?.is_online ? 1 : 0
+    const ch2Exists = !!ch2Dashboard
 
-    const oldWithoutCh2Count = njAssets.filter(
+    const oldWithoutCh2 = njAssets.filter(
       (asset) => String(asset.asset_code || '').toUpperCase() !== 'CH-NJ-02'
-    ).length
+    )
 
-    const total =
-      oldWithoutCh2Count +
-      (ch2Dashboard ? 1 : njAssets.some((asset) => String(asset.asset_code || '').toUpperCase() === 'CH-NJ-02') ? 1 : 0) +
-      barrels.length
+    const total = oldWithoutCh2.length + barrels.length + (ch2Exists ? 1 : 0)
 
-    const online =
-      njAssets
-        .filter((asset) => {
-          const code = String(asset.asset_code || '').toUpperCase()
-          return code !== 'CH-NJ-02' && getAssetStatus(asset).online
-        })
-        .length + ch2Online
-
+    const onlineOld = oldWithoutCh2.filter((asset) => getAssetStatus(asset).online).length
+    const onlineCh2 = ch2Dashboard?.is_online ? 1 : 0
+    const online = onlineOld + onlineCh2
     const offline = Math.max(total - online, 0)
 
-    const compressorsOnOld = njAssets
+    const compressorsOnOld = oldWithoutCh2
       .flatMap((asset) => asset.points)
       .filter((point) => {
         const group = String(point.point_group || '').toUpperCase()
         const code = String(point.point_code || '').toUpperCase()
-
         const isCompressorPoint =
           group.includes('COMPRESSOR') ||
           group.includes('COMPRESSORS') ||
