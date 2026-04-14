@@ -53,11 +53,12 @@ const REGISTER_MAP = {
   40047: { name: 'Circuit 1 Compressor C Hours', unit: 'h', scale: 1 },
   40048: { name: 'Circuit 2 Compressor A Hours', unit: 'h', scale: 1 },
   40049: { name: 'Circuit 2 Compressor B Hours', unit: 'h', scale: 1 },
+  40050: { name: 'Circuit 2 Compressor C Hours', unit: 'h', scale: 1 },
 
-  40050: { name: 'Circuit 1 Flow', unit: 'GPM', scale: 1 },
-  40051: { name: 'Circuit 2 Flow', unit: 'GPM', scale: 1 },
-  40052: { name: 'Circuit 1 Capacity', unit: 'TONS', scale: 1 },
-  40053: { name: 'Circuit 2 Capacity', unit: 'TONS', scale: 1 },
+  40051: { name: 'Circuit 1 Flow', unit: 'GPM', scale: 1 },
+  40052: { name: 'Circuit 2 Flow', unit: 'GPM', scale: 1 },
+  40053: { name: 'Circuit 1 Capacity', unit: 'TONS', scale: 1 },
+  40054: { name: 'Circuit 2 Capacity', unit: 'TONS', scale: 1 },
   40055: { name: 'HMI Message Display', unit: '', scale: 1 },
   40056: { name: 'Evap Fluid Out Temp Circuit 1', unit: '°F', scale: 1 },
   40057: { name: 'Evap Fluid Out Temp Circuit 2', unit: '°F', scale: 1 },
@@ -79,20 +80,6 @@ function formatDateTime(value) {
   return d.toLocaleString()
 }
 
-function formatScaledValue(value, scale, unit = '') {
-  if (value === null || value === undefined || value === '') return '—'
-  const num = Number(value)
-  if (Number.isNaN(num)) return '—'
-
-  const scaled = num * scale
-
-  if (scale === 1) {
-    return unit ? `${scaled}` : `${scaled}`
-  }
-
-  return unit ? scaled.toFixed(1) : `${scaled}`
-}
-
 function decodeRegister(row) {
   const reg = Number(row.raw_register)
   const meta = REGISTER_MAP[reg]
@@ -101,8 +88,7 @@ function decodeRegister(row) {
     return {
       register: row.raw_register ?? '—',
       name: row.point_name || 'Unknown register',
-      scaledValue:
-        row.raw_value ?? row.value_number ?? row.value_boolean ?? '—',
+      scaledValue: row.raw_value ?? row.value_number ?? row.value_boolean ?? '—',
       unit: '',
     }
   }
@@ -291,15 +277,19 @@ export default function Chiller2HMIPage() {
     const rawEntering = getRawRegisterValue(rawRows, 40024)
     const rawLeaving = getRawRegisterValue(rawRows, 40025)
     const rawDeltaT = getRawRegisterValue(rawRows, 40060)
-    const rawFlowC1 = getRawRegisterValue(rawRows, 40050)
-    const rawFlowC2 = getRawRegisterValue(rawRows, 40051)
-    const rawCapacityC1 = getRawRegisterValue(rawRows, 40052)
-    const rawCapacityC2 = getRawRegisterValue(rawRows, 40053)
+
+    const rawFlowC1 = getRawRegisterValue(rawRows, 40051)
+    const rawFlowC2 = getRawRegisterValue(rawRows, 40052)
+
+    const rawCapacityC1 = getRawRegisterValue(rawRows, 40053)
+    const rawCapacityC2 = getRawRegisterValue(rawRows, 40054)
+
     const rawEvapOutC1 = getRawRegisterValue(rawRows, 40056)
     const rawEvapOutC2 = getRawRegisterValue(rawRows, 40057)
     const rawDemand = getRawRegisterValue(rawRows, 40061)
 
-    const setpoint = getSetpointFromDashboard(dashboard) ?? (rawSetpoint != null ? rawSetpoint / 10 : null)
+    const setpoint =
+      getSetpointFromDashboard(dashboard) ?? (rawSetpoint != null ? rawSetpoint / 10 : null)
 
     return {
       assetCode: dashboard?.asset_code || 'CH-NJ-02',
@@ -318,8 +308,10 @@ export default function Chiller2HMIPage() {
       comp2C: !!dashboard?.comp_2c_enabled,
 
       setpointF: setpoint,
-      enteringFluidF: dashboard?.chiller_entering_f ?? (rawEntering != null ? rawEntering / 10 : null),
-      leavingFluidF: dashboard?.chiller_leaving_f ?? (rawLeaving != null ? rawLeaving / 10 : null),
+      enteringFluidF:
+        dashboard?.chiller_entering_f ?? (rawEntering != null ? rawEntering / 10 : null),
+      leavingFluidF:
+        dashboard?.chiller_leaving_f ?? (rawLeaving != null ? rawLeaving / 10 : null),
 
       flowC1: dashboard?.flow_c1_gpm ?? rawFlowC1,
       flowC2: dashboard?.flow_c2_gpm ?? rawFlowC2,
@@ -480,10 +472,17 @@ export default function Chiller2HMIPage() {
               >
                 <ValueRow label="Asset Code" value={summary.assetCode} />
                 <ValueRow label="Device Code" value={summary.deviceCode} />
-                <ValueRow label="Process Setpoint" value={formatNumber(summary.setpointF, 1)} unit="°F" />
+                <ValueRow
+                  label="Process Setpoint"
+                  value={formatNumber(summary.setpointF, 1)}
+                  unit="°F"
+                />
                 <ValueRow label="Heartbeat" value={summary.heartbeat ? 'ON' : 'OFF'} />
                 <ValueRow label="System Running" value={summary.systemRunning ? 'ON' : 'OFF'} />
-                <ValueRow label="Heartbeat Updated" value={formatDateTime(summary.heartbeatUpdatedAt)} />
+                <ValueRow
+                  label="Heartbeat Updated"
+                  value={formatDateTime(summary.heartbeatUpdatedAt)}
+                />
                 <ValueRow label="Latest Updated" value={formatDateTime(summary.latestUpdatedAt)} />
               </SectionCard>
 
@@ -499,8 +498,16 @@ export default function Chiller2HMIPage() {
                 <ValueRow label="Comp 1B Enabled" value={summary.comp1B ? 'ON' : 'OFF'} />
                 <ValueRow label="Comp 1C Enabled" value={summary.comp1C ? 'ON' : 'OFF'} />
                 <ValueRow label="Flow C1" value={formatNumber(summary.flowC1, 0)} unit="GPM" />
-                <ValueRow label="Capacity C1" value={formatNumber(summary.capacityC1, 0)} unit="TONS" />
-                <ValueRow label="Evap Out C1" value={formatNumber(summary.evapOutC1, 1)} unit="°F" />
+                <ValueRow
+                  label="Capacity C1"
+                  value={formatNumber(summary.capacityC1, 0)}
+                  unit="TONS"
+                />
+                <ValueRow
+                  label="Evap Out C1"
+                  value={formatNumber(summary.evapOutC1, 1)}
+                  unit="°F"
+                />
               </SectionCard>
 
               <SectionCard
@@ -515,8 +522,16 @@ export default function Chiller2HMIPage() {
                 <ValueRow label="Comp 2B Enabled" value={summary.comp2B ? 'ON' : 'OFF'} />
                 <ValueRow label="Comp 2C Enabled" value={summary.comp2C ? 'ON' : 'OFF'} />
                 <ValueRow label="Flow C2" value={formatNumber(summary.flowC2, 0)} unit="GPM" />
-                <ValueRow label="Capacity C2" value={formatNumber(summary.capacityC2, 0)} unit="TONS" />
-                <ValueRow label="Evap Out C2" value={formatNumber(summary.evapOutC2, 1)} unit="°F" />
+                <ValueRow
+                  label="Capacity C2"
+                  value={formatNumber(summary.capacityC2, 0)}
+                  unit="TONS"
+                />
+                <ValueRow
+                  label="Evap Out C2"
+                  value={formatNumber(summary.evapOutC2, 1)}
+                  unit="°F"
+                />
               </SectionCard>
             </div>
 
@@ -580,7 +595,9 @@ export default function Chiller2HMIPage() {
                           </td>
                           <td className="border-b border-white/5 px-3 py-2 text-sm text-emerald-300">
                             {decoded.scaledValue}
-                            {decoded.unit ? <span className="ml-1 text-emerald-200/70">{decoded.unit}</span> : null}
+                            {decoded.unit ? (
+                              <span className="ml-1 text-emerald-200/70">{decoded.unit}</span>
+                            ) : null}
                           </td>
                           <td className="border-b border-white/5 px-3 py-2 text-sm text-white/80">
                             {row.raw_value ?? row.value_number ?? row.value_boolean ?? '—'}
