@@ -45,20 +45,66 @@ function fmtNumber(value, digits = 1) {
   return Number(value).toFixed(digits)
 }
 
+function firstNumber(...values) {
+  for (const value of values) {
+    if (value === null || value === undefined || value === '') continue
+    const num = Number(value)
+    if (!Number.isNaN(num)) return num
+  }
+  return null
+}
+
+function getCh2Setpoint(row) {
+  return firstNumber(
+    row?.setpoint_f,
+    row?.set_point_f,
+    row?.evap_setpoint_f,
+    row?.evap_set_point_f,
+    row?.leaving_setpoint_f,
+    row?.leaving_set_point_f,
+    row?.process_setpoint_f,
+    row?.process_set_point_f,
+    row?.setpoint,
+    row?.set_point
+  )
+}
+
 function SmallMetric({ title, value, unit, subtitle, accent = 'cyan' }) {
   const border =
     accent === 'red'
       ? 'rgba(251,113,133,0.28)'
       : accent === 'green'
         ? 'rgba(52,211,153,0.28)'
-        : 'rgba(34,211,238,0.28)'
+        : accent === 'yellow'
+          ? 'rgba(250,204,21,0.28)'
+          : 'rgba(34,211,238,0.28)'
 
   const glow =
     accent === 'red'
       ? 'rgba(127,29,29,0.22)'
       : accent === 'green'
         ? 'rgba(6,78,59,0.22)'
-        : 'rgba(8,47,73,0.22)'
+        : accent === 'yellow'
+          ? 'rgba(113,63,18,0.22)'
+          : 'rgba(8,47,73,0.22)'
+
+  const valueColor =
+    accent === 'red'
+      ? '#fda4af'
+      : accent === 'green'
+        ? '#86efac'
+        : accent === 'yellow'
+          ? '#fde68a'
+          : '#93c5fd'
+
+  const titleColor =
+    accent === 'red'
+      ? '#fca5a5'
+      : accent === 'green'
+        ? '#86efac'
+        : accent === 'yellow'
+          ? '#facc15'
+          : '#67e8f9'
 
   return (
     <div
@@ -70,21 +116,23 @@ function SmallMetric({ title, value, unit, subtitle, accent = 'cyan' }) {
         minHeight: 108,
       }}
     >
-      <div style={{ color: '#67e8f9', fontSize: 13, fontWeight: 900, letterSpacing: 0.8 }}>
+      <div style={{ color: titleColor, fontSize: 13, fontWeight: 900, letterSpacing: 0.8 }}>
         {title}
       </div>
+
       <div
         style={{
           marginTop: 6,
           fontSize: 30,
           lineHeight: 1,
           fontWeight: 900,
-          color: '#93c5fd',
+          color: valueColor,
         }}
       >
         {value}
         {unit ? <span style={{ marginLeft: 2 }}>{unit}</span> : null}
       </div>
+
       {subtitle ? (
         <div style={{ marginTop: 8, fontSize: 14, color: '#94a3b8' }}>{subtitle}</div>
       ) : null}
@@ -113,6 +161,11 @@ function Badge({ children, tone = 'slate' }) {
       border: '1px solid rgba(34,211,238,0.28)',
       background: 'rgba(8,47,73,0.22)',
       color: '#67e8f9',
+    },
+    yellow: {
+      border: '1px solid rgba(250,204,21,0.28)',
+      background: 'rgba(113,63,18,0.22)',
+      color: '#fde68a',
     },
   }
 
@@ -165,14 +218,8 @@ function StatusDot({ active, label }) {
 
 function Chiller2DashboardCard({ row, isMobile, onClick }) {
   const online = !!row?.is_online
-  const hasAlarm = row?.alarm_active === true || !online
-
-  const shellBorder = hasAlarm ? '1px solid rgba(239,68,68,0.45)' : '1px solid rgba(34,211,238,0.38)'
-  const shellBackground = hasAlarm
-    ? 'linear-gradient(180deg, rgba(127, 29, 29, 0.34) 0%, rgba(69, 10, 10, 0.20) 100%)'
-    : 'linear-gradient(180deg, rgba(8, 47, 73, 0.28) 0%, rgba(2, 6, 23, 0.20) 100%)'
-
-  const innerBorder = hasAlarm ? '1px solid rgba(248,113,113,0.14)' : '1px solid rgba(34,211,238,0.14)'
+  const hasAlarm = !!row?.alarm_active || !!row?.has_alarm || !!row?.alert_active
+  const setpoint = getCh2Setpoint(row)
 
   return (
     <div
@@ -180,11 +227,10 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
       style={{
         cursor: 'pointer',
         borderRadius: 28,
-        border: shellBorder,
-        background: shellBackground,
-        boxShadow: hasAlarm
-          ? '0 0 0 1px rgba(248,113,113,0.08) inset, 0 20px 50px rgba(0,0,0,0.25)'
-          : '0 0 0 1px rgba(34,211,238,0.08) inset, 0 20px 50px rgba(0,0,0,0.25)',
+        border: '1px solid rgba(56,189,248,0.22)',
+        background:
+          'linear-gradient(180deg, rgba(15,23,42,0.96) 0%, rgba(2,6,23,0.98) 100%)',
+        boxShadow: '0 0 0 1px rgba(96,165,250,0.06) inset, 0 20px 50px rgba(0,0,0,0.25)',
         overflow: 'hidden',
       }}
     >
@@ -202,7 +248,7 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
           <div>
             <div
               style={{
-                color: hasAlarm ? '#fca5a5' : '#67e8f9',
+                color: '#67e8f9',
                 fontSize: 13,
                 fontWeight: 900,
                 letterSpacing: 1,
@@ -210,6 +256,7 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
             >
               CHILLER
             </div>
+
             <div
               style={{
                 marginTop: 6,
@@ -220,6 +267,7 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
             >
               Chiller 2
             </div>
+
             <div style={{ marginTop: 10, fontSize: 14, color: '#cbd5e1' }}>
               {row?.asset_code || 'CH-NJ-02'}
             </div>
@@ -234,7 +282,7 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
         <div
           style={{
             borderRadius: 24,
-            border: innerBorder,
+            border: '1px solid rgba(56,189,248,0.14)',
             background: 'rgba(15, 23, 42, 0.32)',
             padding: isMobile ? 16 : 18,
           }}
@@ -255,6 +303,7 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
                 subtitle="section 1 entering fluid"
                 accent="cyan"
               />
+
               <SmallMetric
                 title="CHILLER IN 2"
                 value={fmtNumber(row?.chiller_entering_f, 1)}
@@ -268,9 +317,7 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
               style={{
                 minHeight: isMobile ? 220 : 260,
                 borderRadius: 24,
-                border: hasAlarm
-                  ? '1px solid rgba(248,113,113,0.14)'
-                  : '1px solid rgba(34,211,238,0.14)',
+                border: '1px solid rgba(56,189,248,0.14)',
                 background:
                   'radial-gradient(circle at center, rgba(59,130,246,0.12) 0%, rgba(15,23,42,0.4) 60%, rgba(2,6,23,0.72) 100%)',
                 display: 'flex',
@@ -385,14 +432,15 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
                 value={fmtNumber(row?.evap_out_c1_f, 1)}
                 unit="°F"
                 subtitle="evaporator out 1"
-                accent="red"
+                accent="cyan"
               />
+
               <SmallMetric
                 title="CHILLER OUT 2"
                 value={fmtNumber(row?.evap_out_c2_f, 1)}
                 unit="°F"
                 subtitle="evaporator out 2"
-                accent="red"
+                accent="cyan"
               />
             </div>
           </div>
@@ -401,30 +449,63 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
             style={{
               marginTop: 18,
               display: 'grid',
-              gridTemplateColumns: 'minmax(180px, 260px)',
-              justifyContent: 'center',
+              gridTemplateColumns: isMobile ? '1fr' : '1fr 1.2fr 1fr',
+              gap: 12,
+              alignItems: 'stretch',
             }}
           >
+            <div style={statCardStyle(isMobile)}>
+              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>FLOW C1</div>
+              <div style={{ marginTop: 4, fontSize: 28, fontWeight: 900, color: '#38bdf8' }}>
+                {row?.flow_c1_gpm == null ? '—' : Number(row.flow_c1_gpm).toFixed(0)}
+                <span style={{ fontSize: 14, marginLeft: 6, color: '#94a3b8' }}>GPM</span>
+              </div>
+            </div>
+
             <div
               style={{
-                border: '1px solid rgba(34,211,238,0.18)',
-                background: 'rgba(15,23,42,0.72)',
-                borderRadius: 22,
-                padding: '14px 18px',
+                borderRadius: 24,
+                border: '1px solid rgba(250,204,21,0.32)',
+                background: 'rgba(113,63,18,0.22)',
+                display: 'flex',
+                flexDirection: 'column',
+                justifyContent: 'center',
+                alignItems: 'center',
                 textAlign: 'center',
+                padding: isMobile ? '18px 16px' : '18px 20px',
+                minHeight: isMobile ? 96 : 110,
               }}
             >
-              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>SETPOINT</div>
+              <div
+                style={{
+                  color: '#facc15',
+                  fontSize: 12,
+                  fontWeight: 900,
+                  letterSpacing: 0.9,
+                }}
+              >
+                SETPOINT
+              </div>
+
               <div
                 style={{
                   marginTop: 6,
-                  fontSize: 30,
-                  fontWeight: 900,
-                  color: '#facc15',
+                  fontSize: isMobile ? 34 : 42,
                   lineHeight: 1,
+                  fontWeight: 900,
+                  color: '#fde68a',
                 }}
               >
-                {row?.setpoint_f == null ? '—' : Number(row.setpoint_f).toFixed(1)}°F
+                {setpoint === null ? '—' : setpoint.toFixed(1)}
+                {setpoint === null ? null : <span style={{ marginLeft: 3 }}>°F</span>}
+              </div>
+            </div>
+
+            <div style={statCardStyle(isMobile)}>
+              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>FLOW C2</div>
+              <div style={{ marginTop: 4, fontSize: 28, fontWeight: 900, color: '#38bdf8' }}>
+                {row?.flow_c2_gpm == null ? '—' : Number(row.flow_c2_gpm).toFixed(0)}
+                <span style={{ fontSize: 14, marginLeft: 6, color: '#94a3b8' }}>GPM</span>
               </div>
             </div>
           </div>
@@ -451,22 +532,13 @@ export default function MonitoringNJPage() {
         setLoading(true)
       }
 
-      const [
-        { data, error: fetchError },
-        { data: ch2Data, error: ch2Error },
-        { data: setpointRows, error: setpointError },
-      ] = await Promise.all([
+      const [{ data, error: fetchError }, { data: ch2Data, error: ch2Error }] = await Promise.all([
         supabase
           .from('v_asset_points_latest')
           .select('*')
           .order('asset_code', { ascending: true })
           .order('display_order', { ascending: true }),
         supabase.from('v_ch2_dashboard').select('*').single(),
-        supabase
-          .from('ch2_latest')
-          .select('value_number')
-          .eq('point_code', 'CH2_R40023')
-          .limit(1),
       ])
 
       if (fetchError) {
@@ -477,22 +549,10 @@ export default function MonitoringNJPage() {
         throw ch2Error
       }
 
-      if (setpointError) {
-        throw setpointError
-      }
-
       const normalized = Array.isArray(data) ? data.map(normalizeRow) : []
-      const setpointRaw = Array.isArray(setpointRows) && setpointRows[0] ? setpointRows[0].value_number : null
 
       setRows(normalized)
-      setCh2Dashboard(
-        ch2Data
-          ? {
-              ...ch2Data,
-              setpoint_f: setpointRaw === null || setpointRaw === undefined ? null : Number(setpointRaw) / 10,
-            }
-          : null
-      )
+      setCh2Dashboard(ch2Data || null)
 
       if (!normalized.length && !ch2Data) {
         setError('No live telemetry rows returned from the live sources.')
@@ -583,24 +643,35 @@ export default function MonitoringNJPage() {
   }, [selectedAsset, oldChillers])
 
   const summary = useMemo(() => {
-    const ch2Exists = !!ch2Dashboard
+    const ch2Online = ch2Dashboard?.is_online ? 1 : 0
 
-    const oldWithoutCh2 = njAssets.filter(
+    const oldWithoutCh2Count = njAssets.filter(
       (asset) => String(asset.asset_code || '').toUpperCase() !== 'CH-NJ-02'
-    )
+    ).length
 
-    const total = oldWithoutCh2.length + barrels.length + (ch2Exists ? 1 : 0)
+    const total =
+      oldWithoutCh2Count +
+      (ch2Dashboard
+        ? 1
+        : njAssets.some((asset) => String(asset.asset_code || '').toUpperCase() === 'CH-NJ-02')
+          ? 1
+          : 0) +
+      barrels.length
 
-    const onlineOld = oldWithoutCh2.filter((asset) => getAssetStatus(asset).online).length
-    const onlineCh2 = ch2Dashboard?.is_online ? 1 : 0
-    const online = onlineOld + onlineCh2
+    const online =
+      njAssets.filter((asset) => {
+        const code = String(asset.asset_code || '').toUpperCase()
+        return code !== 'CH-NJ-02' && getAssetStatus(asset).online
+      }).length + ch2Online
+
     const offline = Math.max(total - online, 0)
 
-    const compressorsOnOld = oldWithoutCh2
+    const compressorsOnOld = njAssets
       .flatMap((asset) => asset.points)
       .filter((point) => {
         const group = String(point.point_group || '').toUpperCase()
         const code = String(point.point_code || '').toUpperCase()
+
         const isCompressorPoint =
           group.includes('COMPRESSOR') ||
           group.includes('COMPRESSORS') ||
@@ -825,22 +896,22 @@ export default function MonitoringNJPage() {
             }}
           >
             <div style={{ display: 'grid', gap: 18 }}>
-              {oldChillers.length ? (
-                oldChillers.map((asset) => (
-                  <div
-                    key={asset.asset_code}
-                    onClick={() => handleChillerSelect(asset)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <ChillerIllustration
-                      asset={asset}
-                      selected={selectedAsset?.asset_code === asset.asset_code}
-                      onSelect={() => {}}
-                      isMobile={isMobile}
-                    />
-                  </div>
-                ))
-              ) : null}
+              {oldChillers.length
+                ? oldChillers.map((asset) => (
+                    <div
+                      key={asset.asset_code}
+                      onClick={() => handleChillerSelect(asset)}
+                      style={{ cursor: 'pointer' }}
+                    >
+                      <ChillerIllustration
+                        asset={asset}
+                        selected={selectedAsset?.asset_code === asset.asset_code}
+                        onSelect={() => {}}
+                        isMobile={isMobile}
+                      />
+                    </div>
+                  ))
+                : null}
 
               {ch2Dashboard ? (
                 <Chiller2DashboardCard
@@ -875,9 +946,11 @@ export default function MonitoringNJPage() {
                   >
                     BARREL-NJ-02
                   </div>
+
                   <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 6 }}>
                     Material Barrel 2
                   </div>
+
                   <div style={{ color: '#94a3b8', fontSize: 14 }}>
                     Second barrel is not in telemetry yet.
                   </div>
