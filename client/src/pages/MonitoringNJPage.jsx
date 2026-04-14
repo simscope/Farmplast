@@ -52,12 +52,18 @@ function fmtNumber(value, digits = 1) {
 }
 
 function getCh2Setpoint(row) {
-  if (row?.CH2_R40023 === null || row?.CH2_R40023 === undefined || row?.CH2_R40023 === '') {
-    return null
-  }
+  const raw =
+    row?.CH2_R40023 ??
+    row?.ch2_r40023 ??
+    row?.['CH2_R40023'] ??
+    row?.['ch2_r40023']
 
-  const value = Number(row.CH2_R40023)
-  return Number.isNaN(value) ? null : value
+  if (raw === null || raw === undefined || raw === '') return null
+
+  const value = Number(raw)
+  if (Number.isNaN(value)) return null
+
+  return value / 10
 }
 
 function SmallMetric({ title, value, unit, subtitle, accent = 'cyan' }) {
@@ -186,6 +192,7 @@ function StatusDot({ active, label }) {
         color: active ? '#86efac' : '#cbd5e1',
         fontSize: 13,
         fontWeight: 700,
+        justifyContent: 'center',
       }}
     >
       <span
@@ -527,22 +534,47 @@ export default function MonitoringNJPage() {
   }, [selectedAsset, oldChillers])
 
   const chillersInOrder = useMemo(() => {
-    const map = new Map(oldChillers.map((asset) => [String(asset.asset_code || '').toUpperCase(), asset]))
+    const byCode = new Map(
+      oldChillers.map((asset) => [String(asset.asset_code || '').toUpperCase(), asset])
+    )
 
-    return [
-      { kind: 'old', asset: map.get('CH-NJ-01') || null, code: 'CH-NJ-01' },
-      { kind: 'ch2', row: ch2Dashboard, code: 'CH-NJ-02' },
-      { kind: 'old', asset: map.get('CH-NJ-03') || null, code: 'CH-NJ-03' },
-      ...oldChillers
-        .filter((asset) => {
-          const code = String(asset.asset_code || '').toUpperCase()
-          return code !== 'CH-NJ-01' && code !== 'CH-NJ-03'
-        })
-        .map((asset) => ({ kind: 'old', asset, code: asset.asset_code })),
-    ].filter((item) => {
-      if (item.kind === 'ch2') return !!item.row
-      return !!item.asset
+    const ordered = []
+
+    if (byCode.get('CH-NJ-01')) {
+      ordered.push({
+        kind: 'old',
+        asset: byCode.get('CH-NJ-01'),
+        code: 'CH-NJ-01',
+      })
+    }
+
+    if (ch2Dashboard) {
+      ordered.push({
+        kind: 'ch2',
+        row: ch2Dashboard,
+        code: 'CH-NJ-02',
+      })
+    }
+
+    if (byCode.get('CH-NJ-03')) {
+      ordered.push({
+        kind: 'old',
+        asset: byCode.get('CH-NJ-03'),
+        code: 'CH-NJ-03',
+      })
+    }
+
+    oldChillers.forEach((asset) => {
+      const code = String(asset.asset_code || '').toUpperCase()
+      if (code === 'CH-NJ-01' || code === 'CH-NJ-03') return
+      ordered.push({
+        kind: 'old',
+        asset,
+        code,
+      })
     })
+
+    return ordered
   }, [oldChillers, ch2Dashboard])
 
   const summary = useMemo(() => {
