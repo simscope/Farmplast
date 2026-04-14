@@ -162,11 +162,6 @@ function Badge({ children, tone = 'slate' }) {
       background: 'rgba(8,47,73,0.22)',
       color: '#67e8f9',
     },
-    yellow: {
-      border: '1px solid rgba(250,204,21,0.28)',
-      background: 'rgba(113,63,18,0.22)',
-      color: '#fde68a',
-    },
   }
 
   return (
@@ -325,79 +320,47 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: 16,
-                position: 'relative',
               }}
             >
               <div
                 style={{
-                  width: 180,
-                  height: 150,
-                  borderRadius: 28,
-                  border: '1px solid rgba(96,165,250,0.35)',
-                  background: 'rgba(30,41,59,0.75)',
-                  position: 'relative',
-                  boxShadow: 'inset 0 0 30px rgba(59,130,246,0.08)',
+                  width: '100%',
+                  maxWidth: 220,
+                  borderRadius: 24,
+                  border: '1px solid rgba(250,204,21,0.28)',
+                  background: 'rgba(113,63,18,0.18)',
+                  padding: '20px 16px',
+                  textAlign: 'center',
                 }}
               >
                 <div
                   style={{
-                    position: 'absolute',
-                    inset: 16,
-                    borderRadius: 18,
-                    background: 'rgba(30,41,59,0.72)',
-                    border: '1px solid rgba(96,165,250,0.12)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    textAlign: 'center',
-                    padding: 14,
-                    color: '#e2e8f0',
-                    fontWeight: 800,
-                    fontSize: 14,
-                    lineHeight: 1.2,
+                    color: '#facc15',
+                    fontSize: 12,
+                    fontWeight: 900,
+                    letterSpacing: 1,
                   }}
                 >
-                  PLATE HEAT
-                  <br />
-                  EXCHANGER
+                  SETPOINT
                 </div>
 
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div
-                    key={`blue-${i}`}
-                    style={{
-                      position: 'absolute',
-                      top: 32 + i * 4,
-                      left: 58 + i * 16,
-                      width: 3,
-                      height: 86,
-                      background: '#7dd3fc',
-                      transform: 'rotate(-12deg)',
-                      borderRadius: 999,
-                    }}
-                  />
-                ))}
-
-                {[0, 1, 2, 3, 4].map((i) => (
-                  <div
-                    key={`red-${i}`}
-                    style={{
-                      position: 'absolute',
-                      top: 32 + i * 4,
-                      right: 58 + i * 16,
-                      width: 3,
-                      height: 86,
-                      background: '#fda4af',
-                      transform: 'rotate(12deg)',
-                      borderRadius: 999,
-                    }}
-                  />
-                ))}
+                <div
+                  style={{
+                    marginTop: 10,
+                    fontSize: isMobile ? 36 : 44,
+                    lineHeight: 1,
+                    fontWeight: 900,
+                    color: '#fde68a',
+                  }}
+                >
+                  {setpoint === null ? '—' : setpoint.toFixed(1)}
+                  {setpoint === null ? null : <span style={{ marginLeft: 4 }}>°F</span>}
+                </div>
               </div>
 
               <div
                 style={{
-                  marginTop: 12,
+                  marginTop: 16,
                   fontSize: 12,
                   fontWeight: 900,
                   color: '#94a3b8',
@@ -444,71 +407,6 @@ function Chiller2DashboardCard({ row, isMobile, onClick }) {
               />
             </div>
           </div>
-
-          <div
-            style={{
-              marginTop: 18,
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : '1fr 1.2fr 1fr',
-              gap: 12,
-              alignItems: 'stretch',
-            }}
-          >
-            <div style={statCardStyle(isMobile)}>
-              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>FLOW C1</div>
-              <div style={{ marginTop: 4, fontSize: 28, fontWeight: 900, color: '#38bdf8' }}>
-                {row?.flow_c1_gpm == null ? '—' : Number(row.flow_c1_gpm).toFixed(0)}
-                <span style={{ fontSize: 14, marginLeft: 6, color: '#94a3b8' }}>GPM</span>
-              </div>
-            </div>
-
-            <div
-              style={{
-                borderRadius: 24,
-                border: '1px solid rgba(250,204,21,0.32)',
-                background: 'rgba(113,63,18,0.22)',
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                textAlign: 'center',
-                padding: isMobile ? '18px 16px' : '18px 20px',
-                minHeight: isMobile ? 96 : 110,
-              }}
-            >
-              <div
-                style={{
-                  color: '#facc15',
-                  fontSize: 12,
-                  fontWeight: 900,
-                  letterSpacing: 0.9,
-                }}
-              >
-                SETPOINT
-              </div>
-
-              <div
-                style={{
-                  marginTop: 6,
-                  fontSize: isMobile ? 34 : 42,
-                  lineHeight: 1,
-                  fontWeight: 900,
-                  color: '#fde68a',
-                }}
-              >
-                {setpoint === null ? '—' : setpoint.toFixed(1)}
-                {setpoint === null ? null : <span style={{ marginLeft: 3 }}>°F</span>}
-              </div>
-            </div>
-
-            <div style={statCardStyle(isMobile)}>
-              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>FLOW C2</div>
-              <div style={{ marginTop: 4, fontSize: 28, fontWeight: 900, color: '#38bdf8' }}>
-                {row?.flow_c2_gpm == null ? '—' : Number(row.flow_c2_gpm).toFixed(0)}
-                <span style={{ fontSize: 14, marginLeft: 6, color: '#94a3b8' }}>GPM</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>
@@ -541,13 +439,8 @@ export default function MonitoringNJPage() {
         supabase.from('v_ch2_dashboard').select('*').single(),
       ])
 
-      if (fetchError) {
-        throw fetchError
-      }
-
-      if (ch2Error && ch2Error.code !== 'PGRST116') {
-        throw ch2Error
-      }
+      if (fetchError) throw fetchError
+      if (ch2Error && ch2Error.code !== 'PGRST116') throw ch2Error
 
       const normalized = Array.isArray(data) ? data.map(normalizeRow) : []
 
@@ -564,9 +457,7 @@ export default function MonitoringNJPage() {
       setCh2Dashboard(null)
       setError(err?.message || 'Failed to load live telemetry.')
     } finally {
-      if (!silent) {
-        setLoading(false)
-      }
+      if (!silent) setLoading(false)
     }
   }
 
