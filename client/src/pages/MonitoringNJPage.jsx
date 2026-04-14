@@ -40,33 +40,24 @@ function barrelSort(a, b) {
   return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
 }
 
+function chillerCodeSort(a, b) {
+  const codeA = String(a?.asset_code || '')
+  const codeB = String(b?.asset_code || '')
+  return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
+}
+
 function fmtNumber(value, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
   return Number(value).toFixed(digits)
 }
 
-function firstNumber(...values) {
-  for (const value of values) {
-    if (value === null || value === undefined || value === '') continue
-    const num = Number(value)
-    if (!Number.isNaN(num)) return num
-  }
-  return null
-}
-
 function getCh2Setpoint(row) {
-  return firstNumber(
-    row?.setpoint_f,
-    row?.set_point_f,
-    row?.evap_setpoint_f,
-    row?.evap_set_point_f,
-    row?.leaving_setpoint_f,
-    row?.leaving_set_point_f,
-    row?.process_setpoint_f,
-    row?.process_set_point_f,
-    row?.setpoint,
-    row?.set_point
-  )
+  if (row?.CH2_R40023 === null || row?.CH2_R40023 === undefined || row?.CH2_R40023 === '') {
+    return null
+  }
+
+  const value = Number(row.CH2_R40023)
+  return Number.isNaN(value) ? null : value
 }
 
 function SmallMetric({ title, value, unit, subtitle, accent = 'cyan' }) {
@@ -510,10 +501,12 @@ export default function MonitoringNJPage() {
   }, [assets])
 
   const oldChillers = useMemo(() => {
-    return njAssets.filter((asset) => {
-      const code = String(asset.asset_code || '').toUpperCase()
-      return String(asset.asset_type || '').toLowerCase() === 'chiller' && code !== 'CH-NJ-02'
-    })
+    return njAssets
+      .filter((asset) => {
+        const code = String(asset.asset_code || '').toUpperCase()
+        return String(asset.asset_type || '').toLowerCase() === 'chiller' && code !== 'CH-NJ-02'
+      })
+      .sort(chillerCodeSort)
   }, [njAssets])
 
   const barrels = useMemo(() => {
@@ -532,6 +525,25 @@ export default function MonitoringNJPage() {
       setSelectedAssetCode(oldChillers[0].asset_code)
     }
   }, [selectedAsset, oldChillers])
+
+  const chillersInOrder = useMemo(() => {
+    const map = new Map(oldChillers.map((asset) => [String(asset.asset_code || '').toUpperCase(), asset]))
+
+    return [
+      { kind: 'old', asset: map.get('CH-NJ-01') || null, code: 'CH-NJ-01' },
+      { kind: 'ch2', row: ch2Dashboard, code: 'CH-NJ-02' },
+      { kind: 'old', asset: map.get('CH-NJ-03') || null, code: 'CH-NJ-03' },
+      ...oldChillers
+        .filter((asset) => {
+          const code = String(asset.asset_code || '').toUpperCase()
+          return code !== 'CH-NJ-01' && code !== 'CH-NJ-03'
+        })
+        .map((asset) => ({ kind: 'old', asset, code: asset.asset_code })),
+    ].filter((item) => {
+      if (item.kind === 'ch2') return !!item.row
+      return !!item.asset
+    })
+  }, [oldChillers, ch2Dashboard])
 
   const summary = useMemo(() => {
     const ch2Online = ch2Dashboard?.is_online ? 1 : 0
@@ -787,32 +799,33 @@ export default function MonitoringNJPage() {
             }}
           >
             <div style={{ display: 'grid', gap: 18 }}>
-              {oldChillers.length
-                ? oldChillers.map((asset) => (
-                    <div
-                      key={asset.asset_code}
-                      onClick={() => handleChillerSelect(asset)}
-                      style={{ cursor: 'pointer' }}
-                    >
-                      <ChillerIllustration
-                        asset={asset}
-                        selected={selectedAsset?.asset_code === asset.asset_code}
-                        onSelect={() => {}}
-                        isMobile={isMobile}
-                      />
-                    </div>
-                  ))
-                : null}
+              {chillersInOrder.map((item) => {
+                if (item.kind === 'ch2') {
+                  return (
+                    <Chiller2DashboardCard
+                      key="CH-NJ-02"
+                      row={item.row}
+                      isMobile={isMobile}
+                      onClick={() => navigate('/monitoring/nj/chiller-2')}
+                    />
+                  )
+                }
 
-              {ch2Dashboard ? (
-                <Chiller2DashboardCard
-                  row={ch2Dashboard}
-                  isMobile={isMobile}
-                  onClick={() => navigate('/monitoring/nj/chiller-2')}
-                />
-              ) : (
-                <div style={statCardStyle(isMobile)}>No live Chiller 2 telemetry yet.</div>
-              )}
+                return (
+                  <div
+                    key={item.asset.asset_code}
+                    onClick={() => handleChillerSelect(item.asset)}
+                    style={{ cursor: 'pointer' }}
+                  >
+                    <ChillerIllustration
+                      asset={item.asset}
+                      selected={selectedAsset?.asset_code === item.asset.asset_code}
+                      onSelect={() => {}}
+                      isMobile={isMobile}
+                    />
+                  </div>
+                )
+              })}
             </div>
 
             <div style={{ display: 'grid', gap: 18 }}>
