@@ -51,7 +51,20 @@ function fmtNumber(value, digits = 1) {
   return Number(value).toFixed(digits)
 }
 
-function getCh2Setpoint(row) {
+function getCh2Setpoint(row, rawRows = []) {
+  const rawRow = Array.isArray(rawRows)
+    ? rawRows.find((r) => Number(r?.raw_register) === 40023)
+    : null
+
+  if (rawRow) {
+    const raw = rawRow.raw_value ?? rawRow.value_number
+    const num = Number(raw)
+
+    if (!Number.isNaN(num)) {
+      return num / 10
+    }
+  }
+
   const raw =
     row?.CH2_R40023 ??
     row?.ch2_r40023 ??
@@ -209,10 +222,10 @@ function StatusDot({ active, label }) {
   )
 }
 
-function Chiller2DashboardCard({ row, isMobile, onClick }) {
+function Chiller2DashboardCard({ row, rawRows, isMobile, onClick }) {
   const online = !!row?.is_online
   const hasAlarm = !!row?.alarm_active || !!row?.has_alarm || !!row?.alert_active
-  const setpoint = getCh2Setpoint(row)
+  const setpoint = getCh2Setpoint(row, rawRows)
 
   return (
     <div
@@ -415,6 +428,7 @@ export default function MonitoringNJPage() {
   const navigate = useNavigate()
 
   const [rows, setRows] = useState([])
+  const [rawRows, setRawRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedAssetCode, setSelectedAssetCode] = useState('CH-NJ-01')
@@ -428,30 +442,42 @@ export default function MonitoringNJPage() {
         setLoading(true)
       }
 
-      const [{ data, error: fetchError }, { data: ch2Data, error: ch2Error }] = await Promise.all([
+      const [
+        { data, error: fetchError },
+        { data: ch2Data, error: ch2Error },
+        { data: ch2Raw, error: ch2RawError },
+      ] = await Promise.all([
         supabase
           .from('v_asset_points_latest')
           .select('*')
           .order('asset_code', { ascending: true })
           .order('display_order', { ascending: true }),
         supabase.from('v_ch2_dashboard').select('*').single(),
+        supabase
+          .from('ch2_latest')
+          .select('point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at')
+          .like('point_code', 'CH2_R%')
+          .order('raw_register', { ascending: true }),
       ])
 
       if (fetchError) throw fetchError
       if (ch2Error && ch2Error.code !== 'PGRST116') throw ch2Error
+      if (ch2RawError) throw ch2RawError
 
       const normalized = Array.isArray(data) ? data.map(normalizeRow) : []
 
       setRows(normalized)
       setCh2Dashboard(ch2Data || null)
+      setRawRows(ch2Raw || [])
 
-      if (!normalized.length && !ch2Data) {
+      if (!normalized.length && !ch2Data && !(ch2Raw || []).length) {
         setError('No live telemetry rows returned from the live sources.')
       } else {
         setError('')
       }
     } catch (err) {
       setRows([])
+      setRawRows([])
       setCh2Dashboard(null)
       setError(err?.message || 'Failed to load live telemetry.')
     } finally {
@@ -548,10 +574,10 @@ export default function MonitoringNJPage() {
       })
     }
 
-    if (ch2Dashboard) {
+    if (ch2Dashboard || rawRows.length) {
       ordered.push({
         kind: 'ch2',
-        row: ch2Dashboard,
+        row: ch2Dashboard || {},
         code: 'CH-NJ-02',
       })
     }
@@ -575,7 +601,7 @@ export default function MonitoringNJPage() {
     })
 
     return ordered
-  }, [oldChillers, ch2Dashboard])
+  }, [oldChillers, ch2Dashboard, rawRows])
 
   const summary = useMemo(() => {
     const ch2Online = ch2Dashboard?.is_online ? 1 : 0
@@ -586,7 +612,7 @@ export default function MonitoringNJPage() {
 
     const total =
       oldWithoutCh2Count +
-      (ch2Dashboard
+      ((ch2Dashboard || rawRows.length)
         ? 1
         : njAssets.some((asset) => String(asset.asset_code || '').toUpperCase() === 'CH-NJ-02')
           ? 1
@@ -640,7 +666,7 @@ export default function MonitoringNJPage() {
           ? null
           : Number(barrelLevelPoint.value_number),
     }
-  }, [njAssets, barrels, ch2Dashboard])
+  }, [njAssets, barrels, ch2Dashboard, rawRows])
 
   const pagePadding = isMobile ? 12 : 16
   const mainGridColumns = isDesktop ? '1.3fr 0.9fr' : '1fr'
@@ -837,6 +863,7 @@ export default function MonitoringNJPage() {
                     <Chiller2DashboardCard
                       key="CH-NJ-02"
                       row={item.row}
+                      rawRows={rawRows}
                       isMobile={isMobile}
                       onClick={() => navigate('/monitoring/nj/chiller-2')}
                     />
