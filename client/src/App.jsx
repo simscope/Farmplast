@@ -13,6 +13,7 @@ import MonitoringPAPage from './pages/MonitoringPAPage'
 import AdminPage from './pages/AdminPage'
 import EmployeesPage from './pages/EmployeesPage'
 import EmployeeDetailsPage from './pages/EmployeeDetailsPage'
+import Chiller1HMIPage from './pages/Chiller1HMIPage'
 import Chiller2HMIPage from './pages/Chiller2HMIPage'
 export default function App() {
   return (
@@ -24,6 +25,7 @@ export default function App() {
         <Route path="/monitoring" element={<MonitoringPage />} />
         <Route path="/monitoring/nj" element={<MonitoringNJPage />} />
         <Route path="/monitoring/pa" element={<MonitoringPAPage />} />
+        <Route path="/monitoring/nj/chiller-1" element={<Chiller1HMIPage />} />
         <Route path="/monitoring/nj/chiller-2" element={<Chiller2HMIPage />} />
         <Route
           path="/dashboard"
