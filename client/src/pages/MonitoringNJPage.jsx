@@ -678,7 +678,10 @@ export default function MonitoringNJPage() {
 
   function handleChillerSelect(asset) {
     const code = String(asset?.asset_code || '').toUpperCase()
-
+    if (code === 'CH-NJ-01') {
+      navigate('/monitoring/nj/chiller-1')
+      return
+    }
     if (code === 'CH-NJ-02') {
       navigate('/monitoring/nj/chiller-2')
       return
