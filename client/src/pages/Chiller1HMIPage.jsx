@@ -3,11 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
   AlertTriangle,
+  Fan,
   Thermometer,
   Gauge,
-  Power,
-  Settings,
   Activity,
+  Settings,
+  Power,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
@@ -57,6 +58,7 @@ function parseNumericValue(point) {
 
   for (const candidate of candidates) {
     if (typeof candidate === 'number' && !Number.isNaN(candidate)) return candidate
+
     if (typeof candidate === 'string') {
       const cleaned = candidate.replace(/[^\d.-]/g, '')
       const parsed = Number(cleaned)
@@ -82,6 +84,7 @@ function buildSearchText(point) {
 
 function findPointByAliases(points, aliases) {
   const normalizedAliases = aliases.map((a) => toText(a))
+
   return points.find((point) => {
     const text = buildSearchText(point)
     return normalizedAliases.some((alias) => text.includes(alias))
@@ -108,8 +111,8 @@ function getBoolean(points, aliases) {
     point?.value_text ?? point?.value ?? point?.display_value ?? point?.raw_value
   )
 
-  if (['ON', 'RUN', 'TRUE', 'ACTIVE', 'ENABLE', 'ENABLED'].includes(text)) return true
-  if (['OFF', 'STOP', 'FALSE', 'INACTIVE', 'DISABLE', 'DISABLED'].includes(text)) return false
+  if (['ON', 'RUN', 'TRUE', 'ACTIVE', 'ENABLE', 'ENABLED', 'OPEN'].includes(text)) return true
+  if (['OFF', 'STOP', 'FALSE', 'INACTIVE', 'DISABLE', 'DISABLED', 'CLOSED'].includes(text)) return false
 
   return false
 }
@@ -119,35 +122,124 @@ function fmtNumber(value, digits = 1) {
   return Number(value).toFixed(digits)
 }
 
-function HMIValueCard({ title, value, unit = '', accent = 'cyan', subtitle = '' }) {
+function fmtTemp(value, digits = 1) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
+  return `${Number(value).toFixed(digits)}°F`
+}
+
+function Badge({ children, tone = 'slate' }) {
+  const tones = {
+    slate: {
+      border: '1px solid rgba(148,163,184,0.20)',
+      bg: 'rgba(255,255,255,0.05)',
+      color: '#e2e8f0',
+    },
+    green: {
+      border: '1px solid rgba(74,222,128,0.28)',
+      bg: 'rgba(20,83,45,0.24)',
+      color: '#86efac',
+    },
+    red: {
+      border: '1px solid rgba(248,113,113,0.30)',
+      bg: 'rgba(127,29,29,0.24)',
+      color: '#fca5a5',
+    },
+    cyan: {
+      border: '1px solid rgba(34,211,238,0.28)',
+      bg: 'rgba(8,47,73,0.24)',
+      color: '#67e8f9',
+    },
+    yellow: {
+      border: '1px solid rgba(250,204,21,0.28)',
+      bg: 'rgba(113,63,18,0.24)',
+      color: '#fde68a',
+    },
+  }
+
+  const t = tones[tone] || tones.slate
+
+  return (
+    <div
+      style={{
+        borderRadius: 999,
+        padding: '8px 14px',
+        fontSize: 12,
+        fontWeight: 900,
+        letterSpacing: 0.7,
+        textTransform: 'uppercase',
+        border: t.border,
+        background: t.bg,
+        color: t.color,
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function Panel({ title, icon, children, danger = false }) {
+  return (
+    <div
+      style={{
+        borderRadius: 28,
+        border: danger
+          ? '1px solid rgba(248,113,113,0.28)'
+          : '1px solid rgba(56,189,248,0.20)',
+        background:
+          danger
+            ? 'linear-gradient(180deg, rgba(48,12,20,0.95) 0%, rgba(18,8,14,0.98) 100%)'
+            : 'linear-gradient(180deg, rgba(15,23,42,0.96) 0%, rgba(2,6,23,0.98) 100%)',
+        boxShadow: '0 0 0 1px rgba(96,165,250,0.05) inset, 0 20px 50px rgba(0,0,0,0.24)',
+        overflow: 'hidden',
+      }}
+    >
+      <div style={{ padding: 20 }}>
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10,
+            marginBottom: 16,
+          }}
+        >
+          {icon}
+          <div style={{ fontSize: 18, fontWeight: 900 }}>{title}</div>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function SmallMetric({ title, value, subtitle = '', accent = 'cyan' }) {
   const tones = {
     cyan: {
-      border: 'rgba(34,211,238,0.28)',
-      bg: 'rgba(8,47,73,0.22)',
+      border: 'rgba(34,211,238,0.24)',
+      bg: 'rgba(8,47,73,0.20)',
       title: '#67e8f9',
       value: '#e0f2fe',
     },
     red: {
-      border: 'rgba(248,113,113,0.28)',
-      bg: 'rgba(127,29,29,0.22)',
+      border: 'rgba(248,113,113,0.24)',
+      bg: 'rgba(127,29,29,0.20)',
       title: '#fca5a5',
-      value: '#fecaca',
+      value: '#fee2e2',
     },
     green: {
-      border: 'rgba(74,222,128,0.28)',
-      bg: 'rgba(20,83,45,0.22)',
+      border: 'rgba(74,222,128,0.24)',
+      bg: 'rgba(20,83,45,0.20)',
       title: '#86efac',
       value: '#dcfce7',
     },
     yellow: {
-      border: 'rgba(250,204,21,0.28)',
-      bg: 'rgba(113,63,18,0.22)',
-      title: '#facc15',
+      border: 'rgba(250,204,21,0.24)',
+      bg: 'rgba(113,63,18,0.20)',
+      title: '#fde68a',
       value: '#fef3c7',
     },
     slate: {
-      border: 'rgba(148,163,184,0.22)',
-      bg: 'rgba(15,23,42,0.48)',
+      border: 'rgba(148,163,184,0.20)',
+      bg: 'rgba(255,255,255,0.04)',
       title: '#cbd5e1',
       value: '#f8fafc',
     },
@@ -158,11 +250,11 @@ function HMIValueCard({ title, value, unit = '', accent = 'cyan', subtitle = '' 
   return (
     <div
       style={{
+        borderRadius: 22,
         border: `1px solid ${t.border}`,
         background: t.bg,
-        borderRadius: 22,
         padding: '16px 18px',
-        minHeight: 112,
+        minHeight: 104,
       }}
     >
       <div style={{ color: t.title, fontSize: 12, fontWeight: 900, letterSpacing: 0.9 }}>
@@ -173,71 +265,22 @@ function HMIValueCard({ title, value, unit = '', accent = 'cyan', subtitle = '' 
         style={{
           marginTop: 8,
           color: t.value,
-          fontSize: 30,
+          fontSize: 28,
           lineHeight: 1,
           fontWeight: 900,
         }}
       >
         {value}
-        {unit ? <span style={{ marginLeft: 4 }}>{unit}</span> : null}
       </div>
 
       {subtitle ? (
-        <div style={{ marginTop: 10, color: '#94a3b8', fontSize: 13 }}>
-          {subtitle}
-        </div>
+        <div style={{ marginTop: 10, color: '#94a3b8', fontSize: 13 }}>{subtitle}</div>
       ) : null}
     </div>
   )
 }
 
-function HMIBadge({ children, tone = 'slate' }) {
-  const styles = {
-    slate: {
-      border: '1px solid rgba(148,163,184,0.22)',
-      background: 'rgba(255,255,255,0.04)',
-      color: '#e2e8f0',
-    },
-    green: {
-      border: '1px solid rgba(74,222,128,0.28)',
-      background: 'rgba(20,83,45,0.22)',
-      color: '#86efac',
-    },
-    red: {
-      border: '1px solid rgba(248,113,113,0.30)',
-      background: 'rgba(127,29,29,0.22)',
-      color: '#fca5a5',
-    },
-    yellow: {
-      border: '1px solid rgba(250,204,21,0.28)',
-      background: 'rgba(113,63,18,0.22)',
-      color: '#fde68a',
-    },
-    cyan: {
-      border: '1px solid rgba(34,211,238,0.28)',
-      background: 'rgba(8,47,73,0.22)',
-      color: '#67e8f9',
-    },
-  }
-
-  return (
-    <div
-      style={{
-        ...styles[tone],
-        borderRadius: 999,
-        padding: '8px 14px',
-        fontSize: 12,
-        fontWeight: 900,
-        letterSpacing: 0.6,
-        textTransform: 'uppercase',
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
-function CompressorStatus({ label, active }) {
+function Pill({ label, active, onText = 'ON', offText = 'OFF' }) {
   return (
     <div
       style={{
@@ -250,7 +293,7 @@ function CompressorStatus({ label, active }) {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: 10,
+        gap: 12,
       }}
     >
       <div style={{ fontSize: 14, fontWeight: 800, color: '#e2e8f0' }}>{label}</div>
@@ -262,7 +305,7 @@ function CompressorStatus({ label, active }) {
           gap: 8,
           color: active ? '#86efac' : '#94a3b8',
           fontSize: 13,
-          fontWeight: 800,
+          fontWeight: 900,
         }}
       >
         <span
@@ -271,16 +314,16 @@ function CompressorStatus({ label, active }) {
             height: 10,
             borderRadius: 999,
             background: active ? '#22c55e' : '#64748b',
-            boxShadow: active ? '0 0 12px rgba(34,197,94,0.7)' : 'none',
+            boxShadow: active ? '0 0 12px rgba(34,197,94,0.65)' : 'none',
           }}
         />
-        {active ? 'RUN' : 'STOP'}
+        {active ? onText : offText}
       </div>
     </div>
   )
 }
 
-function HMIButton({ icon, label, active = false, disabled = false }) {
+function HMICtrlButton({ label, icon, active = false, disabled = true }) {
   return (
     <button
       type="button"
@@ -288,15 +331,15 @@ function HMIButton({ icon, label, active = false, disabled = false }) {
       style={{
         borderRadius: 18,
         border: active
-          ? '1px solid rgba(34,211,238,0.32)'
-          : '1px solid rgba(148,163,184,0.18)',
+          ? '1px solid rgba(34,211,238,0.28)'
+          : '1px solid rgba(148,163,184,0.16)',
         background: active ? 'rgba(8,47,73,0.28)' : 'rgba(255,255,255,0.04)',
-        color: disabled ? '#64748b' : '#e2e8f0',
+        color: disabled ? '#94a3b8' : '#f8fafc',
         padding: '14px 16px',
         display: 'flex',
         alignItems: 'center',
-        gap: 10,
         justifyContent: 'center',
+        gap: 10,
         fontSize: 14,
         fontWeight: 800,
         cursor: disabled ? 'not-allowed' : 'pointer',
@@ -305,6 +348,311 @@ function HMIButton({ icon, label, active = false, disabled = false }) {
       {icon}
       {label}
     </button>
+  )
+}
+
+function FanSetpointCard({ value, condOut, fanRunning }) {
+  const thresholdReached =
+    value !== null && condOut !== null ? Number(condOut) >= Number(value) : false
+
+  return (
+    <div
+      style={{
+        width: '100%',
+        maxWidth: 320,
+        borderRadius: 28,
+        border: '1px solid rgba(250,204,21,0.26)',
+        background:
+          'linear-gradient(180deg, rgba(54,36,8,0.54) 0%, rgba(28,20,8,0.72) 100%)',
+        padding: '22px 18px',
+        textAlign: 'center',
+        boxShadow: '0 0 0 1px rgba(250,204,21,0.05) inset',
+      }}
+    >
+      <div
+        style={{
+          color: '#facc15',
+          fontSize: 12,
+          fontWeight: 900,
+          letterSpacing: 1.2,
+          textTransform: 'uppercase',
+        }}
+      >
+        Fan auto start setpoint
+      </div>
+
+      <div
+        style={{
+          marginTop: 12,
+          fontSize: 46,
+          lineHeight: 1,
+          fontWeight: 900,
+          color: '#fde68a',
+        }}
+      >
+        {value === null ? '—' : Number(value).toFixed(1)}
+        {value === null ? null : <span style={{ marginLeft: 4 }}>°F</span>}
+      </div>
+
+      <div style={{ marginTop: 12, color: '#cbd5e1', fontSize: 13 }}>
+        fan control threshold by condenser out
+      </div>
+
+      <div
+        style={{
+          marginTop: 14,
+          display: 'flex',
+          justifyContent: 'center',
+          gap: 8,
+          flexWrap: 'wrap',
+        }}
+      >
+        <Badge tone={thresholdReached ? 'yellow' : 'slate'}>
+          {thresholdReached ? 'threshold reached' : 'below threshold'}
+        </Badge>
+
+        <Badge tone={fanRunning ? 'green' : 'slate'}>
+          {fanRunning ? 'fan running' : 'fan stopped'}
+        </Badge>
+      </div>
+    </div>
+  )
+}
+
+function ProcessMimic({
+  isMobile,
+  chwIn,
+  chwOut,
+  condIn,
+  condOut,
+  compressorA,
+  compressorB,
+  fanRunning,
+  alarm,
+}) {
+  const lineBlue = '#38bdf8'
+  const lineRed = '#fb7185'
+  const fanColor = fanRunning ? '#22c55e' : '#64748b'
+
+  return (
+    <div
+      style={{
+        borderRadius: 28,
+        border: alarm
+          ? '1px solid rgba(248,113,113,0.24)'
+          : '1px solid rgba(56,189,248,0.14)',
+        background:
+          'radial-gradient(circle at center, rgba(59,130,246,0.10) 0%, rgba(15,23,42,0.42) 55%, rgba(2,6,23,0.76) 100%)',
+        minHeight: isMobile ? 320 : 390,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 14,
+      }}
+    >
+      <svg
+        viewBox="0 0 760 420"
+        style={{ width: '100%', height: '100%', display: 'block' }}
+      >
+        <defs>
+          <filter id="glowBlue">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+
+          <filter id="glowRed">
+            <feGaussianBlur stdDeviation="4" result="blur" />
+            <feMerge>
+              <feMergeNode in="blur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+
+          <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor="#1a2742" />
+            <stop offset="100%" stopColor="#10182d" />
+          </linearGradient>
+
+          <linearGradient id="compressor" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stopColor="#263a5f" />
+            <stop offset="100%" stopColor="#11192e" />
+          </linearGradient>
+        </defs>
+
+        <path
+          d="M 40 110 H 210"
+          stroke={lineBlue}
+          strokeWidth="12"
+          strokeLinecap="round"
+          fill="none"
+          filter="url(#glowBlue)"
+        />
+        <path
+          d="M 550 110 H 720"
+          stroke={lineBlue}
+          strokeWidth="12"
+          strokeLinecap="round"
+          fill="none"
+          filter="url(#glowBlue)"
+        />
+
+        <path
+          d="M 40 300 H 210"
+          stroke={lineRed}
+          strokeWidth="12"
+          strokeLinecap="round"
+          fill="none"
+          filter="url(#glowRed)"
+        />
+        <path
+          d="M 550 300 H 720"
+          stroke={lineRed}
+          strokeWidth="12"
+          strokeLinecap="round"
+          fill="none"
+          filter="url(#glowRed)"
+        />
+
+        <polygon points="190,110 172,101 172,119" fill="#7dd3fc" />
+        <polygon points="570,110 588,101 588,119" fill="#7dd3fc" />
+        <polygon points="190,300 172,291 172,309" fill="#fda4af" />
+        <polygon points="570,300 588,291 588,309" fill="#fda4af" />
+
+        <rect
+          x="210"
+          y="68"
+          width="340"
+          height="275"
+          rx="36"
+          ry="36"
+          fill="url(#shell)"
+          stroke={alarm ? 'rgba(248,113,113,0.30)' : 'rgba(148,163,184,0.24)'}
+          strokeWidth="2"
+        />
+
+        <rect
+          x="290"
+          y="88"
+          width="180"
+          height="235"
+          rx="24"
+          ry="24"
+          fill="#0b1222"
+          stroke="rgba(148,163,184,0.12)"
+          strokeWidth="1.5"
+        />
+
+        {[0, 1, 2, 3, 4, 5, 6].map((i) => {
+          const x = 320 + i * 20
+          return (
+            <line
+              key={i}
+              x1={x}
+              y1="102"
+              x2={x + 50}
+              y2="305"
+              stroke={i % 2 === 0 ? '#67e8f9' : '#fda4af'}
+              strokeWidth="4"
+              strokeLinecap="round"
+              opacity="0.9"
+            />
+          )
+        })}
+
+        <text x="380" y="158" fill="#e2e8f0" fontSize="22" fontWeight="900" textAnchor="middle">
+          CHILLER 1
+        </text>
+        <text x="380" y="188" fill="#94a3b8" fontSize="16" fontWeight="800" textAnchor="middle">
+          EVAP / CONDENSER LOOP
+        </text>
+
+        <rect
+          x="225"
+          y="92"
+          width="48"
+          height="96"
+          rx="20"
+          fill="url(#compressor)"
+          stroke={compressorA ? 'rgba(74,222,128,0.40)' : 'rgba(148,163,184,0.18)'}
+        />
+        <text x="249" y="132" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
+          A
+        </text>
+        <circle
+          cx="249"
+          cy="158"
+          r="8"
+          fill={compressorA ? '#22c55e' : '#64748b'}
+          filter={compressorA ? 'url(#glowBlue)' : undefined}
+        />
+
+        <rect
+          x="225"
+          y="222"
+          width="48"
+          height="96"
+          rx="20"
+          fill="url(#compressor)"
+          stroke={compressorB ? 'rgba(74,222,128,0.40)' : 'rgba(148,163,184,0.18)'}
+        />
+        <text x="249" y="262" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
+          B
+        </text>
+        <circle
+          cx="249"
+          cy="288"
+          r="8"
+          fill={compressorB ? '#22c55e' : '#64748b'}
+          filter={compressorB ? 'url(#glowBlue)' : undefined}
+        />
+
+        <circle
+          cx="510"
+          cy="205"
+          r="38"
+          fill="#0f172a"
+          stroke={fanRunning ? 'rgba(74,222,128,0.40)' : 'rgba(148,163,184,0.20)'}
+          strokeWidth="2"
+        />
+        <circle
+          cx="510"
+          cy="205"
+          r="8"
+          fill={fanColor}
+        />
+        <path
+          d="M510 170 C535 178, 540 198, 520 205"
+          fill={fanColor}
+          opacity="0.9"
+        />
+        <path
+          d="M545 205 C537 228, 516 236, 508 216"
+          fill={fanColor}
+          opacity="0.85"
+        />
+        <path
+          d="M508 240 C482 232, 476 212, 496 205"
+          fill={fanColor}
+          opacity="0.8"
+        />
+        <text x="510" y="268" fill="#cbd5e1" fontSize="16" fontWeight="900" textAnchor="middle">
+          FAN
+        </text>
+
+        <text x="70" y="88" fill="#7dd3fc" fontSize="18" fontWeight="900">CHW IN</text>
+        <text x="615" y="88" fill="#7dd3fc" fontSize="18" fontWeight="900">CHW OUT</text>
+        <text x="55" y="278" fill="#fda4af" fontSize="18" fontWeight="900">COND IN</text>
+        <text x="605" y="278" fill="#fda4af" fontSize="18" fontWeight="900">COND OUT</text>
+
+        <text x="60" y="135" fill="#e2e8f0" fontSize="28" fontWeight="900">{fmtTemp(chwIn)}</text>
+        <text x="598" y="135" fill="#e2e8f0" fontSize="28" fontWeight="900">{fmtTemp(chwOut)}</text>
+        <text x="60" y="325" fill="#fee2e2" fontSize="28" fontWeight="900">{fmtTemp(condIn)}</text>
+        <text x="585" y="325" fill="#fee2e2" fontSize="28" fontWeight="900">{fmtTemp(condOut)}</text>
+      </svg>
+    </div>
   )
 }
 
@@ -441,17 +789,39 @@ export default function Chiller1HMIPage() {
     'COMP_B_STATUS',
   ])
 
-  const setpoint = getTemperature(points, [
-    'SETPOINT',
-    'SET POINT',
-    'LEAVING WATER SETPOINT',
-    'CHW SETPOINT',
-    'COOLING SETPOINT',
-    'CH1_SETPOINT',
+  const fanRunning = getBoolean(points, [
+    'FAN STATUS',
+    'FAN RUN',
+    'FAN ENABLED',
+    'FAN ON',
+    'COND FAN',
+    'CONDENSER FAN',
+    'CH1_FAN_STATUS',
+    'CH1_COND_FAN_STATUS',
   ])
 
-  const leavingDiff =
+  const fanAutoMode = getBoolean(points, [
+    'FAN AUTO',
+    'AUTO FAN',
+    'FAN AUTO MODE',
+    'CH1_FAN_AUTO',
+  ])
+
+  const fanSetpoint = getTemperature(points, [
+    'FAN SETPOINT',
+    'FAN START SETPOINT',
+    'CONDENSER FAN SETPOINT',
+    'COND FAN SETPOINT',
+    'FAN AUTO START',
+    'CH1_FAN_SETPOINT',
+    'CH1_COND_FAN_SETPOINT',
+  ])
+
+  const deltaChw =
     chwIn !== null && chwOut !== null ? Number(chwIn) - Number(chwOut) : null
+
+  const deltaCond =
+    condOut !== null && condIn !== null ? Number(condOut) - Number(condIn) : null
 
   const pagePadding = isMobile ? 12 : 18
 
@@ -465,7 +835,7 @@ export default function Chiller1HMIPage() {
         padding: pagePadding,
       }}
     >
-      <div style={{ maxWidth: 1650, margin: '0 auto' }}>
+      <div style={{ maxWidth: 1680, margin: '0 auto' }}>
         <div
           style={{
             display: 'flex',
@@ -476,7 +846,7 @@ export default function Chiller1HMIPage() {
             marginBottom: 18,
           }}
         >
-          <div style={{ minWidth: 0, flex: '1 1 320px' }}>
+          <div style={{ minWidth: 0, flex: '1 1 360px' }}>
             <button
               onClick={() => navigate('/monitoring/nj')}
               style={{
@@ -505,26 +875,29 @@ export default function Chiller1HMIPage() {
             <h1
               style={{
                 margin: '8px 0 8px',
-                fontSize: isMobile ? 28 : 'clamp(30px, 4vw, 52px)',
+                fontSize: isMobile ? 30 : 'clamp(32px, 4vw, 56px)',
                 lineHeight: 1.02,
               }}
             >
-              Chiller 1 HMI
+              Chiller 1
             </h1>
 
             <div style={{ color: '#cbd5e1', fontSize: isMobile ? 14 : 15 }}>
-              Live overview, compressor status, temperatures and operator controls
+              condenser fan control, water temperatures, compressor status
             </div>
           </div>
 
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <HMIBadge tone={online ? 'green' : 'red'}>
-              {online ? 'Online' : 'Offline'}
-            </HMIBadge>
-            <HMIBadge tone={alarm ? 'red' : 'slate'}>
-              {alarm ? 'Alarm active' : 'Normal'}
-            </HMIBadge>
-            <HMIBadge tone="cyan">{asset?.asset_code || 'CH-NJ-01'}</HMIBadge>
+            <Badge tone={online ? 'green' : 'red'}>
+              {online ? 'online' : 'offline'}
+            </Badge>
+            <Badge tone={alarm ? 'red' : 'slate'}>
+              {alarm ? 'alarm active' : 'normal'}
+            </Badge>
+            <Badge tone={fanRunning ? 'green' : 'slate'}>
+              {fanRunning ? 'fan on' : 'fan off'}
+            </Badge>
+            <Badge tone="cyan">{asset?.asset_code || 'CH-NJ-01'}</Badge>
           </div>
         </div>
 
@@ -552,285 +925,173 @@ export default function Chiller1HMIPage() {
           <div
             style={{
               display: 'grid',
-              gridTemplateColumns: isDesktop ? '1.35fr 0.9fr' : '1fr',
+              gridTemplateColumns: isDesktop ? '1.45fr 0.9fr' : '1fr',
               gap: 18,
               alignItems: 'start',
             }}
           >
             <div style={{ display: 'grid', gap: 18 }}>
-              <div
-                style={{
-                  borderRadius: 28,
-                  border: alarm
-                    ? '1px solid rgba(248,113,113,0.30)'
-                    : '1px solid rgba(56,189,248,0.22)',
-                  background:
-                    'linear-gradient(180deg, rgba(15,23,42,0.96) 0%, rgba(2,6,23,0.98) 100%)',
-                  boxShadow: '0 0 0 1px rgba(96,165,250,0.06) inset, 0 20px 50px rgba(0,0,0,0.25)',
-                  overflow: 'hidden',
-                }}
+              <Panel
+                title="Process overview"
+                icon={<Activity size={18} />}
+                danger={alarm}
               >
-                <div style={{ padding: isMobile ? 16 : 20 }}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : '1fr minmax(320px, 0.8fr)',
+                    gap: 18,
+                    alignItems: 'stretch',
+                  }}
+                >
+                  <ProcessMimic
+                    isMobile={isMobile}
+                    chwIn={chwIn}
+                    chwOut={chwOut}
+                    condIn={condIn}
+                    condOut={condOut}
+                    compressorA={compressorA}
+                    compressorB={compressorB}
+                    fanRunning={fanRunning}
+                    alarm={alarm}
+                  />
+
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateColumns: isMobile ? '1fr' : '1fr minmax(320px, 1fr) 1fr',
+                      gridTemplateRows: 'auto auto',
                       gap: 16,
-                      alignItems: 'stretch',
+                      alignContent: 'start',
+                      justifyItems: 'center',
                     }}
                   >
-                    <div style={{ display: 'grid', gap: 16 }}>
-                      <HMIValueCard
-                        title="CHW IN"
-                        value={fmtNumber(chwIn, 1)}
-                        unit="°F"
-                        accent="cyan"
-                        subtitle="entering chilled water"
-                      />
-                      <HMIValueCard
-                        title="COND IN"
-                        value={fmtNumber(condIn, 1)}
-                        unit="°F"
-                        accent="red"
-                        subtitle="entering condenser water"
-                      />
-                    </div>
+                    <FanSetpointCard
+                      value={fanSetpoint}
+                      condOut={condOut}
+                      fanRunning={fanRunning}
+                    />
 
                     <div
                       style={{
-                        minHeight: isMobile ? 260 : 330,
-                        borderRadius: 26,
-                        border: '1px solid rgba(56,189,248,0.14)',
-                        background:
-                          'radial-gradient(circle at center, rgba(59,130,246,0.12) 0%, rgba(15,23,42,0.4) 60%, rgba(2,6,23,0.72) 100%)',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: 18,
+                        width: '100%',
+                        display: 'grid',
+                        gap: 12,
                       }}
                     >
-                      <div
-                        style={{
-                          width: '100%',
-                          maxWidth: 240,
-                          borderRadius: 24,
-                          border: '1px solid rgba(250,204,21,0.28)',
-                          background: 'rgba(113,63,18,0.18)',
-                          padding: '18px 16px',
-                          textAlign: 'center',
-                        }}
-                      >
-                        <div
-                          style={{
-                            color: '#facc15',
-                            fontSize: 12,
-                            fontWeight: 900,
-                            letterSpacing: 1,
-                          }}
-                        >
-                          SETPOINT
-                        </div>
-
-                        <div
-                          style={{
-                            marginTop: 10,
-                            fontSize: isMobile ? 38 : 48,
-                            lineHeight: 1,
-                            fontWeight: 900,
-                            color: '#fde68a',
-                          }}
-                        >
-                          {setpoint === null ? '—' : Number(setpoint).toFixed(1)}
-                          {setpoint === null ? null : <span style={{ marginLeft: 4 }}>°F</span>}
-                        </div>
-                      </div>
-
-                      <div
-                        style={{
-                          marginTop: 18,
-                          width: '100%',
-                          display: 'grid',
-                          gridTemplateColumns: '1fr',
-                          gap: 12,
-                          maxWidth: 320,
-                        }}
-                      >
-                        <CompressorStatus label="Compressor A" active={compressorA} />
-                        <CompressorStatus label="Compressor B" active={compressorB} />
-                      </div>
-                    </div>
-
-                    <div style={{ display: 'grid', gap: 16 }}>
-                      <HMIValueCard
-                        title="CHW OUT"
-                        value={fmtNumber(chwOut, 1)}
-                        unit="°F"
-                        accent="cyan"
-                        subtitle="leaving chilled water"
-                      />
-                      <HMIValueCard
-                        title="COND OUT"
-                        value={fmtNumber(condOut, 1)}
-                        unit="°F"
-                        accent="red"
-                        subtitle="leaving condenser water"
-                      />
+                      <Pill label="Fan status" active={fanRunning} onText="RUN" offText="STOP" />
+                      <Pill label="Fan auto mode" active={fanAutoMode} onText="AUTO" offText="MANUAL" />
+                      <Pill label="Compressor A" active={compressorA} onText="RUN" offText="STOP" />
+                      <Pill label="Compressor B" active={compressorB} onText="RUN" offText="STOP" />
                     </div>
                   </div>
                 </div>
-              </div>
+              </Panel>
 
-              <div
-                style={{
-                  borderRadius: 28,
-                  border: '1px solid rgba(56,189,248,0.22)',
-                  background:
-                    'linear-gradient(180deg, rgba(15,23,42,0.96) 0%, rgba(2,6,23,0.98) 100%)',
-                  boxShadow: '0 0 0 1px rgba(96,165,250,0.06) inset, 0 20px 50px rgba(0,0,0,0.25)',
-                  overflow: 'hidden',
-                }}
-              >
-                <div style={{ padding: isMobile ? 16 : 20 }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      marginBottom: 16,
-                    }}
-                  >
-                    <Settings size={18} />
-                    <div style={{ fontSize: 18, fontWeight: 900 }}>Operator panel</div>
-                  </div>
-
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, minmax(0, 1fr))',
-                      gap: 12,
-                    }}
-                  >
-                    <HMIButton icon={<Power size={16} />} label="Start" disabled />
-                    <HMIButton icon={<Power size={16} />} label="Stop" disabled />
-                    <HMIButton icon={<Settings size={16} />} label="Auto" active disabled />
-                    <HMIButton icon={<Settings size={16} />} label="Manual" disabled />
-                  </div>
-
-                  <div style={{ marginTop: 12, color: '#94a3b8', fontSize: 13 }}>
-                    Buttons are visual only for now. We are only reading telemetry at this stage.
-                  </div>
+              <Panel title="Temperatures" icon={<Thermometer size={18} />}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, minmax(0, 1fr))',
+                    gap: 14,
+                  }}
+                >
+                  <SmallMetric
+                    title="CHW IN"
+                    value={fmtTemp(chwIn)}
+                    subtitle="entering chilled water"
+                    accent="cyan"
+                  />
+                  <SmallMetric
+                    title="CHW OUT"
+                    value={fmtTemp(chwOut)}
+                    subtitle="leaving chilled water"
+                    accent="cyan"
+                  />
+                  <SmallMetric
+                    title="COND IN"
+                    value={fmtTemp(condIn)}
+                    subtitle="entering condenser water"
+                    accent="red"
+                  />
+                  <SmallMetric
+                    title="COND OUT"
+                    value={fmtTemp(condOut)}
+                    subtitle="leaving condenser water"
+                    accent="red"
+                  />
                 </div>
-              </div>
+              </Panel>
             </div>
 
             <div style={{ display: 'grid', gap: 18 }}>
-              <div
-                style={{
-                  borderRadius: 28,
-                  border: '1px solid rgba(56,189,248,0.22)',
-                  background:
-                    'linear-gradient(180deg, rgba(15,23,42,0.96) 0%, rgba(2,6,23,0.98) 100%)',
-                  boxShadow: '0 0 0 1px rgba(96,165,250,0.06) inset, 0 20px 50px rgba(0,0,0,0.25)',
-                  overflow: 'hidden',
-                }}
-              >
-                <div style={{ padding: isMobile ? 16 : 20 }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      marginBottom: 16,
-                    }}
-                  >
-                    <Activity size={18} />
-                    <div style={{ fontSize: 18, fontWeight: 900 }}>Quick values</div>
-                  </div>
-
-                  <div style={{ display: 'grid', gap: 14 }}>
-                    <HMIValueCard
-                      title="ONLINE STATUS"
-                      value={online ? 'ONLINE' : 'OFFLINE'}
-                      accent={online ? 'green' : 'red'}
-                    />
-                    <HMIValueCard
-                      title="ALARM STATUS"
-                      value={alarm ? 'ALARM' : 'NORMAL'}
-                      accent={alarm ? 'red' : 'green'}
-                    />
-                    <HMIValueCard
-                      title="ΔT CHW"
-                      value={leavingDiff === null ? '—' : Number(leavingDiff).toFixed(1)}
-                      unit={leavingDiff === null ? '' : '°F'}
-                      accent="yellow"
-                      subtitle="CHW IN - CHW OUT"
-                    />
-                  </div>
+              <Panel title="Fan control" icon={<Fan size={18} />}>
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <SmallMetric
+                    title="COND OUT"
+                    value={fmtTemp(condOut)}
+                    subtitle="main control temperature"
+                    accent="red"
+                  />
+                  <SmallMetric
+                    title="FAN START SETPOINT"
+                    value={fanSetpoint === null ? '—' : `${Number(fanSetpoint).toFixed(1)}°F`}
+                    subtitle="auto fan start threshold"
+                    accent="yellow"
+                  />
+                  <SmallMetric
+                    title="DIFFERENCE"
+                    value={
+                      condOut !== null && fanSetpoint !== null
+                        ? `${(Number(condOut) - Number(fanSetpoint)).toFixed(1)}°F`
+                        : '—'
+                    }
+                    subtitle="cond out - fan setpoint"
+                    accent="slate"
+                  />
                 </div>
-              </div>
+              </Panel>
 
-              <div
-                style={{
-                  borderRadius: 28,
-                  border: '1px solid rgba(56,189,248,0.22)',
-                  background:
-                    'linear-gradient(180deg, rgba(15,23,42,0.96) 0%, rgba(2,6,23,0.98) 100%)',
-                  boxShadow: '0 0 0 1px rgba(96,165,250,0.06) inset, 0 20px 50px rgba(0,0,0,0.25)',
-                  overflow: 'hidden',
-                }}
-              >
-                <div style={{ padding: isMobile ? 16 : 20 }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      marginBottom: 16,
-                    }}
-                  >
-                    <Thermometer size={18} />
-                    <div style={{ fontSize: 18, fontWeight: 900 }}>Water circuit</div>
-                  </div>
-
-                  <div style={{ display: 'grid', gap: 14 }}>
-                    <HMIValueCard title="CHW IN" value={fmtNumber(chwIn, 1)} unit="°F" accent="cyan" />
-                    <HMIValueCard title="CHW OUT" value={fmtNumber(chwOut, 1)} unit="°F" accent="cyan" />
-                    <HMIValueCard title="COND IN" value={fmtNumber(condIn, 1)} unit="°F" accent="red" />
-                    <HMIValueCard title="COND OUT" value={fmtNumber(condOut, 1)} unit="°F" accent="red" />
-                  </div>
+              <Panel title="Water and load" icon={<Gauge size={18} />}>
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <SmallMetric
+                    title="ΔT CHW"
+                    value={deltaChw === null ? '—' : `${Number(deltaChw).toFixed(1)}°F`}
+                    subtitle="CHW IN - CHW OUT"
+                    accent="cyan"
+                  />
+                  <SmallMetric
+                    title="ΔT COND"
+                    value={deltaCond === null ? '—' : `${Number(deltaCond).toFixed(1)}°F`}
+                    subtitle="COND OUT - COND IN"
+                    accent="red"
+                  />
+                  <SmallMetric
+                    title="SYSTEM"
+                    value={online ? 'ONLINE' : 'OFFLINE'}
+                    subtitle="live telemetry status"
+                    accent={online ? 'green' : 'red'}
+                  />
                 </div>
-              </div>
+              </Panel>
 
-              <div
-                style={{
-                  borderRadius: 28,
-                  border: '1px solid rgba(56,189,248,0.22)',
-                  background:
-                    'linear-gradient(180deg, rgba(15,23,42,0.96) 0%, rgba(2,6,23,0.98) 100%)',
-                  boxShadow: '0 0 0 1px rgba(96,165,250,0.06) inset, 0 20px 50px rgba(0,0,0,0.25)',
-                  overflow: 'hidden',
-                }}
-              >
-                <div style={{ padding: isMobile ? 16 : 20 }}>
-                  <div
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 10,
-                      marginBottom: 16,
-                    }}
-                  >
-                    <Gauge size={18} />
-                    <div style={{ fontSize: 18, fontWeight: 900 }}>Compressor panel</div>
-                  </div>
-
-                  <div style={{ display: 'grid', gap: 12 }}>
-                    <CompressorStatus label="Compressor A" active={compressorA} />
-                    <CompressorStatus label="Compressor B" active={compressorB} />
-                  </div>
+              <Panel title="Controls" icon={<Settings size={18} />}>
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 12,
+                  }}
+                >
+                  <HMICtrlButton label="Start" icon={<Power size={16} />} />
+                  <HMICtrlButton label="Stop" icon={<Power size={16} />} />
+                  <HMICtrlButton label="Auto Fan" icon={<Fan size={16} />} active />
+                  <HMICtrlButton label="Manual Fan" icon={<Fan size={16} />} />
                 </div>
-              </div>
+
+                <div style={{ marginTop: 12, color: '#94a3b8', fontSize: 13 }}>
+                  buttons are visual only for now. current page is read-only telemetry hmi.
+                </div>
+              </Panel>
             </div>
           </div>
         )}
