@@ -9,6 +9,9 @@ import {
   Activity,
   Settings,
   Power,
+  RotateCcw,
+  Save,
+  Zap,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
@@ -111,15 +114,15 @@ function getBoolean(points, aliases) {
     point?.value_text ?? point?.value ?? point?.display_value ?? point?.raw_value
   )
 
-  if (['ON', 'RUN', 'TRUE', 'ACTIVE', 'ENABLE', 'ENABLED', 'OPEN'].includes(text)) return true
-  if (['OFF', 'STOP', 'FALSE', 'INACTIVE', 'DISABLE', 'DISABLED', 'CLOSED'].includes(text)) return false
+  if (['ON', 'RUN', 'TRUE', 'ACTIVE', 'ENABLE', 'ENABLED', 'OPEN', 'AUTO'].includes(text)) {
+    return true
+  }
+
+  if (['OFF', 'STOP', 'FALSE', 'INACTIVE', 'DISABLE', 'DISABLED', 'CLOSED', 'MANUAL'].includes(text)) {
+    return false
+  }
 
   return false
-}
-
-function fmtNumber(value, digits = 1) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
-  return Number(value).toFixed(digits)
 }
 
 function fmtTemp(value, digits = 1) {
@@ -268,6 +271,7 @@ function SmallMetric({ title, value, subtitle = '', accent = 'cyan' }) {
           fontSize: 28,
           lineHeight: 1,
           fontWeight: 900,
+          wordBreak: 'break-word',
         }}
       >
         {value}
@@ -323,18 +327,32 @@ function Pill({ label, active, onText = 'ON', offText = 'OFF' }) {
   )
 }
 
-function HMICtrlButton({ label, icon, active = false, disabled = true }) {
+function CommandButton({
+  label,
+  icon,
+  active = false,
+  danger = false,
+  onClick,
+  disabled = false,
+}) {
   return (
     <button
       type="button"
+      onClick={onClick}
       disabled={disabled}
       style={{
         borderRadius: 18,
-        border: active
-          ? '1px solid rgba(34,211,238,0.28)'
-          : '1px solid rgba(148,163,184,0.16)',
-        background: active ? 'rgba(8,47,73,0.28)' : 'rgba(255,255,255,0.04)',
-        color: disabled ? '#94a3b8' : '#f8fafc',
+        border: danger
+          ? '1px solid rgba(248,113,113,0.30)'
+          : active
+            ? '1px solid rgba(34,211,238,0.30)'
+            : '1px solid rgba(148,163,184,0.16)',
+        background: danger
+          ? 'rgba(127,29,29,0.28)'
+          : active
+            ? 'rgba(8,47,73,0.28)'
+            : 'rgba(255,255,255,0.04)',
+        color: disabled ? '#64748b' : '#f8fafc',
         padding: '14px 16px',
         display: 'flex',
         alignItems: 'center',
@@ -351,21 +369,28 @@ function HMICtrlButton({ label, icon, active = false, disabled = true }) {
   )
 }
 
-function FanSetpointCard({ value, condOut, fanRunning }) {
+function FanSetpointCard({
+  inputValue,
+  setInputValue,
+  liveValue,
+  onSave,
+  saving,
+  condOut,
+}) {
+  const liveNum = Number(liveValue)
+  const condNum = Number(condOut)
   const thresholdReached =
-    value !== null && condOut !== null ? Number(condOut) >= Number(value) : false
+    !Number.isNaN(liveNum) && !Number.isNaN(condNum) ? condNum >= liveNum : false
 
   return (
     <div
       style={{
         width: '100%',
-        maxWidth: 320,
         borderRadius: 28,
         border: '1px solid rgba(250,204,21,0.26)',
         background:
           'linear-gradient(180deg, rgba(54,36,8,0.54) 0%, rgba(28,20,8,0.72) 100%)',
         padding: '22px 18px',
-        textAlign: 'center',
         boxShadow: '0 0 0 1px rgba(250,204,21,0.05) inset',
       }}
     >
@@ -378,31 +403,97 @@ function FanSetpointCard({ value, condOut, fanRunning }) {
           textTransform: 'uppercase',
         }}
       >
-        Fan auto start setpoint
+        Fan start setpoint
       </div>
 
       <div
         style={{
           marginTop: 12,
-          fontSize: 46,
+          fontSize: 42,
           lineHeight: 1,
           fontWeight: 900,
           color: '#fde68a',
         }}
       >
-        {value === null ? '—' : Number(value).toFixed(1)}
-        {value === null ? null : <span style={{ marginLeft: 4 }}>°F</span>}
+        {liveValue === null || liveValue === undefined || Number.isNaN(Number(liveValue))
+          ? '—'
+          : `${Number(liveValue).toFixed(1)}°F`}
       </div>
 
-      <div style={{ marginTop: 12, color: '#cbd5e1', fontSize: 13 }}>
-        fan control threshold by condenser out
+      <div style={{ marginTop: 10, color: '#cbd5e1', fontSize: 13 }}>
+        fan auto start by condenser out
+      </div>
+
+      <div style={{ marginTop: 16 }}>
+        <label
+          htmlFor="fan-setpoint-input"
+          style={{
+            display: 'block',
+            marginBottom: 8,
+            color: '#e2e8f0',
+            fontSize: 13,
+            fontWeight: 800,
+          }}
+        >
+          New setpoint, °F
+        </label>
+
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: '1fr auto',
+            gap: 10,
+          }}
+        >
+          <input
+            id="fan-setpoint-input"
+            type="number"
+            step="0.1"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            style={{
+              width: '100%',
+              height: 48,
+              borderRadius: 16,
+              border: '1px solid rgba(250,204,21,0.24)',
+              background: 'rgba(15,23,42,0.72)',
+              color: '#f8fafc',
+              padding: '0 14px',
+              fontSize: 16,
+              fontWeight: 700,
+              outline: 'none',
+            }}
+          />
+
+          <button
+            type="button"
+            onClick={onSave}
+            disabled={saving}
+            style={{
+              height: 48,
+              padding: '0 16px',
+              borderRadius: 16,
+              border: '1px solid rgba(250,204,21,0.28)',
+              background: 'rgba(113,63,18,0.30)',
+              color: saving ? '#94a3b8' : '#fde68a',
+              fontSize: 14,
+              fontWeight: 900,
+              cursor: saving ? 'not-allowed' : 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <Save size={16} />
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
       </div>
 
       <div
         style={{
           marginTop: 14,
           display: 'flex',
-          justifyContent: 'center',
           gap: 8,
           flexWrap: 'wrap',
         }}
@@ -411,8 +502,8 @@ function FanSetpointCard({ value, condOut, fanRunning }) {
           {thresholdReached ? 'threshold reached' : 'below threshold'}
         </Badge>
 
-        <Badge tone={fanRunning ? 'green' : 'slate'}>
-          {fanRunning ? 'fan running' : 'fan stopped'}
+        <Badge tone="red">
+          cond out {condOut === null || Number.isNaN(Number(condOut)) ? '—' : `${Number(condOut).toFixed(1)}°F`}
         </Badge>
       </div>
     </div>
@@ -617,27 +708,10 @@ function ProcessMimic({
           stroke={fanRunning ? 'rgba(74,222,128,0.40)' : 'rgba(148,163,184,0.20)'}
           strokeWidth="2"
         />
-        <circle
-          cx="510"
-          cy="205"
-          r="8"
-          fill={fanColor}
-        />
-        <path
-          d="M510 170 C535 178, 540 198, 520 205"
-          fill={fanColor}
-          opacity="0.9"
-        />
-        <path
-          d="M545 205 C537 228, 516 236, 508 216"
-          fill={fanColor}
-          opacity="0.85"
-        />
-        <path
-          d="M508 240 C482 232, 476 212, 496 205"
-          fill={fanColor}
-          opacity="0.8"
-        />
+        <circle cx="510" cy="205" r="8" fill={fanColor} />
+        <path d="M510 170 C535 178, 540 198, 520 205" fill={fanColor} opacity="0.9" />
+        <path d="M545 205 C537 228, 516 236, 508 216" fill={fanColor} opacity="0.85" />
+        <path d="M508 240 C482 232, 476 212, 496 205" fill={fanColor} opacity="0.8" />
         <text x="510" y="268" fill="#cbd5e1" fontSize="16" fontWeight="900" textAnchor="middle">
           FAN
         </text>
@@ -663,6 +737,29 @@ export default function Chiller1HMIPage() {
   const [rows, setRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+
+  const [fanSetpointInput, setFanSetpointInput] = useState('')
+  const [sendingSetpoint, setSendingSetpoint] = useState(false)
+  const [sendingSpeed, setSendingSpeed] = useState('')
+  const [resettingAlert, setResettingAlert] = useState(false)
+  const [commandMessage, setCommandMessage] = useState('')
+
+  async function sendCommand(commandType, commandValue) {
+    setCommandMessage('')
+
+    const payload = {
+      asset_code: 'CH-NJ-01',
+      command_type: commandType,
+      command_value: String(commandValue),
+      status: 'pending',
+    }
+
+    const { error: insertError } = await supabase.from('device_commands').insert(payload)
+
+    if (insertError) {
+      throw insertError
+    }
+  }
 
   async function fetchData({ silent = false } = {}) {
     try {
@@ -699,7 +796,7 @@ export default function Chiller1HMIPage() {
       fetchData({ silent: true })
     }, POLL_INTERVAL_MS)
 
-    const latestChannel = supabase
+    const telemetryChannel = supabase
       .channel('monitoring-ch1-hmi')
       .on(
         'postgres_changes',
@@ -716,7 +813,7 @@ export default function Chiller1HMIPage() {
 
     return () => {
       clearInterval(timer)
-      supabase.removeChannel(latestChannel)
+      supabase.removeChannel(telemetryChannel)
     }
   }, [])
 
@@ -817,11 +914,74 @@ export default function Chiller1HMIPage() {
     'CH1_COND_FAN_SETPOINT',
   ])
 
+  const fanSpeed = getTemperature(points, [
+    'FAN SPEED',
+    'FAN HZ',
+    'FAN FREQUENCY',
+    'COND FAN SPEED',
+    'CONDENSER FAN SPEED',
+    'CH1_FAN_SPEED',
+    'CH1_FAN_HZ',
+    'CH1_FAN_FREQUENCY',
+  ])
+
   const deltaChw =
     chwIn !== null && chwOut !== null ? Number(chwIn) - Number(chwOut) : null
 
   const deltaCond =
     condOut !== null && condIn !== null ? Number(condOut) - Number(condIn) : null
+
+  useEffect(() => {
+    if (fanSetpoint !== null && fanSetpoint !== undefined && !Number.isNaN(Number(fanSetpoint))) {
+      setFanSetpointInput(Number(fanSetpoint).toFixed(1))
+    }
+  }, [fanSetpoint])
+
+  async function handleSaveSetpoint() {
+    const value = Number(fanSetpointInput)
+
+    if (Number.isNaN(value)) {
+      setCommandMessage('Setpoint must be a valid number.')
+      return
+    }
+
+    setSendingSetpoint(true)
+
+    try {
+      await sendCommand('fan_setpoint', value.toFixed(1))
+      setCommandMessage(`Command queued: fan_setpoint = ${value.toFixed(1)} °F`)
+    } catch (err) {
+      setCommandMessage(err?.message || 'Failed to send fan setpoint command.')
+    } finally {
+      setSendingSetpoint(false)
+    }
+  }
+
+  async function handleSetFanSpeed(speed) {
+    setSendingSpeed(String(speed))
+
+    try {
+      await sendCommand('fan_speed', speed)
+      setCommandMessage(`Command queued: fan_speed = ${speed} Hz`)
+    } catch (err) {
+      setCommandMessage(err?.message || `Failed to send fan speed ${speed} Hz.`)
+    } finally {
+      setSendingSpeed('')
+    }
+  }
+
+  async function handleResetAlert() {
+    setResettingAlert(true)
+
+    try {
+      await sendCommand('reset_alert', 1)
+      setCommandMessage('Command queued: reset_alert')
+    } catch (err) {
+      setCommandMessage(err?.message || 'Failed to send reset_alert command.')
+    } finally {
+      setResettingAlert(false)
+    }
+  }
 
   const pagePadding = isMobile ? 12 : 18
 
@@ -919,6 +1079,18 @@ export default function Chiller1HMIPage() {
           </div>
         ) : null}
 
+        {commandMessage ? (
+          <div
+            style={{
+              ...statCardStyle(isMobile),
+              marginBottom: 18,
+              color: '#cbd5e1',
+            }}
+          >
+            {commandMessage}
+          </div>
+        ) : null}
+
         {loading ? (
           <div style={statCardStyle(isMobile)}>Loading Chiller 1 HMI…</div>
         ) : (
@@ -939,7 +1111,7 @@ export default function Chiller1HMIPage() {
                 <div
                   style={{
                     display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr' : '1fr minmax(320px, 0.8fr)',
+                    gridTemplateColumns: isMobile ? '1fr' : '1fr minmax(340px, 0.82fr)',
                     gap: 18,
                     alignItems: 'stretch',
                   }}
@@ -959,30 +1131,23 @@ export default function Chiller1HMIPage() {
                   <div
                     style={{
                       display: 'grid',
-                      gridTemplateRows: 'auto auto',
                       gap: 16,
                       alignContent: 'start',
-                      justifyItems: 'center',
                     }}
                   >
                     <FanSetpointCard
-                      value={fanSetpoint}
+                      inputValue={fanSetpointInput}
+                      setInputValue={setFanSetpointInput}
+                      liveValue={fanSetpoint}
+                      onSave={handleSaveSetpoint}
+                      saving={sendingSetpoint}
                       condOut={condOut}
-                      fanRunning={fanRunning}
                     />
 
-                    <div
-                      style={{
-                        width: '100%',
-                        display: 'grid',
-                        gap: 12,
-                      }}
-                    >
-                      <Pill label="Fan status" active={fanRunning} onText="RUN" offText="STOP" />
-                      <Pill label="Fan auto mode" active={fanAutoMode} onText="AUTO" offText="MANUAL" />
-                      <Pill label="Compressor A" active={compressorA} onText="RUN" offText="STOP" />
-                      <Pill label="Compressor B" active={compressorB} onText="RUN" offText="STOP" />
-                    </div>
+                    <Pill label="Fan status" active={fanRunning} onText="RUN" offText="STOP" />
+                    <Pill label="Fan auto mode" active={fanAutoMode} onText="AUTO" offText="MANUAL" />
+                    <Pill label="Compressor A" active={compressorA} onText="RUN" offText="STOP" />
+                    <Pill label="Compressor B" active={compressorB} onText="RUN" offText="STOP" />
                   </div>
                 </div>
               </Panel>
@@ -1034,20 +1199,47 @@ export default function Chiller1HMIPage() {
                   />
                   <SmallMetric
                     title="FAN START SETPOINT"
-                    value={fanSetpoint === null ? '—' : `${Number(fanSetpoint).toFixed(1)}°F`}
-                    subtitle="auto fan start threshold"
+                    value={
+                      fanSetpoint === null || fanSetpoint === undefined || Number.isNaN(Number(fanSetpoint))
+                        ? '—'
+                        : `${Number(fanSetpoint).toFixed(1)}°F`
+                    }
+                    subtitle="current live threshold"
                     accent="yellow"
                   />
                   <SmallMetric
-                    title="DIFFERENCE"
+                    title="FAN FREQUENCY"
                     value={
-                      condOut !== null && fanSetpoint !== null
-                        ? `${(Number(condOut) - Number(fanSetpoint)).toFixed(1)}°F`
-                        : '—'
+                      fanSpeed === null || fanSpeed === undefined || Number.isNaN(Number(fanSpeed))
+                        ? '—'
+                        : `${Number(fanSpeed).toFixed(0)} Hz`
                     }
-                    subtitle="cond out - fan setpoint"
-                    accent="slate"
+                    subtitle="current live fan speed"
+                    accent="cyan"
                   />
+
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: '1fr 1fr',
+                      gap: 12,
+                    }}
+                  >
+                    <CommandButton
+                      label={sendingSpeed === '30' ? 'Sending…' : '30 Hz'}
+                      icon={<Zap size={16} />}
+                      active={Number(fanSpeed) === 30}
+                      onClick={() => handleSetFanSpeed(30)}
+                      disabled={sendingSpeed !== ''}
+                    />
+                    <CommandButton
+                      label={sendingSpeed === '60' ? 'Sending…' : '60 Hz'}
+                      icon={<Zap size={16} />}
+                      active={Number(fanSpeed) === 60}
+                      onClick={() => handleSetFanSpeed(60)}
+                      disabled={sendingSpeed !== ''}
+                    />
+                  </div>
                 </div>
               </Panel>
 
@@ -1074,22 +1266,46 @@ export default function Chiller1HMIPage() {
                 </div>
               </Panel>
 
-              <Panel title="Controls" icon={<Settings size={18} />}>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: '1fr 1fr',
-                    gap: 12,
-                  }}
-                >
-                  <HMICtrlButton label="Start" icon={<Power size={16} />} />
-                  <HMICtrlButton label="Stop" icon={<Power size={16} />} />
-                  <HMICtrlButton label="Auto Fan" icon={<Fan size={16} />} active />
-                  <HMICtrlButton label="Manual Fan" icon={<Fan size={16} />} />
-                </div>
+              <Panel title="Alarm and commands" icon={<Settings size={18} />} danger={alarm}>
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <SmallMetric
+                    title="ALARM STATUS"
+                    value={alarm ? 'ACTIVE' : 'NORMAL'}
+                    subtitle="current live alarm state"
+                    accent={alarm ? 'red' : 'green'}
+                  />
 
-                <div style={{ marginTop: 12, color: '#94a3b8', fontSize: 13 }}>
-                  buttons are visual only for now. current page is read-only telemetry hmi.
+                  <div
+                    style={{
+                      display: 'grid',
+                      gridTemplateColumns: isMobile ? '1fr' : '1fr 1fr',
+                      gap: 12,
+                    }}
+                  >
+                    <CommandButton
+                      label="Fan ON"
+                      icon={<Power size={16} />}
+                      onClick={() => sendCommand('fan_on', 1).then(() => setCommandMessage('Command queued: fan_on')).catch((err) => setCommandMessage(err?.message || 'Failed to send fan_on command.'))}
+                    />
+                    <CommandButton
+                      label="Fan OFF"
+                      icon={<Power size={16} />}
+                      onClick={() => sendCommand('fan_off', 1).then(() => setCommandMessage('Command queued: fan_off')).catch((err) => setCommandMessage(err?.message || 'Failed to send fan_off command.'))}
+                    />
+                    <CommandButton
+                      label={resettingAlert ? 'Resetting…' : 'RESET ALERT'}
+                      icon={<RotateCcw size={16} />}
+                      danger
+                      onClick={handleResetAlert}
+                      disabled={resettingAlert}
+                    />
+                    <CommandButton
+                      label="AUTO FAN"
+                      icon={<Fan size={16} />}
+                      active={fanAutoMode}
+                      onClick={() => sendCommand('fan_mode', 'auto').then(() => setCommandMessage('Command queued: fan_mode = auto')).catch((err) => setCommandMessage(err?.message || 'Failed to send fan_mode auto.'))}
+                    />
+                  </div>
                 </div>
               </Panel>
             </div>
