@@ -12,6 +12,7 @@ import {
   RotateCcw,
   Save,
   Zap,
+  Lock,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
@@ -744,6 +745,12 @@ export default function Chiller1HMIPage() {
   const [resettingAlert, setResettingAlert] = useState(false)
   const [commandMessage, setCommandMessage] = useState('')
 
+  const [showResetModal, setShowResetModal] = useState(false)
+  const [resetPinInput, setResetPinInput] = useState('')
+  const [resetPinError, setResetPinError] = useState('')
+
+  const RESET_ALERT_PIN = '7720'
+
   async function sendCommand(commandType, commandValue) {
     setCommandMessage('')
 
@@ -759,6 +766,29 @@ export default function Chiller1HMIPage() {
     if (insertError) {
       throw insertError
     }
+  }
+
+  function openResetAlertModal() {
+    setResetPinInput('')
+    setResetPinError('')
+    setShowResetModal(true)
+  }
+
+  function closeResetAlertModal() {
+    setShowResetModal(false)
+    setResetPinInput('')
+    setResetPinError('')
+  }
+
+  async function confirmResetAlertWithPin() {
+    if (resetPinInput !== RESET_ALERT_PIN) {
+      setResetPinError('Invalid PIN code')
+      return
+    }
+
+    setResetPinError('')
+    setShowResetModal(false)
+    await handleResetAlert()
   }
 
   async function fetchData({ silent = false } = {}) {
@@ -980,6 +1010,33 @@ export default function Chiller1HMIPage() {
       setCommandMessage(err?.message || 'Failed to send reset_alert command.')
     } finally {
       setResettingAlert(false)
+    }
+  }
+
+  async function handleFanOn() {
+    try {
+      await sendCommand('fan_on', 1)
+      setCommandMessage('Command queued: fan_on')
+    } catch (err) {
+      setCommandMessage(err?.message || 'Failed to send fan_on command.')
+    }
+  }
+
+  async function handleFanOff() {
+    try {
+      await sendCommand('fan_off', 1)
+      setCommandMessage('Command queued: fan_off')
+    } catch (err) {
+      setCommandMessage(err?.message || 'Failed to send fan_off command.')
+    }
+  }
+
+  async function handleFanAuto() {
+    try {
+      await sendCommand('fan_mode', 'auto')
+      setCommandMessage('Command queued: fan_mode = auto')
+    } catch (err) {
+      setCommandMessage(err?.message || 'Failed to send fan_mode auto.')
     }
   }
 
@@ -1285,25 +1342,25 @@ export default function Chiller1HMIPage() {
                     <CommandButton
                       label="Fan ON"
                       icon={<Power size={16} />}
-                      onClick={() => sendCommand('fan_on', 1).then(() => setCommandMessage('Command queued: fan_on')).catch((err) => setCommandMessage(err?.message || 'Failed to send fan_on command.'))}
+                      onClick={handleFanOn}
                     />
                     <CommandButton
                       label="Fan OFF"
                       icon={<Power size={16} />}
-                      onClick={() => sendCommand('fan_off', 1).then(() => setCommandMessage('Command queued: fan_off')).catch((err) => setCommandMessage(err?.message || 'Failed to send fan_off command.'))}
+                      onClick={handleFanOff}
                     />
                     <CommandButton
                       label={resettingAlert ? 'Resetting…' : 'RESET ALERT'}
                       icon={<RotateCcw size={16} />}
                       danger
-                      onClick={handleResetAlert}
+                      onClick={openResetAlertModal}
                       disabled={resettingAlert}
                     />
                     <CommandButton
                       label="AUTO FAN"
                       icon={<Fan size={16} />}
                       active={fanAutoMode}
-                      onClick={() => sendCommand('fan_mode', 'auto').then(() => setCommandMessage('Command queued: fan_mode = auto')).catch((err) => setCommandMessage(err?.message || 'Failed to send fan_mode auto.'))}
+                      onClick={handleFanAuto}
                     />
                   </div>
                 </div>
@@ -1311,6 +1368,155 @@ export default function Chiller1HMIPage() {
             </div>
           </div>
         )}
+
+        {showResetModal ? (
+          <div
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(2,6,23,0.78)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: 16,
+              zIndex: 2000,
+            }}
+          >
+            <div
+              style={{
+                width: '100%',
+                maxWidth: 420,
+                borderRadius: 28,
+                border: '1px solid rgba(248,113,113,0.28)',
+                background:
+                  'linear-gradient(180deg, rgba(28,10,16,0.96) 0%, rgba(10,10,18,0.98) 100%)',
+                boxShadow: '0 20px 60px rgba(0,0,0,0.45)',
+                overflow: 'hidden',
+              }}
+            >
+              <div style={{ padding: 22 }}>
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    marginBottom: 14,
+                  }}
+                >
+                  <Lock size={18} />
+                  <div style={{ fontSize: 20, fontWeight: 900 }}>
+                    Reset alert authorization
+                  </div>
+                </div>
+
+                <div style={{ color: '#cbd5e1', fontSize: 14, marginBottom: 14 }}>
+                  Enter PIN code to send <strong>RESET ALERT</strong> command.
+                </div>
+
+                <label
+                  htmlFor="reset-alert-pin"
+                  style={{
+                    display: 'block',
+                    marginBottom: 8,
+                    color: '#e2e8f0',
+                    fontSize: 13,
+                    fontWeight: 800,
+                  }}
+                >
+                  PIN code
+                </label>
+
+                <input
+                  id="reset-alert-pin"
+                  type="password"
+                  inputMode="numeric"
+                  value={resetPinInput}
+                  onChange={(e) => {
+                    setResetPinInput(e.target.value)
+                    if (resetPinError) setResetPinError('')
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      confirmResetAlertWithPin()
+                    }
+                    if (e.key === 'Escape') {
+                      closeResetAlertModal()
+                    }
+                  }}
+                  autoFocus
+                  style={{
+                    width: '100%',
+                    height: 50,
+                    borderRadius: 16,
+                    border: '1px solid rgba(248,113,113,0.24)',
+                    background: 'rgba(15,23,42,0.72)',
+                    color: '#f8fafc',
+                    padding: '0 14px',
+                    fontSize: 16,
+                    fontWeight: 700,
+                    outline: 'none',
+                  }}
+                />
+
+                {resetPinError ? (
+                  <div
+                    style={{
+                      marginTop: 10,
+                      color: '#fca5a5',
+                      fontSize: 13,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {resetPinError}
+                  </div>
+                ) : null}
+
+                <div
+                  style={{
+                    marginTop: 18,
+                    display: 'grid',
+                    gridTemplateColumns: '1fr 1fr',
+                    gap: 12,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={closeResetAlertModal}
+                    style={{
+                      height: 48,
+                      borderRadius: 16,
+                      border: '1px solid rgba(148,163,184,0.18)',
+                      background: 'rgba(255,255,255,0.04)',
+                      color: '#e2e8f0',
+                      fontSize: 14,
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={confirmResetAlertWithPin}
+                    style={{
+                      height: 48,
+                      borderRadius: 16,
+                      border: '1px solid rgba(248,113,113,0.28)',
+                      background: 'rgba(127,29,29,0.28)',
+                      color: '#fecaca',
+                      fontSize: 14,
+                      fontWeight: 900,
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Confirm reset
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : null}
       </div>
     </div>
   )
