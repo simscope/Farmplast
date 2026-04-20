@@ -574,39 +574,10 @@ function ProcessMimic({
           </linearGradient>
         </defs>
 
-        <path
-          d="M 40 110 H 210"
-          stroke={lineBlue}
-          strokeWidth="12"
-          strokeLinecap="round"
-          fill="none"
-          filter="url(#glowBlue)"
-        />
-        <path
-          d="M 550 110 H 720"
-          stroke={lineBlue}
-          strokeWidth="12"
-          strokeLinecap="round"
-          fill="none"
-          filter="url(#glowBlue)"
-        />
-
-        <path
-          d="M 40 300 H 210"
-          stroke={lineRed}
-          strokeWidth="12"
-          strokeLinecap="round"
-          fill="none"
-          filter="url(#glowRed)"
-        />
-        <path
-          d="M 550 300 H 720"
-          stroke={lineRed}
-          strokeWidth="12"
-          strokeLinecap="round"
-          fill="none"
-          filter="url(#glowRed)"
-        />
+        <path d="M 40 110 H 210" stroke={lineBlue} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowBlue)" />
+        <path d="M 550 110 H 720" stroke={lineBlue} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowBlue)" />
+        <path d="M 40 300 H 210" stroke={lineRed} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowRed)" />
+        <path d="M 550 300 H 720" stroke={lineRed} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowRed)" />
 
         <polygon points="190,110 172,101 172,119" fill="#7dd3fc" />
         <polygon points="570,110 588,101 588,119" fill="#7dd3fc" />
@@ -670,16 +641,8 @@ function ProcessMimic({
           fill="url(#compressor)"
           stroke={compressorA ? 'rgba(74,222,128,0.40)' : 'rgba(148,163,184,0.18)'}
         />
-        <text x="249" y="132" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
-          A
-        </text>
-        <circle
-          cx="249"
-          cy="158"
-          r="8"
-          fill={compressorA ? '#22c55e' : '#64748b'}
-          filter={compressorA ? 'url(#glowBlue)' : undefined}
-        />
+        <text x="249" y="132" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">A</text>
+        <circle cx="249" cy="158" r="8" fill={compressorA ? '#22c55e' : '#64748b'} />
 
         <rect
           x="225"
@@ -690,16 +653,8 @@ function ProcessMimic({
           fill="url(#compressor)"
           stroke={compressorB ? 'rgba(74,222,128,0.40)' : 'rgba(148,163,184,0.18)'}
         />
-        <text x="249" y="262" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
-          B
-        </text>
-        <circle
-          cx="249"
-          cy="288"
-          r="8"
-          fill={compressorB ? '#22c55e' : '#64748b'}
-          filter={compressorB ? 'url(#glowBlue)' : undefined}
-        />
+        <text x="249" y="262" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">B</text>
+        <circle cx="249" cy="288" r="8" fill={compressorB ? '#22c55e' : '#64748b'} />
 
         <circle
           cx="510"
@@ -713,9 +668,7 @@ function ProcessMimic({
         <path d="M510 170 C535 178, 540 198, 520 205" fill={fanColor} opacity="0.9" />
         <path d="M545 205 C537 228, 516 236, 508 216" fill={fanColor} opacity="0.85" />
         <path d="M508 240 C482 232, 476 212, 496 205" fill={fanColor} opacity="0.8" />
-        <text x="510" y="268" fill="#cbd5e1" fontSize="16" fontWeight="900" textAnchor="middle">
-          FAN
-        </text>
+        <text x="510" y="268" fill="#cbd5e1" fontSize="16" fontWeight="900" textAnchor="middle">FAN</text>
 
         <text x="70" y="88" fill="#7dd3fc" fontSize="18" fontWeight="900">CHW IN</text>
         <text x="615" y="88" fill="#7dd3fc" fontSize="18" fontWeight="900">CHW OUT</text>
@@ -742,6 +695,8 @@ export default function Chiller1HMIPage() {
   const [fanSetpointInput, setFanSetpointInput] = useState('')
   const [sendingSetpoint, setSendingSetpoint] = useState(false)
   const [sendingSpeed, setSendingSpeed] = useState('')
+  const [sendingMode, setSendingMode] = useState('')
+  const [sendingPower, setSendingPower] = useState('')
   const [resettingAlert, setResettingAlert] = useState(false)
   const [commandMessage, setCommandMessage] = useState('')
 
@@ -762,10 +717,11 @@ export default function Chiller1HMIPage() {
     }
 
     const { error: insertError } = await supabase.from('device_commands').insert(payload)
+    if (insertError) throw insertError
 
-    if (insertError) {
-      throw insertError
-    }
+    setTimeout(() => {
+      fetchData({ silent: true })
+    }, 600)
   }
 
   function openResetAlertModal() {
@@ -858,102 +814,23 @@ export default function Chiller1HMIPage() {
   const online = !!status?.online
   const alarm = !!status?.alarm
 
-  const chwIn = getTemperature(points, [
-    'ECHW',
-    'CHILLED WATER IN',
-    'CHW IN',
-    'ENTERING CHILLED WATER',
-    'EVAP WATER IN',
-    'ENTERING FLUID TEMP',
-    'CH1_CHW_IN',
-  ])
+  const chwIn = getTemperature(points, ['CH1_CHW_IN', 'CHW IN'])
+  const chwOut = getTemperature(points, ['CH1_CHW_OUT', 'CHW OUT'])
+  const condIn = getTemperature(points, ['CH1_CDW_IN', 'COND IN', 'CDW IN'])
+  const condOut = getTemperature(points, ['CH1_CDW_OUT', 'COND OUT', 'CDW OUT'])
 
-  const chwOut = getTemperature(points, [
-    'LCHW',
-    'CHILLED WATER OUT',
-    'CHW OUT',
-    'LEAVING CHILLED WATER',
-    'EVAP WATER OUT',
-    'LEAVING FLUID TEMP',
-    'CH1_CHW_OUT',
-  ])
+  const compressorA = getBoolean(points, ['CH1_COMP1', 'COMP1', 'COMP A'])
+  const compressorB = getBoolean(points, ['CH1_COMP2', 'COMP2', 'COMP B'])
 
-  const condIn = getTemperature(points, [
-    'ECW',
-    'CONDENSER WATER IN',
-    'COND IN',
-    'ENTERING CONDENSER WATER',
-    'CH1_COND_WATER_IN',
-  ])
+  const fanRunning = getBoolean(points, ['CH1_FAN_ENABLE', 'FAN ENABLE'])
+  const fanAutoMode = getBoolean(points, ['CH1_AUTO', 'AUTO'])
 
-  const condOut = getTemperature(points, [
-    'LCW',
-    'CONDENSER WATER OUT',
-    'COND OUT',
-    'LEAVING CONDENSER WATER',
-    'CH1_COND_WATER_OUT',
-  ])
+  const fan30Active = getBoolean(points, ['CH1_FAN_30'])
+  const fan60Active = getBoolean(points, ['CH1_FAN_60'])
 
-  const compressorA = getBoolean(points, [
-    'COMPRESSOR A',
-    'COMP A',
-    'COMP_A',
-    'COMP-A',
-    'COMP1',
-    'COMP 1',
-    'CH1_COMP_A_STATUS',
-    'COMP_A_STATUS',
-  ])
+  const fanSetpoint = getTemperature(points, ['CH1_SETPOINT', 'SETPOINT'])
 
-  const compressorB = getBoolean(points, [
-    'COMPRESSOR B',
-    'COMP B',
-    'COMP_B',
-    'COMP-B',
-    'COMP2',
-    'COMP 2',
-    'CH1_COMP_B_STATUS',
-    'COMP_B_STATUS',
-  ])
-
-  const fanRunning = getBoolean(points, [
-    'FAN STATUS',
-    'FAN RUN',
-    'FAN ENABLED',
-    'FAN ON',
-    'COND FAN',
-    'CONDENSER FAN',
-    'CH1_FAN_STATUS',
-    'CH1_COND_FAN_STATUS',
-  ])
-
-  const fanAutoMode = getBoolean(points, [
-    'FAN AUTO',
-    'AUTO FAN',
-    'FAN AUTO MODE',
-    'CH1_FAN_AUTO',
-  ])
-
-  const fanSetpoint = getTemperature(points, [
-    'FAN SETPOINT',
-    'FAN START SETPOINT',
-    'CONDENSER FAN SETPOINT',
-    'COND FAN SETPOINT',
-    'FAN AUTO START',
-    'CH1_FAN_SETPOINT',
-    'CH1_COND_FAN_SETPOINT',
-  ])
-
-  const fanSpeed = getTemperature(points, [
-    'FAN SPEED',
-    'FAN HZ',
-    'FAN FREQUENCY',
-    'COND FAN SPEED',
-    'CONDENSER FAN SPEED',
-    'CH1_FAN_SPEED',
-    'CH1_FAN_HZ',
-    'CH1_FAN_FREQUENCY',
-  ])
+  const fanSpeed = fan60Active ? 60 : fan30Active ? 30 : fanRunning ? 0 : null
 
   const deltaChw =
     chwIn !== null && chwOut !== null ? Number(chwIn) - Number(chwOut) : null
@@ -1014,29 +891,50 @@ export default function Chiller1HMIPage() {
   }
 
   async function handleFanOn() {
+    setSendingPower('on')
     try {
       await sendCommand('fan_on', 1)
       setCommandMessage('Command queued: fan_on')
     } catch (err) {
       setCommandMessage(err?.message || 'Failed to send fan_on command.')
+    } finally {
+      setSendingPower('')
     }
   }
 
   async function handleFanOff() {
+    setSendingPower('off')
     try {
       await sendCommand('fan_off', 1)
       setCommandMessage('Command queued: fan_off')
     } catch (err) {
       setCommandMessage(err?.message || 'Failed to send fan_off command.')
+    } finally {
+      setSendingPower('')
     }
   }
 
   async function handleFanAuto() {
+    setSendingMode('auto')
     try {
       await sendCommand('fan_mode', 'auto')
       setCommandMessage('Command queued: fan_mode = auto')
     } catch (err) {
       setCommandMessage(err?.message || 'Failed to send fan_mode auto.')
+    } finally {
+      setSendingMode('')
+    }
+  }
+
+  async function handleFanManual() {
+    setSendingMode('manual')
+    try {
+      await sendCommand('fan_mode', 'manual')
+      setCommandMessage('Command queued: fan_mode = manual')
+    } catch (err) {
+      setCommandMessage(err?.message || 'Failed to send fan_mode manual.')
+    } finally {
+      setSendingMode('')
     }
   }
 
@@ -1114,6 +1012,9 @@ export default function Chiller1HMIPage() {
             <Badge tone={fanRunning ? 'green' : 'slate'}>
               {fanRunning ? 'fan on' : 'fan off'}
             </Badge>
+            <Badge tone={fanAutoMode ? 'yellow' : 'slate'}>
+              {fanAutoMode ? 'auto' : 'manual'}
+            </Badge>
             <Badge tone="cyan">{asset?.asset_code || 'CH-NJ-01'}</Badge>
           </div>
         </div>
@@ -1160,11 +1061,7 @@ export default function Chiller1HMIPage() {
             }}
           >
             <div style={{ display: 'grid', gap: 18 }}>
-              <Panel
-                title="Process overview"
-                icon={<Activity size={18} />}
-                danger={alarm}
-              >
+              <Panel title="Process overview" icon={<Activity size={18} />} danger={alarm}>
                 <div
                   style={{
                     display: 'grid',
@@ -1217,30 +1114,10 @@ export default function Chiller1HMIPage() {
                     gap: 14,
                   }}
                 >
-                  <SmallMetric
-                    title="CHW IN"
-                    value={fmtTemp(chwIn)}
-                    subtitle="entering chilled water"
-                    accent="cyan"
-                  />
-                  <SmallMetric
-                    title="CHW OUT"
-                    value={fmtTemp(chwOut)}
-                    subtitle="leaving chilled water"
-                    accent="cyan"
-                  />
-                  <SmallMetric
-                    title="COND IN"
-                    value={fmtTemp(condIn)}
-                    subtitle="entering condenser water"
-                    accent="red"
-                  />
-                  <SmallMetric
-                    title="COND OUT"
-                    value={fmtTemp(condOut)}
-                    subtitle="leaving condenser water"
-                    accent="red"
-                  />
+                  <SmallMetric title="CHW IN" value={fmtTemp(chwIn)} subtitle="entering chilled water" accent="cyan" />
+                  <SmallMetric title="CHW OUT" value={fmtTemp(chwOut)} subtitle="leaving chilled water" accent="cyan" />
+                  <SmallMetric title="COND IN" value={fmtTemp(condIn)} subtitle="entering condenser water" accent="red" />
+                  <SmallMetric title="COND OUT" value={fmtTemp(condOut)} subtitle="leaving condenser water" accent="red" />
                 </div>
               </Panel>
             </div>
@@ -1285,14 +1162,14 @@ export default function Chiller1HMIPage() {
                     <CommandButton
                       label={sendingSpeed === '30' ? 'Sending…' : '30 Hz'}
                       icon={<Zap size={16} />}
-                      active={Number(fanSpeed) === 30}
+                      active={fan30Active}
                       onClick={() => handleSetFanSpeed(30)}
                       disabled={sendingSpeed !== ''}
                     />
                     <CommandButton
                       label={sendingSpeed === '60' ? 'Sending…' : '60 Hz'}
                       icon={<Zap size={16} />}
-                      active={Number(fanSpeed) === 60}
+                      active={fan60Active}
                       onClick={() => handleSetFanSpeed(60)}
                       disabled={sendingSpeed !== ''}
                     />
@@ -1340,14 +1217,18 @@ export default function Chiller1HMIPage() {
                     }}
                   >
                     <CommandButton
-                      label="Fan ON"
+                      label={sendingPower === 'on' ? 'Sending…' : 'Fan ON'}
                       icon={<Power size={16} />}
+                      active={fanRunning}
                       onClick={handleFanOn}
+                      disabled={sendingPower !== ''}
                     />
                     <CommandButton
-                      label="Fan OFF"
+                      label={sendingPower === 'off' ? 'Sending…' : 'Fan OFF'}
                       icon={<Power size={16} />}
+                      active={!fanRunning}
                       onClick={handleFanOff}
+                      disabled={sendingPower !== ''}
                     />
                     <CommandButton
                       label={resettingAlert ? 'Resetting…' : 'RESET ALERT'}
@@ -1357,10 +1238,18 @@ export default function Chiller1HMIPage() {
                       disabled={resettingAlert}
                     />
                     <CommandButton
-                      label="AUTO FAN"
+                      label={sendingMode === 'auto' ? 'Sending…' : 'AUTO FAN'}
                       icon={<Fan size={16} />}
                       active={fanAutoMode}
                       onClick={handleFanAuto}
+                      disabled={sendingMode !== ''}
+                    />
+                    <CommandButton
+                      label={sendingMode === 'manual' ? 'Sending…' : 'MANUAL'}
+                      icon={<Settings size={16} />}
+                      active={!fanAutoMode}
+                      onClick={handleFanManual}
+                      disabled={sendingMode !== ''}
                     />
                   </div>
                 </div>
@@ -1436,12 +1325,8 @@ export default function Chiller1HMIPage() {
                     if (resetPinError) setResetPinError('')
                   }}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      confirmResetAlertWithPin()
-                    }
-                    if (e.key === 'Escape') {
-                      closeResetAlertModal()
-                    }
+                    if (e.key === 'Enter') confirmResetAlertWithPin()
+                    if (e.key === 'Escape') closeResetAlertModal()
                   }}
                   autoFocus
                   style={{
