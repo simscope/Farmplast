@@ -611,9 +611,10 @@ export default function ChillerIllustration({
         <div
           style={{
             display: 'grid',
-            gridTemplateColumns: isMobile ? '1fr' : '220px 1fr 220px',
+            gridTemplateColumns: isMobile ? '1fr' : '220px minmax(260px, 330px) 220px',
             gap: 14,
             alignItems: 'center',
+            justifyContent: 'center',
           }}
         >
           <div style={{ display: 'grid', gap: 14 }}>
@@ -638,7 +639,10 @@ export default function ChillerIllustration({
 
           <div
             style={{
-              minHeight: isMobile ? 270 : 316,
+              minHeight: isMobile ? 220 : 250,
+              maxWidth: 330,
+              width: '100%',
+              margin: '0 auto',
               borderRadius: 24,
               position: 'relative',
               overflow: 'hidden',
@@ -683,7 +687,7 @@ export default function ChillerIllustration({
               </defs>
 
               <path
-                d="M 20 82 H 155"
+                d="M 38 82 H 152"
                 stroke="#38bdf8"
                 strokeWidth="10"
                 strokeLinecap="round"
@@ -691,7 +695,7 @@ export default function ChillerIllustration({
                 filter="url(#glowBlue)"
               />
               <path
-                d="M 405 82 H 540"
+                d="M 408 82 H 522"
                 stroke="#38bdf8"
                 strokeWidth="10"
                 strokeLinecap="round"
@@ -700,7 +704,7 @@ export default function ChillerIllustration({
               />
 
               <path
-                d="M 20 228 H 155"
+                d="M 38 228 H 152"
                 stroke={sixComp ? '#38bdf8' : '#fb7185'}
                 strokeWidth="10"
                 strokeLinecap="round"
@@ -708,7 +712,7 @@ export default function ChillerIllustration({
                 filter={sixComp ? 'url(#glowBlue)' : 'url(#glowRed)'}
               />
               <path
-                d="M 405 228 H 540"
+                d="M 408 228 H 522"
                 stroke={sixComp ? '#38bdf8' : '#fb7185'}
                 strokeWidth="10"
                 strokeLinecap="round"
@@ -719,10 +723,10 @@ export default function ChillerIllustration({
               {online && (
                 <>
                   <circle r="5.5" fill="#7dd3fc" filter="url(#glowBlue)">
-                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 20 82 H 155" />
+                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 38 82 H 152" />
                   </circle>
                   <circle r="5.5" fill="#7dd3fc" filter="url(#glowBlue)">
-                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 405 82 H 540" />
+                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 408 82 H 522" />
                   </circle>
 
                   <circle
@@ -730,34 +734,34 @@ export default function ChillerIllustration({
                     fill={sixComp ? '#7dd3fc' : '#fda4af'}
                     filter={sixComp ? 'url(#glowBlue)' : 'url(#glowRed)'}
                   >
-                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 20 228 H 155" />
+                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 38 228 H 152" />
                   </circle>
                   <circle
                     r="5.5"
                     fill={sixComp ? '#7dd3fc' : '#fda4af'}
                     filter={sixComp ? 'url(#glowBlue)' : 'url(#glowRed)'}
                   >
-                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 405 228 H 540" />
+                    <animateMotion dur="2.6s" repeatCount="indefinite" path="M 408 228 H 522" />
                   </circle>
                 </>
               )}
 
-              <polygon points="138,82 120,73 120,91" fill="#7dd3fc" />
-              <polygon points="438,82 456,73 456,91" fill="#7dd3fc" />
+              <polygon points="136,82 118,73 118,91" fill="#7dd3fc" />
+              <polygon points="424,82 442,73 442,91" fill="#7dd3fc" />
               <polygon
-                points="138,228 120,219 120,237"
+                points="136,228 118,219 118,237"
                 fill={sixComp ? '#7dd3fc' : '#fda4af'}
               />
               <polygon
-                points="438,228 456,219 456,237"
+                points="424,228 442,219 442,237"
                 fill={sixComp ? '#7dd3fc' : '#fda4af'}
               />
 
               <rect
-                x="155"
+                x="152"
                 y="38"
-                width="250"
-                height="220"
+                width="256"
+                height="198"
                 rx="34"
                 ry="34"
                 fill="url(#hxShell)"
@@ -766,10 +770,10 @@ export default function ChillerIllustration({
               />
 
               <rect
-                x="182"
+                x="186"
                 y="60"
-                width="196"
-                height="176"
+                width="188"
+                height="150"
                 rx="22"
                 ry="22"
                 fill="url(#hxInner)"
@@ -777,20 +781,20 @@ export default function ChillerIllustration({
                 strokeWidth="1.4"
               />
 
-              <circle cx="155" cy="82" r="7" fill="#7dd3fc" />
-              <circle cx="405" cy="82" r="7" fill="#7dd3fc" />
-              <circle cx="155" cy="228" r="7" fill={sixComp ? '#7dd3fc' : '#fda4af'} />
-              <circle cx="405" cy="228" r="7" fill={sixComp ? '#7dd3fc' : '#fda4af'} />
+              <circle cx="152" cy="82" r="7" fill="#7dd3fc" />
+              <circle cx="408" cy="82" r="7" fill="#7dd3fc" />
+              <circle cx="152" cy="228" r="7" fill={sixComp ? '#7dd3fc' : '#fda4af'} />
+              <circle cx="408" cy="228" r="7" fill={sixComp ? '#7dd3fc' : '#fda4af'} />
 
               {[0, 1, 2, 3, 4, 5].map((i) => {
-                const x = 214 + i * 22
+                const x = 220 + i * 20
                 return (
                   <line
                     key={i}
                     x1={x}
-                    y1="88"
-                    x2={x + 34}
-                    y2="208"
+                    y1="86"
+                    x2={x + 30}
+                    y2="186"
                     stroke={i % 2 === 0 ? '#67e8f9' : '#fda4af'}
                     strokeWidth="4"
                     strokeLinecap="round"
@@ -799,22 +803,22 @@ export default function ChillerIllustration({
                 )
               })}
 
-              <text x="280" y="126" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
+              <text x="280" y="122" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
                 PLATE HEAT
               </text>
-              <text x="280" y="148" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
+              <text x="280" y="145" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">
                 EXCHANGER
               </text>
 
-              <text x="280" y="176" fill="#64748b" fontSize="12" fontWeight="800" textAnchor="middle">
+              <text x="280" y="172" fill="#64748b" fontSize="12" fontWeight="800" textAnchor="middle">
                 inlet left / outlet right
               </text>
 
-              <text x="280" y="196" fill="#64748b" fontSize="12" fontWeight="800" textAnchor="middle">
+              <text x="280" y="192" fill="#64748b" fontSize="12" fontWeight="800" textAnchor="middle">
                 {sixComp ? 'two chilled-water sections' : 'chilled + condenser circuits'}
               </text>
 
-              <text x="280" y="286" fill="#94a3b8" fontSize="12" fontWeight="900" textAnchor="middle">
+              <text x="280" y="276" fill="#94a3b8" fontSize="12" fontWeight="900" textAnchor="middle">
                 {sixComp ? 'COMPRESSOR SECTIONS' : 'COMPRESSORS'}
               </text>
             </svg>
