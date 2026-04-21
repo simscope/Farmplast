@@ -566,19 +566,25 @@ export default function MonitoringNJPage() {
 
     const ordered = []
 
-    if (!byCode.get('CH-NJ-01')) {
-  ordered.unshift({
-    kind: 'old',
-    asset: {
-      asset_code: 'CH-NJ-01',
-      asset_name: 'Chiller 1',
-      name: 'Chiller 1',
-      asset_type: 'chiller',
-      points: [],
-    },
-    code: 'CH-NJ-01',
-  })
-}
+    if (byCode.get('CH-NJ-01')) {
+      ordered.push({
+        kind: 'old',
+        asset: byCode.get('CH-NJ-01'),
+        code: 'CH-NJ-01',
+      })
+    } else {
+      ordered.push({
+        kind: 'old',
+        asset: {
+          asset_code: 'CH-NJ-01',
+          asset_name: 'Chiller 1',
+          name: 'Chiller 1',
+          asset_type: 'chiller',
+          points: [],
+        },
+        code: 'CH-NJ-01',
+      })
+    }
 
     if (ch2Dashboard || rawRows.length) {
       ordered.push({
@@ -599,6 +605,7 @@ export default function MonitoringNJPage() {
     oldChillers.forEach((asset) => {
       const code = String(asset.asset_code || '').toUpperCase()
       if (code === 'CH-NJ-01' || code === 'CH-NJ-03') return
+
       ordered.push({
         kind: 'old',
         asset,
@@ -881,7 +888,7 @@ export default function MonitoringNJPage() {
 
                 return (
                   <div
-                    key={item.asset.asset_code}
+                    key={item.code}
                     onClick={() => handleChillerSelect(item.asset)}
                     style={{ cursor: 'pointer' }}
                   >
