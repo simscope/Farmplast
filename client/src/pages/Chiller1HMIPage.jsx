@@ -13,6 +13,9 @@ import {
   Save,
   Zap,
   Lock,
+  Snowflake,
+  Wind,
+  Cpu,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
@@ -32,7 +35,6 @@ function useViewport() {
     function onResize() {
       setWidth(getWidth())
     }
-
     window.addEventListener('resize', onResize)
     return () => window.removeEventListener('resize', onResize)
   }, [])
@@ -131,6 +133,11 @@ function fmtTemp(value, digits = 1) {
   return `${Number(value).toFixed(digits)}°F`
 }
 
+function fmtHz(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
+  return `${Number(value).toFixed(0)} Hz`
+}
+
 function Badge({ children, tone = 'slate' }) {
   const tones = {
     slate: {
@@ -181,14 +188,21 @@ function Badge({ children, tone = 'slate' }) {
   )
 }
 
-function Panel({ title, icon, children, danger = false }) {
+function Panel({ title, icon, children, danger = false, accent = 'cyan' }) {
+  const borderColor =
+    danger
+      ? 'rgba(248,113,113,0.28)'
+      : accent === 'yellow'
+        ? 'rgba(250,204,21,0.24)'
+        : accent === 'green'
+          ? 'rgba(74,222,128,0.24)'
+          : 'rgba(56,189,248,0.20)'
+
   return (
     <div
       style={{
         borderRadius: 28,
-        border: danger
-          ? '1px solid rgba(248,113,113,0.28)'
-          : '1px solid rgba(56,189,248,0.20)',
+        border: `1px solid ${borderColor}`,
         background:
           danger
             ? 'linear-gradient(180deg, rgba(48,12,20,0.95) 0%, rgba(18,8,14,0.98) 100%)'
@@ -210,6 +224,48 @@ function Panel({ title, icon, children, danger = false }) {
           <div style={{ fontSize: 18, fontWeight: 900 }}>{title}</div>
         </div>
         {children}
+      </div>
+    </div>
+  )
+}
+
+function SectionTitle({ icon, title, subtitle, tone = 'cyan' }) {
+  const color =
+    tone === 'yellow'
+      ? '#fde68a'
+      : tone === 'green'
+        ? '#86efac'
+        : tone === 'red'
+          ? '#fca5a5'
+          : '#67e8f9'
+
+  return (
+    <div
+      style={{
+        borderRadius: 26,
+        border: '1px solid rgba(148,163,184,0.16)',
+        background: 'linear-gradient(180deg, rgba(15,23,42,0.70) 0%, rgba(2,6,23,0.84) 100%)',
+        padding: '18px 20px',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+        <div
+          style={{
+            width: 42,
+            height: 42,
+            borderRadius: 14,
+            display: 'grid',
+            placeItems: 'center',
+            background: 'rgba(255,255,255,0.05)',
+            color,
+          }}
+        >
+          {icon}
+        </div>
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 900 }}>{title}</div>
+          <div style={{ marginTop: 4, color: '#94a3b8', fontSize: 14 }}>{subtitle}</div>
+        </div>
       </div>
     </div>
   )
@@ -511,7 +567,7 @@ function FanSetpointCard({
   )
 }
 
-function ProcessMimic({
+function ChillerMimic({
   isMobile,
   chwIn,
   chwOut,
@@ -519,12 +575,10 @@ function ProcessMimic({
   condOut,
   compressorA,
   compressorB,
-  fanRunning,
   alarm,
 }) {
   const lineBlue = '#38bdf8'
   const lineRed = '#fb7185'
-  const fanColor = fanRunning ? '#22c55e' : '#64748b'
 
   return (
     <div
@@ -535,7 +589,7 @@ function ProcessMimic({
           : '1px solid rgba(56,189,248,0.14)',
         background:
           'radial-gradient(circle at center, rgba(59,130,246,0.10) 0%, rgba(15,23,42,0.42) 55%, rgba(2,6,23,0.76) 100%)',
-        minHeight: isMobile ? 320 : 390,
+        minHeight: isMobile ? 300 : 360,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -547,7 +601,7 @@ function ProcessMimic({
         style={{ width: '100%', height: '100%', display: 'block' }}
       >
         <defs>
-          <filter id="glowBlue">
+          <filter id="glowBlueCh">
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
@@ -555,7 +609,7 @@ function ProcessMimic({
             </feMerge>
           </filter>
 
-          <filter id="glowRed">
+          <filter id="glowRedCh">
             <feGaussianBlur stdDeviation="4" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
@@ -563,21 +617,22 @@ function ProcessMimic({
             </feMerge>
           </filter>
 
-          <linearGradient id="shell" x1="0" y1="0" x2="0" y2="1">
+          <linearGradient id="shellCh" x1="0" y1="0" x2="0" y2="1">
             <stop offset="0%" stopColor="#1a2742" />
             <stop offset="100%" stopColor="#10182d" />
           </linearGradient>
 
-          <linearGradient id="compressor" x1="0" y1="0" x2="1" y2="1">
+          <linearGradient id="compressorCh" x1="0" y1="0" x2="1" y2="1">
             <stop offset="0%" stopColor="#263a5f" />
             <stop offset="100%" stopColor="#11192e" />
           </linearGradient>
         </defs>
 
-        <path d="M 40 110 H 210" stroke={lineBlue} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowBlue)" />
-        <path d="M 550 110 H 720" stroke={lineBlue} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowBlue)" />
-        <path d="M 40 300 H 210" stroke={lineRed} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowRed)" />
-        <path d="M 550 300 H 720" stroke={lineRed} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowRed)" />
+        <path d="M 40 110 H 210" stroke={lineBlue} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowBlueCh)" />
+        <path d="M 550 110 H 720" stroke={lineBlue} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowBlueCh)" />
+
+        <path d="M 40 300 H 210" stroke={lineRed} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowRedCh)" />
+        <path d="M 550 300 H 720" stroke={lineRed} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowRedCh)" />
 
         <polygon points="190,110 172,101 172,119" fill="#7dd3fc" />
         <polygon points="570,110 588,101 588,119" fill="#7dd3fc" />
@@ -591,7 +646,7 @@ function ProcessMimic({
           height="275"
           rx="36"
           ry="36"
-          fill="url(#shell)"
+          fill="url(#shellCh)"
           stroke={alarm ? 'rgba(248,113,113,0.30)' : 'rgba(148,163,184,0.24)'}
           strokeWidth="2"
         />
@@ -626,7 +681,7 @@ function ProcessMimic({
         })}
 
         <text x="380" y="158" fill="#e2e8f0" fontSize="22" fontWeight="900" textAnchor="middle">
-          CHILLER 1
+          CHILLER
         </text>
         <text x="380" y="188" fill="#94a3b8" fontSize="16" fontWeight="800" textAnchor="middle">
           EVAP / CONDENSER LOOP
@@ -638,7 +693,7 @@ function ProcessMimic({
           width="48"
           height="96"
           rx="20"
-          fill="url(#compressor)"
+          fill="url(#compressorCh)"
           stroke={compressorA ? 'rgba(74,222,128,0.40)' : 'rgba(148,163,184,0.18)'}
         />
         <text x="249" y="132" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">A</text>
@@ -650,25 +705,11 @@ function ProcessMimic({
           width="48"
           height="96"
           rx="20"
-          fill="url(#compressor)"
+          fill="url(#compressorCh)"
           stroke={compressorB ? 'rgba(74,222,128,0.40)' : 'rgba(148,163,184,0.18)'}
         />
         <text x="249" y="262" fill="#e2e8f0" fontSize="18" fontWeight="900" textAnchor="middle">B</text>
         <circle cx="249" cy="288" r="8" fill={compressorB ? '#22c55e' : '#64748b'} />
-
-        <circle
-          cx="510"
-          cy="205"
-          r="38"
-          fill="#0f172a"
-          stroke={fanRunning ? 'rgba(74,222,128,0.40)' : 'rgba(148,163,184,0.20)'}
-          strokeWidth="2"
-        />
-        <circle cx="510" cy="205" r="8" fill={fanColor} />
-        <path d="M510 170 C535 178, 540 198, 520 205" fill={fanColor} opacity="0.9" />
-        <path d="M545 205 C537 228, 516 236, 508 216" fill={fanColor} opacity="0.85" />
-        <path d="M508 240 C482 232, 476 212, 496 205" fill={fanColor} opacity="0.8" />
-        <text x="510" y="268" fill="#cbd5e1" fontSize="16" fontWeight="900" textAnchor="middle">FAN</text>
 
         <text x="70" y="88" fill="#7dd3fc" fontSize="18" fontWeight="900">CHW IN</text>
         <text x="615" y="88" fill="#7dd3fc" fontSize="18" fontWeight="900">CHW OUT</text>
@@ -680,6 +721,116 @@ function ProcessMimic({
         <text x="60" y="325" fill="#fee2e2" fontSize="28" fontWeight="900">{fmtTemp(condIn)}</text>
         <text x="585" y="325" fill="#fee2e2" fontSize="28" fontWeight="900">{fmtTemp(condOut)}</text>
       </svg>
+    </div>
+  )
+}
+
+function FanMimic({ fanRunning, fan30Active, fan60Active, fanAutoMode, alarm }) {
+  const ringColor = alarm ? '#fb7185' : fanRunning ? '#22c55e' : '#64748b'
+  const hzText = fan60Active ? '60 HZ' : fan30Active ? '30 HZ' : fanRunning ? 'ON' : 'STOP'
+
+  return (
+    <div
+      style={{
+        borderRadius: 28,
+        border: alarm
+          ? '1px solid rgba(248,113,113,0.24)'
+          : '1px solid rgba(74,222,128,0.16)',
+        background:
+          'radial-gradient(circle at center, rgba(34,197,94,0.10) 0%, rgba(15,23,42,0.42) 55%, rgba(2,6,23,0.76) 100%)',
+        minHeight: 300,
+        display: 'grid',
+        placeItems: 'center',
+        padding: 20,
+      }}
+    >
+      <div style={{ textAlign: 'center' }}>
+        <div
+          style={{
+            width: 220,
+            height: 220,
+            margin: '0 auto',
+            borderRadius: '50%',
+            border: `10px solid ${ringColor}`,
+            boxShadow: fanRunning ? '0 0 30px rgba(34,197,94,0.22)' : 'none',
+            background: 'radial-gradient(circle at center, rgba(15,23,42,0.98) 0%, rgba(2,6,23,1) 72%)',
+            display: 'grid',
+            placeItems: 'center',
+          }}
+        >
+          <div style={{ position: 'relative', width: 120, height: 120 }}>
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.04)',
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                left: 48,
+                top: 8,
+                width: 24,
+                height: 56,
+                borderRadius: '16px 16px 10px 10px',
+                background: ringColor,
+                transform: fanRunning ? 'rotate(0deg)' : 'rotate(10deg)',
+                transformOrigin: 'center 52px',
+                opacity: 0.9,
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                left: 18,
+                top: 52,
+                width: 56,
+                height: 24,
+                borderRadius: '16px 10px 10px 16px',
+                background: ringColor,
+                transform: fanRunning ? 'rotate(120deg)' : 'rotate(130deg)',
+                transformOrigin: '40px 12px',
+                opacity: 0.85,
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                left: 48,
+                top: 58,
+                width: 24,
+                height: 56,
+                borderRadius: '10px 10px 16px 16px',
+                background: ringColor,
+                transform: fanRunning ? 'rotate(240deg)' : 'rotate(250deg)',
+                transformOrigin: 'center -2px',
+                opacity: 0.8,
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                left: 45,
+                top: 45,
+                width: 30,
+                height: 30,
+                borderRadius: '50%',
+                background: '#cbd5e1',
+                boxShadow: '0 0 12px rgba(255,255,255,0.12)',
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{ marginTop: 18, fontSize: 28, fontWeight: 900, color: '#f8fafc' }}>
+          {hzText}
+        </div>
+        <div style={{ marginTop: 6, color: '#94a3b8', fontSize: 14 }}>
+          {fanAutoMode ? 'auto fan control' : 'manual fan control'}
+        </div>
+      </div>
     </div>
   )
 }
@@ -824,12 +975,9 @@ export default function Chiller1HMIPage() {
 
   const fanRunning = getBoolean(points, ['CH1_FAN_ENABLE', 'FAN ENABLE'])
   const fanAutoMode = getBoolean(points, ['CH1_AUTO', 'AUTO'])
-
   const fan30Active = getBoolean(points, ['CH1_FAN_30'])
   const fan60Active = getBoolean(points, ['CH1_FAN_60'])
-
   const fanSetpoint = getTemperature(points, ['CH1_SETPOINT', 'SETPOINT'])
-
   const fanSpeed = fan60Active ? 60 : fan30Active ? 30 : fanRunning ? 0 : null
 
   const deltaChw =
@@ -998,7 +1146,7 @@ export default function Chiller1HMIPage() {
             </h1>
 
             <div style={{ color: '#cbd5e1', fontSize: isMobile ? 14 : 15 }}>
-              condenser fan control, water temperatures, compressor status
+              chiller section and condenser fan section separated
             </div>
           </div>
 
@@ -1052,161 +1200,140 @@ export default function Chiller1HMIPage() {
         {loading ? (
           <div style={statCardStyle(isMobile)}>Loading Chiller 1 HMI…</div>
         ) : (
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: isDesktop ? '1.45fr 0.9fr' : '1fr',
-              gap: 18,
-              alignItems: 'start',
-            }}
-          >
-            <div style={{ display: 'grid', gap: 18 }}>
-              <Panel title="Process overview" icon={<Activity size={18} />} danger={alarm}>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr' : '1fr minmax(340px, 0.82fr)',
-                    gap: 18,
-                    alignItems: 'stretch',
-                  }}
-                >
-                  <ProcessMimic
-                    isMobile={isMobile}
-                    chwIn={chwIn}
-                    chwOut={chwOut}
-                    condIn={condIn}
-                    condOut={condOut}
-                    compressorA={compressorA}
-                    compressorB={compressorB}
-                    fanRunning={fanRunning}
-                    alarm={alarm}
-                  />
+          <div style={{ display: 'grid', gap: 18 }}>
+            <SectionTitle
+              icon={<Snowflake size={22} />}
+              title="Chiller section"
+              subtitle="evaporator, condenser water, compressors"
+              tone="cyan"
+            />
 
-                  <div
-                    style={{
-                      display: 'grid',
-                      gap: 16,
-                      alignContent: 'start',
-                    }}
-                  >
-                    <FanSetpointCard
-                      inputValue={fanSetpointInput}
-                      setInputValue={setFanSetpointInput}
-                      liveValue={fanSetpoint}
-                      onSave={handleSaveSetpoint}
-                      saving={sendingSetpoint}
-                      condOut={condOut}
-                    />
-
-                    <Pill label="Fan status" active={fanRunning} onText="RUN" offText="STOP" />
-                    <Pill label="Fan auto mode" active={fanAutoMode} onText="AUTO" offText="MANUAL" />
-                    <Pill label="Compressor A" active={compressorA} onText="RUN" offText="STOP" />
-                    <Pill label="Compressor B" active={compressorB} onText="RUN" offText="STOP" />
-                  </div>
-                </div>
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isDesktop ? '1.2fr 0.8fr' : '1fr',
+                gap: 18,
+              }}
+            >
+              <Panel title="Chiller overview" icon={<Activity size={18} />} danger={alarm}>
+                <ChillerMimic
+                  isMobile={isMobile}
+                  chwIn={chwIn}
+                  chwOut={chwOut}
+                  condIn={condIn}
+                  condOut={condOut}
+                  compressorA={compressorA}
+                  compressorB={compressorB}
+                  alarm={alarm}
+                />
               </Panel>
 
-              <Panel title="Temperatures" icon={<Thermometer size={18} />}>
-                <div
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(4, minmax(0, 1fr))',
-                    gap: 14,
-                  }}
-                >
-                  <SmallMetric title="CHW IN" value={fmtTemp(chwIn)} subtitle="entering chilled water" accent="cyan" />
-                  <SmallMetric title="CHW OUT" value={fmtTemp(chwOut)} subtitle="leaving chilled water" accent="cyan" />
-                  <SmallMetric title="COND IN" value={fmtTemp(condIn)} subtitle="entering condenser water" accent="red" />
-                  <SmallMetric title="COND OUT" value={fmtTemp(condOut)} subtitle="leaving condenser water" accent="red" />
+              <Panel title="Chiller status" icon={<Cpu size={18} />}>
+                <div style={{ display: 'grid', gap: 14 }}>
+                  <Pill label="Compressor A" active={compressorA} onText="RUN" offText="STOP" />
+                  <Pill label="Compressor B" active={compressorB} onText="RUN" offText="STOP" />
+                  <Pill label="Alarm" active={alarm} onText="ACTIVE" offText="NORMAL" />
+                  <Pill label="Chiller online" active={online} onText="ONLINE" offText="OFFLINE" />
                 </div>
               </Panel>
             </div>
 
-            <div style={{ display: 'grid', gap: 18 }}>
-              <Panel title="Fan control" icon={<Fan size={18} />}>
-                <div style={{ display: 'grid', gap: 14 }}>
-                  <SmallMetric
-                    title="COND OUT"
-                    value={fmtTemp(condOut)}
-                    subtitle="main control temperature"
-                    accent="red"
-                  />
-                  <SmallMetric
-                    title="FAN START SETPOINT"
-                    value={
-                      fanSetpoint === null || fanSetpoint === undefined || Number.isNaN(Number(fanSetpoint))
-                        ? '—'
-                        : `${Number(fanSetpoint).toFixed(1)}°F`
-                    }
-                    subtitle="current live threshold"
-                    accent="yellow"
-                  />
-                  <SmallMetric
-                    title="FAN FREQUENCY"
-                    value={
-                      fanSpeed === null || fanSpeed === undefined || Number.isNaN(Number(fanSpeed))
-                        ? '—'
-                        : `${Number(fanSpeed).toFixed(0)} Hz`
-                    }
-                    subtitle="current live fan speed"
-                    accent="cyan"
+            <Panel title="Chiller temperatures and load" icon={<Thermometer size={18} />}>
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: isMobile ? '1fr 1fr' : 'repeat(6, minmax(0, 1fr))',
+                  gap: 14,
+                }}
+              >
+                <SmallMetric title="CHW IN" value={fmtTemp(chwIn)} subtitle="entering chilled water" accent="cyan" />
+                <SmallMetric title="CHW OUT" value={fmtTemp(chwOut)} subtitle="leaving chilled water" accent="cyan" />
+                <SmallMetric title="COND IN" value={fmtTemp(condIn)} subtitle="entering condenser water" accent="red" />
+                <SmallMetric title="COND OUT" value={fmtTemp(condOut)} subtitle="leaving condenser water" accent="red" />
+                <SmallMetric
+                  title="ΔT CHW"
+                  value={deltaChw === null ? '—' : `${Number(deltaChw).toFixed(1)}°F`}
+                  subtitle="CHW IN - CHW OUT"
+                  accent="cyan"
+                />
+                <SmallMetric
+                  title="ΔT COND"
+                  value={deltaCond === null ? '—' : `${Number(deltaCond).toFixed(1)}°F`}
+                  subtitle="COND OUT - COND IN"
+                  accent="red"
+                />
+              </div>
+            </Panel>
+
+            <SectionTitle
+              icon={<Wind size={22} />}
+              title="Fan section"
+              subtitle="condenser fan mode, speed, start threshold"
+              tone="yellow"
+            />
+
+            <div
+              style={{
+                display: 'grid',
+                gridTemplateColumns: isDesktop ? '0.95fr 1.05fr' : '1fr',
+                gap: 18,
+              }}
+            >
+              <Panel title="Fan live state" icon={<Fan size={18} />} accent="green">
+                <div
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : '0.9fr 1.1fr',
+                    gap: 18,
+                    alignItems: 'stretch',
+                  }}
+                >
+                  <FanMimic
+                    fanRunning={fanRunning}
+                    fan30Active={fan30Active}
+                    fan60Active={fan60Active}
+                    fanAutoMode={fanAutoMode}
+                    alarm={alarm}
                   />
 
-                  <div
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: '1fr 1fr',
-                      gap: 12,
-                    }}
-                  >
-                    <CommandButton
-                      label={sendingSpeed === '30' ? 'Sending…' : '30 Hz'}
-                      icon={<Zap size={16} />}
-                      active={fan30Active}
-                      onClick={() => handleSetFanSpeed(30)}
-                      disabled={sendingSpeed !== ''}
+                  <div style={{ display: 'grid', gap: 14, alignContent: 'start' }}>
+                    <SmallMetric
+                      title="FAN STATUS"
+                      value={fanRunning ? 'RUN' : 'STOP'}
+                      subtitle="actual enable state"
+                      accent={fanRunning ? 'green' : 'slate'}
                     />
-                    <CommandButton
-                      label={sendingSpeed === '60' ? 'Sending…' : '60 Hz'}
-                      icon={<Zap size={16} />}
-                      active={fan60Active}
-                      onClick={() => handleSetFanSpeed(60)}
-                      disabled={sendingSpeed !== ''}
+                    <SmallMetric
+                      title="MODE"
+                      value={fanAutoMode ? 'AUTO' : 'MANUAL'}
+                      subtitle="current fan mode"
+                      accent={fanAutoMode ? 'yellow' : 'slate'}
+                    />
+                    <SmallMetric
+                      title="FREQUENCY"
+                      value={fmtHz(fanSpeed)}
+                      subtitle="active fan speed"
+                      accent="cyan"
+                    />
+                    <SmallMetric
+                      title="COND OUT"
+                      value={fmtTemp(condOut)}
+                      subtitle="main control temperature"
+                      accent="red"
                     />
                   </div>
                 </div>
               </Panel>
 
-              <Panel title="Water and load" icon={<Gauge size={18} />}>
-                <div style={{ display: 'grid', gap: 14 }}>
-                  <SmallMetric
-                    title="ΔT CHW"
-                    value={deltaChw === null ? '—' : `${Number(deltaChw).toFixed(1)}°F`}
-                    subtitle="CHW IN - CHW OUT"
-                    accent="cyan"
-                  />
-                  <SmallMetric
-                    title="ΔT COND"
-                    value={deltaCond === null ? '—' : `${Number(deltaCond).toFixed(1)}°F`}
-                    subtitle="COND OUT - COND IN"
-                    accent="red"
-                  />
-                  <SmallMetric
-                    title="SYSTEM"
-                    value={online ? 'ONLINE' : 'OFFLINE'}
-                    subtitle="live telemetry status"
-                    accent={online ? 'green' : 'red'}
-                  />
-                </div>
-              </Panel>
-
-              <Panel title="Alarm and commands" icon={<Settings size={18} />} danger={alarm}>
-                <div style={{ display: 'grid', gap: 14 }}>
-                  <SmallMetric
-                    title="ALARM STATUS"
-                    value={alarm ? 'ACTIVE' : 'NORMAL'}
-                    subtitle="current live alarm state"
-                    accent={alarm ? 'red' : 'green'}
+              <Panel title="Fan control" icon={<Settings size={18} />} accent="yellow" danger={alarm}>
+                <div style={{ display: 'grid', gap: 18 }}>
+                  <FanSetpointCard
+                    inputValue={fanSetpointInput}
+                    setInputValue={setFanSetpointInput}
+                    liveValue={fanSetpoint}
+                    onSave={handleSaveSetpoint}
+                    saving={sendingSetpoint}
+                    condOut={condOut}
                   />
 
                   <div
@@ -1231,14 +1358,7 @@ export default function Chiller1HMIPage() {
                       disabled={sendingPower !== ''}
                     />
                     <CommandButton
-                      label={resettingAlert ? 'Resetting…' : 'RESET ALERT'}
-                      icon={<RotateCcw size={16} />}
-                      danger
-                      onClick={openResetAlertModal}
-                      disabled={resettingAlert}
-                    />
-                    <CommandButton
-                      label={sendingMode === 'auto' ? 'Sending…' : 'AUTO FAN'}
+                      label={sendingMode === 'auto' ? 'Sending…' : 'AUTO'}
                       icon={<Fan size={16} />}
                       active={fanAutoMode}
                       onClick={handleFanAuto}
@@ -1250,6 +1370,27 @@ export default function Chiller1HMIPage() {
                       active={!fanAutoMode}
                       onClick={handleFanManual}
                       disabled={sendingMode !== ''}
+                    />
+                    <CommandButton
+                      label={sendingSpeed === '30' ? 'Sending…' : '30 Hz'}
+                      icon={<Zap size={16} />}
+                      active={fan30Active}
+                      onClick={() => handleSetFanSpeed(30)}
+                      disabled={sendingSpeed !== ''}
+                    />
+                    <CommandButton
+                      label={sendingSpeed === '60' ? 'Sending…' : '60 Hz'}
+                      icon={<Zap size={16} />}
+                      active={fan60Active}
+                      onClick={() => handleSetFanSpeed(60)}
+                      disabled={sendingSpeed !== ''}
+                    />
+                    <CommandButton
+                      label={resettingAlert ? 'Resetting…' : 'RESET ALERT'}
+                      icon={<RotateCcw size={16} />}
+                      danger
+                      onClick={openResetAlertModal}
+                      disabled={resettingAlert}
                     />
                   </div>
                 </div>
