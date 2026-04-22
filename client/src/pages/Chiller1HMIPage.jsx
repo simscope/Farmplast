@@ -728,7 +728,6 @@ function FanMimic({ fanRunning, fan30Active, fan60Active, fanAutoMode, alarm }) 
   const ringColor = alarm ? '#fb7185' : fanRunning ? '#22c55e' : '#64748b'
   const bladeColor = fanRunning ? '#cbd5e1' : '#94a3b8'
   const hubColor = fanRunning ? '#e2e8f0' : '#cbd5e1'
-  const grilleColor = 'rgba(148,163,184,0.45)'
   const hzText = fan60Active ? '60 HZ' : fan30Active ? '30 HZ' : 'STOP'
 
   return (
@@ -749,70 +748,57 @@ function FanMimic({ fanRunning, fan30Active, fan60Active, fanAutoMode, alarm }) 
       <div style={{ textAlign: 'center' }}>
         <svg width="250" height="250" viewBox="0 0 250 250" style={{ display: 'block', margin: '0 auto' }}>
           <defs>
-            <radialGradient id="fanBodyBg" cx="50%" cy="50%" r="50%">
+            <radialGradient id="fanBgSym" cx="50%" cy="50%" r="50%">
               <stop offset="0%" stopColor="rgba(30,41,59,0.98)" />
               <stop offset="100%" stopColor="rgba(2,6,23,1)" />
             </radialGradient>
 
-            <filter id="fanRingGlow">
+            <filter id="fanGlowSym">
               <feGaussianBlur stdDeviation="3" result="blur" />
               <feMerge>
                 <feMergeNode in="blur" />
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
+
+            {/* одна симметричная лопасть */}
+            <path
+              id="fanBladeSym"
+              d="
+                M125 116
+                C136 88, 160 80, 174 90
+                C172 107, 155 121, 132 126
+                C127 125, 125 121, 125 116
+                Z
+              "
+            />
           </defs>
 
-          {/* outer housing */}
+          {/* outer ring */}
           <circle
             cx="125"
             cy="125"
-            r="96"
+            r="95"
             fill="none"
             stroke={ringColor}
             strokeWidth="10"
-            filter={fanRunning ? 'url(#fanRingGlow)' : 'none'}
+            filter={fanRunning ? 'url(#fanGlowSym)' : 'none'}
           />
 
-          {/* inner shroud */}
+          {/* inner body */}
           <circle
             cx="125"
             cy="125"
             r="72"
-            fill="url(#fanBodyBg)"
-            stroke="rgba(148,163,184,0.16)"
+            fill="url(#fanBgSym)"
+            stroke="rgba(148,163,184,0.18)"
             strokeWidth="2"
           />
 
-          {/* grille */}
-          <circle cx="125" cy="125" r="58" fill="none" stroke={grilleColor} strokeWidth="2" />
-          <line x1="67" y1="125" x2="183" y2="125" stroke={grilleColor} strokeWidth="2" />
-          <line x1="125" y1="67" x2="125" y2="183" stroke={grilleColor} strokeWidth="2" />
-          <line x1="84" y1="84" x2="166" y2="166" stroke={grilleColor} strokeWidth="2" />
-          <line x1="166" y1="84" x2="84" y2="166" stroke={grilleColor} strokeWidth="2" />
-
-          {/* blades - more rigid/industrial looking */}
-          <path
-            d="M125 118
-               C138 93, 161 86, 176 94
-               C180 106, 168 117, 144 126
-               C136 126, 129 123, 125 118Z"
-            fill={bladeColor}
-          />
-          <path
-            d="M119 126
-               C93 138, 86 161, 94 176
-               C106 180, 117 168, 126 144
-               C126 136, 123 129, 119 126Z"
-            fill={bladeColor}
-          />
-          <path
-            d="M126 119
-               C138 93, 132 67, 118 57
-               C106 58, 100 75, 107 98
-               C111 107, 117 114, 126 119Z"
-            fill={bladeColor}
-          />
+          {/* 3 одинаковые симметричные лопасти */}
+          <use href="#fanBladeSym" fill={bladeColor} />
+          <use href="#fanBladeSym" fill={bladeColor} transform="rotate(120 125 125)" />
+          <use href="#fanBladeSym" fill={bladeColor} transform="rotate(240 125 125)" />
 
           {/* center hub */}
           <circle
@@ -836,6 +822,7 @@ function FanMimic({ fanRunning, fan30Active, fan60Active, fanAutoMode, alarm }) 
     </div>
   )
 }
+
 export default function Chiller1HMIPage() {
   const navigate = useNavigate()
   const { isMobile, isDesktop } = useViewport()
