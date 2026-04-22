@@ -630,7 +630,6 @@ function ChillerMimic({
 
         <path d="M 40 110 H 210" stroke={lineBlue} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowBlueCh)" />
         <path d="M 550 110 H 720" stroke={lineBlue} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowBlueCh)" />
-
         <path d="M 40 300 H 210" stroke={lineRed} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowRedCh)" />
         <path d="M 550 300 H 720" stroke={lineRed} strokeWidth="12" strokeLinecap="round" fill="none" filter="url(#glowRedCh)" />
 
@@ -727,7 +726,7 @@ function ChillerMimic({
 
 function FanMimic({ fanRunning, fan30Active, fan60Active, fanAutoMode, alarm }) {
   const ringColor = alarm ? '#fb7185' : fanRunning ? '#22c55e' : '#64748b'
-  const hzText = fan60Active ? '60 HZ' : fan30Active ? '30 HZ' : fanRunning ? 'ON' : 'STOP'
+  const hzText = fan60Active ? '60 HZ' : fan30Active ? '30 HZ' : 'STOP'
 
   return (
     <div
@@ -978,7 +977,7 @@ export default function Chiller1HMIPage() {
   const fan30Active = getBoolean(points, ['CH1_FAN_30'])
   const fan60Active = getBoolean(points, ['CH1_FAN_60'])
   const fanSetpoint = getTemperature(points, ['CH1_SETPOINT', 'SETPOINT'])
-  const fanSpeed = fan60Active ? 60 : fan30Active ? 30 : fanRunning ? 0 : null
+  const fanSpeed = fan60Active ? 60 : fan30Active ? 30 : null
 
   const deltaChw =
     chwIn !== null && chwOut !== null ? Number(chwIn) - Number(chwOut) : null
@@ -1035,18 +1034,6 @@ export default function Chiller1HMIPage() {
       setCommandMessage(err?.message || 'Failed to send reset_alert command.')
     } finally {
       setResettingAlert(false)
-    }
-  }
-
-  async function handleFanOn() {
-    setSendingPower('on')
-    try {
-      await sendCommand('fan_on', 1)
-      setCommandMessage('Command queued: fan_on')
-    } catch (err) {
-      setCommandMessage(err?.message || 'Failed to send fan_on command.')
-    } finally {
-      setSendingPower('')
     }
   }
 
@@ -1268,7 +1255,7 @@ export default function Chiller1HMIPage() {
             <SectionTitle
               icon={<Wind size={22} />}
               title="Fan section"
-              subtitle="condenser fan mode, speed, start threshold"
+              subtitle="manual OFF / 30 Hz / 60 Hz and auto threshold control"
               tone="yellow"
             />
 
@@ -1312,7 +1299,7 @@ export default function Chiller1HMIPage() {
                     <SmallMetric
                       title="FREQUENCY"
                       value={fmtHz(fanSpeed)}
-                      subtitle="active fan speed"
+                      subtitle="actual selected speed"
                       accent="cyan"
                     />
                     <SmallMetric
@@ -1344,20 +1331,6 @@ export default function Chiller1HMIPage() {
                     }}
                   >
                     <CommandButton
-                      label={sendingPower === 'on' ? 'Sending…' : 'Fan ON'}
-                      icon={<Power size={16} />}
-                      active={fanRunning}
-                      onClick={handleFanOn}
-                      disabled={sendingPower !== ''}
-                    />
-                    <CommandButton
-                      label={sendingPower === 'off' ? 'Sending…' : 'Fan OFF'}
-                      icon={<Power size={16} />}
-                      active={!fanRunning}
-                      onClick={handleFanOff}
-                      disabled={sendingPower !== ''}
-                    />
-                    <CommandButton
                       label={sendingMode === 'auto' ? 'Sending…' : 'AUTO'}
                       icon={<Fan size={16} />}
                       active={fanAutoMode}
@@ -1370,6 +1343,13 @@ export default function Chiller1HMIPage() {
                       active={!fanAutoMode}
                       onClick={handleFanManual}
                       disabled={sendingMode !== ''}
+                    />
+                    <CommandButton
+                      label={sendingPower === 'off' ? 'Sending…' : 'OFF'}
+                      icon={<Power size={16} />}
+                      active={!fanRunning && !fan30Active && !fan60Active}
+                      onClick={handleFanOff}
+                      disabled={sendingPower !== ''}
                     />
                     <CommandButton
                       label={sendingSpeed === '30' ? 'Sending…' : '30 Hz'}
