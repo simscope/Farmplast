@@ -726,6 +726,8 @@ function ChillerMimic({
 
 function FanMimic({ fanRunning, fan30Active, fan60Active, fanAutoMode, alarm }) {
   const ringColor = alarm ? '#fb7185' : fanRunning ? '#22c55e' : '#64748b'
+  const bladeColor = fanRunning ? '#cbd5e1' : '#94a3b8'
+  const centerColor = fanRunning ? '#e2e8f0' : '#cbd5e1'
   const hzText = fan60Active ? '60 HZ' : fan30Active ? '30 HZ' : 'STOP'
 
   return (
@@ -744,88 +746,89 @@ function FanMimic({ fanRunning, fan30Active, fan60Active, fanAutoMode, alarm }) 
       }}
     >
       <div style={{ textAlign: 'center' }}>
-        <div
-          style={{
-            width: 220,
-            height: 220,
-            margin: '0 auto',
-            borderRadius: '50%',
-            border: `10px solid ${ringColor}`,
-            boxShadow: fanRunning ? '0 0 30px rgba(34,197,94,0.22)' : 'none',
-            background: 'radial-gradient(circle at center, rgba(15,23,42,0.98) 0%, rgba(2,6,23,1) 72%)',
-            display: 'grid',
-            placeItems: 'center',
-          }}
-        >
-          <div style={{ position: 'relative', width: 120, height: 120 }}>
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                borderRadius: '50%',
-                background: 'rgba(255,255,255,0.04)',
-              }}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                left: 48,
-                top: 8,
-                width: 24,
-                height: 56,
-                borderRadius: '16px 16px 10px 10px',
-                background: ringColor,
-                transform: fanRunning ? 'rotate(0deg)' : 'rotate(10deg)',
-                transformOrigin: 'center 52px',
-                opacity: 0.9,
-              }}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                left: 18,
-                top: 52,
-                width: 56,
-                height: 24,
-                borderRadius: '16px 10px 10px 16px',
-                background: ringColor,
-                transform: fanRunning ? 'rotate(120deg)' : 'rotate(130deg)',
-                transformOrigin: '40px 12px',
-                opacity: 0.85,
-              }}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                left: 48,
-                top: 58,
-                width: 24,
-                height: 56,
-                borderRadius: '10px 10px 16px 16px',
-                background: ringColor,
-                transform: fanRunning ? 'rotate(240deg)' : 'rotate(250deg)',
-                transformOrigin: 'center -2px',
-                opacity: 0.8,
-              }}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                left: 45,
-                top: 45,
-                width: 30,
-                height: 30,
-                borderRadius: '50%',
-                background: '#cbd5e1',
-                boxShadow: '0 0 12px rgba(255,255,255,0.12)',
-              }}
-            />
-          </div>
-        </div>
+        <svg width="240" height="240" viewBox="0 0 240 240" style={{ display: 'block', margin: '0 auto' }}>
+          <defs>
+            <radialGradient id="fanBg" cx="50%" cy="50%" r="50%">
+              <stop offset="0%" stopColor="rgba(30,41,59,0.95)" />
+              <stop offset="100%" stopColor="rgba(2,6,23,1)" />
+            </radialGradient>
+
+            <filter id="fanGlow">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+
+          {/* outer ring */}
+          <circle
+            cx="120"
+            cy="120"
+            r="90"
+            fill="none"
+            stroke={ringColor}
+            strokeWidth="10"
+            opacity="0.95"
+            filter={fanRunning ? 'url(#fanGlow)' : 'none'}
+          />
+
+          {/* inner housing */}
+          <circle
+            cx="120"
+            cy="120"
+            r="62"
+            fill="url(#fanBg)"
+            stroke="rgba(148,163,184,0.10)"
+            strokeWidth="2"
+          />
+
+          {/* blade 1 */}
+          <path
+            d="M120 112
+               C132 84, 156 78, 174 90
+               C178 108, 160 121, 133 126
+               C127 124, 123 120, 120 112Z"
+            fill={bladeColor}
+            opacity="0.95"
+          />
+
+          {/* blade 2 */}
+          <path
+            d="M112 124
+               C84 136, 78 160, 90 178
+               C108 182, 121 164, 126 137
+               C124 131, 120 127, 112 124Z"
+            fill={bladeColor}
+            opacity="0.90"
+          />
+
+          {/* blade 3 */}
+          <path
+            d="M124 112
+               C136 84, 130 58, 112 48
+               C94 50, 90 72, 103 96
+               C109 101, 115 104, 124 112Z"
+            fill={bladeColor}
+            opacity="0.85"
+          />
+
+          {/* center hub */}
+          <circle
+            cx="120"
+            cy="120"
+            r="16"
+            fill={centerColor}
+            stroke="rgba(255,255,255,0.15)"
+            strokeWidth="2"
+          />
+        </svg>
 
         <div style={{ marginTop: 18, fontSize: 28, fontWeight: 900, color: '#f8fafc' }}>
           {hzText}
         </div>
+
         <div style={{ marginTop: 6, color: '#94a3b8', fontSize: 14 }}>
           {fanAutoMode ? 'auto fan control' : 'manual fan control'}
         </div>
