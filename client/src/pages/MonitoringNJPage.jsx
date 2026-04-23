@@ -76,7 +76,7 @@ function getDashboardSetpoint(row, rawRows = []) {
   const value = Number(raw)
   if (Number.isNaN(value)) return null
 
-  return value / 10
+  return value
 }
 
 function SmallMetric({ title, value, unit, subtitle, accent = 'cyan' }) {
