@@ -51,7 +51,7 @@ function fmtNumber(value, digits = 1) {
   return Number(value).toFixed(digits)
 }
 
-function getCh2Setpoint(row, rawRows = []) {
+function getDashboardSetpoint(row, rawRows = []) {
   const rawRow = Array.isArray(rawRows)
     ? rawRows.find((r) => Number(r?.raw_register) === 40023)
     : null
@@ -66,10 +66,10 @@ function getCh2Setpoint(row, rawRows = []) {
   }
 
   const raw =
-    row?.CH2_R40023 ??
     row?.ch2_r40023 ??
-    row?.['CH2_R40023'] ??
-    row?.['ch2_r40023']
+    row?.CH2_R40023 ??
+    row?.process_setpoint_raw ??
+    row?.setpoint_raw
 
   if (raw === null || raw === undefined || raw === '') return null
 
@@ -222,10 +222,17 @@ function StatusDot({ active, label }) {
   )
 }
 
-function Chiller2DashboardCard({ row, rawRows, isMobile, onClick }) {
+function DashboardChillerCard({
+  title,
+  row,
+  rawRows,
+  isMobile,
+  badgeLabel,
+  onClick,
+}) {
   const online = !!row?.is_online
   const hasAlarm = !!row?.alarm_active || !!row?.has_alarm || !!row?.alert_active
-  const setpoint = getCh2Setpoint(row, rawRows)
+  const setpoint = getDashboardSetpoint(row, rawRows)
 
   return (
     <div
@@ -271,11 +278,11 @@ function Chiller2DashboardCard({ row, rawRows, isMobile, onClick }) {
                 fontWeight: 900,
               }}
             >
-              Chiller 2
+              {title}
             </div>
 
             <div style={{ marginTop: 10, fontSize: 14, color: '#cbd5e1' }}>
-              {row?.asset_code || 'CH-NJ-02'}
+              {row?.asset_code || '—'}
             </div>
           </div>
 
@@ -428,11 +435,13 @@ export default function MonitoringNJPage() {
   const navigate = useNavigate()
 
   const [rows, setRows] = useState([])
-  const [rawRows, setRawRows] = useState([])
+  const [rawRowsCh2, setRawRowsCh2] = useState([])
+  const [rawRowsCh3, setRawRowsCh3] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [selectedAssetCode, setSelectedAssetCode] = useState('CH-NJ-01')
   const [ch2Dashboard, setCh2Dashboard] = useState(null)
+  const [ch3Dashboard, setCh3Dashboard] = useState(null)
 
   const { isMobile, isTablet, isDesktop } = useViewport()
 
@@ -446,6 +455,8 @@ export default function MonitoringNJPage() {
         { data, error: fetchError },
         { data: ch2Data, error: ch2Error },
         { data: ch2Raw, error: ch2RawError },
+        { data: ch3Data, error: ch3Error },
+        { data: ch3Raw, error: ch3RawError },
       ] = await Promise.all([
         supabase
           .from('v_asset_points_latest')
@@ -458,27 +469,39 @@ export default function MonitoringNJPage() {
           .select('point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at')
           .like('point_code', 'CH2_R%')
           .order('raw_register', { ascending: true }),
+        supabase.from('v_ch3_dashboard').select('*').single(),
+        supabase
+          .from('ch3_latest')
+          .select('point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at')
+          .like('point_code', 'CH2_R%')
+          .order('raw_register', { ascending: true }),
       ])
 
       if (fetchError) throw fetchError
       if (ch2Error && ch2Error.code !== 'PGRST116') throw ch2Error
       if (ch2RawError) throw ch2RawError
+      if (ch3Error && ch3Error.code !== 'PGRST116') throw ch3Error
+      if (ch3RawError) throw ch3RawError
 
       const normalized = Array.isArray(data) ? data.map(normalizeRow) : []
 
       setRows(normalized)
       setCh2Dashboard(ch2Data || null)
-      setRawRows(ch2Raw || [])
+      setRawRowsCh2(ch2Raw || [])
+      setCh3Dashboard(ch3Data || null)
+      setRawRowsCh3(ch3Raw || [])
 
-      if (!normalized.length && !ch2Data && !(ch2Raw || []).length) {
+      if (!normalized.length && !ch2Data && !(ch2Raw || []).length && !ch3Data && !(ch3Raw || []).length) {
         setError('No live telemetry rows returned from the live sources.')
       } else {
         setError('')
       }
     } catch (err) {
       setRows([])
-      setRawRows([])
+      setRawRowsCh2([])
+      setRawRowsCh3([])
       setCh2Dashboard(null)
+      setCh3Dashboard(null)
       setError(err?.message || 'Failed to load live telemetry.')
     } finally {
       if (!silent) setLoading(false)
@@ -516,6 +539,17 @@ export default function MonitoringNJPage() {
           fetchData({ silent: true })
         }
       )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'ch3_latest',
+        },
+        () => {
+          fetchData({ silent: true })
+        }
+      )
       .subscribe()
 
     return () => {
@@ -537,7 +571,11 @@ export default function MonitoringNJPage() {
     return njAssets
       .filter((asset) => {
         const code = String(asset.asset_code || '').toUpperCase()
-        return String(asset.asset_type || '').toLowerCase() === 'chiller' && code !== 'CH-NJ-02'
+        return (
+          String(asset.asset_type || '').toLowerCase() === 'chiller' &&
+          code !== 'CH-NJ-02' &&
+          code !== 'CH-NJ-03'
+        )
       })
       .sort(chillerCodeSort)
   }, [njAssets])
@@ -586,25 +624,27 @@ export default function MonitoringNJPage() {
       })
     }
 
-    if (ch2Dashboard || rawRows.length) {
+    if (ch2Dashboard || rawRowsCh2.length) {
       ordered.push({
         kind: 'ch2',
         row: ch2Dashboard || {},
+        rawRows: rawRowsCh2,
         code: 'CH-NJ-02',
       })
     }
 
-    if (byCode.get('CH-NJ-03')) {
+    if (ch3Dashboard || rawRowsCh3.length) {
       ordered.push({
-        kind: 'old',
-        asset: byCode.get('CH-NJ-03'),
+        kind: 'ch3',
+        row: ch3Dashboard || {},
+        rawRows: rawRowsCh3,
         code: 'CH-NJ-03',
       })
     }
 
     oldChillers.forEach((asset) => {
       const code = String(asset.asset_code || '').toUpperCase()
-      if (code === 'CH-NJ-01' || code === 'CH-NJ-03') return
+      if (code === 'CH-NJ-01') return
 
       ordered.push({
         kind: 'old',
@@ -614,29 +654,30 @@ export default function MonitoringNJPage() {
     })
 
     return ordered
-  }, [oldChillers, ch2Dashboard, rawRows])
+  }, [oldChillers, ch2Dashboard, ch3Dashboard, rawRowsCh2, rawRowsCh3])
 
   const summary = useMemo(() => {
     const ch2Online = ch2Dashboard?.is_online ? 1 : 0
+    const ch3Online = ch3Dashboard?.is_online ? 1 : 0
 
-    const oldWithoutCh2Count = njAssets.filter(
-      (asset) => String(asset.asset_code || '').toUpperCase() !== 'CH-NJ-02'
-    ).length
+    const oldWithoutSpecialCount = njAssets.filter((asset) => {
+      const code = String(asset.asset_code || '').toUpperCase()
+      return code !== 'CH-NJ-02' && code !== 'CH-NJ-03'
+    }).length
 
     const total =
-      oldWithoutCh2Count +
-      ((ch2Dashboard || rawRows.length)
-        ? 1
-        : njAssets.some((asset) => String(asset.asset_code || '').toUpperCase() === 'CH-NJ-02')
-          ? 1
-          : 0) +
+      oldWithoutSpecialCount +
+      (ch2Dashboard || rawRowsCh2.length ? 1 : 0) +
+      (ch3Dashboard || rawRowsCh3.length ? 1 : 0) +
       barrels.length
 
     const online =
       njAssets.filter((asset) => {
         const code = String(asset.asset_code || '').toUpperCase()
-        return code !== 'CH-NJ-02' && getAssetStatus(asset).online
-      }).length + ch2Online
+        return code !== 'CH-NJ-02' && code !== 'CH-NJ-03' && getAssetStatus(asset).online
+      }).length +
+      ch2Online +
+      ch3Online
 
     const offline = Math.max(total - online, 0)
 
@@ -662,6 +703,14 @@ export default function MonitoringNJPage() {
       (ch2Dashboard?.comp_2b_enabled ? 1 : 0) +
       (ch2Dashboard?.comp_2c_enabled ? 1 : 0)
 
+    const compressorsOnCh3 =
+      (ch3Dashboard?.comp_1a_enabled ? 1 : 0) +
+      (ch3Dashboard?.comp_1b_enabled ? 1 : 0) +
+      (ch3Dashboard?.comp_1c_enabled ? 1 : 0) +
+      (ch3Dashboard?.comp_2a_enabled ? 1 : 0) +
+      (ch3Dashboard?.comp_2b_enabled ? 1 : 0) +
+      (ch3Dashboard?.comp_2c_enabled ? 1 : 0)
+
     const barrelLevelPoint = barrels
       .flatMap((asset) => asset.points)
       .find((point) => {
@@ -673,13 +722,13 @@ export default function MonitoringNJPage() {
       total,
       online,
       offline,
-      compressorsOn: compressorsOnOld + compressorsOnCh2,
+      compressorsOn: compressorsOnOld + compressorsOnCh2 + compressorsOnCh3,
       barrelLevel:
         barrelLevelPoint?.value_number === null || barrelLevelPoint?.value_number === undefined
           ? null
           : Number(barrelLevelPoint.value_number),
     }
-  }, [njAssets, barrels, ch2Dashboard, rawRows])
+  }, [njAssets, barrels, ch2Dashboard, ch3Dashboard, rawRowsCh2, rawRowsCh3])
 
   const pagePadding = isMobile ? 12 : 16
   const mainGridColumns = isDesktop ? '1.3fr 0.9fr' : '1fr'
@@ -697,6 +746,10 @@ export default function MonitoringNJPage() {
     }
     if (code === 'CH-NJ-02') {
       navigate('/monitoring/nj/chiller-2')
+      return
+    }
+    if (code === 'CH-NJ-03') {
+      navigate('/monitoring/nj/chiller-3')
       return
     }
 
@@ -876,12 +929,28 @@ export default function MonitoringNJPage() {
               {chillersInOrder.map((item) => {
                 if (item.kind === 'ch2') {
                   return (
-                    <Chiller2DashboardCard
+                    <DashboardChillerCard
                       key="CH-NJ-02"
+                      title="Chiller 2"
                       row={item.row}
-                      rawRows={rawRows}
+                      rawRows={item.rawRows}
                       isMobile={isMobile}
+                      badgeLabel="CH2"
                       onClick={() => navigate('/monitoring/nj/chiller-2')}
+                    />
+                  )
+                }
+
+                if (item.kind === 'ch3') {
+                  return (
+                    <DashboardChillerCard
+                      key="CH-NJ-03"
+                      title="Chiller 3"
+                      row={item.row}
+                      rawRows={item.rawRows}
+                      isMobile={isMobile}
+                      badgeLabel="CH3"
+                      onClick={() => navigate('/monitoring/nj/chiller-3')}
                     />
                   )
                 }
