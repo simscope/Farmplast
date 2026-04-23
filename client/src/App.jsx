@@ -15,6 +15,7 @@ import EmployeesPage from './pages/EmployeesPage'
 import EmployeeDetailsPage from './pages/EmployeeDetailsPage'
 import Chiller1HMIPage from './pages/Chiller1HMIPage'
 import Chiller2HMIPage from './pages/Chiller2HMIPage'
+import Chiller3HMIPage from './pages/Chiller3HMIPage'
 export default function App() {
   return (
     <AuthProvider>
@@ -27,6 +28,7 @@ export default function App() {
         <Route path="/monitoring/pa" element={<MonitoringPAPage />} />
         <Route path="/monitoring/nj/chiller-1" element={<Chiller1HMIPage />} />
         <Route path="/monitoring/nj/chiller-2" element={<Chiller2HMIPage />} />
+        <Route path="/monitoring/nj/chiller-3" element={<Chiller3HMIPage />} />
         <Route
           path="/dashboard"
           element={
