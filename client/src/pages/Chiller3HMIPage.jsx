@@ -130,7 +130,7 @@ function getSetpointFromDashboard(dashboard) {
 
   if (raw !== null && raw !== undefined && raw !== '') {
     const num = Number(raw)
-    if (!Number.isNaN(num)) return num / 10
+    if (!Number.isNaN(num)) return num 
   }
 
   return null
