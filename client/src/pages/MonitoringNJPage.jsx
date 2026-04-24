@@ -715,7 +715,7 @@ export default function MonitoringNJPage() {
       .flatMap((asset) => asset.points)
       .find((point) => {
         const code = String(point.point_code || '').toUpperCase()
-        return code === 'LEVEL_PERCENT' || code.includes('RADAR') || code.includes('LEVEL')
+        return code === 'BARREL1_LEVEL_PERCENT'
       })
 
     return {
