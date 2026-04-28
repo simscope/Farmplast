@@ -27,7 +27,7 @@ const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
-const ZK_BRIDGE_URL = 'http://localhost:8787'
+const ZK_BRIDGE_URL = '/zkt'
 
 function sanitizeFileName(name) {
   return String(name || 'file')
