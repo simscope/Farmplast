@@ -27,6 +27,8 @@ const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
+const ZK_BRIDGE_URL = 'http://localhost:8787'
+
 function sanitizeFileName(name) {
   return String(name || 'file')
     .toLowerCase()
@@ -413,6 +415,8 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [zkLoading, setZkLoading] = useState(false)
+  const [zkStatus, setZkStatus] = useState('')
 
   const emptyForm = {
     id: null,
@@ -461,6 +465,97 @@ export default function DashboardPage() {
       setError(err.message || 'Failed to load employees')
     } finally {
       setLoading(false)
+    }
+  }
+
+
+  async function callZkBridge(endpoint, options = {}) {
+    const response = await fetch(`${ZK_BRIDGE_URL}${endpoint}`, {
+      method: options.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    })
+
+    let data = null
+
+    try {
+      data = await response.json()
+    } catch {
+      data = null
+    }
+
+    if (!response.ok) {
+      throw new Error(data?.error || data?.message || `ZKT bridge error ${response.status}`)
+    }
+
+    return data || {}
+  }
+
+  function getZkMessage(data, fallback) {
+    if (!data) return fallback
+    if (data.status) return data.status
+    if (data.message) return data.message
+
+    const parts = []
+
+    if (data.device) parts.push(`Device: ${data.device}`)
+    if (data.synced !== undefined) parts.push(`Synced: ${data.synced}`)
+    if (data.inserted !== undefined) parts.push(`Inserted: ${data.inserted}`)
+    if (data.skipped !== undefined) parts.push(`Skipped: ${data.skipped}`)
+    if (data.total !== undefined) parts.push(`Total: ${data.total}`)
+
+    return parts.length ? parts.join(' · ') : fallback
+  }
+
+  async function handleZkTest() {
+    try {
+      setZkLoading(true)
+      setZkStatus('Testing ZKT connection...')
+      setError('')
+
+      const data = await callZkBridge('/test')
+      setZkStatus(getZkMessage(data, 'ZKT connection OK'))
+    } catch (err) {
+      console.error('handleZkTest error:', err)
+      setZkStatus(`ERROR: ${err.message || 'Failed to connect to ZKT bridge'}`)
+    } finally {
+      setZkLoading(false)
+    }
+  }
+
+  async function handleZkSyncEmployees() {
+    try {
+      setZkLoading(true)
+      setZkStatus('Syncing employees to ZKT...')
+      setError('')
+
+      const data = await callZkBridge('/sync-employees', { method: 'POST' })
+      setZkStatus(getZkMessage(data, 'Employees synced to ZKT'))
+    } catch (err) {
+      console.error('handleZkSyncEmployees error:', err)
+      setZkStatus(`ERROR: ${err.message || 'Failed to sync employees to ZKT'}`)
+    } finally {
+      setZkLoading(false)
+    }
+  }
+
+  async function handleZkPullLogs() {
+    try {
+      setZkLoading(true)
+      setZkStatus('Pulling attendance logs from ZKT...')
+      setError('')
+
+      const data = await callZkBridge('/pull-attendance', { method: 'POST' })
+      setZkStatus(getZkMessage(data, 'Attendance logs pulled from ZKT'))
+      await loadEmployees()
+    } catch (err) {
+      console.error('handleZkPullLogs error:', err)
+      setZkStatus(`ERROR: ${err.message || 'Failed to pull attendance logs from ZKT'}`)
+    } finally {
+      setZkLoading(false)
     }
   }
 
@@ -726,6 +821,33 @@ export default function DashboardPage() {
               </button>
 
               <button
+                onClick={handleZkTest}
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                Test ZKT
+              </button>
+
+              <button
+                onClick={handleZkSyncEmployees}
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                Sync → ZKT
+              </button>
+
+              <button
+                onClick={handleZkPullLogs}
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
+                Pull Logs
+              </button>
+
+              <button
                 onClick={openAddModal}
                 className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
               >
@@ -742,6 +864,12 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+
+          {zkStatus ? (
+            <div className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-200">
+              ZKT: {zkStatus}
+            </div>
+          ) : null}
         </div>
 
         <div className={cardClass}>
