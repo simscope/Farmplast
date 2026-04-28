@@ -54,6 +54,70 @@ async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
   return data?.publicUrl || ''
 }
 
+async function callZkBridge(endpoint, options = {}) {
+  const url = `${ZK_BRIDGE_URL}${endpoint}`
+
+  let response
+
+  try {
+    response = await fetch(url, {
+      method: options.method || 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+      body: options.body ? JSON.stringify(options.body) : undefined,
+    })
+  } catch (err) {
+    throw new Error(
+      `ZKT bridge is not reachable. Check that your local bridge is running and Vite proxy is configured. Details: ${
+        err.message || 'Network error'
+      }`
+    )
+  }
+
+  let data = null
+  const contentType = response.headers.get('content-type') || ''
+
+  if (contentType.includes('application/json')) {
+    try {
+      data = await response.json()
+    } catch {
+      data = null
+    }
+  } else {
+    const text = await response.text().catch(() => '')
+    data = text ? { message: text } : null
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      data?.error ||
+        data?.message ||
+        `ZKT bridge request failed: ${response.status} ${response.statusText}`
+    )
+  }
+
+  return data || {}
+}
+
+function getZkMessage(data, fallback) {
+  if (!data) return fallback
+  if (data.status) return data.status
+  if (data.message) return data.message
+
+  const parts = []
+
+  if (data.device) parts.push(`Device: ${data.device}`)
+  if (data.synced !== undefined) parts.push(`Synced: ${data.synced}`)
+  if (data.inserted !== undefined) parts.push(`Inserted: ${data.inserted}`)
+  if (data.updated !== undefined) parts.push(`Updated: ${data.updated}`)
+  if (data.skipped !== undefined) parts.push(`Skipped: ${data.skipped}`)
+  if (data.total !== undefined) parts.push(`Total: ${data.total}`)
+
+  return parts.length ? parts.join(' · ') : fallback
+}
+
 function EmployeeModal({
   open,
   onClose,
@@ -296,7 +360,10 @@ function EmployeeModal({
                     className={inputClass}
                     value={form.company_name}
                     onChange={(e) =>
-                      setForm((prev) => ({ ...prev, company_name: e.target.value }))
+                      setForm((prev) => ({
+                        ...prev,
+                        company_name: e.target.value,
+                      }))
                     }
                     placeholder="Enter company name"
                   />
@@ -346,7 +413,9 @@ function EmployeeModal({
               ) : (
                 <div>
                   <label className="mb-1 block text-xs text-slate-300">
-                    {form.pay_type === 'monthly' ? 'Monthly salary' : 'One-time amount'}
+                    {form.pay_type === 'monthly'
+                      ? 'Monthly salary'
+                      : 'One-time amount'}
                   </label>
                   <input
                     type="number"
@@ -468,48 +537,6 @@ export default function DashboardPage() {
     }
   }
 
-
-  async function callZkBridge(endpoint, options = {}) {
-    const response = await fetch(`${ZK_BRIDGE_URL}${endpoint}`, {
-      method: options.method || 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-    })
-
-    let data = null
-
-    try {
-      data = await response.json()
-    } catch {
-      data = null
-    }
-
-    if (!response.ok) {
-      throw new Error(data?.error || data?.message || `ZKT bridge error ${response.status}`)
-    }
-
-    return data || {}
-  }
-
-  function getZkMessage(data, fallback) {
-    if (!data) return fallback
-    if (data.status) return data.status
-    if (data.message) return data.message
-
-    const parts = []
-
-    if (data.device) parts.push(`Device: ${data.device}`)
-    if (data.synced !== undefined) parts.push(`Synced: ${data.synced}`)
-    if (data.inserted !== undefined) parts.push(`Inserted: ${data.inserted}`)
-    if (data.skipped !== undefined) parts.push(`Skipped: ${data.skipped}`)
-    if (data.total !== undefined) parts.push(`Total: ${data.total}`)
-
-    return parts.length ? parts.join(' · ') : fallback
-  }
-
   async function handleZkTest() {
     try {
       setZkLoading(true)
@@ -560,23 +587,7 @@ export default function DashboardPage() {
   }
 
   function openAddModal() {
-    setForm({
-      id: null,
-      employee_number: '',
-      first_name: '',
-      last_name: '',
-      phone: '',
-      email: '',
-      position: 'worker',
-      pay_type: 'hourly',
-      hourly_rate: '',
-      monthly_salary: '',
-      active: true,
-      hire_date: '',
-      employer_form: 'W2',
-      company_name: '',
-      photo_url: '',
-    })
+    setForm(emptyForm)
     setModalOpen(true)
   }
 
@@ -806,7 +817,8 @@ export default function DashboardPage() {
               <div>
                 <h1 className="text-xl font-bold text-white">Employees</h1>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Total: {counts.total} · Active: {counts.active} · Inactive: {counts.inactive}
+                  Total: {counts.total} · Active: {counts.active} · Inactive:{' '}
+                  {counts.inactive}
                 </p>
               </div>
             </div>
@@ -814,9 +826,10 @@ export default function DashboardPage() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={loadEmployees}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:border-cyan-500"
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <RefreshCw size={15} />
+                {loading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
                 Refresh
               </button>
 
@@ -866,7 +879,13 @@ export default function DashboardPage() {
           </div>
 
           {zkStatus ? (
-            <div className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs text-cyan-200">
+            <div
+              className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
+                zkStatus.startsWith('ERROR:')
+                  ? 'border-red-500/30 bg-red-500/10 text-red-300'
+                  : 'border-cyan-500/20 bg-cyan-500/10 text-cyan-200'
+              }`}
+            >
               ZKT: {zkStatus}
             </div>
           ) : null}
