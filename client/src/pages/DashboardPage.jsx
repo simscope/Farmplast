@@ -27,8 +27,6 @@ const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
-const ZK_BRIDGE_URL = '/zkt'
-
 function sanitizeFileName(name) {
   return String(name || 'file')
     .toLowerCase()
@@ -52,70 +50,6 @@ async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
 
   const { data } = supabase.storage.from('employee-photos').getPublicUrl(filePath)
   return data?.publicUrl || ''
-}
-
-async function callZkBridge(endpoint, options = {}) {
-  const url = `${ZK_BRIDGE_URL}${endpoint}`
-
-  let response
-
-  try {
-    response = await fetch(url, {
-      method: options.method || 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(options.headers || {}),
-      },
-      body: options.body ? JSON.stringify(options.body) : undefined,
-    })
-  } catch (err) {
-    throw new Error(
-      `ZKT bridge is not reachable. Check that your local bridge is running and Vite proxy is configured. Details: ${
-        err.message || 'Network error'
-      }`
-    )
-  }
-
-  let data = null
-  const contentType = response.headers.get('content-type') || ''
-
-  if (contentType.includes('application/json')) {
-    try {
-      data = await response.json()
-    } catch {
-      data = null
-    }
-  } else {
-    const text = await response.text().catch(() => '')
-    data = text ? { message: text } : null
-  }
-
-  if (!response.ok) {
-    throw new Error(
-      data?.error ||
-        data?.message ||
-        `ZKT bridge request failed: ${response.status} ${response.statusText}`
-    )
-  }
-
-  return data || {}
-}
-
-function getZkMessage(data, fallback) {
-  if (!data) return fallback
-  if (data.status) return data.status
-  if (data.message) return data.message
-
-  const parts = []
-
-  if (data.device) parts.push(`Device: ${data.device}`)
-  if (data.synced !== undefined) parts.push(`Synced: ${data.synced}`)
-  if (data.inserted !== undefined) parts.push(`Inserted: ${data.inserted}`)
-  if (data.updated !== undefined) parts.push(`Updated: ${data.updated}`)
-  if (data.skipped !== undefined) parts.push(`Skipped: ${data.skipped}`)
-  if (data.total !== undefined) parts.push(`Total: ${data.total}`)
-
-  return parts.length ? parts.join(' · ') : fallback
 }
 
 function EmployeeModal({
@@ -537,17 +471,36 @@ export default function DashboardPage() {
     }
   }
 
+  async function createZktCommand(command) {
+    const { data, error } = await supabase
+      .from('zkt_bridge_commands')
+      .insert({
+        command,
+        status: 'pending',
+        payload: {},
+      })
+      .select('id, command, status, created_at')
+      .single()
+
+    if (error) throw error
+
+    return data
+  }
+
   async function handleZkTest() {
     try {
       setZkLoading(true)
-      setZkStatus('Testing ZKT connection...')
+      setZkStatus('Creating TEST command for ZKT bridge...')
       setError('')
 
-      const data = await callZkBridge('/test')
-      setZkStatus(getZkMessage(data, 'ZKT connection OK'))
+      const command = await createZktCommand('test')
+
+      setZkStatus(
+        `TEST command created. Waiting for Windows bridge. Command ID: ${command.id}`
+      )
     } catch (err) {
       console.error('handleZkTest error:', err)
-      setZkStatus(`ERROR: ${err.message || 'Failed to connect to ZKT bridge'}`)
+      setZkStatus(`ERROR: ${err.message || 'Failed to create ZKT test command'}`)
     } finally {
       setZkLoading(false)
     }
@@ -556,14 +509,17 @@ export default function DashboardPage() {
   async function handleZkSyncEmployees() {
     try {
       setZkLoading(true)
-      setZkStatus('Syncing employees to ZKT...')
+      setZkStatus('Creating SYNC EMPLOYEES command for ZKT bridge...')
       setError('')
 
-      const data = await callZkBridge('/sync-employees', { method: 'POST' })
-      setZkStatus(getZkMessage(data, 'Employees synced to ZKT'))
+      const command = await createZktCommand('sync_employees')
+
+      setZkStatus(
+        `SYNC EMPLOYEES command created. Waiting for Windows bridge. Command ID: ${command.id}`
+      )
     } catch (err) {
       console.error('handleZkSyncEmployees error:', err)
-      setZkStatus(`ERROR: ${err.message || 'Failed to sync employees to ZKT'}`)
+      setZkStatus(`ERROR: ${err.message || 'Failed to create ZKT sync command'}`)
     } finally {
       setZkLoading(false)
     }
@@ -572,22 +528,40 @@ export default function DashboardPage() {
   async function handleZkPullLogs() {
     try {
       setZkLoading(true)
-      setZkStatus('Pulling attendance logs from ZKT...')
+      setZkStatus('Creating PULL ATTENDANCE command for ZKT bridge...')
       setError('')
 
-      const data = await callZkBridge('/pull-attendance', { method: 'POST' })
-      setZkStatus(getZkMessage(data, 'Attendance logs pulled from ZKT'))
-      await loadEmployees()
+      const command = await createZktCommand('pull_attendance')
+
+      setZkStatus(
+        `PULL ATTENDANCE command created. Waiting for Windows bridge. Command ID: ${command.id}`
+      )
     } catch (err) {
       console.error('handleZkPullLogs error:', err)
-      setZkStatus(`ERROR: ${err.message || 'Failed to pull attendance logs from ZKT'}`)
+      setZkStatus(`ERROR: ${err.message || 'Failed to create ZKT pull command'}`)
     } finally {
       setZkLoading(false)
     }
   }
 
   function openAddModal() {
-    setForm(emptyForm)
+    setForm({
+      id: null,
+      employee_number: '',
+      first_name: '',
+      last_name: '',
+      phone: '',
+      email: '',
+      position: 'worker',
+      pay_type: 'hourly',
+      hourly_rate: '',
+      monthly_salary: '',
+      active: true,
+      hire_date: '',
+      employer_form: 'W2',
+      company_name: '',
+      photo_url: '',
+    })
     setModalOpen(true)
   }
 
@@ -817,8 +791,7 @@ export default function DashboardPage() {
               <div>
                 <h1 className="text-xl font-bold text-white">Employees</h1>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Total: {counts.total} · Active: {counts.active} · Inactive:{' '}
-                  {counts.inactive}
+                  Total: {counts.total} · Active: {counts.active} · Inactive: {counts.inactive}
                 </p>
               </div>
             </div>
@@ -826,10 +799,9 @@ export default function DashboardPage() {
             <div className="flex flex-wrap gap-2">
               <button
                 onClick={loadEmployees}
-                disabled={loading}
-                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:border-cyan-500"
               >
-                {loading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                <RefreshCw size={15} />
                 Refresh
               </button>
 
