@@ -27,11 +27,31 @@ const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 function sanitizeFileName(name) {
   return String(name || 'file')
     .toLowerCase()
     .replace(/[^a-z0-9.\-_]+/g, '-')
     .replace(/-+/g, '-')
+}
+
+function formatCommandResult(result) {
+  if (!result) return 'Done'
+
+  const parts = []
+
+  if (result.message) parts.push(result.message)
+  if (result.total !== undefined) parts.push(`Total: ${result.total}`)
+  if (result.inserted !== undefined) parts.push(`Inserted: ${result.inserted}`)
+  if (result.skipped !== undefined) parts.push(`Skipped: ${result.skipped}`)
+  if (result.synced !== undefined) parts.push(`Synced: ${result.synced}`)
+  if (result.count !== undefined) parts.push(`Count: ${result.count}`)
+  if (result.error) parts.push(`Error: ${result.error}`)
+
+  return parts.length ? parts.join(' · ') : JSON.stringify(result)
 }
 
 async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
@@ -420,6 +440,7 @@ export default function DashboardPage() {
   const [search, setSearch] = useState('')
   const [zkLoading, setZkLoading] = useState(false)
   const [zkStatus, setZkStatus] = useState('')
+  const [activeCommandId, setActiveCommandId] = useState(null)
 
   const emptyForm = {
     id: null,
@@ -487,61 +508,86 @@ export default function DashboardPage() {
     return data
   }
 
-  async function handleZkTest() {
+  async function waitForZktCommand(commandId, label) {
+    const maxAttempts = 90
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+      const { data, error } = await supabase
+        .from('zkt_bridge_commands')
+        .select('id, command, status, result, error, created_at, picked_at, finished_at')
+        .eq('id', commandId)
+        .single()
+
+      if (error) throw error
+
+      if (!data) {
+        throw new Error('Command not found')
+      }
+
+      if (data.status === 'pending') {
+        setZkStatus(`${label}: waiting for bridge... (${attempt}/${maxAttempts})`)
+      }
+
+      if (data.status === 'running') {
+        setZkStatus(`${label}: running on Windows bridge...`)
+      }
+
+      if (data.status === 'done') {
+        const resultText = formatCommandResult(data.result)
+
+        setZkStatus(`${label}: DONE ✅ ${resultText}`)
+
+        return data
+      }
+
+      if (data.status === 'error') {
+        const message = data.error || data.result?.message || 'Unknown ZKT bridge error'
+        throw new Error(message)
+      }
+
+      await sleep(1000)
+    }
+
+    throw new Error('Timeout: Windows bridge did not finish command')
+  }
+
+  async function runZktCommand(command, label, afterDone) {
     try {
       setZkLoading(true)
-      setZkStatus('Creating TEST command for ZKT bridge...')
       setError('')
+      setActiveCommandId(null)
+      setZkStatus(`${label}: creating command...`)
 
-      const command = await createZktCommand('test')
+      const created = await createZktCommand(command)
 
-      setZkStatus(
-        `TEST command created. Waiting for Windows bridge. Command ID: ${command.id}`
-      )
+      setActiveCommandId(created.id)
+      setZkStatus(`${label}: command created. ID: ${created.id}`)
+
+      const finished = await waitForZktCommand(created.id, label)
+
+      if (typeof afterDone === 'function') {
+        await afterDone(finished)
+      }
     } catch (err) {
-      console.error('handleZkTest error:', err)
-      setZkStatus(`ERROR: ${err.message || 'Failed to create ZKT test command'}`)
+      console.error(`runZktCommand ${command} error:`, err)
+      setZkStatus(`ERROR: ${label}: ${err.message || 'Failed to run command'}`)
     } finally {
       setZkLoading(false)
     }
+  }
+
+  async function handleZkTest() {
+    await runZktCommand('test', 'TEST ZKT')
   }
 
   async function handleZkSyncEmployees() {
-    try {
-      setZkLoading(true)
-      setZkStatus('Creating SYNC EMPLOYEES command for ZKT bridge...')
-      setError('')
-
-      const command = await createZktCommand('sync_employees')
-
-      setZkStatus(
-        `SYNC EMPLOYEES command created. Waiting for Windows bridge. Command ID: ${command.id}`
-      )
-    } catch (err) {
-      console.error('handleZkSyncEmployees error:', err)
-      setZkStatus(`ERROR: ${err.message || 'Failed to create ZKT sync command'}`)
-    } finally {
-      setZkLoading(false)
-    }
+    await runZktCommand('sync_employees', 'SYNC EMPLOYEES')
   }
 
   async function handleZkPullLogs() {
-    try {
-      setZkLoading(true)
-      setZkStatus('Creating PULL ATTENDANCE command for ZKT bridge...')
-      setError('')
-
-      const command = await createZktCommand('pull_attendance')
-
-      setZkStatus(
-        `PULL ATTENDANCE command created. Waiting for Windows bridge. Command ID: ${command.id}`
-      )
-    } catch (err) {
-      console.error('handleZkPullLogs error:', err)
-      setZkStatus(`ERROR: ${err.message || 'Failed to create ZKT pull command'}`)
-    } finally {
-      setZkLoading(false)
-    }
+    await runZktCommand('pull_attendance', 'PULL ATTENDANCE', async () => {
+      await loadEmployees()
+    })
   }
 
   function openAddModal() {
@@ -855,10 +901,17 @@ export default function DashboardPage() {
               className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
                 zkStatus.startsWith('ERROR:')
                   ? 'border-red-500/30 bg-red-500/10 text-red-300'
-                  : 'border-cyan-500/20 bg-cyan-500/10 text-cyan-200'
+                  : zkStatus.includes('DONE')
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                    : 'border-cyan-500/20 bg-cyan-500/10 text-cyan-200'
               }`}
             >
               ZKT: {zkStatus}
+              {activeCommandId ? (
+                <span className="ml-2 text-[11px] text-slate-400">
+                  ID: {activeCommandId}
+                </span>
+              ) : null}
             </div>
           ) : null}
         </div>
