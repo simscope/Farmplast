@@ -497,8 +497,8 @@ export default function EmployeesPage() {
       first_name: employee.first_name || '',
       last_name: employee.last_name || '',
       zkt_enabled: employee.zkt_enabled ?? true,
-      zkt_user_id: employee.zkt_user_id ?? employee.employee_number ?? '',
-      zkt_name: employee.zkt_name || fullName.slice(0, 24),
+      zkt_user_id: employee.employee_number ?? '',
+      zkt_name: fullName.slice(0, 24),
       zkt_password: employee.zkt_password || '',
       zkt_card_number: employee.zkt_card_number ?? '',
       zkt_privilege: employee.zkt_privilege ?? 0,
@@ -551,7 +551,7 @@ export default function EmployeesPage() {
         zkt_password: null,
         zkt_card_number: null,
         zkt_privilege: 0,
-        zkt_sync_status: 'not_synced',
+        zkt_sync_status: 'pending',
         zkt_sync_error: null,
         zkt_synced_at: null,
       }
@@ -581,33 +581,30 @@ export default function EmployeesPage() {
 
       if (!zktForm.id) throw new Error('Employee ID is missing')
 
-      const preview = buildZktPreview(zktForm)
+      const employeeNumber = Number(zktForm.employee_number)
+      const fullName = `${zktForm.first_name || ''} ${zktForm.last_name || ''}`.trim().slice(0, 24)
 
-      if (zktForm.zkt_enabled && !preview.uid) {
-        throw new Error('ZKT User ID is required')
+      if (zktForm.zkt_enabled && !employeeNumber) {
+        throw new Error('Employee number is required for ZKT User ID')
       }
 
-      if (zktForm.zkt_enabled && !preview.name) {
-        throw new Error('ZKT name is required')
-      }
-
-      if (zktForm.zkt_card_number !== '' && Number.isNaN(Number(zktForm.zkt_card_number))) {
-        throw new Error('ZKT card number must be numeric')
+      if (zktForm.zkt_enabled && !fullName) {
+        throw new Error('First name and last name are required for ZKT name')
       }
 
       const payload = {
         zkt_enabled: !!zktForm.zkt_enabled,
-        zkt_user_id: preview.uid ? Number(preview.uid) : null,
-        zkt_name: preview.name || null,
+        zkt_user_id: employeeNumber,
+        zkt_name: fullName,
         zkt_password: zktForm.zkt_password ? String(zktForm.zkt_password) : null,
         zkt_card_number:
           zktForm.zkt_card_number !== '' &&
           zktForm.zkt_card_number !== null &&
           zktForm.zkt_card_number !== undefined
-            ? Number(zktForm.zkt_card_number)
+            ? String(zktForm.zkt_card_number)
             : null,
         zkt_privilege: Number(zktForm.zkt_privilege || 0),
-        zkt_sync_status: 'not_synced',
+        zkt_sync_status: 'pending',
         zkt_sync_error: null,
         zkt_synced_at: null,
       }
@@ -1047,9 +1044,9 @@ export default function EmployeesPage() {
                         style={inputStyle}
                         type="number"
                         name="zkt_user_id"
-                        value={zktForm.zkt_user_id}
-                        onChange={handleZktChange}
-                        placeholder="Usually same as employee number"
+                        value={zktForm.employee_number}
+                        readOnly
+                        placeholder="Auto: Employee number"
                       />
                     </div>
 
@@ -1059,9 +1056,9 @@ export default function EmployeesPage() {
                         style={inputStyle}
                         type="text"
                         name="zkt_name"
-                        value={zktForm.zkt_name}
-                        onChange={handleZktChange}
-                        placeholder="Max 24 chars"
+                        value={`${zktForm.first_name || ''} ${zktForm.last_name || ''}`.trim().slice(0, 24)}
+                        readOnly
+                        placeholder="Auto: First name + Last name"
                       />
                     </div>
 
