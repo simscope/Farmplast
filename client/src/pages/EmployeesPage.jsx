@@ -399,20 +399,18 @@ function getZktStatusText(status) {
 }
 
 function buildZktPreview(form) {
-  const fullName = `${form.first_name || ''} ${form.last_name || ''}`.trim()
-  const zktUserId =
-    form.zkt_user_id !== null &&
-    form.zkt_user_id !== undefined &&
-    String(form.zkt_user_id).trim() !== ''
-      ? Number(form.zkt_user_id)
-      : Number(form.employee_number)
-
-  const zktName = String(form.zkt_name || fullName).trim().slice(0, 24)
+  const fullName = `${form.first_name || ''} ${form.last_name || ''}`.trim().slice(0, 24)
+  const employeeNumber =
+    form.employee_number !== null &&
+    form.employee_number !== undefined &&
+    String(form.employee_number).trim() !== ''
+      ? Number(form.employee_number)
+      : ''
 
   return {
-    uid: zktUserId || '',
-    userId: zktUserId ? String(zktUserId) : '',
-    name: zktName,
+    uid: employeeNumber || '',
+    userId: employeeNumber ? String(employeeNumber) : '',
+    name: fullName,
     password: form.zkt_password ? String(form.zkt_password) : '',
     privilege:
       form.zkt_privilege !== null &&
@@ -581,21 +579,24 @@ export default function EmployeesPage() {
 
       if (!zktForm.id) throw new Error('Employee ID is missing')
 
-      const employeeNumber = Number(zktForm.employee_number)
-      const fullName = `${zktForm.first_name || ''} ${zktForm.last_name || ''}`.trim().slice(0, 24)
+      const preview = buildZktPreview(zktForm)
 
-      if (zktForm.zkt_enabled && !employeeNumber) {
-        throw new Error('Employee number is required for ZKT User ID')
+      if (zktForm.zkt_enabled && !preview.uid) {
+        throw new Error('Employee number is required because ZKT user ID is created automatically from employee number')
       }
 
-      if (zktForm.zkt_enabled && !fullName) {
-        throw new Error('First name and last name are required for ZKT name')
+      if (zktForm.zkt_enabled && !preview.name) {
+        throw new Error('First name and last name are required because ZKT name is created automatically')
+      }
+
+      if (zktForm.zkt_card_number !== '' && Number.isNaN(Number(zktForm.zkt_card_number))) {
+        throw new Error('ZKT card number must be numeric')
       }
 
       const payload = {
         zkt_enabled: !!zktForm.zkt_enabled,
-        zkt_user_id: employeeNumber,
-        zkt_name: fullName,
+        zkt_user_id: preview.uid ? Number(preview.uid) : null,
+        zkt_name: preview.name || null,
         zkt_password: zktForm.zkt_password ? String(zktForm.zkt_password) : null,
         zkt_card_number:
           zktForm.zkt_card_number !== '' &&
@@ -1041,24 +1042,24 @@ export default function EmployeesPage() {
                     <div style={fieldStyle}>
                       <label style={labelStyle}>ZKT User ID / UID *</label>
                       <input
-                        style={inputStyle}
+                        style={{ ...inputStyle, opacity: 0.75, cursor: 'not-allowed' }}
                         type="number"
                         name="zkt_user_id"
-                        value={zktForm.employee_number}
+                        value={zktPreview.userId}
                         readOnly
-                        placeholder="Auto: Employee number"
+                        placeholder="Auto from employee number"
                       />
                     </div>
 
                     <div style={fieldStyle}>
                       <label style={labelStyle}>Name sent to ZKT</label>
                       <input
-                        style={inputStyle}
+                        style={{ ...inputStyle, opacity: 0.75, cursor: 'not-allowed' }}
                         type="text"
                         name="zkt_name"
-                        value={`${zktForm.first_name || ''} ${zktForm.last_name || ''}`.trim().slice(0, 24)}
+                        value={zktPreview.name}
                         readOnly
-                        placeholder="Auto: First name + Last name"
+                        placeholder="Auto from first name + last name"
                       />
                     </div>
 
