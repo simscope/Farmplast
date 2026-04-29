@@ -579,14 +579,15 @@ export default function EmployeesPage() {
 
       if (!zktForm.id) throw new Error('Employee ID is missing')
 
-      const preview = buildZktPreview(zktForm)
+      const employeeNumber = Number(zktForm.employee_number)
+      const fullName = `${zktForm.first_name || ''} ${zktForm.last_name || ''}`.trim()
 
-      if (zktForm.zkt_enabled && !preview.uid) {
-        throw new Error('Employee number is required because ZKT user ID is created automatically from employee number')
+      if (zktForm.zkt_enabled && !employeeNumber) {
+        throw new Error('Employee number is required for ZKT user ID')
       }
 
-      if (zktForm.zkt_enabled && !preview.name) {
-        throw new Error('First name and last name are required because ZKT name is created automatically')
+      if (zktForm.zkt_enabled && !fullName) {
+        throw new Error('First name and last name are required for ZKT name')
       }
 
       if (zktForm.zkt_card_number !== '' && Number.isNaN(Number(zktForm.zkt_card_number))) {
@@ -595,8 +596,8 @@ export default function EmployeesPage() {
 
       const payload = {
         zkt_enabled: !!zktForm.zkt_enabled,
-        zkt_user_id: preview.uid ? Number(preview.uid) : null,
-        zkt_name: preview.name || null,
+        zkt_user_id: employeeNumber,
+        zkt_name: fullName.slice(0, 24),
         zkt_password: zktForm.zkt_password ? String(zktForm.zkt_password) : null,
         zkt_card_number:
           zktForm.zkt_card_number !== '' &&
