@@ -399,34 +399,24 @@ function getZktStatusText(status) {
 }
 
 function buildZktPreview(form) {
-  const fullName = `${form.first_name || ''} ${form.last_name || ''}`.trim().slice(0, 24)
-  const employeeNumber =
-    form.employee_number !== null &&
-    form.employee_number !== undefined &&
-    String(form.employee_number).trim() !== ''
-      ? Number(form.employee_number)
-      : ''
+  const employeeNumber = Number(form.employee_number || 0)
+
+  const fullName = `${form.first_name || ''} ${form.last_name || ''}`
+    .trim()
+    .slice(0, 24)
 
   return {
-    uid: employeeNumber || '',
+    uid: employeeNumber,
     userId: employeeNumber ? String(employeeNumber) : '',
     name: fullName,
     password: form.zkt_password ? String(form.zkt_password) : '',
-    privilege:
-      form.zkt_privilege !== null &&
-      form.zkt_privilege !== undefined &&
-      String(form.zkt_privilege).trim() !== ''
-        ? Number(form.zkt_privilege)
-        : 0,
+    privilege: Number(form.zkt_privilege || 0),
     cardNo:
-      form.zkt_card_number !== null &&
-      form.zkt_card_number !== undefined &&
-      String(form.zkt_card_number).trim() !== ''
+      form.zkt_card_number && String(form.zkt_card_number).trim() !== ''
         ? Number(form.zkt_card_number)
         : 0,
   }
 }
-
 export default function EmployeesPage() {
   const [form, setForm] = useState(initialForm)
   const [zktForm, setZktForm] = useState(initialZktForm)
