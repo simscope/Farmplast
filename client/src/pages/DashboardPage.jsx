@@ -95,17 +95,42 @@ async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
   const safeName = sanitizeFileName(file.name.replace(/\.[^.]+$/, ''))
   const filePath = `employees/${employeeIdOrTemp}/${Date.now()}-${safeName}.${ext}`
 
+  // 🔥 загрузка
   const { error: uploadError } = await supabase.storage
     .from('employee-photos')
     .upload(filePath, file, {
       cacheControl: '3600',
       upsert: true,
+      contentType: file.type,
     })
 
   if (uploadError) throw uploadError
 
-  const { data } = supabase.storage.from('employee-photos').getPublicUrl(filePath)
-  return data?.publicUrl || ''
+  // ❗ ВАЖНО: сначала пробуем public
+  const { data: publicData } = supabase.storage
+    .from('employee-photos')
+    .getPublicUrl(filePath)
+
+  let url = publicData?.publicUrl
+
+  // ❗ если public не работает → используем signed URL
+  if (!url) {
+    const { data: signedData, error: signedError } =
+      await supabase.storage
+        .from('employee-photos')
+        .createSignedUrl(filePath, 60 * 60 * 24 * 365) // 1 год
+
+    if (signedError) throw signedError
+
+    url = signedData?.signedUrl
+  }
+
+  if (!url) {
+    throw new Error('Failed to get image URL')
+  }
+
+  // 🔥 анти-кэш
+  return `${url}?v=${Date.now()}`
 }
 
 function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing }) {
