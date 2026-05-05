@@ -144,6 +144,13 @@ const zktButtonStyle = {
   background: 'rgba(8,145,178,0.12)',
 }
 
+const photoButtonStyle = {
+  ...secondaryButtonStyle,
+  color: '#67e8f9',
+  border: '1px solid rgba(34,211,238,0.45)',
+  background: 'rgba(8,145,178,0.14)',
+}
+
 const statGridStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(4, minmax(0, 1fr))',
@@ -183,7 +190,7 @@ const tableWrapStyle = { overflowX: 'auto' }
 const tableStyle = {
   width: '100%',
   borderCollapse: 'collapse',
-  minWidth: '1280px',
+  minWidth: '1420px',
 }
 
 const thStyle = {
@@ -296,6 +303,20 @@ const previewStyle = {
   fontSize: '12px',
   lineHeight: 1.5,
   overflowX: 'auto',
+}
+
+const photoBoxStyle = {
+  width: '58px',
+  height: '58px',
+  borderRadius: '12px',
+  border: '1px solid rgba(51,65,85,0.8)',
+  background: '#020617',
+  overflow: 'hidden',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  color: '#64748b',
+  fontSize: '10px',
 }
 
 const initialForm = {
@@ -417,6 +438,13 @@ function buildZktPreview(form) {
         : 0,
   }
 }
+
+function safeFileName(name) {
+  return String(name || 'photo.png')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-zA-Z0-9._-]/g, '')
+}
+
 export default function EmployeesPage() {
   const [form, setForm] = useState(initialForm)
   const [zktForm, setZktForm] = useState(initialZktForm)
@@ -425,6 +453,7 @@ export default function EmployeesPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [savingZkt, setSavingZkt] = useState(false)
+  const [uploadingId, setUploadingId] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
 
@@ -505,6 +534,74 @@ export default function EmployeesPage() {
     setZktForm(initialZktForm)
   }
 
+  async function handlePhotoUpload(employee, file) {
+    try {
+      setError('')
+      setMessage('')
+
+      if (!employee?.id) {
+        throw new Error('Employee ID is missing')
+      }
+
+      if (!file) {
+        throw new Error('No file selected')
+      }
+
+      if (!file.type || !file.type.startsWith('image/')) {
+        throw new Error('Please select an image file')
+      }
+
+      setUploadingId(employee.id)
+
+      const fileExt = safeFileName(file.name).split('.').pop() || 'png'
+      const filePath = `employees/${employee.id}/${Date.now()}-${safeFileName(
+        `${employee.employee_number || 'employee'}-photo.${fileExt}`
+      )}`
+
+      const { error: uploadError } = await supabase.storage
+        .from('employee-photos')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: true,
+          contentType: file.type,
+        })
+
+      if (uploadError) throw uploadError
+
+      const { data: publicUrlData } = supabase.storage
+        .from('employee-photos')
+        .getPublicUrl(filePath)
+
+      const publicUrl = publicUrlData?.publicUrl
+
+      if (!publicUrl) {
+        throw new Error('Public URL was not created')
+      }
+
+      const finalUrl = `${publicUrl}?v=${Date.now()}`
+
+      const { error: updateError } = await supabase
+        .from('employees')
+        .update({ photo_url: finalUrl })
+        .eq('id', employee.id)
+
+      if (updateError) throw updateError
+
+      setEmployees((prev) =>
+        prev.map((row) =>
+          row.id === employee.id ? { ...row, photo_url: finalUrl } : row
+        )
+      )
+
+      setMessage('Employee photo uploaded and saved')
+    } catch (err) {
+      console.error('handlePhotoUpload error:', err)
+      setError(err.message || 'Failed to upload employee photo')
+    } finally {
+      setUploadingId('')
+    }
+  }
+
   async function handleSubmit(event) {
     event.preventDefault()
 
@@ -532,6 +629,7 @@ export default function EmployeesPage() {
             ? null
             : Number(parseFloat(form.hourly_rate).toFixed(2)),
         active: !!form.active,
+        photo_url: null,
 
         zkt_enabled: true,
         zkt_user_id: employeeNumber,
@@ -679,7 +777,7 @@ export default function EmployeesPage() {
             </p>
             <h1 style={titleStyle}>Employees</h1>
             <p style={subtitleStyle}>
-              Add workers, assign employee numbers, and configure ZKT user data.
+              Add workers, assign employee numbers, configure photos, and set ZKT user data.
             </p>
           </div>
         </div>
@@ -860,7 +958,7 @@ export default function EmployeesPage() {
               Employees list
             </h2>
             <div style={infoTextStyle}>
-              Use ZKT button to configure exactly what will be sent to the time clock.
+              Upload photo saves the file to Storage and writes the public URL to employees.photo_url.
             </div>
           </div>
 
@@ -873,6 +971,7 @@ export default function EmployeesPage() {
               <table style={tableStyle}>
                 <thead>
                   <tr>
+                    <th style={{ ...thStyle, width: '80px' }}>Photo</th>
                     <th style={{ ...thStyle, width: '90px' }}>Employee #</th>
                     <th style={{ ...thStyle, width: '190px' }}>Name</th>
                     <th style={{ ...thStyle, width: '120px' }}>Position</th>
@@ -882,12 +981,34 @@ export default function EmployeesPage() {
                     <th style={{ ...thStyle, width: '90px' }}>Status</th>
                     <th style={{ ...thStyle, width: '110px' }}>ZKT ID</th>
                     <th style={{ ...thStyle, width: '120px' }}>ZKT Status</th>
-                    <th style={{ ...thStyle, width: '210px' }}>Action</th>
+                    <th style={{ ...thStyle, width: '330px' }}>Action</th>
                   </tr>
                 </thead>
                 <tbody>
                   {employees.map((employee) => (
                     <tr key={employee.id}>
+                      <td style={tdStyle}>
+                        <div style={photoBoxStyle}>
+                          {employee.photo_url ? (
+                            <img
+                              src={employee.photo_url}
+                              alt={`${employee.first_name || ''} ${employee.last_name || ''}`}
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                display: 'block',
+                              }}
+                              onError={(event) => {
+                                event.currentTarget.style.display = 'none'
+                              }}
+                            />
+                          ) : (
+                            'No photo'
+                          )}
+                        </div>
+                      </td>
+
                       <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                         {employee.employee_number}
                       </td>
@@ -961,6 +1082,21 @@ export default function EmployeesPage() {
 
                       <td style={tdStyle}>
                         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                          <label style={photoButtonStyle}>
+                            {uploadingId === employee.id ? 'Uploading...' : 'Upload photo'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              style={{ display: 'none' }}
+                              disabled={uploadingId === employee.id}
+                              onChange={(event) => {
+                                const file = event.target.files?.[0]
+                                event.target.value = ''
+                                if (file) handlePhotoUpload(employee, file)
+                              }}
+                            />
+                          </label>
+
                           <button
                             type="button"
                             style={zktButtonStyle}
