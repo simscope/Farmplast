@@ -1787,14 +1787,7 @@ export default function DashboardPage() {
                 Payroll report
               </button>
 
-              <button
-                onClick={openAddModal}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
-              >
-                <Plus size={16} />
-                Add
-              </button>
-            </div>
+              </div>
           </div>
 
           <div className="p-3">
