@@ -70,6 +70,18 @@ function timeToMinutes(value) {
   return h * 60 + m
 }
 
+function roundMinutesToNearestQuarter(minutes) {
+  const value = Number(minutes || 0)
+  if (!Number.isFinite(value)) return 0
+  return Math.round(value / 15) * 15
+}
+
+function roundHoursToNearestQuarter(hours) {
+  const value = Number(hours || 0)
+  if (!Number.isFinite(value)) return 0
+  return round2(roundMinutesToNearestQuarter(value * 60) / 60)
+}
+
 function calcDayHours(timeIn, timeOut, lunchHours) {
   const start = timeToMinutes(timeIn)
   let end = timeToMinutes(timeOut)
@@ -77,11 +89,13 @@ function calcDayHours(timeIn, timeOut, lunchHours) {
   if (start === null || end === null) return 0
   if (end < start) end += 24 * 60
 
-  const rawHours = (end - start) / 60
-  const cappedHours = Math.min(rawHours, 12)
-  const lunch = Number(lunchHours || 0)
+  const rawMinutes = end - start
+  const roundedMinutes = roundMinutesToNearestQuarter(rawMinutes)
+  const cappedMinutes = Math.min(roundedMinutes, 12 * 60)
+  const lunchMinutes = roundMinutesToNearestQuarter(Number(lunchHours || 0) * 60)
+  const payableMinutes = Math.max(0, cappedMinutes - lunchMinutes)
 
-  return Math.max(0, round2(cappedHours - lunch))
+  return round2(payableMinutes / 60)
 }
 
 function getShiftLetter(timeIn) {
@@ -457,7 +471,7 @@ function PrintPaymentReport({
         </div>
       </div>
 
-      <div className="mb-3 text-lg font-bold">Work log used in calculation</div>
+      <div className="mb-3 text-lg font-bold">Work log used in calculation (rounded to nearest 15 min)</div>
 
       <div className="overflow-hidden rounded border border-slate-300">
         <div className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] bg-slate-100 px-4 py-3 text-sm font-bold">
@@ -709,7 +723,8 @@ export default function EmployeeDetailsPage() {
 
         if (field === 'reg_hours' && employee?.pay_type === 'hourly') {
           const hourlyRate = Number(employee?.hourly_rate || 0)
-          const reg = Number(value || 0)
+          const reg = roundHoursToNearestQuarter(value)
+          nextRow.reg_hours = String(reg)
           nextRow.labor_amount = String(round2(reg * hourlyRate))
         }
 
@@ -1428,7 +1443,7 @@ export default function EmployeeDetailsPage() {
                   <div>
                     <h2 className="text-xl font-bold text-white">Work log</h2>
                     <p className="text-sm text-slate-400">
-                      Max 12h/day, lunch deducted. Tax is entered manually as a fixed amount.
+                      Max 12h/day, rounded to nearest 15 min, lunch deducted. Tax is entered manually as a fixed amount.
                     </p>
                   </div>
                 </div>
@@ -1490,7 +1505,7 @@ export default function EmployeeDetailsPage() {
 
                         <input
                           type="number"
-                          step="0.01"
+                          step="0.25"
                           min="0"
                           value={row.lunch_hours ?? '1'}
                           onChange={(e) =>
@@ -1501,7 +1516,7 @@ export default function EmployeeDetailsPage() {
 
                         <input
                           type="number"
-                          step="0.01"
+                          step="0.25"
                           min="0"
                           value={row.reg_hours ?? '0'}
                           onChange={(e) =>
