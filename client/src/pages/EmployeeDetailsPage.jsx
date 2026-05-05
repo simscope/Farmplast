@@ -105,21 +105,30 @@ function buildEmptyRow() {
   }
 }
 
-function getSaturdayToFridayRange(baseDate = new Date()) {
-  const d = new Date(baseDate)
-  const day = d.getDay()
+function getLastWeekMondaySunday() {
+  const today = new Date()
 
-  const distanceToSaturday = day === 6 ? 0 : day + 1
-  const saturday = new Date(d)
-  saturday.setHours(0, 0, 0, 0)
-  saturday.setDate(d.getDate() - distanceToSaturday)
+  // день недели (0 = воскресенье, 1 = понедельник)
+  const day = today.getDay()
 
-  const friday = new Date(saturday)
-  friday.setDate(saturday.getDate() + 6)
+  // находим понедельник текущей недели
+  const diffToMonday = day === 0 ? -6 : 1 - day
+
+  const currentMonday = new Date(today)
+  currentMonday.setDate(today.getDate() + diffToMonday)
+  currentMonday.setHours(0, 0, 0, 0)
+
+  // прошлый понедельник
+  const lastMonday = new Date(currentMonday)
+  lastMonday.setDate(currentMonday.getDate() - 7)
+
+  // прошлое воскресенье
+  const lastSunday = new Date(lastMonday)
+  lastSunday.setDate(lastMonday.getDate() + 6)
 
   return {
-    start: saturday.toISOString().slice(0, 10),
-    end: friday.toISOString().slice(0, 10),
+    start: lastMonday.toISOString().slice(0, 10),
+    end: lastSunday.toISOString().slice(0, 10),
   }
 }
 
@@ -136,19 +145,20 @@ function getWeeksInSelectedPeriod(periodStart, periodEnd) {
   return Math.max(1, Math.ceil(daysInclusive / 7))
 }
 
-function getWeekStartSaturday(dateStr) {
+function getWeekStartMonday(dateStr) {
   if (!dateStr) return 'unknown'
+
   const d = new Date(`${dateStr}T00:00:00`)
   if (Number.isNaN(d.getTime())) return 'unknown'
 
   const day = d.getDay()
-  const distanceToSaturday = day === 6 ? 0 : day + 1
+  const diffToMonday = day === 0 ? -6 : 1 - day
 
-  const saturday = new Date(d)
-  saturday.setHours(0, 0, 0, 0)
-  saturday.setDate(d.getDate() - distanceToSaturday)
+  const monday = new Date(d)
+  monday.setHours(0, 0, 0, 0)
+  monday.setDate(d.getDate() + diffToMonday)
 
-  return saturday.toISOString().slice(0, 10)
+  return monday.toISOString().slice(0, 10)
 }
 
 function numberToWordsUnder1000(n) {
@@ -551,7 +561,7 @@ function PrintPreviewModal({
 
 export default function EmployeeDetailsPage() {
   const { id } = useParams()
-  const currentWeek = getSaturdayToFridayRange()
+  const defaultPayrollPeriod = getPayrollWeekRange('last')
 
   const [employee, setEmployee] = useState(null)
   const [logs, setLogs] = useState([])
@@ -566,8 +576,9 @@ export default function EmployeeDetailsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
 
-  const [periodStart, setPeriodStart] = useState(currentWeek.start)
-  const [periodEnd, setPeriodEnd] = useState(currentWeek.end)
+  const [periodMode, setPeriodMode] = useState('last')
+  const [periodStart, setPeriodStart] = useState(defaultPayrollPeriod.start)
+  const [periodEnd, setPeriodEnd] = useState(defaultPayrollPeriod.end)
 
   const [employeeTax, setEmployeeTax] = useState('0')
   const [rent, setRent] = useState('0')
@@ -660,11 +671,15 @@ export default function EmployeeDetailsPage() {
     }
   }
 
-  function setCurrentWeek() {
-    const range = getSaturdayToFridayRange()
-    setPeriodStart(range.start)
-    setPeriodEnd(range.end)
-  }
+ function applyPayrollPeriod(mode) {
+  setPeriodMode(mode)
+
+  if (mode === 'custom') return
+
+  const range = getPayrollWeekRange(mode)
+  setPeriodStart(range.start)
+  setPeriodEnd(range.end)
+}
 
   function addRow() {
     setLogs((prev) => [buildEmptyRow(), ...prev])
@@ -834,7 +849,7 @@ export default function EmployeeDetailsPage() {
       const weeklyHoursMap = {}
 
       recalculated.forEach((row) => {
-        const weekKey = getWeekStartSaturday(row.work_date)
+        const weekKey = getWeekStartMonday(row.work_date)
         weeklyHoursMap[weekKey] = (weeklyHoursMap[weekKey] || 0) + Number(row.reg_hours || 0)
       })
 
@@ -853,7 +868,7 @@ export default function EmployeeDetailsPage() {
       taxableLabor = totalLabor
     }
 
-    const employeeTaxPercent = Number(employeeTax || 0)
+    const employeeTaxAmount = Number(employeeTax || 0)
     const rentNum = Number(rent || 0)
     const electricNum = Number(electric || 0)
     const waterNum = Number(water || 0)
@@ -877,7 +892,6 @@ export default function EmployeeDetailsPage() {
       totalLabor,
       taxableLabor,
       employeeTaxNum: employeeTaxAmount,
-      employeeTaxPercent,
       rentNum,
       electricNum,
       waterNum,
@@ -1055,13 +1069,43 @@ export default function EmployeeDetailsPage() {
             Add row
           </button>
 
-          <button
-            onClick={setCurrentWeek}
-            className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-600/10 px-3 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-600/20"
-          >
-            <CalendarDays size={16} />
-            Current Week
-          </button>
+          <div className="inline-flex overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
+  <button
+    type="button"
+    onClick={() => applyPayrollPeriod('last')}
+    className={`px-3 py-2 text-sm font-semibold transition ${
+      periodMode === 'last'
+        ? 'bg-cyan-600 text-white'
+        : 'text-slate-300 hover:bg-slate-800'
+    }`}
+  >
+    Last Week
+  </button>
+
+  <button
+    type="button"
+    onClick={() => applyPayrollPeriod('this')}
+    className={`border-l border-slate-700 px-3 py-2 text-sm font-semibold transition ${
+      periodMode === 'this'
+        ? 'bg-cyan-600 text-white'
+        : 'text-slate-300 hover:bg-slate-800'
+    }`}
+  >
+    This Week
+  </button>
+
+  <button
+    type="button"
+    onClick={() => applyPayrollPeriod('custom')}
+    className={`border-l border-slate-700 px-3 py-2 text-sm font-semibold transition ${
+      periodMode === 'custom'
+        ? 'bg-cyan-600 text-white'
+        : 'text-slate-300 hover:bg-slate-800'
+    }`}
+  >
+    Custom
+  </button>
+</div>
 
           <button
             onClick={handleOpenPrintModal}
@@ -1186,6 +1230,7 @@ export default function EmployeeDetailsPage() {
                   <input
                     type="date"
                     value={periodStart}
+                    onFocus={() => setPeriodMode('custom')}
                     onChange={(e) => setPeriodStart(e.target.value)}
                     className={darkInput}
                   />
@@ -1196,6 +1241,7 @@ export default function EmployeeDetailsPage() {
                   <input
                     type="date"
                     value={periodEnd}
+                    onFocus={() => setPeriodMode('custom')}
                     onChange={(e) => setPeriodEnd(e.target.value)}
                     className={darkInput}
                   />
@@ -1504,7 +1550,7 @@ export default function EmployeeDetailsPage() {
 
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 <div>
-                  <label className="mb-1 block text-xs text-slate-300">Employee tax %</label>
+                  <label className="mb-1 block text-xs text-slate-300">Employee tax amount</label>
                   <input
                     type="number"
                     step="0.01"
