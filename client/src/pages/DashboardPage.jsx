@@ -248,21 +248,23 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
               <div className="mx-auto h-28 w-28 overflow-hidden rounded-2xl border border-slate-700 bg-[#07101d]">
                 {form.photo_url ? (
                   <img
-                    key={form.photo_url}
-                    src={form.photo_url}
-                    alt="Employee"
-                    className="h-full w-full object-cover"
-                    onError={(e) => {
-                      console.error('Photo load failed:', form.photo_url)
-                      e.currentTarget.style.display = 'none'
-                    }}
-                  />
-                ) : (
-                  <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
-                    No photo
-                  </div>
-                )}
-              </div>
+                key={form.photo_url}
+                src={form.photo_url}
+                alt="Employee"
+                className="h-full w-full object-cover"
+                onLoad={() => {
+                console.log('PHOTO LOADED:', form.photo_url)
+                }}
+                onError={() => {
+                console.error('PHOTO FAILED:', form.photo_url)
+              }}
+            />
+          ) : (
+                <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
+              No photo
+            </div>
+              )}
+            </div>
 
               <div className="mt-3">
                 <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20">
