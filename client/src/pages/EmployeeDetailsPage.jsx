@@ -105,30 +105,30 @@ function buildEmptyRow() {
   }
 }
 
-function getLastWeekMondaySunday() {
-  const today = new Date()
+function getPayrollWeekRange(type = 'last', baseDate = new Date()) {
+  const today = new Date(baseDate)
+  today.setHours(0, 0, 0, 0)
 
-  // день недели (0 = воскресенье, 1 = понедельник)
   const day = today.getDay()
-
-  // находим понедельник текущей недели
   const diffToMonday = day === 0 ? -6 : 1 - day
 
-  const currentMonday = new Date(today)
-  currentMonday.setDate(today.getDate() + diffToMonday)
-  currentMonday.setHours(0, 0, 0, 0)
+  const thisMonday = new Date(today)
+  thisMonday.setDate(today.getDate() + diffToMonday)
+  thisMonday.setHours(0, 0, 0, 0)
 
-  // прошлый понедельник
-  const lastMonday = new Date(currentMonday)
-  lastMonday.setDate(currentMonday.getDate() - 7)
+  const start = new Date(thisMonday)
 
-  // прошлое воскресенье
-  const lastSunday = new Date(lastMonday)
-  lastSunday.setDate(lastMonday.getDate() + 6)
+  if (type === 'last') {
+    start.setDate(thisMonday.getDate() - 7)
+  }
+
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  end.setHours(23, 59, 59, 999)
 
   return {
-    start: lastMonday.toISOString().slice(0, 10),
-    end: lastSunday.toISOString().slice(0, 10),
+    start: start.toISOString().slice(0, 10),
+    end: end.toISOString().slice(0, 10),
   }
 }
 
@@ -868,19 +868,19 @@ export default function EmployeeDetailsPage() {
       taxableLabor = totalLabor
     }
 
-    const employeeTaxAmount = Number(employeeTax || 0)
-const rentNum = Number(rent || 0)
-const electricNum = Number(electric || 0)
-const waterNum = Number(water || 0)
-const cleanNum = Number(clean || 0)
-const transportNum = Number(transport || 0)
+    const employeeTaxAmount = round2(Number(employeeTax || 0))
+    const rentNum = Number(rent || 0)
+    const electricNum = Number(electric || 0)
+    const waterNum = Number(water || 0)
+    const cleanNum = Number(clean || 0)
+    const transportNum = Number(transport || 0)
 
-const otherDeductions =
-  rentNum + electricNum + waterNum + cleanNum + transportNum
+    const otherDeductions =
+      rentNum + electricNum + waterNum + cleanNum + transportNum
 
-const employeeDeductions = round2(employeeTaxAmount + otherDeductions)
-const netPay = round2(totalLabor - employeeDeductions)
-    
+    const employeeDeductions = round2(employeeTaxAmount + otherDeductions)
+    const netPay = round2(totalLabor - employeeDeductions)
+
     return {
       filteredForView: recalculated.sort((a, b) =>
         String(b.work_date || '').localeCompare(String(a.work_date || ''))
@@ -1145,7 +1145,7 @@ const netPay = round2(totalLabor - employeeDeductions)
                   <div>
                     <h1 className="text-2xl font-bold text-white">{fullName}</h1>
                     <p className="mt-1 text-sm text-slate-400">
-                      Weekly payroll card. Default week is Saturday → Friday.
+                      Payroll card. Default period is last week, Monday → Sunday.
                     </p>
                   </div>
                 </div>
@@ -1428,7 +1428,7 @@ const netPay = round2(totalLabor - employeeDeductions)
                   <div>
                     <h2 className="text-xl font-bold text-white">Work log</h2>
                     <p className="text-sm text-slate-400">
-                      Max 12h/day, lunch deducted. 40h/week only for tax base.
+                      Max 12h/day, lunch deducted. Tax is entered manually as a fixed amount.
                     </p>
                   </div>
                 </div>
