@@ -16,6 +16,7 @@ import {
   Upload,
   Loader2,
   CalendarDays,
+  FileText,
   ShieldCheck,
   ShieldAlert,
 } from 'lucide-react'
@@ -140,6 +141,186 @@ async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
   }
 
   return data.publicUrl
+}
+
+function pad2(value) {
+  return String(value).padStart(2, '0')
+}
+
+function toLocalDateString(date) {
+  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+function getPreviousWeekRange() {
+  const today = new Date()
+  const currentDay = today.getDay() || 7
+
+  const start = new Date(today)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(today.getDate() - currentDay - 6)
+
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  end.setHours(23, 59, 59, 999)
+
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(start)
+    day.setDate(start.getDate() + index)
+    return day
+  })
+
+  return {
+    start,
+    end,
+    startText: toLocalDateString(start),
+    endText: toLocalDateString(end),
+    days,
+  }
+}
+
+function formatReportDate(date) {
+  return date.toLocaleDateString('en-US', {
+    weekday: 'short',
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+  })
+}
+
+function formatTimeValue(value) {
+  if (!value) return ''
+
+  const asString = String(value)
+
+  if (/^\d{1,2}:\d{2}/.test(asString)) {
+    return asString.slice(0, 5)
+  }
+
+  const date = new Date(asString)
+  if (Number.isNaN(date.getTime())) return asString
+
+  return date.toLocaleTimeString('en-US', {
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function getLogEmployeeId(log) {
+  return String(
+    log.employee_id ||
+      log.employeeId ||
+      log.employee_uuid ||
+      log.worker_id ||
+      log.user_id ||
+      ''
+  )
+}
+
+function getLogDate(log) {
+  const rawDate =
+    log.work_date ||
+    log.date ||
+    log.day ||
+    log.shift_date ||
+    log.log_date ||
+    log.created_at ||
+    log.clock_in ||
+    log.check_in ||
+    log.in_time ||
+    log.start_time
+
+  if (!rawDate) return ''
+
+  if (typeof rawDate === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawDate)) {
+    return rawDate
+  }
+
+  const date = new Date(rawDate)
+  if (Number.isNaN(date.getTime())) return String(rawDate).slice(0, 10)
+
+  return toLocalDateString(date)
+}
+
+function getLogHours(log) {
+  const value =
+    log.total_hours ??
+    log.worked_hours ??
+    log.net_hours ??
+    log.hours ??
+    log.duration_hours ??
+    log.total_work_hours ??
+    log.paid_hours ??
+    null
+
+  if (value === null || value === undefined || value === '') return ''
+
+  const number = Number(value)
+  if (Number.isNaN(number)) return String(value)
+
+  return number.toFixed(2).replace(/\.00$/, '')
+}
+
+function getLogInTime(log) {
+  return formatTimeValue(
+    log.clock_in ||
+      log.check_in ||
+      log.in_time ||
+      log.start_time ||
+      log.first_in ||
+      log.time_in
+  )
+}
+
+function getLogOutTime(log) {
+  return formatTimeValue(
+    log.clock_out ||
+      log.check_out ||
+      log.out_time ||
+      log.end_time ||
+      log.last_out ||
+      log.time_out
+  )
+}
+
+function buildDayReportText(dayLogs) {
+  if (!dayLogs.length) return 'No data'
+
+  return dayLogs
+    .map((log) => {
+      const inTime = getLogInTime(log)
+      const outTime = getLogOutTime(log)
+      const hours = getLogHours(log)
+      const status = log.status || log.note || log.notes || ''
+
+      const parts = []
+      if (inTime || outTime) parts.push(`${inTime || '—'} - ${outTime || '—'}`)
+      if (hours) parts.push(`${hours} h`)
+      if (status) parts.push(status)
+
+      return parts.length ? parts.join(' · ') : 'Record found'
+    })
+    .join('<br/>')
+}
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;')
+}
+
+function downloadTextFile(fileName, content, type = 'text/html;charset=utf-8') {
+  const blob = new Blob([content], { type })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = fileName
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  URL.revokeObjectURL(url)
 }
 
 function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing }) {
@@ -639,6 +820,8 @@ export default function DashboardPage() {
   const [activeCommandId, setActiveCommandId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState(emptyForm)
+  const [reportLoading, setReportLoading] = useState(false)
+  const [reportError, setReportError] = useState('')
 
   const isEditing = Boolean(form.id)
 
@@ -943,6 +1126,183 @@ export default function DashboardPage() {
     }
   }
 
+  async function loadPreviousWeekWorkLogs() {
+    const week = getPreviousWeekRange()
+
+    const { data, error } = await supabase
+      .from('employee_work_logs')
+      .select('*')
+      .limit(10000)
+
+    if (error) throw error
+
+    const logs = (data || []).filter((log) => {
+      const dateText = getLogDate(log)
+      return dateText >= week.startText && dateText <= week.endText
+    })
+
+    return { week, logs }
+  }
+
+  function buildWorkTimeReportHtml(week, logs) {
+    const logsByEmployeeAndDate = new Map()
+
+    logs.forEach((log) => {
+      const employeeId = getLogEmployeeId(log)
+      const dateText = getLogDate(log)
+
+      if (!employeeId || !dateText) return
+
+      const key = `${employeeId}__${dateText}`
+      const current = logsByEmployeeAndDate.get(key) || []
+      current.push(log)
+      logsByEmployeeAndDate.set(key, current)
+    })
+
+    const employeeRows = employees
+      .map((employee) => {
+        const employeeName = escapeHtml(getFullName(employee))
+        const employeeNumber = escapeHtml(employee.employee_number ?? '')
+        const cells = week.days
+          .map((day) => {
+            const dayText = toLocalDateString(day)
+            const dayLogs = logsByEmployeeAndDate.get(`${employee.id}__${dayText}`) || []
+            return `<tr>
+              <td class="date-cell">${escapeHtml(formatReportDate(day))}</td>
+              <td>${buildDayReportText(dayLogs)}</td>
+            </tr>`
+          })
+          .join('')
+
+        return `<tbody class="employee-block">
+          <tr>
+            <th colspan="2" class="employee-name">${employeeName}${employeeNumber ? ` <span>#${employeeNumber}</span>` : ''}</th>
+          </tr>
+          ${cells}
+        </tbody>`
+      })
+      .join('')
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Work Time Report ${week.startText} - ${week.endText}</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      color: #111827;
+      background: #ffffff;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 13px;
+    }
+    .top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 20px;
+      margin-bottom: 18px;
+      border-bottom: 2px solid #111827;
+      padding-bottom: 12px;
+    }
+    h1 {
+      margin: 0 0 6px;
+      font-size: 22px;
+      line-height: 1.2;
+    }
+    .period {
+      font-size: 14px;
+      font-weight: 700;
+    }
+    .muted {
+      color: #4b5563;
+      font-size: 12px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      page-break-inside: auto;
+    }
+    tbody.employee-block {
+      page-break-inside: avoid;
+      break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #cbd5e1;
+      padding: 7px 8px;
+      vertical-align: top;
+    }
+    .employee-name {
+      background: #e5e7eb;
+      text-align: left;
+      font-size: 15px;
+      color: #111827;
+      padding: 9px 8px;
+    }
+    .employee-name span {
+      color: #4b5563;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .date-cell {
+      width: 190px;
+      font-weight: 700;
+      white-space: nowrap;
+      background: #f8fafc;
+    }
+    @media print {
+      body { padding: 12mm; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="top">
+    <div>
+      <h1>Work Time Report</h1>
+      <div class="period">Previous week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
+      <div class="muted">Monday to Sunday · All workers in one file</div>
+    </div>
+    <button class="no-print" onclick="window.print()" style="padding:8px 12px; cursor:pointer;">Print</button>
+  </div>
+  <table>
+    ${employeeRows || '<tbody><tr><td>No employees found</td></tr></tbody>'}
+  </table>
+</body>
+</html>`
+  }
+
+  async function handleWorkTimeReport() {
+    try {
+      setReportLoading(true)
+      setReportError('')
+      setError('')
+
+      const { week, logs } = await loadPreviousWeekWorkLogs()
+      const html = buildWorkTimeReportHtml(week, logs)
+      const fileName = `work-time-report-${week.startText}-to-${week.endText}.html`
+
+      downloadTextFile(fileName, html)
+
+      const printWindow = window.open('', '_blank')
+      if (printWindow) {
+        printWindow.document.open()
+        printWindow.document.write(html)
+        printWindow.document.close()
+        printWindow.focus()
+      }
+    } catch (err) {
+      console.error('handleWorkTimeReport error:', err)
+      const message = err.message || 'Failed to build work time report'
+      setReportError(message)
+      setError(message)
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
   async function handleLogout() {
     await signOut()
   }
@@ -1119,6 +1479,15 @@ export default function DashboardPage() {
                 className="w-full min-w-[320px] rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
               />
               <button
+                onClick={handleWorkTimeReport}
+                disabled={reportLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {reportLoading ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                Work report
+              </button>
+
+              <button
                 onClick={openAddModal}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-cyan-500"
               >
@@ -1132,6 +1501,12 @@ export default function DashboardPage() {
             {error ? (
               <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
                 {error}
+              </div>
+            ) : null}
+
+            {reportError ? (
+              <div className="mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+                Work report error: {reportError}
               </div>
             ) : null}
 
