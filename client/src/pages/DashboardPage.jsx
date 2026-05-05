@@ -90,12 +90,37 @@ function getZktLabel(employee) {
   return map[status] || status
 }
 
+async function removeEmployeePhotos(employeeId) {
+  if (!employeeId) return
+
+  const folder = `employees/${employeeId}`
+
+  const { data, error } = await supabase.storage
+    .from('employee-photos')
+    .list(folder)
+
+  if (error) throw error
+
+  const files = (data || []).map((file) => `${folder}/${file.name}`)
+
+  if (files.length > 0) {
+    const { error: removeError } = await supabase.storage
+      .from('employee-photos')
+      .remove(files)
+
+    if (removeError) throw removeError
+  }
+}
+
 async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
   const ext = file.name.split('.').pop() || 'jpg'
   const safeName = sanitizeFileName(file.name.replace(/\.[^.]+$/, ''))
   const filePath = `employees/${employeeIdOrTemp}/${Date.now()}-${safeName}.${ext}`
 
-  // 🔥 загрузка
+  if (employeeIdOrTemp !== 'temp') {
+    await removeEmployeePhotos(employeeIdOrTemp)
+  }
+
   const { error: uploadError } = await supabase.storage
     .from('employee-photos')
     .upload(filePath, file, {
@@ -106,31 +131,15 @@ async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
 
   if (uploadError) throw uploadError
 
-  // ❗ ВАЖНО: сначала пробуем public
-  const { data: publicData } = supabase.storage
+  const { data } = supabase.storage
     .from('employee-photos')
     .getPublicUrl(filePath)
 
-  let url = publicData?.publicUrl
-
-  // ❗ если public не работает → используем signed URL
-  if (!url) {
-    const { data: signedData, error: signedError } =
-      await supabase.storage
-        .from('employee-photos')
-        .createSignedUrl(filePath, 60 * 60 * 24 * 365) // 1 год
-
-    if (signedError) throw signedError
-
-    url = signedData?.signedUrl
+  if (!data?.publicUrl) {
+    throw new Error('Public URL was not created')
   }
 
-  if (!url) {
-    throw new Error('Failed to get image URL')
-  }
-
-  // 🔥 анти-кэш
-  return `${url}?v=${Date.now()}`
+  return data.publicUrl
 }
 
 function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing }) {
@@ -149,12 +158,27 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
   async function handlePhotoUpload(e) {
     try {
       const file = e.target.files?.[0]
+      e.target.value = ''
+
       if (!file) return
+
+      if (!file.type || !file.type.startsWith('image/')) {
+        throw new Error('Please select image file')
+      }
 
       setUploadingPhoto(true)
       setUploadError('')
 
       const photoUrl = await uploadEmployeePhoto(file, form.id || 'temp')
+
+      if (form.id) {
+        const { error } = await supabase
+          .from('employees')
+          .update({ photo_url: photoUrl })
+          .eq('id', form.id)
+
+        if (error) throw error
+      }
 
       setForm((prev) => ({
         ...prev,
@@ -163,6 +187,34 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
     } catch (err) {
       console.error('handlePhotoUpload error:', err)
       setUploadError(err.message || 'Failed to upload photo')
+    } finally {
+      setUploadingPhoto(false)
+    }
+  }
+
+  async function handleDeletePhoto() {
+    try {
+      setUploadingPhoto(true)
+      setUploadError('')
+
+      if (form.id) {
+        await removeEmployeePhotos(form.id)
+
+        const { error } = await supabase
+          .from('employees')
+          .update({ photo_url: null })
+          .eq('id', form.id)
+
+        if (error) throw error
+      }
+
+      setForm((prev) => ({
+        ...prev,
+        photo_url: '',
+      }))
+    } catch (err) {
+      console.error('handleDeletePhoto error:', err)
+      setUploadError(err.message || 'Failed to delete photo')
     } finally {
       setUploadingPhoto(false)
     }
@@ -196,9 +248,14 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
               <div className="mx-auto h-28 w-28 overflow-hidden rounded-2xl border border-slate-700 bg-[#07101d]">
                 {form.photo_url ? (
                   <img
+                    key={form.photo_url}
                     src={form.photo_url}
                     alt="Employee"
                     className="h-full w-full object-cover"
+                    onError={(e) => {
+                      console.error('Photo load failed:', form.photo_url)
+                      e.currentTarget.style.display = 'none'
+                    }}
                   />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
@@ -223,6 +280,22 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
                     disabled={uploadingPhoto || saving}
                   />
                 </label>
+
+                {form.photo_url ? (
+                  <button
+                    type="button"
+                    onClick={handleDeletePhoto}
+                    disabled={uploadingPhoto || saving}
+                    className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm font-semibold text-red-300 transition hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {uploadingPhoto ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={16} />
+                    )}
+                    Delete photo
+                  </button>
+                ) : null}
 
                 {uploadError ? (
                   <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
