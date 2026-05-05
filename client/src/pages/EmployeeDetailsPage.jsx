@@ -869,19 +869,18 @@ export default function EmployeeDetailsPage() {
     }
 
     const employeeTaxAmount = Number(employeeTax || 0)
-    const rentNum = Number(rent || 0)
-    const electricNum = Number(electric || 0)
-    const waterNum = Number(water || 0)
-    const cleanNum = Number(clean || 0)
-    const transportNum = Number(transport || 0)
+const rentNum = Number(rent || 0)
+const electricNum = Number(electric || 0)
+const waterNum = Number(water || 0)
+const cleanNum = Number(clean || 0)
+const transportNum = Number(transport || 0)
 
-    const otherDeductions =
-      rentNum + electricNum + waterNum + cleanNum + transportNum
+const otherDeductions =
+  rentNum + electricNum + waterNum + cleanNum + transportNum
 
-    const employeeTaxAmount = round2((taxableLabor * employeeTaxPercent) / 100)
-    const employeeDeductions = round2(employeeTaxAmount + otherDeductions)
-    const netPay = round2(totalLabor - employeeDeductions)
-
+const employeeDeductions = round2(employeeTaxAmount + otherDeductions)
+const netPay = round2(totalLabor - employeeDeductions)
+    
     return {
       filteredForView: recalculated.sort((a, b) =>
         String(b.work_date || '').localeCompare(String(a.work_date || ''))
