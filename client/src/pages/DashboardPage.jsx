@@ -17,6 +17,7 @@ import {
   Loader2,
   CalendarDays,
   FileText,
+  FileSpreadsheet,
   ShieldCheck,
   ShieldAlert,
 } from 'lucide-react'
@@ -1364,7 +1365,7 @@ export default function DashboardPage() {
     }
   }
 
-  function buildPayrollReportHtml(week, logs, deductionsRows) {
+  function buildPayrollRows(week, logs, deductionsRows) {
     const logsByEmployeeAndDate = new Map()
 
     logs.forEach((log) => {
@@ -1379,17 +1380,37 @@ export default function DashboardPage() {
       logsByEmployeeAndDate.set(key, current)
     })
 
-    const payrollRows = employees.map((employee) =>
+    return employees.map((employee) =>
       getEmployeePayroll(employee, week, logsByEmployeeAndDate, deductionsRows)
     )
+  }
+
+  function buildPayrollReportHtml(week, logs, deductionsRows) {
+    const payrollRows = buildPayrollRows(week, logs, deductionsRows)
 
     const grandGross = payrollRows.reduce((sum, item) => sum + item.grossPay, 0)
     const grandDeductions = payrollRows.reduce((sum, item) => sum + item.totalDeductions, 0)
     const grandNet = payrollRows.reduce((sum, item) => sum + item.netPay, 0)
     const grandHours = payrollRows.reduce((sum, item) => sum + item.totalRegularHours, 0)
+    const generatedAt = new Date().toLocaleString('en-US')
+
+    const summaryRows = payrollRows
+      .map((item, index) => {
+        const employee = item.employee
+        return `<tr>
+          <td>${index + 1}</td>
+          <td>${escapeHtml(employee.employee_number ?? '')}</td>
+          <td>${escapeHtml(getFullName(employee))}</td>
+          <td class="num">${formatHours(item.totalRegularHours)}</td>
+          <td class="num">${formatMoney(item.grossPay)}</td>
+          <td class="num">${formatMoney(item.totalDeductions)}</td>
+          <td class="num strong">${formatMoney(item.netPay)}</td>
+        </tr>`
+      })
+      .join('')
 
     const employeeBlocks = payrollRows
-      .map((item) => {
+      .map((item, index) => {
         const employee = item.employee
         const employeeName = escapeHtml(getFullName(employee))
         const employeeNumber = escapeHtml(employee.employee_number ?? '')
@@ -1401,7 +1422,7 @@ export default function DashboardPage() {
               ? day.rows
                   .map((row) => {
                     const note = row.status ? ` · ${escapeHtml(row.status)}` : ''
-                    return `${escapeHtml(row.inTime || '—')} - ${escapeHtml(row.outTime || '—')} · Lunch: ${formatHours(row.lunchHours)} · Reg: ${formatHours(row.regularHours)} h · Labor: ${formatMoney(row.labor)}${note}`
+                    return `${escapeHtml(row.inTime || '—')} - ${escapeHtml(row.outTime || '—')} · Lunch: ${formatHours(row.lunchHours)} · REG: ${formatHours(row.regularHours)} h · Labor: ${formatMoney(row.labor)}${note}`
                   })
                   .join('<br/>')
               : '<span class="muted">No rows</span>'
@@ -1409,8 +1430,9 @@ export default function DashboardPage() {
             return `<tr>
               <td class="date-cell">${escapeHtml(formatReportDate(day.date))}</td>
               <td>${detailRows}</td>
-              <td class="num">${formatHours(day.totalRegularHours)}</td>
-              <td class="num">${formatMoney(day.totalLabor)}</td>
+              <td class="num">${formatHours(day.totalLunchHours)}</td>
+              <td class="num strong">${formatHours(day.totalRegularHours)}</td>
+              <td class="num strong">${formatMoney(day.totalLabor)}</td>
             </tr>`
           })
           .join('')
@@ -1418,14 +1440,15 @@ export default function DashboardPage() {
         return `<section class="employee-block">
           <div class="employee-title">
             <div>
+              <div class="employee-index">EMPLOYEE ${index + 1}</div>
               <h2>${employeeName}${employeeNumber ? ` <span>#${employeeNumber}</span>` : ''}</h2>
               <div class="muted">Payment: ${payLabel}</div>
             </div>
             <div class="employee-summary">
-              <div><b>Hours:</b> ${formatHours(item.totalRegularHours)}</div>
-              <div><b>Gross:</b> ${formatMoney(item.grossPay)}</div>
-              <div><b>Deductions:</b> ${formatMoney(item.totalDeductions)}</div>
-              <div><b>Net pay:</b> ${formatMoney(item.netPay)}</div>
+              <div><span>Total hours</span><b>${formatHours(item.totalRegularHours)}</b></div>
+              <div><span>Gross pay</span><b>${formatMoney(item.grossPay)}</b></div>
+              <div><span>Deductions</span><b>${formatMoney(item.totalDeductions)}</b></div>
+              <div><span>Net pay</span><b>${formatMoney(item.netPay)}</b></div>
             </div>
           </div>
 
@@ -1434,7 +1457,8 @@ export default function DashboardPage() {
               <tr>
                 <th>Date</th>
                 <th>Time / Lunch / Regular / Labor</th>
-                <th>Reg Hrs</th>
+                <th>Lunch</th>
+                <th>REG Hrs</th>
                 <th>Labor</th>
               </tr>
             </thead>
@@ -1463,7 +1487,7 @@ export default function DashboardPage() {
                 <td class="num">${formatMoney(item.deductions.clean)}</td>
                 <td class="num">${formatMoney(item.deductions.transport)}</td>
                 <td class="num strong">${formatMoney(item.totalDeductions)}</td>
-                <td class="num strong">${formatMoney(item.netPay)}</td>
+                <td class="num strong total-net">${formatMoney(item.netPay)}</td>
               </tr>
             </tbody>
           </table>
@@ -1481,54 +1505,83 @@ export default function DashboardPage() {
     body {
       margin: 0;
       padding: 24px;
-      color: #111827;
+      color: #0f172a;
       background: #ffffff;
       font-family: Arial, Helvetica, sans-serif;
       font-size: 12px;
     }
+    .invoice-shell {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
     .top {
+      display: grid;
+      grid-template-columns: 1fr 330px;
+      gap: 24px;
+      margin-bottom: 18px;
+      border-bottom: 4px solid #0ea5e9;
+      padding-bottom: 14px;
+    }
+    .brand { font-size: 13px; font-weight: 800; color: #0369a1; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { margin: 6px 0 8px; font-size: 30px; line-height: 1.1; color: #0f172a; }
+    h2 { margin: 0; font-size: 17px; color: #0f172a; }
+    h2 span { color: #64748b; font-size: 12px; font-weight: 500; }
+    .period { font-size: 14px; font-weight: 700; }
+    .muted { color: #64748b; font-size: 11px; }
+    .invoice-box {
+      border: 1px solid #cbd5e1;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+    .invoice-box-row {
       display: flex;
       justify-content: space-between;
-      align-items: flex-start;
-      gap: 20px;
-      margin-bottom: 18px;
-      border-bottom: 2px solid #111827;
-      padding-bottom: 12px;
+      gap: 12px;
+      padding: 8px 10px;
+      border-bottom: 1px solid #e2e8f0;
     }
-    h1 { margin: 0 0 6px; font-size: 22px; line-height: 1.2; }
-    h2 { margin: 0; font-size: 16px; }
-    h2 span { color: #4b5563; font-size: 12px; font-weight: 500; }
-    .period { font-size: 14px; font-weight: 700; }
-    .muted { color: #4b5563; font-size: 11px; }
+    .invoice-box-row:last-child { border-bottom: 0; }
+    .invoice-box-label { color: #64748b; }
+    .invoice-box-value { font-weight: 800; text-align: right; }
     .summary {
       display: grid;
-      grid-template-columns: repeat(4, minmax(110px, 1fr));
-      gap: 8px;
-      margin-bottom: 18px;
+      grid-template-columns: repeat(4, minmax(130px, 1fr));
+      gap: 10px;
+      margin: 18px 0;
     }
     .summary-card {
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      padding: 8px;
-      background: #f8fafc;
+      border: 1px solid #bae6fd;
+      border-radius: 12px;
+      padding: 12px;
+      background: #f0f9ff;
     }
-    .summary-card b { display: block; font-size: 15px; margin-top: 2px; }
+    .summary-card span { display: block; color: #0369a1; font-weight: 700; font-size: 11px; text-transform: uppercase; }
+    .summary-card b { display: block; font-size: 18px; margin-top: 4px; color: #0f172a; }
+    .section-title {
+      margin: 18px 0 8px;
+      font-size: 15px;
+      font-weight: 900;
+      color: #0f172a;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+    }
     .employee-block {
       page-break-inside: avoid;
       break-inside: avoid;
       margin-bottom: 22px;
       border: 1px solid #cbd5e1;
-      border-radius: 10px;
+      border-radius: 12px;
       overflow: hidden;
     }
     .employee-title {
       display: flex;
       justify-content: space-between;
       gap: 16px;
-      padding: 10px;
-      background: #e5e7eb;
+      padding: 12px;
+      background: linear-gradient(90deg, #e0f2fe, #f8fafc);
       border-bottom: 1px solid #cbd5e1;
     }
+    .employee-index { color: #0284c7; font-size: 10px; font-weight: 900; letter-spacing: .08em; }
     .employee-summary {
       display: grid;
       grid-template-columns: repeat(4, auto);
@@ -1536,44 +1589,191 @@ export default function DashboardPage() {
       text-align: right;
       white-space: nowrap;
     }
+    .employee-summary span { display: block; color: #64748b; font-size: 10px; text-transform: uppercase; }
+    .employee-summary b { display: block; font-size: 13px; }
     table { width: 100%; border-collapse: collapse; }
     th, td { border: 1px solid #cbd5e1; padding: 6px 7px; vertical-align: top; }
-    th { background: #f1f5f9; text-align: left; font-size: 11px; text-transform: uppercase; }
-    .date-cell { width: 170px; font-weight: 700; white-space: nowrap; background: #f8fafc; }
+    th { background: #f1f5f9; text-align: left; font-size: 10px; text-transform: uppercase; color: #334155; }
+    .date-cell { width: 155px; font-weight: 800; white-space: nowrap; background: #f8fafc; }
     .num { text-align: right; white-space: nowrap; }
-    .strong { font-weight: 800; }
-    .deductions-table th { font-size: 10px; }
-    .no-print { padding: 8px 12px; cursor: pointer; }
+    .strong { font-weight: 900; }
+    .total-net { background: #dcfce7; color: #166534; }
+    .deductions-table th { font-size: 9px; }
+    .summary-table { margin-bottom: 16px; }
+    .summary-table th { background: #0369a1; color: #ffffff; }
+    .footer-note { margin-top: 14px; color: #64748b; font-size: 10px; }
+    .no-print {
+      border: 0;
+      border-radius: 8px;
+      background: #0ea5e9;
+      color: white;
+      padding: 9px 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
     @media print {
       body { padding: 10mm; }
+      .invoice-shell { max-width: none; }
       .no-print { display: none !important; }
       .employee-block { margin-bottom: 14px; }
+      .top { grid-template-columns: 1fr 300px; }
     }
   </style>
 </head>
 <body>
-  <div class="top">
-    <div>
-      <h1>Payroll Report</h1>
-      <div class="period">Previous week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
-      <div class="muted">Monday to Sunday · Max 12h/day · Lunch deducted · Tax/deductions are fixed manual amounts</div>
+  <div class="invoice-shell">
+    <div class="top">
+      <div>
+        <div class="brand">Payroll Report</div>
+        <h1>Weekly Payroll</h1>
+        <div class="period">Previous week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
+        <div class="muted">Monday to Sunday · Max 12h/day · Lunch deducted · Deductions are manually entered fixed amounts</div>
+      </div>
+      <div class="invoice-box">
+        <div class="invoice-box-row"><span class="invoice-box-label">Generated</span><span class="invoice-box-value">${escapeHtml(generatedAt)}</span></div>
+        <div class="invoice-box-row"><span class="invoice-box-label">Period</span><span class="invoice-box-value">${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</span></div>
+        <div class="invoice-box-row"><span class="invoice-box-label">Workers</span><span class="invoice-box-value">${payrollRows.length}</span></div>
+        <div class="invoice-box-row"><span class="invoice-box-label">Net payroll</span><span class="invoice-box-value">${formatMoney(grandNet)}</span></div>
+        <div class="invoice-box-row no-print"><button class="no-print" onclick="window.print()">Print / Save PDF</button></div>
+      </div>
     </div>
-    <button class="no-print" onclick="window.print()">Print</button>
-  </div>
 
-  <div class="summary">
-    <div class="summary-card">Total workers<b>${payrollRows.length}</b></div>
-    <div class="summary-card">Total regular hours<b>${formatHours(grandHours)}</b></div>
-    <div class="summary-card">Gross payroll<b>${formatMoney(grandGross)}</b></div>
-    <div class="summary-card">Net payroll<b>${formatMoney(grandNet)}</b><div class="muted">Deductions: ${formatMoney(grandDeductions)}</div></div>
-  </div>
+    <div class="summary">
+      <div class="summary-card"><span>Total workers</span><b>${payrollRows.length}</b></div>
+      <div class="summary-card"><span>Total regular hours</span><b>${formatHours(grandHours)}</b></div>
+      <div class="summary-card"><span>Gross payroll</span><b>${formatMoney(grandGross)}</b></div>
+      <div class="summary-card"><span>Net payroll</span><b>${formatMoney(grandNet)}</b><div class="muted">Deductions: ${formatMoney(grandDeductions)}</div></div>
+    </div>
 
-  ${employeeBlocks || '<div>No employees found</div>'}
+    <div class="section-title">Payroll summary</div>
+    <table class="summary-table">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Employee No.</th>
+          <th>Name</th>
+          <th>Hours</th>
+          <th>Gross</th>
+          <th>Deductions</th>
+          <th>Net pay</th>
+        </tr>
+      </thead>
+      <tbody>${summaryRows || '<tr><td colspan="7">No employees found</td></tr>'}</tbody>
+    </table>
+
+    <div class="section-title">Employee details</div>
+    ${employeeBlocks || '<div>No employees found</div>'}
+
+    <div class="footer-note">This report is generated from employees, employee_work_logs and available manual deduction tables.</div>
+  </div>
 </body>
 </html>`
   }
 
-  async function handleWorkTimeReport() {
+  function csvCell(value) {
+    const text = String(value ?? '')
+    return `"${text.replace(/"/g, '""')}"`
+  }
+
+  function buildPayrollCsv(week, logs, deductionsRows) {
+    const payrollRows = buildPayrollRows(week, logs, deductionsRows)
+    const lines = []
+
+    lines.push([
+      'Employee No',
+      'Employee Name',
+      'Date',
+      'Time In',
+      'Time Out',
+      'Lunch Hours',
+      'REG Hours',
+      'Labor',
+      'Employee Tax',
+      'Rent',
+      'Electric',
+      'Water',
+      'Clean',
+      'Transport',
+      'Total Deductions',
+      'Net Pay',
+    ].map(csvCell).join(','))
+
+    payrollRows.forEach((item) => {
+      const employee = item.employee
+      const employeeNo = employee.employee_number ?? ''
+      const employeeName = getFullName(employee)
+
+      item.days.forEach((day) => {
+        if (!day.rows.length) {
+          lines.push([
+            employeeNo,
+            employeeName,
+            day.dateText,
+            '',
+            '',
+            0,
+            0,
+            0,
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+          ].map(csvCell).join(','))
+          return
+        }
+
+        day.rows.forEach((row) => {
+          lines.push([
+            employeeNo,
+            employeeName,
+            day.dateText,
+            row.inTime || '',
+            row.outTime || '',
+            formatHours(row.lunchHours),
+            formatHours(row.regularHours),
+            Number(row.labor || 0).toFixed(2),
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+            '',
+          ].map(csvCell).join(','))
+        })
+      })
+
+      lines.push([
+        employeeNo,
+        employeeName,
+        'TOTAL',
+        '',
+        '',
+        '',
+        formatHours(item.totalRegularHours),
+        Number(item.grossPay || 0).toFixed(2),
+        Number(item.deductions.tax || 0).toFixed(2),
+        Number(item.deductions.rent || 0).toFixed(2),
+        Number(item.deductions.electric || 0).toFixed(2),
+        Number(item.deductions.water || 0).toFixed(2),
+        Number(item.deductions.clean || 0).toFixed(2),
+        Number(item.deductions.transport || 0).toFixed(2),
+        Number(item.totalDeductions || 0).toFixed(2),
+        Number(item.netPay || 0).toFixed(2),
+      ].map(csvCell).join(','))
+
+      lines.push('')
+    })
+
+    return `Payroll Report,${week.startText} to ${week.endText}\n${lines.join('\n')}`
+  }
+
+  async function handlePayrollPdfReport() {
     try {
       setReportLoading(true)
       setReportError('')
@@ -1582,20 +1782,49 @@ export default function DashboardPage() {
       const { week, logs } = await loadPreviousWeekWorkLogs()
       const deductionsRows = await tryLoadPayrollDeductions(week)
       const html = buildPayrollReportHtml(week, logs, deductionsRows)
-      const fileName = `payroll-report-${week.startText}-to-${week.endText}.html`
-
-      downloadTextFile(fileName, html)
 
       const printWindow = window.open('', '_blank')
-      if (printWindow) {
-        printWindow.document.open()
-        printWindow.document.write(html)
-        printWindow.document.close()
-        printWindow.focus()
+      if (!printWindow) {
+        throw new Error('Popup blocked. Allow popups for this site and click Payroll PDF again.')
       }
+
+      printWindow.document.open()
+      printWindow.document.write(html)
+      printWindow.document.close()
+      printWindow.focus()
+
+      setTimeout(() => {
+        try {
+          printWindow.print()
+        } catch (printError) {
+          console.warn('Auto print failed:', printError)
+        }
+      }, 500)
     } catch (err) {
-      console.error('handleWorkTimeReport error:', err)
-      const message = err.message || 'Failed to build payroll report'
+      console.error('handlePayrollPdfReport error:', err)
+      const message = err.message || 'Failed to build payroll PDF report'
+      setReportError(message)
+      setError(message)
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
+  async function handlePayrollCsvExport() {
+    try {
+      setReportLoading(true)
+      setReportError('')
+      setError('')
+
+      const { week, logs } = await loadPreviousWeekWorkLogs()
+      const deductionsRows = await tryLoadPayrollDeductions(week)
+      const csv = buildPayrollCsv(week, logs, deductionsRows)
+      const fileName = `payroll-report-${week.startText}-to-${week.endText}.csv`
+
+      downloadTextFile(fileName, csv, 'text/csv;charset=utf-8')
+    } catch (err) {
+      console.error('handlePayrollCsvExport error:', err)
+      const message = err.message || 'Failed to export payroll CSV'
       setReportError(message)
       setError(message)
     } finally {
@@ -1779,15 +2008,23 @@ export default function DashboardPage() {
                 className="w-full min-w-[320px] rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
               />
               <button
-                onClick={handleWorkTimeReport}
+                onClick={handlePayrollPdfReport}
                 disabled={reportLoading}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {reportLoading ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-                Payroll report
+                Payroll PDF
               </button>
 
-              </div>
+              <button
+                onClick={handlePayrollCsvExport}
+                disabled={reportLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {reportLoading ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
+                CSV export
+              </button>
+            </div>
           </div>
 
           <div className="p-3">
