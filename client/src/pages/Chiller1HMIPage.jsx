@@ -845,18 +845,96 @@ export default function Chiller1HMIPage() {
 
   const RESET_ALERT_PIN = '7720'
 
+  async function updateTelemetryPoint(pointId, { value_number = null, value_boolean = null }) {
+    const now = new Date().toISOString()
+
+    const { error } = await supabase
+      .from('telemetry_latest')
+      .update({
+        value_number,
+        value_boolean,
+        value_text: null,
+        quality: 'good',
+        source_timestamp: now,
+        updated_at: now,
+      })
+      .eq('point_id', pointId)
+
+    if (error) throw error
+  }
+
   async function sendCommand(commandType, commandValue) {
     setCommandMessage('')
 
-    const payload = {
-      asset_code: 'CH-NJ-01',
-      command_type: commandType,
-      command_value: String(commandValue),
-      status: 'pending',
+    const POINTS = {
+      CH1_SETPOINT: 'ab3ff6eb-b0a8-4083-9f1b-e705a0e5cd8d',
+      CH1_AUTO: 'b049389c-15a0-4c53-ab98-db1fee78a14c',
+      CH1_FAN_ENABLE: 'b39efd27-f542-441c-a1af-eb59206536a8',
+      CH1_FAN_30: '6e8e6326-95e8-47c8-9bc4-f2a68861d9df',
+      CH1_FAN_60: '32fe2b00-aa40-4a22-a5d2-3938caa37746',
+      CH1_RESET: '5639737e-7b96-44f2-b721-fd865bb52112',
     }
 
-    const { error: insertError } = await supabase.from('device_commands').insert(payload)
-    if (insertError) throw insertError
+    if (commandType === 'fan_setpoint') {
+      await updateTelemetryPoint(POINTS.CH1_SETPOINT, {
+        value_number: Number(commandValue),
+        value_boolean: null,
+      })
+    }
+
+    if (commandType === 'fan_mode') {
+      await updateTelemetryPoint(POINTS.CH1_AUTO, {
+        value_number: null,
+        value_boolean: commandValue === 'auto',
+      })
+    }
+
+    if (commandType === 'fan_off') {
+      await updateTelemetryPoint(POINTS.CH1_AUTO, {
+        value_number: null,
+        value_boolean: false,
+      })
+      await updateTelemetryPoint(POINTS.CH1_FAN_ENABLE, {
+        value_number: null,
+        value_boolean: false,
+      })
+      await updateTelemetryPoint(POINTS.CH1_FAN_30, {
+        value_number: null,
+        value_boolean: false,
+      })
+      await updateTelemetryPoint(POINTS.CH1_FAN_60, {
+        value_number: null,
+        value_boolean: false,
+      })
+    }
+
+    if (commandType === 'fan_speed') {
+      const speed = Number(commandValue)
+
+      await updateTelemetryPoint(POINTS.CH1_AUTO, {
+        value_number: null,
+        value_boolean: false,
+      })
+      await updateTelemetryPoint(POINTS.CH1_FAN_ENABLE, {
+        value_number: null,
+        value_boolean: true,
+      })
+      await updateTelemetryPoint(POINTS.CH1_FAN_30, {
+        value_number: null,
+        value_boolean: speed === 30,
+      })
+      await updateTelemetryPoint(POINTS.CH1_FAN_60, {
+        value_number: null,
+        value_boolean: speed === 60,
+      })
+    }
+
+    if (commandType === 'reset_alert') {
+      await updateTelemetryPoint(POINTS.CH1_RESET, {
+        value_number: null,
+        value_boolean: true,
+      })
+    }
 
     setTimeout(() => {
       fetchData({ silent: true })
