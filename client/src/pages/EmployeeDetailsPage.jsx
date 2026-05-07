@@ -35,6 +35,11 @@ const CHECK_COORDS = {
 }
 
 function money(value) {
+  const num = Math.round(Number(value || 0))
+  return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
+}
+
+function moneyRaw(value) {
   const num = Number(value || 0)
   return `$${num.toFixed(2)}`
 }
@@ -61,6 +66,10 @@ function formatDateTime(value) {
 
 function round2(value) {
   return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
+}
+
+function roundDollar(value) {
+  return Math.round(Number(value || 0))
 }
 
 function timeToMinutes(value) {
@@ -427,19 +436,31 @@ function PrintPaymentReport({
               <span className="font-medium">{totals.totalReg.toFixed(2)}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Taxable hours</span>
-              <span className="font-medium">{totals.taxableHours.toFixed(2)}</span>
+              <span className="text-slate-600">Overtime hours</span>
+              <span className="font-medium">{totals.overtimeHours.toFixed(2)}</span>
             </div>
             <div className="flex justify-between gap-4">
               <span className="text-slate-600">Total labor paid</span>
               <span className="font-medium">{money(totals.totalLabor)}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Taxable labor</span>
-              <span className="font-medium">{money(totals.taxableLabor)}</span>
+              <span className="text-slate-600">Main labor tax base</span>
+              <span className="font-medium">{money(totals.mainLabor)}</span>
             </div>
             <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Employee tax</span>
+              <span className="text-slate-600">Main tax 15.3%</span>
+              <span className="font-medium">{money(totals.mainTax)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Overtime labor tax base</span>
+              <span className="font-medium">{money(totals.overtimeLabor)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Overtime tax 27%</span>
+              <span className="font-medium">{money(totals.overtimeTax)}</span>
+            </div>
+            <div className="flex justify-between gap-4">
+              <span className="text-slate-600">Employee tax amount</span>
               <span className="font-medium">{money(totals.employeeTaxNum)}</span>
             </div>
             <div className="flex justify-between gap-4">
@@ -818,6 +839,8 @@ export default function EmployeeDetailsPage() {
       String(a.work_date || '').localeCompare(String(b.work_date || ''))
     )
 
+    const hourlyRate = Number(employee?.hourly_rate || 0)
+
     const recalculated = sorted.map((row) => {
       const fullHours =
         employee?.pay_type === 'hourly'
@@ -827,7 +850,7 @@ export default function EmployeeDetailsPage() {
       let laborAmount = Number(row.labor_amount || 0)
 
       if (employee?.pay_type === 'hourly') {
-        laborAmount = round2(fullHours * Number(employee?.hourly_rate || 0))
+        laborAmount = round2(fullHours * hourlyRate)
       }
 
       return {
@@ -842,25 +865,15 @@ export default function EmployeeDetailsPage() {
       recalculated.reduce((sum, row) => sum + Number(row.reg_hours || 0), 0)
     )
 
-    let totalLabor = round2(
-      recalculated.reduce((sum, row) => sum + Number(row.labor_amount || 0), 0)
-    )
-
     const weeksCount = getWeeksInSelectedPeriod(periodStart, periodEnd)
 
-    if (employee?.pay_type === 'monthly') {
-      totalLabor = round2((Number(employee?.monthly_salary || 0) / 4) * weeksCount)
-    }
-
-    if (employee?.pay_type === 'one_time') {
-      totalLabor = round2(Number(employee?.monthly_salary || 0))
-    }
-
-    let taxableHours = 0
-    let taxableLabor = totalLabor
+    let mainHours = 0
+    let overtimeHours = 0
+    let mainLabor = 0
+    let overtimeLabor = 0
+    let totalLabor = 0
 
     if (employee?.pay_type === 'hourly') {
-      const hourlyRate = Number(employee?.hourly_rate || 0)
       const weeklyHoursMap = {}
 
       recalculated.forEach((row) => {
@@ -868,33 +881,54 @@ export default function EmployeeDetailsPage() {
         weeklyHoursMap[weekKey] = (weeklyHoursMap[weekKey] || 0) + Number(row.reg_hours || 0)
       })
 
-      taxableHours = round2(
-        Object.values(weeklyHoursMap).reduce(
-          (sum, weekHours) => sum + Math.min(Number(weekHours || 0), 40),
-          0
-        )
-      )
+      Object.values(weeklyHoursMap).forEach((weekHoursRaw) => {
+        const weekHours = Number(weekHoursRaw || 0)
+        const weekMainHours = Math.min(weekHours, 40)
+        const weekOvertimeHours = Math.max(0, weekHours - 40)
 
-      taxableLabor = round2(taxableHours * hourlyRate)
+        mainHours += weekMainHours
+        overtimeHours += weekOvertimeHours
+      })
+
+      mainHours = round2(mainHours)
+      overtimeHours = round2(overtimeHours)
+      mainLabor = roundDollar(mainHours * hourlyRate)
+      overtimeLabor = roundDollar(overtimeHours * hourlyRate * 1.5)
+      totalLabor = roundDollar(mainLabor + overtimeLabor)
     }
 
-    if (employee?.pay_type === 'monthly' || employee?.pay_type === 'one_time') {
-      taxableHours = 0
-      taxableLabor = totalLabor
+    if (employee?.pay_type === 'monthly') {
+      mainHours = 0
+      overtimeHours = 0
+      mainLabor = roundDollar((Number(employee?.monthly_salary || 0) / 4) * weeksCount)
+      overtimeLabor = 0
+      totalLabor = mainLabor
     }
 
-    const employeeTaxAmount = round2(Number(employeeTax || 0))
-    const rentNum = Number(rent || 0)
-    const electricNum = Number(electric || 0)
-    const waterNum = Number(water || 0)
-    const cleanNum = Number(clean || 0)
-    const transportNum = Number(transport || 0)
+    if (employee?.pay_type === 'one_time') {
+      mainHours = 0
+      overtimeHours = 0
+      mainLabor = roundDollar(Number(employee?.monthly_salary || 0))
+      overtimeLabor = 0
+      totalLabor = mainLabor
+    }
 
-    const otherDeductions =
+    const mainTax = roundDollar(mainLabor * 0.153)
+    const overtimeTax = roundDollar(overtimeLabor * 0.27)
+    const employeeTaxAmount = roundDollar(mainTax + overtimeTax)
+
+    const rentNum = roundDollar(rent)
+    const electricNum = roundDollar(electric)
+    const waterNum = roundDollar(water)
+    const cleanNum = roundDollar(clean)
+    const transportNum = roundDollar(transport)
+
+    const employeeDeductions = roundDollar(
       rentNum + electricNum + waterNum + cleanNum + transportNum
+    )
 
-    const employeeDeductions = round2(employeeTaxAmount + otherDeductions)
-    const netPay = round2(totalLabor - employeeDeductions)
+    const totalDeductions = roundDollar(employeeTaxAmount + employeeDeductions)
+    const netPay = roundDollar(totalLabor - totalDeductions)
 
     return {
       filteredForView: recalculated.sort((a, b) =>
@@ -902,9 +936,15 @@ export default function EmployeeDetailsPage() {
       ),
       weeksCount,
       totalReg,
-      taxableHours,
+      mainHours,
+      overtimeHours,
       totalLabor,
-      taxableLabor,
+      mainLabor,
+      overtimeLabor,
+      taxableHours: mainHours,
+      taxableLabor: mainLabor,
+      mainTax,
+      overtimeTax,
       employeeTaxNum: employeeTaxAmount,
       rentNum,
       electricNum,
@@ -912,9 +952,14 @@ export default function EmployeeDetailsPage() {
       cleanNum,
       transportNum,
       employeeDeductions,
+      totalDeductions,
       netPay,
     }
-  }, [filteredLogs, employee, employeeTax, rent, electric, water, clean, transport, periodStart, periodEnd])
+  }, [filteredLogs, employee, rent, electric, water, clean, transport, periodStart, periodEnd])
+
+  useEffect(() => {
+    setEmployeeTax(String(totals.employeeTaxNum || 0))
+  }, [totals.employeeTaxNum])
 
   const paymentStats = useMemo(() => {
     const totalPaid = payments.reduce((sum, row) => sum + Number(row.net_pay || 0), 0)
@@ -1274,10 +1319,10 @@ export default function EmployeeDetailsPage() {
                 <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
                   <div className="flex items-center gap-2 text-xs text-slate-400">
                     <Clock3 size={14} />
-                    Taxable h
+                    Overtime h
                   </div>
                   <div className="mt-1 text-xl font-bold text-yellow-200">
-                    {totals.taxableHours.toFixed(2)}
+                    {totals.overtimeHours.toFixed(2)}
                   </div>
                 </div>
 
@@ -1443,7 +1488,7 @@ export default function EmployeeDetailsPage() {
                   <div>
                     <h2 className="text-xl font-bold text-white">Work log</h2>
                     <p className="text-sm text-slate-400">
-                      Max 12h/day, rounded to nearest 15 min, lunch deducted. Tax is entered manually as a fixed amount.
+                      Max 12h/day, rounded to nearest 15 min, lunch deducted. Employee tax is calculated automatically: main labor 15.3%, overtime labor 27%.
                     </p>
                   </div>
                 </div>
@@ -1567,11 +1612,11 @@ export default function EmployeeDetailsPage() {
                   <label className="mb-1 block text-xs text-slate-300">Employee tax amount</label>
                   <input
                     type="number"
-                    step="0.01"
+                    step="1"
                     min="0"
                     value={employeeTax}
-                    onChange={(e) => setEmployeeTax(e.target.value)}
-                    className={darkInput}
+                    readOnly
+                    className={`${darkInput} cursor-not-allowed text-yellow-200`}
                   />
                 </div>
 
@@ -1646,21 +1691,28 @@ export default function EmployeeDetailsPage() {
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-                  <div className="text-xs text-slate-400">Total labor</div>
-                  <div className="mt-1 text-xl font-bold text-white">
-                    {money(totals.totalLabor)}
+                  <div className="text-xs text-slate-400">Main labor tax 15.3%</div>
+                  <div className="mt-1 text-xl font-bold text-yellow-200">
+                    {money(totals.mainTax)}
+                  </div>
+                  <div className="mt-1 text-[11px] text-slate-500">
+                    Main labor: {money(totals.mainLabor)}
+                    {employee?.pay_type === 'hourly'
+                      ? ` / ${totals.mainHours.toFixed(2)} h up to 40 h/week`
+                      : ''}
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-                  <div className="text-xs text-slate-400">Taxable labor</div>
-                  <div className="mt-1 text-xl font-bold text-yellow-200">
-                    {money(totals.taxableLabor)}
+                  <div className="text-xs text-slate-400">Overtime tax 27%</div>
+                  <div className="mt-1 text-xl font-bold text-orange-300">
+                    {money(totals.overtimeTax)}
                   </div>
                   <div className="mt-1 text-[11px] text-slate-500">
+                    Overtime labor: {money(totals.overtimeLabor)}
                     {employee?.pay_type === 'hourly'
-                      ? `${totals.taxableHours.toFixed(2)} h taxable`
-                      : 'Tax base'}
+                      ? ` / ${totals.overtimeHours.toFixed(2)} h × 1.5 rate`
+                      : ''}
                   </div>
                 </div>
 
@@ -1675,6 +1727,9 @@ export default function EmployeeDetailsPage() {
                   <div className="text-xs text-emerald-300">Net Pay</div>
                   <div className="mt-1 text-2xl font-bold text-emerald-200">
                     {money(totals.netPay)}
+                  </div>
+                  <div className="mt-1 text-[11px] text-emerald-300/80">
+                    Total labor {money(totals.totalLabor)} - tax {money(totals.employeeTaxNum)} - deductions {money(totals.employeeDeductions)}
                   </div>
                 </div>
               </div>
