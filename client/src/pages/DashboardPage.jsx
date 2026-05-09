@@ -404,7 +404,7 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3 py-4 backdrop-blur-sm">
-      <div className="max-h-[98vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-slate-700 bg-[#07111f] shadow-2xl">
+      <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-700 bg-[#07111f] shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
           <div>
             <h2 className="text-lg font-bold text-white">
@@ -424,7 +424,7 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
           </button>
         </div>
 
-        <form onSubmit={onSave} className="space-y-4 px-4 py-4 pb-10">
+        <form onSubmit={onSave} className="space-y-4 overflow-y-auto px-4 py-4">
           <div className="grid gap-4 lg:grid-cols-[180px_1fr]">
             <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
               <div className="mx-auto h-28 w-28 overflow-hidden rounded-2xl border border-slate-700 bg-[#07101d]">
