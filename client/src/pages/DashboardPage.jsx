@@ -661,6 +661,26 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
               )}
 
               <div>
+                <label className="mb-1 block text-xs text-slate-300">Overtime</label>
+                <select
+                  className={inputClass}
+                  value={form.overtime_enabled ? 'true' : 'false'}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      overtime_enabled: e.target.value === 'true',
+                    }))
+                  }
+                >
+                  <option value="false">No overtime</option>
+                  <option value="true">With overtime</option>
+                </select>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Default is No overtime. Select With overtime only for workers paid 1.5x after 40h/week.
+                </p>
+              </div>
+
+              <div>
                 <label className="mb-1 block text-xs text-slate-300">Status</label>
                 <select
                   className={inputClass}
@@ -798,6 +818,7 @@ export default function DashboardPage() {
     pay_type: 'hourly',
     hourly_rate: '',
     monthly_salary: '',
+    overtime_enabled: false,
     active: true,
     hire_date: '',
     employer_form: 'W2',
@@ -848,6 +869,7 @@ export default function DashboardPage() {
           pay_type,
           hourly_rate,
           monthly_salary,
+          overtime_enabled,
           active,
           hire_date,
           employer_form,
@@ -1000,6 +1022,7 @@ export default function DashboardPage() {
       pay_type: employee.pay_type || 'hourly',
       hourly_rate: employee.hourly_rate ?? '',
       monthly_salary: employee.monthly_salary ?? '',
+      overtime_enabled: employee.overtime_enabled ?? false,
       active: employee.active ?? true,
       hire_date: employee.hire_date || '',
       employer_form: employee.employer_form || 'W2',
@@ -1061,6 +1084,7 @@ export default function DashboardPage() {
           form.monthly_salary !== ''
             ? Number(form.monthly_salary)
             : null,
+        overtime_enabled: Boolean(form.overtime_enabled),
         active: Boolean(form.active),
         hire_date: form.hire_date || null,
         employer_form: form.employer_form || null,
