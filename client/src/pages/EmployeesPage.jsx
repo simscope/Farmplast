@@ -190,7 +190,7 @@ const tableWrapStyle = { overflowX: 'auto' }
 const tableStyle = {
   width: '100%',
   borderCollapse: 'collapse',
-  minWidth: '1420px',
+  minWidth: '1540px',
 }
 
 const thStyle = {
@@ -327,6 +327,7 @@ const initialForm = {
   email: '',
   position: 'technician',
   hourly_rate: '',
+  overtime_enabled: false,
   active: true,
 }
 
@@ -628,6 +629,7 @@ export default function EmployeesPage() {
           form.hourly_rate === ''
             ? null
             : Number(parseFloat(form.hourly_rate).toFixed(2)),
+        overtime_enabled: Boolean(form.overtime_enabled),
         active: !!form.active,
         photo_url: null,
 
@@ -909,6 +911,24 @@ export default function EmployeesPage() {
               </div>
 
               <div style={fieldStyle}>
+                <label style={labelStyle}>Overtime</label>
+                <select
+                  style={selectStyle}
+                  name="overtime_enabled"
+                  value={form.overtime_enabled ? 'true' : 'false'}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      overtime_enabled: event.target.value === 'true',
+                    }))
+                  }
+                >
+                  <option value="false">No overtime</option>
+                  <option value="true">With overtime</option>
+                </select>
+              </div>
+
+              <div style={fieldStyle}>
                 <label style={labelStyle}>Status</label>
                 <div style={checkboxRowStyle}>
                   <input
@@ -978,6 +998,7 @@ export default function EmployeesPage() {
                     <th style={{ ...thStyle, width: '140px' }}>Phone</th>
                     <th style={{ ...thStyle, width: '220px' }}>Email</th>
                     <th style={{ ...thStyle, width: '100px' }}>Hourly rate</th>
+                    <th style={{ ...thStyle, width: '120px' }}>Overtime</th>
                     <th style={{ ...thStyle, width: '90px' }}>Status</th>
                     <th style={{ ...thStyle, width: '110px' }}>ZKT ID</th>
                     <th style={{ ...thStyle, width: '120px' }}>ZKT Status</th>
@@ -1062,6 +1083,12 @@ export default function EmployeesPage() {
 
                       <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                         {formatMoney(employee.hourly_rate)}
+                      </td>
+
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                        <span style={getZktBadgeStyle(employee.overtime_enabled ? 'verified' : 'skipped')}>
+                          {employee.overtime_enabled ? 'With OT' : 'No OT'}
+                        </span>
                       </td>
 
                       <td style={tdStyle}>
