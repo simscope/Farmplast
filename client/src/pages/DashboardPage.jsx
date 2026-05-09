@@ -404,7 +404,7 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3 py-4 backdrop-blur-sm">
-      <div className="max-h-[92vh] w-full max-w-5xl overflow-hidden rounded-2xl border border-slate-700 bg-[#07111f] shadow-2xl">
+      <div className="max-h-[98vh] w-full max-w-6xl overflow-y-auto rounded-2xl border border-slate-700 bg-[#07111f] shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
           <div>
             <h2 className="text-lg font-bold text-white">
@@ -424,7 +424,7 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
           </button>
         </div>
 
-        <form onSubmit={onSave} className="space-y-4 overflow-y-auto px-4 py-4">
+        <form onSubmit={onSave} className="space-y-4 px-4 py-4 pb-10">
           <div className="grid gap-4 lg:grid-cols-[180px_1fr]">
             <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
               <div className="mx-auto h-28 w-28 overflow-hidden rounded-2xl border border-slate-700 bg-[#07101d]">
@@ -1365,14 +1365,25 @@ export default function DashboardPage() {
 
     const totalHours = days.reduce((sum, day) => sum + day.totalRegularHours, 0)
 
-    let regularHours = Math.min(totalHours, 40)
-    let overtimeHours = Math.max(totalHours - 40, 0)
+    const overtimeEnabled = employee?.overtime_enabled === true
+
+    let regularHours = totalHours
+    let overtimeHours = 0
     let regularLabor = 0
     let overtimeLabor = 0
 
     if (employee.pay_type === 'hourly') {
-      regularLabor = regularHours * hourlyRate
-      overtimeLabor = overtimeHours * hourlyRate * 1.5
+      if (overtimeEnabled) {
+        regularHours = Math.min(totalHours, 40)
+        overtimeHours = Math.max(totalHours - 40, 0)
+        regularLabor = regularHours * hourlyRate
+        overtimeLabor = overtimeHours * hourlyRate * 1.5
+      } else {
+        regularHours = totalHours
+        overtimeHours = 0
+        regularLabor = regularHours * hourlyRate
+        overtimeLabor = 0
+      }
     } else if (employee.pay_type === 'monthly') {
       const monthly = Number(employee.monthly_salary || 0)
       regularHours = 0
@@ -1488,7 +1499,7 @@ export default function DashboardPage() {
           <td class="num tiny">${index + 1}</td>
           <td class="emp-cell">
             <b>${escapeHtml(getFullName(employee))}</b>
-            <div class="muted">#${escapeHtml(employee.employee_number ?? '')} · ${escapeHtml(getPayLabel(employee))}</div>
+            <div class="muted">#${escapeHtml(employee.employee_number ?? '')} · ${escapeHtml(getPayLabel(employee))} · ${escapeHtml(getOvertimeLabel(employee))}</div>
           </td>
           ${dayCells}
           <td class="num">${formatHours(item.totalRegularHours)}</td>
@@ -1606,7 +1617,7 @@ export default function DashboardPage() {
         <div class="brand">Payroll Report</div>
         <h1>Weekly Payroll</h1>
         <div class="period">Previous week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
-        <div class="rules">Main earnings up to 40h/week: 15.3% tax · Overtime over 40h/week: rate × 1.5 and 27% tax · All money rounded to whole dollars.</div>
+        <div class="rules">If Overtime is enabled: first 40h/week at regular rate, hours over 40h at 1.5x. If No OT: all hours stay regular. Main tax 15.3%, OT tax 27%. All money rounded to whole dollars.</div>
       </div>
       <div class="top-actions">
         <div class="invoice-box">
@@ -1668,6 +1679,7 @@ export default function DashboardPage() {
     lines.push([
       'Employee No',
       'Employee Name',
+      'Overtime Mode',
       'Total Hours',
       'Main Hours Up To 40',
       'Overtime Hours',
@@ -1701,6 +1713,7 @@ export default function DashboardPage() {
       lines.push([
         employee.employee_number ?? '',
         getFullName(employee),
+        getOvertimeLabel(employee),
         formatHours(item.totalRegularHours),
         formatHours(item.regularHours),
         formatHours(item.overtimeHours),
@@ -1797,6 +1810,16 @@ export default function DashboardPage() {
     }
 
     return employee.hourly_rate != null ? `$${employee.hourly_rate}/hr` : '—'
+  }
+
+  function getOvertimeLabel(employee) {
+    return employee?.overtime_enabled ? 'OT 1.5x' : 'No OT'
+  }
+
+  function getOvertimeBadgeClass(employee) {
+    return employee?.overtime_enabled
+      ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
+      : 'bg-slate-500/15 text-slate-300 border-slate-600/40'
   }
 
   const filteredEmployees = useMemo(() => {
@@ -1993,8 +2016,8 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
-                <div className="min-w-[1780px]">
-                  <div className="grid grid-cols-[70px_230px_110px_150px_220px_130px_110px_135px_190px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                <div className="min-w-[1900px]">
+                  <div className="grid grid-cols-[70px_230px_110px_150px_220px_130px_110px_120px_135px_190px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>No.</div>
                     <div>Name</div>
                     <div>ZKT ID</div>
@@ -2002,6 +2025,7 @@ export default function DashboardPage() {
                     <div>Email</div>
                     <div>Position</div>
                     <div>Payment</div>
+                    <div>Overtime</div>
                     <div>Active</div>
                     <div>ZKT Status</div>
                     <div>Actions</div>
@@ -2015,7 +2039,7 @@ export default function DashboardPage() {
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="grid grid-cols-[70px_230px_110px_150px_220px_130px_110px_135px_190px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
+                        className="grid grid-cols-[70px_230px_110px_150px_220px_130px_110px_120px_135px_190px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
                       >
                         <div className="font-semibold text-cyan-300">
                           {employee.employee_number ?? '—'}
@@ -2052,6 +2076,14 @@ export default function DashboardPage() {
 
                         <div className="truncate whitespace-nowrap font-semibold text-cyan-300">
                           {getPayLabel(employee)}
+                        </div>
+
+                        <div>
+                          <span
+                            className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${getOvertimeBadgeClass(employee)}`}
+                          >
+                            {getOvertimeLabel(employee)}
+                          </span>
                         </div>
 
                         <div>
@@ -2153,7 +2185,7 @@ export default function DashboardPage() {
                           {getFullName(employee)}
                         </div>
                         <div className="mt-1 text-xs text-slate-400">
-                          {employee.position || 'worker'} · {getPayLabel(employee)}
+                          {employee.position || 'worker'} · {getPayLabel(employee)} · {getOvertimeLabel(employee)}
                         </div>
                       </div>
                     </div>
