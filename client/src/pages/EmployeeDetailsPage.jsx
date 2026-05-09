@@ -874,6 +874,7 @@ export default function EmployeeDetailsPage() {
     let totalLabor = 0
 
     if (employee?.pay_type === 'hourly') {
+      const overtimeEnabled = employee?.overtime_enabled === true
       const weeklyHoursMap = {}
 
       recalculated.forEach((row) => {
@@ -883,17 +884,25 @@ export default function EmployeeDetailsPage() {
 
       Object.values(weeklyHoursMap).forEach((weekHoursRaw) => {
         const weekHours = Number(weekHoursRaw || 0)
-        const weekMainHours = Math.min(weekHours, 40)
-        const weekOvertimeHours = Math.max(0, weekHours - 40)
 
-        mainHours += weekMainHours
-        overtimeHours += weekOvertimeHours
+        if (overtimeEnabled) {
+          const weekMainHours = Math.min(weekHours, 40)
+          const weekOvertimeHours = Math.max(0, weekHours - 40)
+
+          mainHours += weekMainHours
+          overtimeHours += weekOvertimeHours
+        } else {
+          mainHours += weekHours
+          overtimeHours += 0
+        }
       })
 
       mainHours = round2(mainHours)
       overtimeHours = round2(overtimeHours)
       mainLabor = roundDollar(mainHours * hourlyRate)
-      overtimeLabor = roundDollar(overtimeHours * hourlyRate * 1.5)
+      overtimeLabor = overtimeEnabled
+        ? roundDollar(overtimeHours * hourlyRate * 1.5)
+        : 0
       totalLabor = roundDollar(mainLabor + overtimeLabor)
     }
 
