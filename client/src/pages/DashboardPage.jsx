@@ -849,6 +849,24 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadEmployees()
+
+    const channel = supabase
+      .channel('dashboard-presence-live')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'employee_punches' },
+        () => loadEmployees()
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'employees' },
+        () => loadEmployees()
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [])
 
   async function loadEmployees() {
@@ -857,7 +875,7 @@ export default function DashboardPage() {
       setError('')
 
       const { data, error } = await supabase
-        .from('employees')
+        .from('v_employee_current_presence')
         .select(`
           id,
           employee_number,
@@ -884,7 +902,10 @@ export default function DashboardPage() {
           zkt_privilege,
           zkt_sync_status,
           zkt_sync_error,
-          zkt_synced_at
+          zkt_synced_at,
+          last_punch_time,
+          last_punch_type,
+          is_on_site
         `)
         .order('created_at', { ascending: false })
 
@@ -1822,6 +1843,34 @@ export default function DashboardPage() {
       : 'bg-slate-500/15 text-slate-300 border-slate-600/40'
   }
 
+  function getPresenceLabel(employee) {
+    return employee?.is_on_site ? 'ON SITE' : 'OFF SITE'
+  }
+
+  function getPresenceBadgeClass(employee) {
+    return employee?.is_on_site
+      ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
+      : 'border-red-500/30 bg-red-500/15 text-red-300'
+  }
+
+  function formatPresenceTime(value) {
+    if (!value) return '—'
+
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return String(value)
+
+    return date.toLocaleString('en-US', {
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+  }
+
+  function getPresenceDirection(employee) {
+    return employee?.last_punch_type || '—'
+  }
+
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return employees
@@ -1839,7 +1888,9 @@ export default function DashboardPage() {
         (employee.phone || '').toLowerCase().includes(q) ||
         (employee.email || '').toLowerCase().includes(q) ||
         (employee.position || '').toLowerCase().includes(q) ||
-        (employee.zkt_sync_status || '').toLowerCase().includes(q)
+        (employee.zkt_sync_status || '').toLowerCase().includes(q) ||
+        (employee.last_punch_type || '').toLowerCase().includes(q) ||
+        (employee.is_on_site ? 'on site на работе present' : 'off site не на работе absent').includes(q)
       )
     })
   }, [employees, search])
@@ -1849,6 +1900,7 @@ export default function DashboardPage() {
       total: employees.length,
       active: employees.filter((e) => e.active).length,
       inactive: employees.filter((e) => !e.active).length,
+      onSite: employees.filter((e) => e.is_on_site === true).length,
       zktVerified: employees.filter((e) =>
         ['synced', 'verified', 'already_exists'].includes(e.zkt_sync_status)
       ).length,
@@ -1870,7 +1922,7 @@ export default function DashboardPage() {
               <div>
                 <h1 className="text-xl font-bold text-white">Employees</h1>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Total: {counts.total} · Active: {counts.active} · Inactive:{' '}
+                  Total: {counts.total} · Active: {counts.active} · On site: {counts.onSite} · Inactive:{' '}
                   {counts.inactive} · ZKT OK: {counts.zktVerified} · Missing:{' '}
                   {counts.zktMissing} · Errors: {counts.zktError}
                 </p>
@@ -1972,7 +2024,7 @@ export default function DashboardPage() {
             <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 type="text"
-                placeholder="Search by number, ZKT ID, name, phone, email, status..."
+                placeholder="Search by number, ZKT ID, name, presence, status..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full min-w-[320px] rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
@@ -2017,13 +2069,13 @@ export default function DashboardPage() {
             ) : (
               <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
                 <div className="min-w-[1900px]">
-                  <div className="grid grid-cols-[70px_230px_110px_150px_220px_130px_110px_120px_135px_190px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                  <div className="grid grid-cols-[70px_230px_110px_140px_170px_110px_110px_120px_135px_190px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>No.</div>
                     <div>Name</div>
                     <div>ZKT ID</div>
-                    <div>Phone</div>
-                    <div>Email</div>
-                    <div>Position</div>
+                    <div>Presence</div>
+                    <div>Last punch</div>
+                    <div>Direction</div>
                     <div>Payment</div>
                     <div>Overtime</div>
                     <div>Active</div>
@@ -2039,7 +2091,7 @@ export default function DashboardPage() {
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="grid grid-cols-[70px_230px_110px_150px_220px_130px_110px_120px_135px_190px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
+                        className="grid grid-cols-[70px_230px_110px_140px_170px_110px_110px_120px_135px_190px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
                       >
                         <div className="font-semibold text-cyan-300">
                           {employee.employee_number ?? '—'}
@@ -2070,9 +2122,21 @@ export default function DashboardPage() {
                           {employee.zkt_user_id ?? employee.employee_number ?? '—'}
                         </div>
 
-                        <div className="truncate whitespace-nowrap">{employee.phone || '—'}</div>
-                        <div className="truncate">{employee.email || '—'}</div>
-                        <div className="truncate whitespace-nowrap">{employee.position || 'worker'}</div>
+                        <div>
+                          <span
+                            className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${getPresenceBadgeClass(employee)}`}
+                          >
+                            {getPresenceLabel(employee)}
+                          </span>
+                        </div>
+
+                        <div className="truncate whitespace-nowrap font-semibold text-slate-200">
+                          {formatPresenceTime(employee.last_punch_time)}
+                        </div>
+
+                        <div className="truncate whitespace-nowrap font-semibold text-cyan-300">
+                          {getPresenceDirection(employee)}
+                        </div>
 
                         <div className="truncate whitespace-nowrap font-semibold text-cyan-300">
                           {getPayLabel(employee)}
@@ -2198,13 +2262,21 @@ export default function DashboardPage() {
                   </div>
 
                   <div className="mt-3 grid gap-2 text-xs text-slate-300">
-                    <div className="flex items-center gap-2">
-                      <Phone size={13} />
-                      {employee.phone || '—'}
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                      <span className="text-slate-400">Presence</span>
+                      <span
+                        className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${getPresenceBadgeClass(employee)}`}
+                      >
+                        {getPresenceLabel(employee)}
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Mail size={13} />
-                      {employee.email || '—'}
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                      <span className="text-slate-400">Last punch</span>
+                      <span className="font-semibold text-white">{formatPresenceTime(employee.last_punch_time)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                      <span className="text-slate-400">Direction</span>
+                      <span className="font-semibold text-cyan-300">{getPresenceDirection(employee)}</span>
                     </div>
                   </div>
 
