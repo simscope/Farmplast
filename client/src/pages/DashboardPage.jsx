@@ -1026,34 +1026,26 @@ export default function DashboardPage() {
     )
   }
 
-  async function handleZktEmployeeAction(employee, action) {
-    if (!action) return
-
+  async function handleSyncEmployeeToZkt(employee) {
     const name = getFullName(employee)
 
-    if (action === 'sync') {
-      await runZktCommand(
-        'sync_one_employee',
-        `SYNC ZKT ${name}`,
-        { employee_id: employee.id },
-        loadEmployees
-      )
-      return
-    }
+    await runZktCommand(
+      'sync_one_employee',
+      `SYNC ZKT ${name}`,
+      { employee_id: employee.id },
+      loadEmployees
+    )
+  }
 
-    if (action === 'verify') {
-      await runZktCommand(
-        'verify_one_employee',
-        `VERIFY ZKT ${name}`,
-        { employee_id: employee.id },
-        loadEmployees
-      )
-      return
-    }
+  async function handleVerifyEmployeeInZkt(employee) {
+    const name = getFullName(employee)
 
-    if (action === 'delete') {
-      await handleDeleteFromZkt(employee)
-    }
+    await runZktCommand(
+      'verify_one_employee',
+      `VERIFY ZKT ${name}`,
+      { employee_id: employee.id },
+      loadEmployees
+    )
   }
 
   function openAddModal() {
@@ -2230,29 +2222,41 @@ export default function DashboardPage() {
                             Edit
                           </button>
 
-                          <select
-                            value=""
-                            disabled={zkLoading}
-                            onChange={(e) => {
-                              const action = e.target.value
-                              e.target.value = ''
-                              handleZktEmployeeAction(employee, action)
-                            }}
-                            className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-2 py-1.5 text-xs font-semibold text-orange-300 outline-none transition hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            <option value="" className="bg-slate-950 text-slate-300">
-                              ZKT actions
-                            </option>
-                            <option value="sync" className="bg-slate-950 text-cyan-300">
-                              Sync ZKT
-                            </option>
-                            <option value="delete" className="bg-slate-950 text-orange-300">
-                              Delete from ZKT
-                            </option>
-                            <option value="verify" className="bg-slate-950 text-purple-300">
-                              Verify selected
-                            </option>
-                          </select>
+                          <div className="group relative">
+                            <button
+                              type="button"
+                              disabled={zkLoading}
+                              className="inline-flex items-center gap-1 rounded-lg border border-orange-500/30 bg-orange-500/10 px-2 py-1.5 text-xs font-semibold text-orange-300 transition hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                              ZKT Actions
+                            </button>
+
+                            <div className="absolute right-0 top-full z-50 mt-1 hidden min-w-[180px] overflow-hidden rounded-xl border border-slate-700 bg-[#08111f] shadow-2xl group-hover:block">
+                              <button
+                                type="button"
+                                onClick={() => handleSyncEmployeeToZkt(employee)}
+                                className="block w-full border-b border-slate-800 px-4 py-3 text-left text-xs font-semibold text-cyan-300 transition hover:bg-slate-900"
+                              >
+                                Sync ZKT
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteFromZkt(employee)}
+                                className="block w-full border-b border-slate-800 px-4 py-3 text-left text-xs font-semibold text-orange-300 transition hover:bg-slate-900"
+                              >
+                                Delete from ZKT
+                              </button>
+
+                              <button
+                                type="button"
+                                onClick={() => handleVerifyEmployeeInZkt(employee)}
+                                className="block w-full px-4 py-3 text-left text-xs font-semibold text-purple-300 transition hover:bg-slate-900"
+                              >
+                                Verify selected
+                              </button>
+                            </div>
+                          </div>
 
                           <button
                             onClick={() => handleDelete(employee.id)}
@@ -2344,29 +2348,41 @@ export default function DashboardPage() {
                     >
                       Edit
                     </button>
-                    <select
-                      value=""
-                      disabled={zkLoading}
-                      onChange={(e) => {
-                        const action = e.target.value
-                        e.target.value = ''
-                        handleZktEmployeeAction(employee, action)
-                      }}
-                      className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs font-semibold text-orange-300 outline-none disabled:opacity-60"
-                    >
-                      <option value="" className="bg-slate-950 text-slate-300">
-                        ZKT actions
-                      </option>
-                      <option value="sync" className="bg-slate-950 text-cyan-300">
-                        Sync ZKT
-                      </option>
-                      <option value="delete" className="bg-slate-950 text-orange-300">
-                        Delete from ZKT
-                      </option>
-                      <option value="verify" className="bg-slate-950 text-purple-300">
-                        Verify selected
-                      </option>
-                    </select>
+                    <div className="group relative">
+                      <button
+                        type="button"
+                        disabled={zkLoading}
+                        className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs font-semibold text-orange-300 disabled:cursor-not-allowed disabled:opacity-60"
+                      >
+                        ZKT Actions
+                      </button>
+
+                      <div className="absolute right-0 top-full z-50 mt-1 hidden min-w-[190px] overflow-hidden rounded-xl border border-slate-700 bg-[#08111f] shadow-2xl group-hover:block">
+                        <button
+                          type="button"
+                          onClick={() => handleSyncEmployeeToZkt(employee)}
+                          className="block w-full border-b border-slate-800 px-4 py-3 text-left text-xs font-semibold text-cyan-300 transition hover:bg-slate-900"
+                        >
+                          Sync ZKT
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteFromZkt(employee)}
+                          className="block w-full border-b border-slate-800 px-4 py-3 text-left text-xs font-semibold text-orange-300 transition hover:bg-slate-900"
+                        >
+                          Delete from ZKT
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleVerifyEmployeeInZkt(employee)}
+                          className="block w-full px-4 py-3 text-left text-xs font-semibold text-purple-300 transition hover:bg-slate-900"
+                        >
+                          Verify selected
+                        </button>
+                      </div>
+                    </div>
                     <button
                       onClick={() => handleDelete(employee.id)}
                       className="rounded-lg border border-red-500/30 bg-red-600/10 px-3 py-2 text-xs font-semibold text-red-300"
