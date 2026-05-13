@@ -32,7 +32,7 @@ const CHECK_SIZE = {
 }
 
 const CHECK_COORDS = {
-  company: { x: 128, y: 7 },
+  company: { x: 28, y: 7 },
   checkNumber: { right: 26, y: 11 },
 
   payToLabel: { x: 12, y: 31 },
