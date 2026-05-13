@@ -675,6 +675,7 @@ export default function EmployeeDetailsPage() {
         .from('employee_work_logs')
         .select('*')
         .eq('employee_id', id)
+        .eq('is_deleted', false)
         .order('work_date', { ascending: false })
         .order('created_at', { ascending: false })
 
@@ -775,6 +776,7 @@ export default function EmployeeDetailsPage() {
         labor_amount: Number(row.labor_amount || 0),
         source: 'manual',
         manually_edited: true,
+        is_deleted: false,
         updated_at: new Date().toISOString(),
       }
 
@@ -815,12 +817,18 @@ export default function EmployeeDetailsPage() {
 
       const { error } = await supabase
         .from('employee_work_logs')
-        .delete()
+        .update({
+          is_deleted: true,
+          manually_edited: true,
+          source: 'manual',
+          manual_note: row.manual_note || 'Deleted manually',
+          updated_at: new Date().toISOString(),
+        })
         .eq('id', row.id)
 
       if (error) throw error
 
-      setSuccess('Row deleted')
+      setSuccess('Row deleted and protected from ZKT rebuild')
       await loadPage()
     } catch (err) {
       console.error('deleteRow error:', err)
