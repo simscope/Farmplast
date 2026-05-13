@@ -54,7 +54,7 @@ const CHECK_COORDS = {
   forLabel: { x: 14, y: 70 },
   memoText: { x: 28, y: 69 },
   memoLine: { x: 28, y: 73, w: 75 },
-  memoLine2: { x: 110, y: 50, w: 80 },
+  memoLine2: { x: 120, y: 73, w: 80 },
 
   micr: { x: 34, y: 80 },
 
