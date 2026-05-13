@@ -1069,6 +1069,12 @@ export default function EmployeeDetailsPage() {
   return (
     <div className="min-h-screen bg-[#020817] text-white print:bg-white print:text-black">
       <style>{`
+      input[type="date"]::-webkit-calendar-picker-indicator,
+      input[type="time"]::-webkit-calendar-picker-indicator {
+       filter: invert(1);
+        opacity: 1;
+       cursor: pointer;
+        }
         @page {
           size: 215.9mm auto;
           margin: 0;
