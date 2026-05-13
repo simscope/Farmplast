@@ -317,8 +317,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
   }
 
   return base
-   }
-  }
+     }
 
   return (
     <div
