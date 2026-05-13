@@ -32,31 +32,28 @@ const CHECK_SIZE = {
 }
 
 const CHECK_COORDS = {
-  // Coordinates are in real millimeters from the top-left corner of the check.
-  // This layout is built as a check template, not as floating random text.
-  company: { x: 134, y: 7 },
-  checkNumber: { right: 20, y: 9 },
+  company: { x: 102, y: 7 },
 
-  payToLabel: { x: 13, y: 30 },
-  payee: { x: 39, y: 30 },
+  checkNumber: { right: 20, y: 10 },
 
-  dateLabel: { x: 142, y: 28 },
-  date: { x: 158, y: 28 },
+  payToLabel: { x: 10, y: 28 },
+  payee: { x: 30, y: 28 },
 
-  // Amount is anchored from the right side so it stays at the end of the payee/date row.
-  amountNumber: { right: 18, y: 36 },
+  dateLabel: { x: 130, y: 24 },
+  date: { x: 145, y: 24 },
 
-  amountWords: { x: 27, y: 45 },
-  // DOLLARS is anchored from the right side so it stays at the end of the written amount line.
-  dollarsLabel: { right: 54, y: 47 },
+  amountNumber: { right: 26, y: 30 },
 
-  bank: { x: 27, y: 54 },
+  amountWords: { x: 14, y: 45 },
 
-  forLabel: { x: 15, y: 65 },
-  memo: { x: 39, y: 65 },
+  dollarsLabel: { right: 55, y: 45 },
 
-  // Bottom MICR / check number line from the photo.
-  micr: { x: 28, y: 77 },
+  bank: { x: 18, y: 52 },
+
+  forLabel: { x: 12, y: 66 },
+  memo: { x: 26, y: 66 },
+
+  micr: { x: 18, y: 79 },
 
   globalOffset: { x: 0, y: 0 },
 }
