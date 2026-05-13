@@ -36,9 +36,9 @@ const CHECK_COORDS = {
   dateLabel: { x: 140, y: 25 },
   date: { x: 155, y: 25 },
 
-  amountNumber: { x: 175, y: 30 },
-  amountWords: { x: 18, y: 40 },
-  dollarsLabel: { x: 170, y: 35 },
+ amountNumber: { right: 32, y: 28 },
+amountWords: { x: 13, y: 43 },
+dollarsLabel: { right: 42, y: 43 },
 
   bank: { x: 15, y: 50 },
 
@@ -300,16 +300,24 @@ function CheckStockPrint({ employee, fullName, totals }) {
   const memoText = `Payroll ${employee?.employee_number || ''}`
 
   const field = (name, extra = {}) => {
-    const pos = CHECK_COORDS[name]
-    const gx = Number(CHECK_COORDS?.globalOffset?.x || 0)
-    const gy = Number(CHECK_COORDS?.globalOffset?.y || 0)
+  const pos = CHECK_COORDS[name]
+  const gx = Number(CHECK_COORDS?.globalOffset?.x || 0)
+  const gy = Number(CHECK_COORDS?.globalOffset?.y || 0)
 
-    return {
-      position: 'absolute',
-      left: `calc(${pos.x}mm + ${gx}mm)`,
-      top: `calc(${pos.y}mm + ${gy}mm)`,
-      ...extra,
-    }
+  const base = {
+    position: 'absolute',
+    top: `calc(${pos.y}mm + ${gy}mm)`,
+    ...extra,
+  }
+
+  if (typeof pos.right === 'number') {
+    base.right = `calc(${pos.right}mm - ${gx}mm)`
+  } else {
+    base.left = `calc(${pos.x}mm + ${gx}mm)`
+  }
+
+  return base
+   }
   }
 
   return (
@@ -396,29 +404,32 @@ function CheckStockPrint({ employee, fullName, totals }) {
         {dateText}
       </div>
 
-      <div
-        style={field('amountNumber', {
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '1mm',
-          whiteSpace: 'nowrap',
-          lineHeight: 1,
-        })}
-      >
-        <span style={{ fontSize: '5.8mm', fontWeight: 500 }}>$</span>
-        <span style={{ fontSize: '5.8mm', fontWeight: 500 }}>
-          {amountNumberMain}
-        </span>
-        <span
-          style={{
-            fontSize: '3.1mm',
-            fontWeight: 500,
-            transform: 'translateY(-0.6mm)',
-          }}
-        >
-          {amountNumberCents}
-        </span>
-      </div>
+     <div
+  style={field('amountNumber', {
+    display: 'inline-flex',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    gap: '0.3mm',
+    whiteSpace: 'nowrap',
+    lineHeight: 1,
+    minWidth: '34mm',
+    textAlign: 'right',
+  })}
+>
+  <span style={{ fontSize: '6mm', fontWeight: 500 }}>$</span>
+  <span style={{ fontSize: '6mm', fontWeight: 500 }}>
+    {amountNumberMain}
+  </span>
+  <span
+    style={{
+      fontSize: '2.6mm',
+      fontWeight: 500,
+      transform: 'translateY(-0.8mm)',
+    }}
+  >
+    {amountNumberCents}
+  </span>
+</div>
 
       <div
         style={field('amountWords', {
@@ -435,14 +446,16 @@ function CheckStockPrint({ employee, fullName, totals }) {
         {amountWords}
       </div>
 
-      <div
-        style={field('dollarsLabel', {
-          fontSize: '3.0mm',
-          fontWeight: 600,
-        })}
-      >
-        DOLLARS
-      </div>
+     <div
+  style={field('dollarsLabel', {
+    fontSize: '3mm',
+    fontWeight: 600,
+    width: '22mm',
+    textAlign: 'left',
+  })}
+>
+  DOLLARS
+</div>
 
       <div
         style={field('bank', {
