@@ -1536,7 +1536,7 @@ export default function EmployeeDetailsPage() {
     className={`${darkInput} pr-16`}
   />
 
-  <div className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-[11px] font-semibold tracking-wide text-cyan-300">
+  <div className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-[11px] font-semibold tracking-wide text-white">
     {row.work_date
       ? ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][
           new Date(`${row.work_date}T00:00:00`).getDay()
