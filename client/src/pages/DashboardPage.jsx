@@ -1876,18 +1876,36 @@ export default function DashboardPage() {
   }
 
   function formatPresenceTime(value) {
-    if (!value) return '—'
+  if (!value) return '—'
 
-    const date = new Date(value)
-    if (Number.isNaN(date.getTime())) return String(value)
+  const date = new Date(value)
 
-    return date.toLocaleString('en-US', {
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
+  if (Number.isNaN(date.getTime())) {
+    return '—'
   }
+
+  const now = new Date()
+
+  const diffMs = now.getTime() - date.getTime()
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+  // если больше 2 дней нет punch
+  if (diffDays >= 2) {
+    return (
+      <span className="font-semibold text-red-400">
+        ABSENT {diffDays} DAYS
+      </span>
+    )
+  }
+
+  return date.toLocaleString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    weekday: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
 
   function getPresenceDirection(employee) {
     return employee?.last_punch_type || '—'
