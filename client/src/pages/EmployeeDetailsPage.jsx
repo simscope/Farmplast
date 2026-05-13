@@ -26,36 +26,24 @@ const pageCard =
 const darkInput =
   'w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
-const CHECK_SIZE = {
-  width: '215.9mm',
-  height: '88.9mm',
-}
-
 const CHECK_COORDS = {
-  company: { x: 28, y: 7 },
-  checkNumber: { right: 16, y: 11 },
+  company: { x: 82, y: 7 },
+  checkNumber: { right: 24, y: 9 },
 
-  payToLabel: { x: 12, y: 31 },
-  payeeText: { x: 34, y: 30 },
-  payeeLine: { x: 34, y: 40, w: 118 },
+  payToLabel: { x: 9, y: 27 },
+  payee: { x: 28, y: 28 },
 
-  dateLabel: { x: 151, y: 28 },
-  dateText: { x: 164, y: 28 },
-  dateLine: { x: 159, y: 38, w: 35 },
+  dateLabel: { x: 132, y: 25 },
+  date: { x: 146, y: 25 },
 
-  amountNumber: { right: 24, y: 34 },
+  amountNumber: { right: 34, y: 29 },
+  amountWords: { x: 13, y: 42 },
+  dollarsLabel: { right: 52, y: 42 },
 
-  amountWordsText: { x: 18, y: 46 },
-  amountWordsLine: { x: 18, y: 56, w: 136 },
-  dollarsLabel: { x: 158, y: 47 },
+  bank: { x: 14, y: 48 },
 
-  bank: { x: 44, y: 58 },
-
-  forLabel: { x: 14, y: 68 },
-  memoText: { x: 28, y: 67 },
-  memoLine: { x: 28, y: 76, w: 92 },
-
-  micr: { x: 24, y: 80 },
+  forLabel: { x: 10, y: 61 },
+  memo: { x: 24, y: 61 },
 
   globalOffset: { x: 0, y: 0 },
 }
@@ -311,92 +299,67 @@ function CheckStockPrint({ employee, fullName, totals }) {
   const checkNumber = '7049'
   const memoText = `Payroll ${employee?.employee_number || ''}`
 
-  // MICR на настоящих чеках печатается специальным шрифтом MICR E-13B.
-  // В браузере такого шрифта обычно нет, поэтому здесь fallback.
-  // Если поставишь MICR E13B.ttf в проект и подключишь @font-face, он автоматически будет использован.
-  const micrText = '⑆007049⑆ ⑆031101266⑆ 443187254⑆'
+  const field = (name, extra = {}) => {
+  const pos = CHECK_COORDS[name]
+  const gx = Number(CHECK_COORDS?.globalOffset?.x || 0)
+  const gy = Number(CHECK_COORDS?.globalOffset?.y || 0)
 
-  const posStyle = (name, extra = {}) => {
-    const pos = CHECK_COORDS[name]
-    const gx = Number(CHECK_COORDS?.globalOffset?.x || 0)
-    const gy = Number(CHECK_COORDS?.globalOffset?.y || 0)
-
-    const base = {
-      position: 'absolute',
-      top: `calc(${pos.y}mm + ${gy}mm)`,
-      ...extra,
-    }
-
-    if (typeof pos.right === 'number') {
-      base.right = `calc(${pos.right}mm - ${gx}mm)`
-    } else {
-      base.left = `calc(${pos.x}mm + ${gx}mm)`
-    }
-
-    return base
+  const base = {
+    position: 'absolute',
+    top: `calc(${pos.y}mm + ${gy}mm)`,
+    ...extra,
   }
 
-  const lineStyle = (name, extra = {}) => {
-    const pos = CHECK_COORDS[name]
-    const gx = Number(CHECK_COORDS?.globalOffset?.x || 0)
-    const gy = Number(CHECK_COORDS?.globalOffset?.y || 0)
-
-    return {
-      position: 'absolute',
-      left: `calc(${pos.x}mm + ${gx}mm)`,
-      top: `calc(${pos.y}mm + ${gy}mm)`,
-      width: `${pos.w}mm`,
-      height: 0,
-      borderTop: '0.28mm solid #222',
-      ...extra,
-    }
+  if (typeof pos.right === 'number') {
+    base.right = `calc(${pos.right}mm - ${gx}mm)`
+  } else {
+    base.left = `calc(${pos.x}mm + ${gx}mm)`
   }
+
+  return base
+     }
 
   return (
     <div
       style={{
         position: 'relative',
-        width: CHECK_SIZE.width,
-        height: CHECK_SIZE.height,
-        minWidth: CHECK_SIZE.width,
-        minHeight: CHECK_SIZE.height,
+        width: '215.9mm',
+        height: '88.9mm',
         background: 'white',
         color: 'black',
-        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontFamily: 'Arial, sans-serif',
         overflow: 'hidden',
-        boxSizing: 'border-box',
       }}
     >
       <div
-        style={posStyle('company', {
-          width: '46mm',
-          textAlign: 'center',
-          lineHeight: 1.05,
+        style={field('company', {
+          fontSize: '3.5mm',
           fontWeight: 800,
-          letterSpacing: '0.03mm',
+          lineHeight: 1.12,
+          textAlign: 'center',
+          width: '52mm',
         })}
       >
-        <div style={{ fontSize: '3.2mm' }}>FARMPLAST MFG, LLC</div>
-        <div style={{ fontSize: '2mm', fontWeight: 700 }}>425 EAST HALSEY ROAD</div>
-        <div style={{ fontSize: '2mm', fontWeight: 700 }}>PARSIPPANY, NJ 07054</div>
+        <div>FARMPLAST MFG, LLC</div>
+        <div style={{ fontSize: '2.1mm', fontWeight: 700 }}>425 EAST HALSEY ROAD</div>
+        <div style={{ fontSize: '2.1mm', fontWeight: 700 }}>PARSIPPANY, NJ 07054</div>
       </div>
 
       <div
-        style={posStyle('checkNumber', {
+        style={field('checkNumber', {
           fontSize: '4.6mm',
           fontWeight: 500,
-          lineHeight: 1,
         })}
       >
         {checkNumber}
       </div>
 
       <div
-        style={posStyle('payToLabel', {
-          width: '16mm',
+        style={field('payToLabel', {
           fontSize: '2mm',
-          fontWeight: 700,
-          lineHeight: 1.0,
+          fontWeight: 600,
+          lineHeight: 1.05,
+          width: '15mm',
         })}
       >
         <div>PAY</div>
@@ -405,138 +368,122 @@ function CheckStockPrint({ employee, fullName, totals }) {
       </div>
 
       <div
-        style={posStyle('payeeText', {
-          fontSize: '5.1mm',
+        style={field('payee', {
+          fontSize: '5.2mm',
           fontWeight: 500,
-          lineHeight: 1,
+          width: '126mm',
           whiteSpace: 'nowrap',
-          maxWidth: '150mm',
           overflow: 'hidden',
+          borderBottom: '0.3mm solid #333',
+          paddingBottom: '1.2mm',
         })}
       >
         {payeeName}
       </div>
-      <div style={lineStyle('payeeLine')} />
 
       <div
-        style={posStyle('dateLabel', {
-          fontSize: '3mm',
-          fontWeight: 700,
-          lineHeight: 1,
+        style={field('dateLabel', {
+          fontSize: '3.0mm',
+          fontWeight: 600,
         })}
       >
         DATE
       </div>
 
       <div
-        style={posStyle('dateText', {
-          width: '27mm',
-          textAlign: 'center',
-          fontSize: '4.4mm',
+        style={field('date', {
+          fontSize: '4.8mm',
           fontWeight: 500,
-          lineHeight: 1,
-          whiteSpace: 'nowrap',
+          width: '32mm',
+          borderBottom: '0.3mm solid #333',
+          paddingBottom: '1mm',
+          textAlign: 'center',
         })}
       >
         {dateText}
       </div>
-      <div style={lineStyle('dateLine')} />
+
+     <div
+  style={field('amountNumber', {
+    display: 'inline-flex',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-end',
+    gap: '0.3mm',
+    whiteSpace: 'nowrap',
+    lineHeight: 1,
+    minWidth: '32mm',
+    textAlign: 'right',
+  })}
+>
+  <span style={{ fontSize: '6mm', fontWeight: 500 }}>$</span>
+  <span style={{ fontSize: '6mm', fontWeight: 500 }}>
+    {amountNumberMain}
+  </span>
+  <span
+    style={{
+      fontSize: '2.6mm',
+      fontWeight: 500,
+      transform: 'translateY(-1.1mm)',
+    }}
+  >
+    {amountNumberCents}
+  </span>
+</div>
 
       <div
-        style={posStyle('amountNumber', {
-          display: 'flex',
-          alignItems: 'flex-start',
-          justifyContent: 'flex-end',
-          minWidth: '34mm',
-          whiteSpace: 'nowrap',
-          lineHeight: 1,
-          textAlign: 'right',
-        })}
-      >
-        <span style={{ fontSize: '5.8mm', fontWeight: 500 }}>$</span>
-        <span style={{ fontSize: '5.8mm', fontWeight: 500 }}>{amountNumberMain}</span>
-        <span
-          style={{
-            fontSize: '3mm',
-            fontWeight: 500,
-            marginLeft: '0.25mm',
-            transform: 'translateY(-1.1mm)',
-          }}
-        >
-          {amountNumberCents}
-        </span>
-      </div>
-
-      <div
-        style={posStyle('amountWordsText', {
-          fontSize: '4.5mm',
+        style={field('amountWords', {
+          fontSize: '4.7mm',
           fontWeight: 500,
-          lineHeight: 1,
+          width: '148mm',
           whiteSpace: 'nowrap',
-          maxWidth: '160mm',
           overflow: 'hidden',
           textTransform: 'capitalize',
+          borderBottom: '0.3mm solid #333',
+          paddingBottom: '1mm',
         })}
       >
         {amountWords}
       </div>
-      <div style={lineStyle('amountWordsLine')} />
+
+     <div
+  style={field('dollarsLabel', {
+    fontSize: '3mm',
+    fontWeight: 600,
+    width: '22mm',
+    textAlign: 'left',
+  })}
+>
+  DOLLARS
+</div>
 
       <div
-        style={posStyle('dollarsLabel', {
+        style={field('bank', {
           fontSize: '3mm',
           fontWeight: 700,
-          lineHeight: 1,
-        })}
-      >
-        DOLLARS
-      </div>
-
-      <div
-        style={posStyle('bank', {
-          fontSize: '3mm',
-          fontWeight: 700,
-          lineHeight: 1,
         })}
       >
         TD BANK, N.A.
       </div>
 
       <div
-        style={posStyle('forLabel', {
-          fontSize: '3mm',
-          fontWeight: 700,
-          lineHeight: 1,
+        style={field('forLabel', {
+          fontSize: '3.0mm',
+          fontWeight: 600,
         })}
       >
         FOR
       </div>
 
       <div
-        style={posStyle('memoText', {
+        style={field('memo', {
           fontSize: '4.2mm',
           fontWeight: 500,
-          lineHeight: 1,
-          whiteSpace: 'nowrap',
-          maxWidth: '90mm',
-          overflow: 'hidden',
+          width: '86mm',
+          borderBottom: '0.3mm solid #333',
+          paddingBottom: '1mm',
         })}
       >
         {memoText}
-      </div>
-      <div style={lineStyle('memoLine')} />
-
-      <div
-        style={posStyle('micr', {
-          fontFamily: '"MICR E13B", "OCR A Extended", Consolas, monospace',
-          fontSize: '4.7mm',
-          fontWeight: 500,
-          letterSpacing: '0.35mm',
-          lineHeight: 1,
-          whiteSpace: 'nowrap',
-        })}
-      >
-        {micrText}
       </div>
     </div>
   )
@@ -742,8 +689,8 @@ function PrintPreviewModal({
           <div
             className="print-modal-sheet mx-auto bg-white shadow-lg"
             style={{
-              width: CHECK_SIZE.width,
-              height: CHECK_SIZE.height,
+              width: '215.9mm',
+              height: '88.9mm',
               display: 'block',
               overflow: 'hidden',
               flex: '0 0 auto',
