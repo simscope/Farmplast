@@ -49,7 +49,7 @@ const CHECK_COORDS = {
   amountWordsLine: { x: 18, y: 52, w: 160 },
   dollarsLabel: { x: 158, y: 48 },
 
-  bank: { x: 20, y: 50 },
+  bank: { x: 20, y: 55 },
 
   forLabel: { x: 14, y: 70 },
   memoText: { x: 28, y: 69 },
