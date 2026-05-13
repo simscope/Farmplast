@@ -37,24 +37,24 @@ const CHECK_COORDS = {
 
   payToLabel: { x: 12, y: 31 },
   payeeText: { x: 34, y: 30 },
-  payeeLine: { x: 34, y: 40, w: 118 },
+  payeeLine: { x: 34, y: 31, w: 120 },
 
   dateLabel: { x: 151, y: 28 },
   dateText: { x: 164, y: 28 },
-  dateLine: { x: 159, y: 38, w: 35 },
+  dateLine: { x: 151, y: 29, w: 35 },
 
   amountNumber: { right: 24, y: 34 },
 
   amountWordsText: { x: 18, y: 46 },
-  amountWordsLine: { x: 18, y: 56, w: 136 },
+  amountWordsLine: { x: 18, y: 47, w: 140 },
   dollarsLabel: { x: 158, y: 47 },
 
   bank: { x: 44, y: 58 },
 
   forLabel: { x: 14, y: 68 },
-  memoText: { x: 28, y: 67 },
-  memoLine: { x: 28, y: 76, w: 92 },
-  memoLine2: { x: 126, y: 76, w: 34 },
+  memoText: { x: 28, y: 68 },
+  memoLine: { x: 28, y: 69, w: 92 },
+  memoLine2: { x: 120, y: 69, w: 84 },
 
   micr: { x: 24, y: 80 },
 
