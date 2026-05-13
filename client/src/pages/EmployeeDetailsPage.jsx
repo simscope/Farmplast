@@ -28,22 +28,22 @@ const darkInput =
 
 const CHECK_COORDS = {
   company: { x: 20, y: 8 },
-  checkNumber: { x: 185, y: 13 },
+  checkNumber: { x: 185, y: 9 },
 
-  payToLabel: { x: 10, y: 30 },
+  payToLabel: { x: 10, y: 28 },
   payee: { x: 30, y: 28 },
 
   dateLabel: { x: 140, y: 25 },
   date: { x: 155, y: 25 },
 
-  amountNumber: { x: 175, y: 35 },
-  amountWords: { x: 18, y: 44 },
+  amountNumber: { x: 175, y: 30 },
+  amountWords: { x: 18, y: 40 },
   dollarsLabel: { x: 170, y: 35 },
 
   bank: { x: 15, y: 50 },
 
-  forLabel: { x: 10, y: 62 },
-  memo: { x: 25, y: 62 },
+  forLabel: { x: 10, y: 60 },
+  memo: { x: 25, y: 60 },
 
   globalOffset: { x: 0, y: 0 },
 }
@@ -352,7 +352,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
           fontSize: '2mm',
           fontWeight: 600,
           lineHeight: 1.05,
-          width: '10mm',
+          width: '15mm',
         })}
       >
         <div>PAY</div>
@@ -364,11 +364,11 @@ function CheckStockPrint({ employee, fullName, totals }) {
         style={field('payee', {
           fontSize: '5.2mm',
           fontWeight: 500,
-          width: '130mm',
+          width: '140mm',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           borderBottom: '0.3mm solid #333',
-          paddingBottom: '1mm',
+          paddingBottom: '2mm',
         })}
       >
         {payeeName}
@@ -424,7 +424,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
         style={field('amountWords', {
           fontSize: '4.7mm',
           fontWeight: 500,
-          width: '124mm',
+          width: '160mm',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textTransform: 'capitalize',
