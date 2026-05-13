@@ -39,7 +39,7 @@ const CHECK_COORDS = {
   payeeText: { x: 34, y: 33 },
   payeeLine: { x: 34, y: 38, w: 120 },
 
-  dateLabel: { x: 151, y: 28 },
+  dateLabel: { x: 151, y: 27 },
   dateText: { x: 164, y: 26 },
   dateLine: { x: 151, y: 30, w: 35 },
 
@@ -54,9 +54,9 @@ const CHECK_COORDS = {
   forLabel: { x: 14, y: 70 },
   memoText: { x: 28, y: 69 },
   memoLine: { x: 28, y: 73, w: 75 },
-  memoLine2: { x: 120, y: 68, w: 120 },
+  memoLine2: { x: 110, y: 50, w: 80 },
 
-  micr: { x: 24, y: 80 },
+  micr: { x: 34, y: 80 },
 
   globalOffset: { x: 0, y: 0 },
 }
@@ -377,9 +377,9 @@ function CheckStockPrint({ employee, fullName, totals }) {
           letterSpacing: '0.03mm',
         })}
       >
-        <div style={{ fontSize: '3.2mm' }}>FARMPLAST MFG, LLC</div>
-        <div style={{ fontSize: '2mm', fontWeight: 700 }}>425 EAST HALSEY ROAD</div>
-        <div style={{ fontSize: '2mm', fontWeight: 700 }}>PARSIPPANY, NJ 07054</div>
+        <div style={{ fontSize: '3.5mm' }}>FARMPLAST MFG, LLC</div>
+        <div style={{ fontSize: '2.5mm', fontWeight: 700 }}>425 EAST HALSEY ROAD</div>
+        <div style={{ fontSize: '2.5mm', fontWeight: 700 }}>PARSIPPANY, NJ 07054</div>
       </div>
 
       <div
