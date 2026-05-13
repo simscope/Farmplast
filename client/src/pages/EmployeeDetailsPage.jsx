@@ -686,9 +686,15 @@ function PrintPreviewModal({
         </div>
 
         <div className="flex-1 overflow-auto bg-slate-200 p-5">
-          <div className="print-modal-sheet mx-auto bg-white shadow-lg">
-            <CheckStockPrint employee={employee} fullName={fullName} totals={totals} />
-          </div>
+          <div
+  className="print-modal-sheet mx-auto bg-white shadow-lg"
+  style={{
+    width: '215.9mm',
+    height: '88.9mm',
+    display: 'block',
+    overflow: 'hidden',
+  }}
+>
 
           <div className="print-report-sheet mx-auto mt-6 max-w-[920px] bg-white shadow-lg">
             <PrintPaymentReport
