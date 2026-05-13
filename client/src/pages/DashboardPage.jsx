@@ -32,26 +32,31 @@ const CHECK_SIZE = {
 }
 
 const CHECK_COORDS = {
-  company: { x: 119, y: 7 },
-  checkNumber: { right: 13, y: 7 },
+  // Coordinates are in real millimeters from the top-left corner of the check.
+  // This layout is built as a check template, not as floating random text.
+  company: { x: 134, y: 7 },
+  checkNumber: { right: 20, y: 9 },
 
-  payToLabel: { x: 8, y: 27 },
-  payee: { x: 28, y: 27 },
+  payToLabel: { x: 13, y: 30 },
+  payee: { x: 39, y: 30 },
 
-  dateLabel: { x: 138, y: 24 },
-  date: { x: 151, y: 24 },
+  dateLabel: { x: 142, y: 28 },
+  date: { x: 158, y: 28 },
 
-  amountNumber: { right: 13, y: 30 },
+  // Amount is anchored from the right side so it stays at the end of the payee/date row.
+  amountNumber: { right: 18, y: 36 },
 
-  amountWords: { x: 13, y: 42 },
-  dollarsLabel: { right: 25, y: 42 },
+  amountWords: { x: 27, y: 45 },
+  // DOLLARS is anchored from the right side so it stays at the end of the written amount line.
+  dollarsLabel: { right: 54, y: 47 },
 
-  bank: { x: 17, y: 50 },
+  bank: { x: 27, y: 54 },
 
-  forLabel: { x: 9, y: 62 },
-  memo: { x: 23, y: 62 },
+  forLabel: { x: 15, y: 65 },
+  memo: { x: 39, y: 65 },
 
-  micr: { x: 28, y: 76 },
+  // Bottom MICR / check number line from the photo.
+  micr: { x: 28, y: 77 },
 
   globalOffset: { x: 0, y: 0 },
 }
@@ -307,7 +312,9 @@ function CheckStockPrint({ employee, fullName, totals }) {
   const checkNumber = '7049'
   const memoText = `Payroll ${employee?.employee_number || ''}`
 
-  const micrText = '⑆007049⑆  ⑈031101266⑈  443187254⑆'
+  // MICR font is normally MICR E-13B. Browser does not have that font by default,
+  // so this uses normal readable MICR-style text. Do not use this for bank deposit printing.
+  const micrText = '"007049"   :031101360:   443187254"'
 
   const field = (name, extra = {}) => {
     const pos = CHECK_COORDS[name]
@@ -317,6 +324,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
     const base = {
       position: 'absolute',
       top: `calc(${pos.y}mm + ${gy}mm)`,
+      boxSizing: 'border-box',
       ...extra,
     }
 
@@ -347,26 +355,36 @@ function CheckStockPrint({ employee, fullName, totals }) {
       }}
     >
       <div
+        style={{
+          position: 'absolute',
+          inset: '3mm 4mm 3mm 4mm',
+          border: '0.2mm solid transparent',
+          pointerEvents: 'none',
+        }}
+      />
+
+      <div
         style={field('company', {
           fontSize: '3.05mm',
           fontWeight: 800,
-          lineHeight: 1.05,
+          lineHeight: 1.02,
           textAlign: 'center',
-          width: '45mm',
-          letterSpacing: '0.02mm',
+          width: '42mm',
+          letterSpacing: '0.01mm',
         })}
       >
         <div>FARMPLAST MFG, LLC</div>
-        <div style={{ fontSize: '2.05mm', fontWeight: 700 }}>425 EAST HALSEY ROAD</div>
-        <div style={{ fontSize: '2.05mm', fontWeight: 700 }}>PARSIPPANY, NJ 07054</div>
+        <div style={{ fontSize: '1.85mm', fontWeight: 700 }}>425 EAST HALSEY ROAD</div>
+        <div style={{ fontSize: '1.85mm', fontWeight: 700 }}>PARSIPPANY, NJ 07054</div>
       </div>
 
       <div
         style={field('checkNumber', {
-          fontSize: '4.4mm',
+          fontSize: '4.6mm',
           fontWeight: 500,
-          width: '22mm',
+          width: '23mm',
           textAlign: 'right',
+          lineHeight: 1,
         })}
       >
         {checkNumber}
@@ -374,11 +392,11 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={field('payToLabel', {
-          fontSize: '2mm',
+          fontSize: '1.95mm',
           fontWeight: 700,
           lineHeight: 1.05,
-          width: '16mm',
-          letterSpacing: '0.05mm',
+          width: '15mm',
+          letterSpacing: '0.03mm',
         })}
       >
         <div>PAY</div>
@@ -388,13 +406,14 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={field('payee', {
-          fontSize: '5.0mm',
+          fontSize: '5.05mm',
           fontWeight: 500,
-          width: '114mm',
+          width: '128mm',
+          height: '9mm',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           borderBottom: '0.28mm solid #222',
-          paddingBottom: '1.1mm',
+          paddingBottom: '1.2mm',
           lineHeight: 1,
         })}
       >
@@ -406,6 +425,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
           fontSize: '2.75mm',
           fontWeight: 700,
           letterSpacing: '0.08mm',
+          lineHeight: 1,
         })}
       >
         DATE
@@ -413,11 +433,12 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={field('date', {
-          fontSize: '4.2mm',
+          fontSize: '4.15mm',
           fontWeight: 500,
-          width: '30mm',
+          width: '33mm',
+          height: '7.5mm',
           borderBottom: '0.28mm solid #222',
-          paddingBottom: '0.9mm',
+          paddingBottom: '1mm',
           textAlign: 'center',
           lineHeight: 1,
         })}
@@ -433,8 +454,10 @@ function CheckStockPrint({ employee, fullName, totals }) {
           gap: '0.25mm',
           whiteSpace: 'nowrap',
           lineHeight: 1,
-          minWidth: '29mm',
+          minWidth: '31mm',
           textAlign: 'right',
+          background: 'white',
+          paddingLeft: '1mm',
         })}
       >
         <span style={{ fontSize: '5.9mm', fontWeight: 500 }}>$</span>
@@ -455,6 +478,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
           fontSize: '4.45mm',
           fontWeight: 500,
           width: '145mm',
+          height: '8mm',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textTransform: 'capitalize',
@@ -468,11 +492,13 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={field('dollarsLabel', {
-          fontSize: '2.9mm',
+          fontSize: '2.75mm',
           fontWeight: 700,
           width: '21mm',
           textAlign: 'left',
-          letterSpacing: '0.06mm',
+          letterSpacing: '0.05mm',
+          background: 'white',
+          lineHeight: 1,
         })}
       >
         DOLLARS
@@ -480,9 +506,10 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={field('bank', {
-          fontSize: '3mm',
+          fontSize: '2.9mm',
           fontWeight: 800,
-          letterSpacing: '0.03mm',
+          letterSpacing: '0.02mm',
+          lineHeight: 1,
         })}
       >
         TD BANK, N.A.
@@ -493,6 +520,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
           fontSize: '2.8mm',
           fontWeight: 700,
           letterSpacing: '0.08mm',
+          lineHeight: 1,
         })}
       >
         FOR
@@ -502,7 +530,8 @@ function CheckStockPrint({ employee, fullName, totals }) {
         style={field('memo', {
           fontSize: '4mm',
           fontWeight: 500,
-          width: '82mm',
+          width: '86mm',
+          height: '7.5mm',
           borderBottom: '0.28mm solid #222',
           paddingBottom: '0.9mm',
           lineHeight: 1,
@@ -513,10 +542,10 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={field('micr', {
-          fontSize: '4.35mm',
+          fontSize: '4.9mm',
           fontWeight: 500,
           fontFamily: '"OCR A Std", "OCR A Extended", "Consolas", "Courier New", monospace',
-          letterSpacing: '0.65mm',
+          letterSpacing: '0.55mm',
           whiteSpace: 'nowrap',
           lineHeight: 1,
         })}
