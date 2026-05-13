@@ -527,16 +527,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
       </div>
       <div style={lineStyle('memoLine')} />
 
-      <div
-        style={{
-          position: 'absolute',
-          left: '126mm',
-          top: '76mm',
-          width: '34mm',
-          height: 0,
-          borderTop: '0.28mm solid #222',
-        }}
-      />
+      <div style={lineStyle('memoLine2')} />
 
       <div
         style={posStyle('micr', {
