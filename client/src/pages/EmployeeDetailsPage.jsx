@@ -33,7 +33,7 @@ const CHECK_SIZE = {
 
 const CHECK_COORDS = {
   company: { x: 28, y: 7 },
-  checkNumber: { right: 26, y: 11 },
+  checkNumber: { right: 16, y: 11 },
 
   payToLabel: { x: 12, y: 31 },
   payeeText: { x: 34, y: 30 },
@@ -376,9 +376,9 @@ function CheckStockPrint({ employee, fullName, totals }) {
           letterSpacing: '0.03mm',
         })}
       >
-        <div style={{ fontSize: '3.1mm' }}>FARMPLAST MFG, LLC</div>
-        <div style={{ fontSize: '1.75mm', fontWeight: 700 }}>425 EAST HALSEY ROAD</div>
-        <div style={{ fontSize: '1.75mm', fontWeight: 700 }}>PARSIPPANY, NJ 07054</div>
+        <div style={{ fontSize: '3.2mm' }}>FARMPLAST MFG, LLC</div>
+        <div style={{ fontSize: '2mm', fontWeight: 700 }}>425 EAST HALSEY ROAD</div>
+        <div style={{ fontSize: '2mm', fontWeight: 700 }}>PARSIPPANY, NJ 07054</div>
       </div>
 
       <div
@@ -394,9 +394,9 @@ function CheckStockPrint({ employee, fullName, totals }) {
       <div
         style={posStyle('payToLabel', {
           width: '16mm',
-          fontSize: '1.75mm',
+          fontSize: '2mm',
           fontWeight: 700,
-          lineHeight: 1.05,
+          lineHeight: 1.0,
         })}
       >
         <div>PAY</div>
@@ -410,7 +410,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
           fontWeight: 500,
           lineHeight: 1,
           whiteSpace: 'nowrap',
-          maxWidth: '116mm',
+          maxWidth: '150mm',
           overflow: 'hidden',
         })}
       >
@@ -420,7 +420,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={posStyle('dateLabel', {
-          fontSize: '2.7mm',
+          fontSize: '3mm',
           fontWeight: 700,
           lineHeight: 1,
         })}
@@ -457,7 +457,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
         <span style={{ fontSize: '5.8mm', fontWeight: 500 }}>{amountNumberMain}</span>
         <span
           style={{
-            fontSize: '2.4mm',
+            fontSize: '3mm',
             fontWeight: 500,
             marginLeft: '0.25mm',
             transform: 'translateY(-1.1mm)',
@@ -473,7 +473,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
           fontWeight: 500,
           lineHeight: 1,
           whiteSpace: 'nowrap',
-          maxWidth: '134mm',
+          maxWidth: '160mm',
           overflow: 'hidden',
           textTransform: 'capitalize',
         })}
@@ -484,7 +484,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={posStyle('dollarsLabel', {
-          fontSize: '2.8mm',
+          fontSize: '3mm',
           fontWeight: 700,
           lineHeight: 1,
         })}
@@ -504,7 +504,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={posStyle('forLabel', {
-          fontSize: '2.9mm',
+          fontSize: '3mm',
           fontWeight: 700,
           lineHeight: 1,
         })}
