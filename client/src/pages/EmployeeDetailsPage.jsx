@@ -37,11 +37,11 @@ const CHECK_COORDS = {
 
   payToLabel: { x: 12, y: 31 },
   payeeText: { x: 34, y: 30 },
-  payeeLine: { x: 34, y: 31, w: 120 },
+  payeeLine: { x: 34, y: 38, w: 120 },
 
   dateLabel: { x: 151, y: 28 },
   dateText: { x: 164, y: 28 },
-  dateLine: { x: 151, y: 29, w: 35 },
+  dateLine: { x: 151, y: 32, w: 35 },
 
   amountNumber: { right: 24, y: 34 },
 
