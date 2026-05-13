@@ -35,8 +35,8 @@ const CHECK_COORDS = {
   company: { x: 28, y: 7 },
   checkNumber: { right: 16, y: 11 },
 
-  payToLabel: { x: 12, y: 31 },
-  payeeText: { x: 34, y: 32 },
+  payToLabel: { x: 12, y: 32 },
+  payeeText: { x: 34, y: 33 },
   payeeLine: { x: 34, y: 38, w: 120 },
 
   dateLabel: { x: 151, y: 28 },
@@ -45,13 +45,13 @@ const CHECK_COORDS = {
 
   amountNumber: { right: 24, y: 34 },
 
-  amountWordsText: { x: 18, y: 46 },
-  amountWordsLine: { x: 18, y: 52, w: 140 },
-  dollarsLabel: { x: 158, y: 47 },
+  amountWordsText: { x: 18, y: 48 },
+  amountWordsLine: { x: 18, y: 52, w: 160 },
+  dollarsLabel: { x: 158, y: 48 },
 
   bank: { x: 44, y: 58 },
 
-  forLabel: { x: 14, y: 68 },
+  forLabel: { x: 14, y: 70 },
   memoText: { x: 28, y: 68 },
   memoLine: { x: 28, y: 73, w: 75 },
   memoLine2: { x: 120, y: 73, w: 84 },
