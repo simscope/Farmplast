@@ -1526,14 +1526,24 @@ export default function EmployeeDetailsPage() {
                         key={row.id}
                         className="grid grid-cols-[1fr_0.95fr_0.95fr_0.45fr_0.8fr_0.8fr_0.95fr_0.8fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-2.5"
                       >
-                        <input
-                          type="date"
-                          value={row.work_date || ''}
-                          onChange={(e) =>
-                            updateRowValue(row.id, 'work_date', e.target.value)
-                          }
-                          className={darkInput}
-                        />
+                        <div className="relative">
+  <input
+    type="date"
+    value={row.work_date || ''}
+    onChange={(e) =>
+      updateRowValue(row.id, 'work_date', e.target.value)
+    }
+    className={`${darkInput} pr-16`}
+  />
+
+  <div className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-[11px] font-semibold tracking-wide text-cyan-300">
+    {row.work_date
+      ? ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][
+          new Date(`${row.work_date}T00:00:00`).getDay()
+        ]
+      : ''}
+  </div>
+</div>
 
                         <input
                           type="time"
