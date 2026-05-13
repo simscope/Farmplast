@@ -36,9 +36,9 @@ const CHECK_COORDS = {
   dateLabel: { x: 140, y: 25 },
   date: { x: 155, y: 25 },
 
-  amountNumber: { x: 175, y: 38 },
-  amountWords: { x: 18, y: 41 },
-  dollarsLabel: { x: 170, y: 38 },
+  amountNumber: { x: 175, y: 35 },
+  amountWords: { x: 18, y: 44 },
+  dollarsLabel: { x: 170, y: 35 },
 
   bank: { x: 15, y: 50 },
 
@@ -326,21 +326,21 @@ function CheckStockPrint({ employee, fullName, totals }) {
     >
       <div
         style={field('company', {
-          fontSize: '3.8mm',
-          fontWeight: 700,
+          fontSize: '3.0mm',
+          fontWeight: 800,
           lineHeight: 1.15,
           textAlign: 'center',
           width: '42mm',
         })}
       >
         <div>FARMPLAST MFG, LLC</div>
-        <div style={{ fontSize: '3.2mm', fontWeight: 600 }}>425 EAST HALSEY ROAD</div>
-        <div style={{ fontSize: '3.2mm', fontWeight: 600 }}>PARSIPPANY, NJ 07054</div>
+        <div style={{ fontSize: '2mm', fontWeight: 600 }}>425 EAST HALSEY ROAD</div>
+        <div style={{ fontSize: '2mm', fontWeight: 600 }}>PARSIPPANY, NJ 07054</div>
       </div>
 
       <div
         style={field('checkNumber', {
-          fontSize: '6mm',
+          fontSize: '4mm',
           fontWeight: 500,
         })}
       >
@@ -349,10 +349,10 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={field('payToLabel', {
-          fontSize: '3.6mm',
+          fontSize: '2mm',
           fontWeight: 600,
           lineHeight: 1.05,
-          width: '20mm',
+          width: '10mm',
         })}
       >
         <div>PAY</div>
@@ -364,7 +364,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
         style={field('payee', {
           fontSize: '5.2mm',
           fontWeight: 500,
-          width: '100mm',
+          width: '130mm',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           borderBottom: '0.3mm solid #333',
@@ -376,7 +376,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={field('dateLabel', {
-          fontSize: '3.4mm',
+          fontSize: '3.0mm',
           fontWeight: 600,
         })}
       >
@@ -399,7 +399,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
       <div
         style={field('amountNumber', {
           display: 'inline-flex',
-          alignItems: 'flex-start',
+          alignItems: 'center',
           gap: '1mm',
           whiteSpace: 'nowrap',
           lineHeight: 1,
@@ -437,7 +437,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={field('dollarsLabel', {
-          fontSize: '3.4mm',
+          fontSize: '3.0mm',
           fontWeight: 600,
         })}
       >
@@ -446,7 +446,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={field('bank', {
-          fontSize: '4mm',
+          fontSize: '3mm',
           fontWeight: 700,
         })}
       >
@@ -455,7 +455,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={field('forLabel', {
-          fontSize: '3.7mm',
+          fontSize: '3.0mm',
           fontWeight: 600,
         })}
       >
