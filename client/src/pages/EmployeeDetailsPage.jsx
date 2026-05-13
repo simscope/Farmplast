@@ -40,8 +40,8 @@ const CHECK_COORDS = {
   payeeLine: { x: 34, y: 38, w: 120 },
 
   dateLabel: { x: 151, y: 28 },
-  dateText: { x: 164, y: 28 },
-  dateLine: { x: 151, y: 32, w: 35 },
+  dateText: { x: 164, y: 26 },
+  dateLine: { x: 151, y: 30, w: 35 },
 
   amountNumber: { right: 24, y: 34 },
 
@@ -52,9 +52,9 @@ const CHECK_COORDS = {
   bank: { x: 44, y: 58 },
 
   forLabel: { x: 14, y: 70 },
-  memoText: { x: 28, y: 68 },
+  memoText: { x: 28, y: 69 },
   memoLine: { x: 28, y: 73, w: 75 },
-  memoLine2: { x: 120, y: 73, w: 84 },
+  memoLine2: { x: 120, y: 68, w: 120 },
 
   micr: { x: 24, y: 80 },
 
