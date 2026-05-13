@@ -773,6 +773,9 @@ export default function EmployeeDetailsPage() {
         lunch_hours: Number(row.lunch_hours || 0),
         reg_hours: Number(row.reg_hours || 0),
         labor_amount: Number(row.labor_amount || 0),
+        source: 'manual',
+        manually_edited: true,
+        updated_at: new Date().toISOString(),
       }
 
       if (String(row.id).startsWith('new-')) {
