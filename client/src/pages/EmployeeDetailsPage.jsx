@@ -27,23 +27,23 @@ const darkInput =
   'w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
 const CHECK_COORDS = {
-  company: { x: 20, y: 8 },
-  checkNumber: { x: 185, y: 9 },
+  company: { x: 82, y: 7 },
+  checkNumber: { right: 24, y: 9 },
 
-  payToLabel: { x: 10, y: 28 },
-  payee: { x: 30, y: 28 },
+  payToLabel: { x: 9, y: 27 },
+  payee: { x: 28, y: 28 },
 
-  dateLabel: { x: 140, y: 25 },
-  date: { x: 155, y: 25 },
+  dateLabel: { x: 132, y: 25 },
+  date: { x: 146, y: 25 },
 
- amountNumber: { right: 32, y: 28 },
-amountWords: { x: 13, y: 43 },
-dollarsLabel: { right: 42, y: 43 },
+  amountNumber: { right: 34, y: 29 },
+  amountWords: { x: 13, y: 42 },
+  dollarsLabel: { right: 52, y: 42 },
 
-  bank: { x: 15, y: 50 },
+  bank: { x: 14, y: 48 },
 
-  forLabel: { x: 10, y: 60 },
-  memo: { x: 25, y: 60 },
+  forLabel: { x: 10, y: 61 },
+  memo: { x: 24, y: 61 },
 
   globalOffset: { x: 0, y: 0 },
 }
@@ -324,7 +324,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
       style={{
         position: 'relative',
         width: '215.9mm',
-        height: '88.0mm',
+        height: '88.9mm',
         background: 'white',
         color: 'black',
         fontFamily: 'Arial, sans-serif',
@@ -333,21 +333,21 @@ function CheckStockPrint({ employee, fullName, totals }) {
     >
       <div
         style={field('company', {
-          fontSize: '3.0mm',
+          fontSize: '3.5mm',
           fontWeight: 800,
-          lineHeight: 1.15,
+          lineHeight: 1.12,
           textAlign: 'center',
-          width: '42mm',
+          width: '52mm',
         })}
       >
         <div>FARMPLAST MFG, LLC</div>
-        <div style={{ fontSize: '2mm', fontWeight: 600 }}>425 EAST HALSEY ROAD</div>
-        <div style={{ fontSize: '2mm', fontWeight: 600 }}>PARSIPPANY, NJ 07054</div>
+        <div style={{ fontSize: '2.1mm', fontWeight: 700 }}>425 EAST HALSEY ROAD</div>
+        <div style={{ fontSize: '2.1mm', fontWeight: 700 }}>PARSIPPANY, NJ 07054</div>
       </div>
 
       <div
         style={field('checkNumber', {
-          fontSize: '4mm',
+          fontSize: '4.6mm',
           fontWeight: 500,
         })}
       >
@@ -371,11 +371,11 @@ function CheckStockPrint({ employee, fullName, totals }) {
         style={field('payee', {
           fontSize: '5.2mm',
           fontWeight: 500,
-          width: '140mm',
+          width: '126mm',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           borderBottom: '0.3mm solid #333',
-          paddingBottom: '2mm',
+          paddingBottom: '1.2mm',
         })}
       >
         {payeeName}
@@ -394,7 +394,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
         style={field('date', {
           fontSize: '4.8mm',
           fontWeight: 500,
-          width: '35mm',
+          width: '32mm',
           borderBottom: '0.3mm solid #333',
           paddingBottom: '1mm',
           textAlign: 'center',
@@ -411,7 +411,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
     gap: '0.3mm',
     whiteSpace: 'nowrap',
     lineHeight: 1,
-    minWidth: '34mm',
+    minWidth: '32mm',
     textAlign: 'right',
   })}
 >
@@ -423,7 +423,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
     style={{
       fontSize: '2.6mm',
       fontWeight: 500,
-      transform: 'translateY(-0.8mm)',
+      transform: 'translateY(-1.1mm)',
     }}
   >
     {amountNumberCents}
@@ -434,7 +434,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
         style={field('amountWords', {
           fontSize: '4.7mm',
           fontWeight: 500,
-          width: '160mm',
+          width: '148mm',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textTransform: 'capitalize',
@@ -478,7 +478,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
         style={field('memo', {
           fontSize: '4.2mm',
           fontWeight: 500,
-          width: '70mm',
+          width: '86mm',
           borderBottom: '0.3mm solid #333',
           paddingBottom: '1mm',
         })}
@@ -687,14 +687,17 @@ function PrintPreviewModal({
 
         <div className="flex-1 overflow-auto bg-slate-200 p-5">
           <div
-  className="print-modal-sheet mx-auto bg-white shadow-lg"
-  style={{
-    width: '215.9mm',
-    height: '88.9mm',
-    display: 'block',
-    overflow: 'hidden',
-  }}
->
+            className="print-modal-sheet mx-auto bg-white shadow-lg"
+            style={{
+              width: '215.9mm',
+              height: '88.9mm',
+              display: 'block',
+              overflow: 'hidden',
+              flex: '0 0 auto',
+            }}
+          >
+            <CheckStockPrint employee={employee} fullName={fullName} totals={totals} />
+          </div>
 
           <div className="print-report-sheet mx-auto mt-6 max-w-[920px] bg-white shadow-lg">
             <PrintPaymentReport
@@ -1205,7 +1208,7 @@ export default function EmployeeDetailsPage() {
        cursor: pointer;
         }
         @page {
-          size: 215.9mm 88.0mm;
+          size: 215.9mm 88.9mm;
           margin: 0;
         }
 
