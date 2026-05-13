@@ -27,23 +27,23 @@ const darkInput =
   'w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
 const CHECK_COORDS = {
-  company: { x: 137, y: 10 },
-  checkNumber: { x: 194, y: 18 },
+  company: { x: 20, y: 8 },
+  checkNumber: { x: 185, y: 13 },
 
-  payToLabel: { x: 13, y: 25 },
-  payee: { x: 37, y: 25 },
+  payToLabel: { x: 10, y: 30 },
+  payee: { x: 30, y: 28 },
 
-  dateLabel: { x: 148, y: 25 },
-  date: { x: 162, y: 25 },
+  dateLabel: { x: 140, y: 25 },
+  date: { x: 155, y: 25 },
 
-  amountNumber: { x: 177, y: 34 },
+  amountNumber: { x: 175, y: 38 },
   amountWords: { x: 18, y: 41 },
-  dollarsLabel: { x: 147, y: 43 },
+  dollarsLabel: { x: 170, y: 38 },
 
-  bank: { x: 42, y: 47 },
+  bank: { x: 15, y: 50 },
 
-  forLabel: { x: 14, y: 63 },
-  memo: { x: 25, y: 63 },
+  forLabel: { x: 10, y: 62 },
+  memo: { x: 25, y: 62 },
 
   globalOffset: { x: 0, y: 0 },
 }
@@ -317,7 +317,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
       style={{
         position: 'relative',
         width: '215.9mm',
-        height: '88.9mm',
+        height: '88.0mm',
         background: 'white',
         color: 'black',
         fontFamily: 'Arial, sans-serif',
