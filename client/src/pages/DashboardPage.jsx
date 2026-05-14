@@ -1877,31 +1877,23 @@ export default function DashboardPage() {
 
   function formatPresenceTime(value) {
     if (!value) {
-      return (
-        <span className="font-semibold text-red-400">
-          ABSENT
-        </span>
-      )
+      return <span className="font-semibold text-red-400">ABSENT</span>
     }
 
     const date = new Date(value)
 
     if (Number.isNaN(date.getTime())) {
-      return (
-        <span className="font-semibold text-red-400">
-          ABSENT
-        </span>
-      )
+      return <span className="font-semibold text-red-400">ABSENT</span>
     }
 
     const now = new Date()
     const diffMs = now.getTime() - date.getTime()
     const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
 
-    if (diffDays > 2) {
+    if (diffDays >= 3) {
       return (
         <span className="font-semibold text-red-400">
-          ABSENT {diffDays} DAYS
+          ABSENT {diffDays > 3 ? '3+' : '3'} DAYS
         </span>
       )
     }
@@ -1970,9 +1962,7 @@ export default function DashboardPage() {
               <div>
                 <h1 className="text-xl font-bold text-white">Employees</h1>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Total: {counts.total} · Active: {counts.active} · On site: {counts.onSite} · Inactive:{' '}
-                  {counts.inactive} · ZKT OK: {counts.zktVerified} · Missing:{' '}
-                  {counts.zktMissing} · Errors: {counts.zktError}
+                  Total: {counts.total} · Online: {counts.onSite}
                 </p>
               </div>
             </div>
@@ -2065,14 +2055,14 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-base font-semibold text-white">Workers list</h2>
               <p className="mt-0.5 text-xs text-slate-400">
-                Database employees + real ZKT sync status
+                Database employees + live presence
               </p>
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 type="text"
-                placeholder="Search by number, ZKT ID, name, presence, status..."
+                placeholder="Search by number, ZKT ID, name, presence..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full min-w-[320px] rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
@@ -2117,17 +2107,15 @@ export default function DashboardPage() {
             ) : (
               <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
                 <div className="min-w-[1900px]">
-                  <div className="grid grid-cols-[70px_230px_110px_140px_170px_110px_110px_120px_135px_190px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                  <div className="grid grid-cols-[70px_250px_110px_160px_180px_110px_120px_130px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>No.</div>
                     <div>Name</div>
                     <div>ZKT ID</div>
-                    <div>Presence</div>
+                    <div>Presence ({counts.onSite})</div>
                     <div>Last punch</div>
                     <div>Direction</div>
                     <div>Payment</div>
                     <div>Overtime</div>
-                    <div>Active</div>
-                    <div>ZKT Status</div>
                     <div>Actions</div>
                   </div>
 
@@ -2139,7 +2127,7 @@ export default function DashboardPage() {
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="grid grid-cols-[70px_230px_110px_140px_170px_110px_110px_120px_135px_190px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
+                        className="grid grid-cols-[70px_250px_110px_160px_180px_110px_120px_130px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
                       >
                         <div className="font-semibold text-cyan-300">
                           {employee.employee_number ?? '—'}
@@ -2198,38 +2186,6 @@ export default function DashboardPage() {
                           </span>
                         </div>
 
-                        <div>
-                          <button
-                            onClick={() => toggleActive(employee)}
-                            className={`inline-flex rounded-full px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${
-                              employee.active
-                                ? 'bg-emerald-500/15 text-emerald-300'
-                                : 'bg-red-500/15 text-red-300'
-                            }`}
-                          >
-                            {employee.active ? 'Active' : 'Inactive'}
-                          </button>
-                        </div>
-
-                        <div>
-                          <span
-                            title={employee.zkt_sync_error || ''}
-                            className={`inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide ${getZktBadge(employee)}`}
-                          >
-                            {employee.zkt_sync_status === 'error' ||
-                            employee.zkt_sync_status === 'missing_on_zkt' ? (
-                              <ShieldAlert size={12} />
-                            ) : (
-                              <ShieldCheck size={12} />
-                            )}
-                            {getZktLabel(employee)}
-                          </span>
-                          {employee.zkt_sync_error ? (
-                            <div className="mt-1 truncate text-[10px] text-red-300">
-                              {employee.zkt_sync_error}
-                            </div>
-                          ) : null}
-                        </div>
 
                         <div className="flex flex-wrap gap-1.5">
                           <Link
@@ -2328,12 +2284,6 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     </div>
-
-                    <span
-                      className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${getZktBadge(employee)}`}
-                    >
-                      {getZktLabel(employee)}
-                    </span>
                   </div>
 
                   <div className="mt-3 grid gap-2 text-xs text-slate-300">
@@ -2354,12 +2304,6 @@ export default function DashboardPage() {
                       <span className="font-semibold text-cyan-300">{getPresenceDirection(employee)}</span>
                     </div>
                   </div>
-
-                  {employee.zkt_sync_error ? (
-                    <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
-                      {employee.zkt_sync_error}
-                    </div>
-                  ) : null}
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Link
