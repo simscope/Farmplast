@@ -73,7 +73,20 @@ function moneyRaw(value) {
 
 function formatDate(value) {
   if (!value) return '—'
-  return value
+
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-')
+    return `${month}/${day}/${year}`
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value
+
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
 }
 
 function formatDateTime(value) {
@@ -85,10 +98,92 @@ function formatDateTime(value) {
       day: '2-digit',
       hour: '2-digit',
       minute: '2-digit',
+      hour12: true,
     })
   } catch {
     return value
   }
+}
+
+function formatDateInputUS(value) {
+  if (!value) return ''
+
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-')
+    return `${month}/${day}/${year}`
+  }
+
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+}
+
+function parseUSDateInput(value) {
+  const text = String(value || '').trim()
+  const match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2}|\d{4})$/)
+
+  if (!match) return null
+
+  const month = Number(match[1])
+  const day = Number(match[2])
+  let year = Number(match[3])
+
+  if (year < 100) year += 2000
+
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900) return null
+
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return null
+  }
+
+  return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+}
+
+function formatTimeInputUS(value) {
+  if (!value) return ''
+
+  const text = String(value).trim()
+  const match = text.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/)
+  if (!match) return text
+
+  let hour = Number(match[1])
+  const minute = match[2]
+
+  if (!Number.isFinite(hour) || hour < 0 || hour > 23) return text
+
+  const suffix = hour >= 12 ? 'PM' : 'AM'
+  hour = hour % 12
+  if (hour === 0) hour = 12
+
+  return `${String(hour).padStart(2, '0')}:${minute} ${suffix}`
+}
+
+function parseUSTimeInput(value) {
+  const text = String(value || '').trim().toUpperCase()
+  const match = text.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/)
+
+  if (!match) return null
+
+  let hour = Number(match[1])
+  const minute = Number(match[2] || 0)
+  const suffix = match[3]
+
+  if (hour < 1 || hour > 12 || minute < 0 || minute > 59) return null
+
+  if (suffix === 'AM' && hour === 12) hour = 0
+  if (suffix === 'PM' && hour !== 12) hour += 12
+
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }
 
 function round2(value) {
@@ -590,7 +685,7 @@ function PrintPaymentReport({
             <div className="flex justify-between gap-4">
               <span className="text-slate-600">Period</span>
               <span className="font-medium">
-                {periodStart} - {periodEnd}
+                {formatDate(periodStart)} - {formatDate(periodEnd)}
               </span>
             </div>
           </div>
@@ -683,9 +778,9 @@ function PrintPaymentReport({
               key={row.id}
               className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] border-t border-slate-200 px-4 py-3 text-sm"
             >
-              <div>{row.work_date || '—'}</div>
-              <div>{row.time_in || '—'}</div>
-              <div>{row.time_out || '—'}</div>
+              <div>{formatDate(row.work_date)}</div>
+              <div>{formatTimeInputUS(row.time_in) || '—'}</div>
+              <div>{formatTimeInputUS(row.time_out) || '—'}</div>
               <div>{row.shift_letter || getShiftLetter(row.time_in)}</div>
               <div>{Number(row.lunch_hours || 0).toFixed(2)}</div>
               <div>{Number(row.reg_hours || 0).toFixed(2)}</div>
@@ -928,6 +1023,82 @@ export default function EmployeeDetailsPage() {
         }
 
         return nextRow
+      })
+    )
+  }
+
+  function updateUsDateInput(rowId, displayValue) {
+    const parsedDate = parseUSDateInput(displayValue)
+
+    setLogs((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row
+
+        return {
+          ...row,
+          work_date_display: displayValue,
+          work_date: parsedDate || row.work_date,
+        }
+      })
+    )
+  }
+
+  function finishUsDateInput(rowId) {
+    setLogs((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row
+
+        return {
+          ...row,
+          work_date_display: undefined,
+        }
+      })
+    )
+  }
+
+  function updateUsTimeInput(rowId, field, displayField, displayValue) {
+    const parsedTime = parseUSTimeInput(displayValue)
+
+    setLogs((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row
+
+        const nextRow = {
+          ...row,
+          [displayField]: displayValue,
+        }
+
+        if (parsedTime) {
+          nextRow[field] = parsedTime
+
+          const computedHours = calcDayHours(
+            field === 'time_in' ? parsedTime : nextRow.time_in,
+            field === 'time_out' ? parsedTime : nextRow.time_out,
+            nextRow.lunch_hours
+          )
+
+          nextRow.reg_hours = String(computedHours)
+
+          if (employee?.pay_type === 'hourly') {
+            const hourlyRate = Number(employee?.hourly_rate || 0)
+            nextRow.labor_amount = String(round2(computedHours * hourlyRate))
+          }
+        }
+
+        return nextRow
+      })
+    )
+  }
+
+  function finishUsTimeInput(rowId, displayField) {
+    setLogs((prev) =>
+      prev.map((row) => {
+        if (row.id !== rowId) return row
+
+        return {
+          ...row,
+          [displayField]: undefined,
+        }
       })
     )
   }
@@ -1512,10 +1683,15 @@ export default function EmployeeDetailsPage() {
                 <div>
                   <label className="mb-1 block text-xs text-slate-300">Period start</label>
                   <input
-                    type="date"
-                    value={periodStart}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="MM/DD/YYYY"
+                    value={formatDateInputUS(periodStart)}
                     onFocus={() => setPeriodMode('custom')}
-                    onChange={(e) => setPeriodStart(e.target.value)}
+                    onChange={(e) => {
+                      const parsedDate = parseUSDateInput(e.target.value)
+                      if (parsedDate) setPeriodStart(parsedDate)
+                    }}
                     className={darkInput}
                   />
                 </div>
@@ -1523,10 +1699,15 @@ export default function EmployeeDetailsPage() {
                 <div>
                   <label className="mb-1 block text-xs text-slate-300">Period end</label>
                   <input
-                    type="date"
-                    value={periodEnd}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="MM/DD/YYYY"
+                    value={formatDateInputUS(periodEnd)}
                     onFocus={() => setPeriodMode('custom')}
-                    onChange={(e) => setPeriodEnd(e.target.value)}
+                    onChange={(e) => {
+                      const parsedDate = parseUSDateInput(e.target.value)
+                      if (parsedDate) setPeriodEnd(parsedDate)
+                    }}
                     className={darkInput}
                   />
                 </div>
@@ -1677,7 +1858,7 @@ export default function EmployeeDetailsPage() {
                           >
                             <div>{formatDateTime(row.paid_at)}</div>
                             <div>
-                              {row.period_start || '—'} - {row.period_end || '—'}
+                              {formatDate(row.period_start)} - {formatDate(row.period_end)}
                             </div>
                             <div className="font-semibold text-emerald-300">
                               {money(row.net_pay)}
@@ -1743,45 +1924,66 @@ export default function EmployeeDetailsPage() {
                         className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.55fr_0.7fr_1fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-2.5"
                       >
                         <div className="relative">
- <input
-  type="date"
-  lang="en-US"
-  value={row.work_date || ''}
-  onChange={(e) =>
-    updateRowValue(row.id, 'work_date', e.target.value)
-  }
-  className={`${darkInput} pr-16`}
-  style={{
-    colorScheme: 'dark',
-  }}
-/>
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            placeholder="MM/DD/YYYY"
+                            value={
+                              row.work_date_display !== undefined
+                                ? row.work_date_display
+                                : formatDateInputUS(row.work_date)
+                            }
+                            onChange={(e) => updateUsDateInput(row.id, e.target.value)}
+                            onBlur={() => finishUsDateInput(row.id)}
+                            className={`${darkInput} pr-16`}
+                          />
 
-  <div className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-[11px] font-semibold tracking-wide text-white">
-    {row.work_date
-      ? ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][
-          new Date(`${row.work_date}T00:00:00`).getDay()
-        ]
-      : ''}
-  </div>
-</div>
+                          <div className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-[11px] font-semibold tracking-wide text-white">
+                            {row.work_date
+                              ? ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][
+                                  new Date(`${row.work_date}T00:00:00`).getDay()
+                                ]
+                              : ''}
+                          </div>
+                        </div>
 
                         <input
-  type="time"
-  lang="en-US"
-  value={row.time_in || ''}
-                          onChange={(e) =>
-                            updateRowValue(row.id, 'time_in', e.target.value)
+                          type="text"
+                          placeholder="HH:MM AM"
+                          value={
+                            row.time_in_display !== undefined
+                              ? row.time_in_display
+                              : formatTimeInputUS(row.time_in)
                           }
+                          onChange={(e) =>
+                            updateUsTimeInput(
+                              row.id,
+                              'time_in',
+                              'time_in_display',
+                              e.target.value
+                            )
+                          }
+                          onBlur={() => finishUsTimeInput(row.id, 'time_in_display')}
                           className={darkInput}
                         />
 
                         <input
-  type="time"
-  lang="en-US"
-  value={row.time_out || ''}
-                          onChange={(e) =>
-                            updateRowValue(row.id, 'time_out', e.target.value)
+                          type="text"
+                          placeholder="HH:MM PM"
+                          value={
+                            row.time_out_display !== undefined
+                              ? row.time_out_display
+                              : formatTimeInputUS(row.time_out)
                           }
+                          onChange={(e) =>
+                            updateUsTimeInput(
+                              row.id,
+                              'time_out',
+                              'time_out_display',
+                              e.target.value
+                            )
+                          }
+                          onBlur={() => finishUsTimeInput(row.id, 'time_out_display')}
                           className={darkInput}
                         />
 
