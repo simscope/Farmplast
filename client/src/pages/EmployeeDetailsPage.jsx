@@ -889,8 +889,8 @@ function PrintPreviewModal({
             >
               <CheckStockPrint employee={employee} fullName={fullName} totals={totals} />
             </div>
-            <div className="print-tear-line" />
             <div className="print-report-sheet bg-white p-4">
+              <div className="print-tear-line" />
               <PayrollStubCopy
                 title="EMPLOYEE COPY"
                 employee={employee}
@@ -1510,6 +1510,12 @@ export default function EmployeeDetailsPage() {
         opacity: 1;
        cursor: pointer;
         }
+        .print-tear-line {
+          width: 100%;
+          border-top: 2px dashed #555;
+          margin: 0 0 8px 0;
+        }
+
         .print-payroll-sheet {
           width: 215.9mm;
           min-height: 279.4mm;
@@ -1576,6 +1582,14 @@ export default function EmployeeDetailsPage() {
             box-shadow: none !important;
             overflow: hidden !important;
             z-index: 999999 !important;
+          }
+
+          .print-tear-line {
+            display: block !important;
+            visibility: visible !important;
+            width: 100% !important;
+            border-top: 2px dashed #555 !important;
+            margin: 0 0 6mm 0 !important;
           }
 
           .print-report-sheet {
