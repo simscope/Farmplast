@@ -899,7 +899,6 @@ function PrintPreviewModal({
                 periodEnd={periodEnd}
                 totals={totals}
               />
-              <div
               <div className="print-tear-line" />
               <PayrollStubCopy
                 title="EMPLOYER COPY"
