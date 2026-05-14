@@ -53,7 +53,7 @@ const CHECK_COORDS = {
 
   forLabel: { x: 14, y: 70 },
   memoText: { x: 28, y: 69 },
-  memoLine: { x: 28, y: 73, w: 75 },
+  memoLine: { x: 22, y: 73, w: 75 },
   memoLine2: { x: 120, y: 73, w: 80 },
 
   micr: { x: 34, y: 80 },
@@ -404,7 +404,11 @@ function CheckStockPrint({ employee, fullName, totals }) {
   const amountNumberCents = String(cents).padStart(2, '0')
   const amountWords = amountToWords(amount)
 
-  const checkNumber = '7049'
+  const rawCheckNumber = Number(employee?.last_check_number || 0) + 1
+
+const checkNumberTop = String(rawCheckNumber)
+
+const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
   const memoText = `Payroll ${employee?.employee_number || ''}`
 
   // MICR на настоящих чеках печатается специальным шрифтом MICR E-13B.
