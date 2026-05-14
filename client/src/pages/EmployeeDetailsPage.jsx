@@ -666,10 +666,10 @@ function PayrollStubCopy({
       className="payroll-stub-copy"
       style={{
         border: '1px solid #222',
-        padding: '10px 14px',
-        marginBottom: '10px',
+        padding: '8px 12px',
+        marginBottom: '8px',
         fontFamily: 'Arial, Helvetica, sans-serif',
-        fontSize: '12px',
+        fontSize: '11px',
         color: 'black',
         background: 'white',
         boxSizing: 'border-box',
@@ -686,7 +686,7 @@ function PayrollStubCopy({
           marginBottom: '8px',
         }}
       >
-        <div style={{ fontWeight: 800, fontSize: '15px', letterSpacing: '0.4px' }}>
+        <div style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '0.4px' }}>
           {title}
         </div>
 
@@ -706,7 +706,7 @@ function PayrollStubCopy({
           gridTemplateColumns: '1fr 1fr',
           gap: '6px 20px',
           marginBottom: '10px',
-          fontSize: '12px',
+          fontSize: '11px',
         }}
       >
         <div>
@@ -810,7 +810,7 @@ function PayrollStubCopy({
 const stubTableStyle = {
   width: '100%',
   borderCollapse: 'collapse',
-  fontSize: '11px',
+  fontSize: '10.5px',
 }
 
 const th = {
@@ -876,37 +876,39 @@ function PrintPreviewModal({
         </div>
 
         <div className="flex-1 overflow-auto bg-slate-200 p-5">
-          <div
-            className="print-modal-sheet mx-auto bg-white shadow-lg"
-            style={{
-              width: CHECK_SIZE.width,
-              height: CHECK_SIZE.height,
-              display: 'block',
-              overflow: 'hidden',
-              flex: '0 0 auto',
-            }}
-          >
-            <CheckStockPrint employee={employee} fullName={fullName} totals={totals} />
-          </div>
+          <div className="print-payroll-sheet mx-auto bg-white shadow-lg">
+            <div
+              className="print-modal-sheet bg-white"
+              style={{
+                width: CHECK_SIZE.width,
+                height: CHECK_SIZE.height,
+                display: 'block',
+                overflow: 'hidden',
+                flex: '0 0 auto',
+              }}
+            >
+              <CheckStockPrint employee={employee} fullName={fullName} totals={totals} />
+            </div>
 
-          <div className="print-report-sheet mx-auto mt-6 max-w-[920px] bg-white p-4 shadow-lg">
-            <PayrollStubCopy
-              title="EMPLOYEE COPY"
-              employee={employee}
-              fullName={fullName}
-              periodStart={periodStart}
-              periodEnd={periodEnd}
-              totals={totals}
-            />
+            <div className="print-report-sheet bg-white p-4">
+              <PayrollStubCopy
+                title="EMPLOYEE COPY"
+                employee={employee}
+                fullName={fullName}
+                periodStart={periodStart}
+                periodEnd={periodEnd}
+                totals={totals}
+              />
 
-            <PayrollStubCopy
-              title="EMPLOYER COPY"
-              employee={employee}
-              fullName={fullName}
-              periodStart={periodStart}
-              periodEnd={periodEnd}
-              totals={totals}
-            />
+              <PayrollStubCopy
+                title="EMPLOYER COPY"
+                employee={employee}
+                fullName={fullName}
+                periodStart={periodStart}
+                periodEnd={periodEnd}
+                totals={totals}
+              />
+            </div>
           </div>
         </div>
       </div>
@@ -1508,6 +1510,12 @@ export default function EmployeeDetailsPage() {
         opacity: 1;
        cursor: pointer;
         }
+        .print-payroll-sheet {
+          width: 215.9mm;
+          min-height: 279.4mm;
+          background: white;
+        }
+
         @page {
           size: 215.9mm 279.4mm;
           margin: 0;
@@ -1529,11 +1537,27 @@ export default function EmployeeDetailsPage() {
             visibility: hidden !important;
           }
 
+          .print-payroll-sheet,
+          .print-payroll-sheet *,
           .print-modal-sheet,
           .print-modal-sheet *,
           .print-report-sheet,
           .print-report-sheet * {
             visibility: visible !important;
+          }
+
+          .print-payroll-sheet {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 215.9mm !important;
+            min-height: 279.4mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            box-shadow: none !important;
+            overflow: hidden !important;
+            z-index: 999997 !important;
           }
 
           .print-modal-sheet {
