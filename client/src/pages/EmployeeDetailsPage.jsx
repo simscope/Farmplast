@@ -472,7 +472,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
           letterSpacing: '0.03mm',
         })}
       >
-        <div style={{ fontSize: '3.5mm' }}>FARMPLAST MFG, LLC</div>
+        <div style={{ fontSize: '3.5mm' }}>FARMPLAST LLC</div>
         <div style={{ fontSize: '2.5mm', fontWeight: 700 }}>425 EAST HALSEY ROAD</div>
         <div style={{ fontSize: '2.5mm', fontWeight: 700 }}>PARSIPPANY, NJ 07054</div>
       </div>
