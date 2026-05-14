@@ -642,157 +642,76 @@ function CheckStockPrint({ employee, fullName, totals }) {
   )
 }
 
-function PrintPaymentReport({
-  employee,
-  fullName,
-  periodStart,
-  periodEnd,
-  totals,
-  displayLogs,
-}) {
-  const payeeName =
-    employee?.employer_form === 'Other' && employee?.company_name
-      ? employee.company_name
-      : fullName
+function PayrollStubCopy({
+          borderCollapse: 'collapse',
+          fontSize: '11px',
+        }}
+      >
+        <thead>
+          <tr>
+            <th style={th}>DEDUCTIONS</th>
+            <th style={th}>AMOUNT</th>
+          </tr>
+        </thead>
 
-  return (
-    <div className="bg-white px-8 py-8 text-black">
-      <div className="mb-6">
-        <div className="text-2xl font-bold">PAYMENT REPORT</div>
-        <div className="mt-1 text-sm text-slate-600">
-          Breakdown of what was paid and what was deducted
-        </div>
-      </div>
+        <tbody>
+          <tr>
+            <td style={td}>Employee Tax</td>
+            <td style={td}>${totals.employeeTaxNum}</td>
+          </tr>
 
-      <div className="mb-6 grid gap-4 md:grid-cols-2">
-        <div className="rounded border border-slate-300 p-4">
-          <div className="mb-3 text-lg font-bold">Recipient</div>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Pay to</span>
-              <span className="font-medium">{payeeName}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Employee #</span>
-              <span className="font-medium">{employee?.employee_number ?? '—'}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Employer form</span>
-              <span className="font-medium">{employee?.employer_form || '—'}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Pay type</span>
-              <span className="font-medium capitalize">{employee?.pay_type || '—'}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Period</span>
-              <span className="font-medium">
-                {formatDate(periodStart)} - {formatDate(periodEnd)}
-              </span>
-            </div>
-          </div>
-        </div>
+          <tr>
+            <td style={td}>Rent</td>
+            <td style={td}>${totals.rentNum}</td>
+          </tr>
 
-        <div className="rounded border border-slate-300 p-4">
-          <div className="mb-3 text-lg font-bold">Payment summary</div>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Total regular hours</span>
-              <span className="font-medium">{totals.totalReg.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Overtime hours</span>
-              <span className="font-medium">{totals.overtimeHours.toFixed(2)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Total labor paid</span>
-              <span className="font-medium">{money(totals.totalLabor)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Main labor tax base</span>
-              <span className="font-medium">{money(totals.mainLabor)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Main tax 15.3%</span>
-              <span className="font-medium">{money(totals.mainTax)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Overtime labor tax base</span>
-              <span className="font-medium">{money(totals.overtimeLabor)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Overtime tax 27%</span>
-              <span className="font-medium">{money(totals.overtimeTax)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Employee tax amount</span>
-              <span className="font-medium">{money(totals.employeeTaxNum)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Rent</span>
-              <span className="font-medium">{money(totals.rentNum)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Electric</span>
-              <span className="font-medium">{money(totals.electricNum)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Water</span>
-              <span className="font-medium">{money(totals.waterNum)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Clean</span>
-              <span className="font-medium">{money(totals.cleanNum)}</span>
-            </div>
-            <div className="flex justify-between gap-4">
-              <span className="text-slate-600">Transport</span>
-              <span className="font-medium">{money(totals.transportNum)}</span>
-            </div>
-            <div className="border-t border-slate-300 pt-2" />
-            <div className="flex justify-between gap-4 font-bold">
-              <span>Net Pay</span>
-              <span>{money(totals.netPay)}</span>
-            </div>
-          </div>
-        </div>
-      </div>
+          <tr>
+            <td style={td}>Electric</td>
+            <td style={td}>${totals.electricNum}</td>
+          </tr>
 
-      <div className="mb-3 text-lg font-bold">Work log used in calculation (rounded to nearest 15 min)</div>
+          <tr>
+            <td style={td}>Water</td>
+            <td style={td}>${totals.waterNum}</td>
+          </tr>
 
-      <div className="overflow-hidden rounded border border-slate-300">
-        <div className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] bg-slate-100 px-4 py-3 text-sm font-bold">
-          <div>Date</div>
-          <div>Time In</div>
-          <div>Time Out</div>
-          <div>Shift</div>
-          <div>Lunch</div>
-          <div>Reg</div>
-          <div>Labor</div>
-        </div>
+          <tr>
+            <td style={td}>Clean</td>
+            <td style={td}>${totals.cleanNum}</td>
+          </tr>
 
-        {displayLogs.length === 0 ? (
-          <div className="px-4 py-8 text-center text-sm text-slate-500">
-            No work log rows in selected period
-          </div>
-        ) : (
-          displayLogs.map((row) => (
-            <div
-              key={row.id}
-              className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] border-t border-slate-200 px-4 py-3 text-sm"
-            >
-              <div>{formatDate(row.work_date)}</div>
-              <div>{formatTimeInputUS(row.time_in) || '—'}</div>
-              <div>{formatTimeInputUS(row.time_out) || '—'}</div>
-              <div>{row.shift_letter || getShiftLetter(row.time_in)}</div>
-              <div>{Number(row.lunch_hours || 0).toFixed(2)}</div>
-              <div>{Number(row.reg_hours || 0).toFixed(2)}</div>
-              <div>{money(row.labor_amount)}</div>
-            </div>
-          ))
-        )}
-      </div>
+          <tr>
+            <td style={td}>Transport</td>
+            <td style={td}>${totals.transportNum}</td>
+          </tr>
+
+          <tr>
+            <td style={tdBold}>NET PAY</td>
+            <td style={tdBold}>${totals.netPay}</td>
+          </tr>
+        </tbody>
+      </table>
     </div>
   )
+}
+
+const th = {
+  border: '1px solid #222',
+  padding: '4px',
+  background: '#efefef',
+  textAlign: 'left',
+  fontWeight: 700,
+}
+
+const td = {
+  border: '1px solid #222',
+  padding: '4px',
+}
+
+const tdBold = {
+  border: '1px solid #222',
+  padding: '4px',
+  fontWeight: 700,
 }
 
 function PrintPreviewModal({
@@ -853,14 +772,25 @@ function PrintPreviewModal({
           </div>
 
           <div className="print-report-sheet mx-auto mt-6 max-w-[920px] bg-white shadow-lg">
-            <PrintPaymentReport
-              employee={employee}
-              fullName={fullName}
-              periodStart={periodStart}
-              periodEnd={periodEnd}
-              totals={totals}
-              displayLogs={displayLogs}
-            />
+            <div className="print-report-sheet mx-auto mt-6 max-w-[920px] bg-white shadow-lg p-4">
+  <PayrollStubCopy
+    title="EMPLOYEE COPY"
+    employee={employee}
+    fullName={fullName}
+    periodStart={periodStart}
+    periodEnd={periodEnd}
+    totals={totals}
+  />
+
+  <PayrollStubCopy
+    title="EMPLOYER COPY"
+    employee={employee}
+    fullName={fullName}
+    periodStart={periodStart}
+    periodEnd={periodEnd}
+    totals={totals}
+  />
+</div>
           </div>
         </div>
       </div>
