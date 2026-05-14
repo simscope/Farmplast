@@ -71,9 +71,73 @@ function moneyRaw(value) {
   return `$${num.toFixed(2)}`
 }
 
+function pad2(value) {
+  return String(value).padStart(2, '0')
+}
+
+function parseISODateParts(value) {
+  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
+  if (!match) return null
+
+  return {
+    year: Number(match[1]),
+    month: Number(match[2]),
+    day: Number(match[3]),
+  }
+}
+
 function formatDate(value) {
   if (!value) return '—'
-  return value
+
+  const parts = parseISODateParts(value)
+  if (parts) {
+    return `${pad2(parts.month)}/${pad2(parts.day)}/${parts.year}`
+  }
+
+  try {
+    return new Date(value).toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    })
+  } catch {
+    return value
+  }
+}
+
+function formatDateShort(value) {
+  if (!value) return '—'
+  const parts = parseISODateParts(value)
+  if (!parts) return formatDate(value)
+  return `${pad2(parts.month)}/${pad2(parts.day)}/${String(parts.year).slice(-2)}`
+}
+
+function parseAmericanDateToISO(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+
+  const iso = parseISODateParts(text)
+  if (iso) return `${iso.year}-${pad2(iso.month)}-${pad2(iso.day)}`
+
+  const match = text.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/)
+  if (!match) return ''
+
+  const month = Number(match[1])
+  const day = Number(match[2])
+  let year = Number(match[3])
+
+  if (year < 100) year += year >= 70 ? 1900 : 2000
+
+  const date = new Date(year, month - 1, day)
+  if (
+    date.getFullYear() !== year ||
+    date.getMonth() !== month - 1 ||
+    date.getDate() !== day
+  ) {
+    return ''
+  }
+
+  return `${year}-${pad2(month)}-${pad2(day)}`
 }
 
 function formatDateTime(value) {
@@ -83,12 +147,53 @@ function formatDateTime(value) {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-      hour: '2-digit',
+      hour: 'numeric',
       minute: '2-digit',
+      hour12: true,
     })
   } catch {
     return value
   }
+}
+
+function formatTimeUS(value) {
+  if (!value) return ''
+
+  const parts = String(value).split(':')
+  const h = Number(parts[0])
+  const m = Number(parts[1])
+
+  if (Number.isNaN(h) || Number.isNaN(m)) return value
+
+  const suffix = h >= 12 ? 'PM' : 'AM'
+  const hour12 = h % 12 || 12
+
+  return `${hour12}:${pad2(m)} ${suffix}`
+}
+
+function parseAmericanTimeToDb(value) {
+  const text = String(value || '').trim().toUpperCase()
+  if (!text) return ''
+
+  const twentyFour = text.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/)
+  if (twentyFour) {
+    const h = Number(twentyFour[1])
+    const m = Number(twentyFour[2])
+    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) return `${pad2(h)}:${pad2(m)}`
+  }
+
+  const twelve = text.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/)
+  if (!twelve) return ''
+
+  let h = Number(twelve[1])
+  const m = Number(twelve[2] || 0)
+  const suffix = twelve[3]
+
+  if (h < 1 || h > 12 || m < 0 || m > 59) return ''
+  if (suffix === 'AM' && h === 12) h = 0
+  if (suffix === 'PM' && h !== 12) h += 12
+
+  return `${pad2(h)}:${pad2(m)}`
 }
 
 function round2(value) {
@@ -297,7 +402,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
       : fullName
 
   const dateObj = new Date()
-  const dateText = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${String(
+  const dateText = `${pad2(dateObj.getMonth() + 1)}/${pad2(dateObj.getDate())}/${String(
     dateObj.getFullYear()
   ).slice(-2)}`
 
@@ -590,7 +695,7 @@ function PrintPaymentReport({
             <div className="flex justify-between gap-4">
               <span className="text-slate-600">Period</span>
               <span className="font-medium">
-                {periodStart} - {periodEnd}
+                {formatDate(periodStart)} - {formatDate(periodEnd)}
               </span>
             </div>
           </div>
@@ -683,9 +788,9 @@ function PrintPaymentReport({
               key={row.id}
               className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] border-t border-slate-200 px-4 py-3 text-sm"
             >
-              <div>{row.work_date || '—'}</div>
-              <div>{row.time_in || '—'}</div>
-              <div>{row.time_out || '—'}</div>
+              <div>{formatDate(row.work_date)}</div>
+              <div>{formatTimeUS(row.time_in) || '—'}</div>
+              <div>{formatTimeUS(row.time_out) || '—'}</div>
               <div>{row.shift_letter || getShiftLetter(row.time_in)}</div>
               <div>{Number(row.lunch_hours || 0).toFixed(2)}</div>
               <div>{Number(row.reg_hours || 0).toFixed(2)}</div>
@@ -903,9 +1008,48 @@ export default function EmployeeDetailsPage() {
       prev.map((row) => {
         if (row.id !== rowId) return row
 
-        const nextRow = { ...row, [field]: value }
+        const nextRow = { ...row }
+        let actualField = field
+        let actualValue = value
 
-        if (field === 'time_in' || field === 'time_out' || field === 'lunch_hours') {
+        if (field === '_work_date_input') {
+          nextRow._work_date_input = value
+
+          const parsedDate = parseAmericanDateToISO(value)
+          if (parsedDate) {
+            nextRow.work_date = parsedDate
+          }
+
+          return nextRow
+        }
+
+        if (field === '_time_in_input') {
+          nextRow._time_in_input = value
+
+          const parsedTime = parseAmericanTimeToDb(value)
+          if (!parsedTime && value.trim() !== '') return nextRow
+
+          actualField = 'time_in'
+          actualValue = parsedTime
+        }
+
+        if (field === '_time_out_input') {
+          nextRow._time_out_input = value
+
+          const parsedTime = parseAmericanTimeToDb(value)
+          if (!parsedTime && value.trim() !== '') return nextRow
+
+          actualField = 'time_out'
+          actualValue = parsedTime
+        }
+
+        nextRow[actualField] = actualValue
+
+        if (
+          actualField === 'time_in' ||
+          actualField === 'time_out' ||
+          actualField === 'lunch_hours'
+        ) {
           const computedHours = calcDayHours(
             nextRow.time_in,
             nextRow.time_out,
@@ -920,9 +1064,9 @@ export default function EmployeeDetailsPage() {
           }
         }
 
-        if (field === 'reg_hours' && employee?.pay_type === 'hourly') {
+        if (actualField === 'reg_hours' && employee?.pay_type === 'hourly') {
           const hourlyRate = Number(employee?.hourly_rate || 0)
-          const reg = roundHoursToNearestQuarter(value)
+          const reg = roundHoursToNearestQuarter(actualValue)
           nextRow.reg_hours = String(reg)
           nextRow.labor_amount = String(round2(reg * hourlyRate))
         }
@@ -938,16 +1082,20 @@ export default function EmployeeDetailsPage() {
       setError('')
       setSuccess('')
 
-      if (!row.work_date) {
-        setError('Date is required')
+      const workDate = parseAmericanDateToISO(row._work_date_input) || row.work_date
+      const timeIn = parseAmericanTimeToDb(row._time_in_input) || row.time_in || null
+      const timeOut = parseAmericanTimeToDb(row._time_out_input) || row.time_out || null
+
+      if (!workDate) {
+        setError('Date is required. Use MM/DD/YYYY.')
         return
       }
 
       const payload = {
         employee_id: id,
-        work_date: row.work_date,
-        time_in: row.time_in || null,
-        time_out: row.time_out || null,
+        work_date: workDate,
+        time_in: timeIn,
+        time_out: timeOut,
         lunch_hours: Number(row.lunch_hours || 0),
         reg_hours: Number(row.reg_hours || 0),
         labor_amount: Number(row.labor_amount || 0),
@@ -994,18 +1142,12 @@ export default function EmployeeDetailsPage() {
 
       const { error } = await supabase
         .from('employee_work_logs')
-        .update({
-          is_deleted: true,
-          manually_edited: true,
-          source: 'manual',
-          manual_note: row.manual_note || 'Deleted manually',
-          updated_at: new Date().toISOString(),
-        })
+        .delete()
         .eq('id', row.id)
 
       if (error) throw error
 
-      setSuccess('Row deleted and protected from ZKT rebuild')
+      setSuccess('Row deleted')
       await loadPage()
     } catch (err) {
       console.error('deleteRow error:', err)
@@ -1490,10 +1632,16 @@ export default function EmployeeDetailsPage() {
                 <div>
                   <label className="mb-1 block text-xs text-slate-300">Period start</label>
                   <input
-                    type="date"
-                    value={periodStart}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="MM/DD/YYYY"
+                    value={formatDate(periodStart)}
                     onFocus={() => setPeriodMode('custom')}
-                    onChange={(e) => setPeriodStart(e.target.value)}
+                    onChange={(e) => {
+                      setPeriodMode('custom')
+                      const parsed = parseAmericanDateToISO(e.target.value)
+                      if (parsed) setPeriodStart(parsed)
+                    }}
                     className={darkInput}
                   />
                 </div>
@@ -1501,10 +1649,16 @@ export default function EmployeeDetailsPage() {
                 <div>
                   <label className="mb-1 block text-xs text-slate-300">Period end</label>
                   <input
-                    type="date"
-                    value={periodEnd}
+                    type="text"
+                    inputMode="numeric"
+                    placeholder="MM/DD/YYYY"
+                    value={formatDate(periodEnd)}
                     onFocus={() => setPeriodMode('custom')}
-                    onChange={(e) => setPeriodEnd(e.target.value)}
+                    onChange={(e) => {
+                      setPeriodMode('custom')
+                      const parsed = parseAmericanDateToISO(e.target.value)
+                      if (parsed) setPeriodEnd(parsed)
+                    }}
                     className={darkInput}
                   />
                 </div>
@@ -1655,7 +1809,7 @@ export default function EmployeeDetailsPage() {
                           >
                             <div>{formatDateTime(row.paid_at)}</div>
                             <div>
-                              {row.period_start || '—'} - {row.period_end || '—'}
+                              {formatDate(row.period_start)} - {formatDate(row.period_end)}
                             </div>
                             <div className="font-semibold text-emerald-300">
                               {money(row.net_pay)}
@@ -1722,10 +1876,12 @@ export default function EmployeeDetailsPage() {
                       >
                         <div className="relative">
   <input
-    type="date"
-    value={row.work_date || ''}
+    type="text"
+    inputMode="numeric"
+    placeholder="MM/DD/YYYY"
+    value={row._work_date_input ?? formatDate(row.work_date)}
     onChange={(e) =>
-      updateRowValue(row.id, 'work_date', e.target.value)
+      updateRowValue(row.id, '_work_date_input', e.target.value)
     }
     className={`${darkInput} pr-16`}
   />
@@ -1740,19 +1896,23 @@ export default function EmployeeDetailsPage() {
 </div>
 
                         <input
-                          type="time"
-                          value={row.time_in || ''}
+                          type="text"
+                          inputMode="text"
+                          placeholder="7:00 AM"
+                          value={row._time_in_input ?? formatTimeUS(row.time_in)}
                           onChange={(e) =>
-                            updateRowValue(row.id, 'time_in', e.target.value)
+                            updateRowValue(row.id, '_time_in_input', e.target.value)
                           }
                           className={darkInput}
                         />
 
                         <input
-                          type="time"
-                          value={row.time_out || ''}
+                          type="text"
+                          inputMode="text"
+                          placeholder="6:00 PM"
+                          value={row._time_out_input ?? formatTimeUS(row.time_out)}
                           onChange={(e) =>
-                            updateRowValue(row.id, 'time_out', e.target.value)
+                            updateRowValue(row.id, '_time_out_input', e.target.value)
                           }
                           className={darkInput}
                         />
