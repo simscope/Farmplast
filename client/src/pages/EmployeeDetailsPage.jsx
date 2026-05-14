@@ -643,56 +643,174 @@ function CheckStockPrint({ employee, fullName, totals }) {
 }
 
 function PayrollStubCopy({
-          borderCollapse: 'collapse',
-          fontSize: '11px',
+  title,
+  employee,
+  fullName,
+  periodStart,
+  periodEnd,
+  totals,
+}) {
+  const payeeName =
+    employee?.employer_form === 'Other' && employee?.company_name
+      ? employee.company_name
+      : fullName
+
+  const payDate = new Date().toLocaleDateString('en-US')
+  const rawCheckNumber = Number(employee?.last_check_number || 0) + 1
+  const checkNumberTop = String(rawCheckNumber)
+
+  const stubMoney = (value) => `$${Math.round(Number(value || 0)).toLocaleString('en-US')}`
+
+  return (
+    <div
+      className="payroll-stub-copy"
+      style={{
+        border: '1px solid #222',
+        padding: '10px 14px',
+        marginBottom: '10px',
+        fontFamily: 'Arial, Helvetica, sans-serif',
+        fontSize: '12px',
+        color: 'black',
+        background: 'white',
+        boxSizing: 'border-box',
+        pageBreakInside: 'avoid',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          borderBottom: '1px solid #444',
+          paddingBottom: '6px',
+          marginBottom: '8px',
         }}
       >
-        <thead>
-          <tr>
-            <th style={th}>DEDUCTIONS</th>
-            <th style={th}>AMOUNT</th>
-          </tr>
-        </thead>
+        <div style={{ fontWeight: 800, fontSize: '15px', letterSpacing: '0.4px' }}>
+          {title}
+        </div>
 
-        <tbody>
-          <tr>
-            <td style={td}>Employee Tax</td>
-            <td style={td}>${totals.employeeTaxNum}</td>
-          </tr>
+        <div style={{ textAlign: 'right', fontSize: '11px', lineHeight: 1.35 }}>
+          <div>
+            <strong>Check #:</strong> {checkNumberTop}
+          </div>
+          <div>
+            <strong>Pay Date:</strong> {payDate}
+          </div>
+        </div>
+      </div>
 
-          <tr>
-            <td style={td}>Rent</td>
-            <td style={td}>${totals.rentNum}</td>
-          </tr>
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: '1fr 1fr',
+          gap: '6px 20px',
+          marginBottom: '10px',
+          fontSize: '12px',
+        }}
+      >
+        <div>
+          <strong>Employee:</strong> {payeeName}
+        </div>
 
-          <tr>
-            <td style={td}>Electric</td>
-            <td style={td}>${totals.electricNum}</td>
-          </tr>
+        <div>
+          <strong>Employee #:</strong> {employee?.employee_number || '—'}
+        </div>
 
-          <tr>
-            <td style={td}>Water</td>
-            <td style={td}>${totals.waterNum}</td>
-          </tr>
+        <div>
+          <strong>Period:</strong> {formatDate(periodStart)} - {formatDate(periodEnd)}
+        </div>
 
-          <tr>
-            <td style={td}>Clean</td>
-            <td style={td}>${totals.cleanNum}</td>
-          </tr>
+        <div>
+          <strong>Pay Type:</strong> {employee?.pay_type || '—'}
+        </div>
+      </div>
 
-          <tr>
-            <td style={td}>Transport</td>
-            <td style={td}>${totals.transportNum}</td>
-          </tr>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+        <table style={stubTableStyle}>
+          <thead>
+            <tr>
+              <th style={th}>EARNINGS</th>
+              <th style={th}>HOURS</th>
+              <th style={th}>AMOUNT</th>
+            </tr>
+          </thead>
 
-          <tr>
-            <td style={tdBold}>NET PAY</td>
-            <td style={tdBold}>${totals.netPay}</td>
-          </tr>
-        </tbody>
-      </table>
+          <tbody>
+            <tr>
+              <td style={td}>Regular Pay</td>
+              <td style={td}>{Number(totals.mainHours || 0).toFixed(2)}</td>
+              <td style={td}>{stubMoney(totals.mainLabor)}</td>
+            </tr>
+
+            <tr>
+              <td style={td}>Overtime Pay</td>
+              <td style={td}>{Number(totals.overtimeHours || 0).toFixed(2)}</td>
+              <td style={td}>{stubMoney(totals.overtimeLabor)}</td>
+            </tr>
+
+            <tr>
+              <td style={tdBold}>Gross Pay</td>
+              <td style={tdBold}></td>
+              <td style={tdBold}>{stubMoney(totals.totalLabor)}</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <table style={stubTableStyle}>
+          <thead>
+            <tr>
+              <th style={th}>DEDUCTIONS</th>
+              <th style={th}>AMOUNT</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr>
+              <td style={td}>Employee Tax</td>
+              <td style={td}>{stubMoney(totals.employeeTaxNum)}</td>
+            </tr>
+
+            <tr>
+              <td style={td}>Rent</td>
+              <td style={td}>{stubMoney(totals.rentNum)}</td>
+            </tr>
+
+            <tr>
+              <td style={td}>Electric</td>
+              <td style={td}>{stubMoney(totals.electricNum)}</td>
+            </tr>
+
+            <tr>
+              <td style={td}>Water</td>
+              <td style={td}>{stubMoney(totals.waterNum)}</td>
+            </tr>
+
+            <tr>
+              <td style={td}>Clean</td>
+              <td style={td}>{stubMoney(totals.cleanNum)}</td>
+            </tr>
+
+            <tr>
+              <td style={td}>Transport</td>
+              <td style={td}>{stubMoney(totals.transportNum)}</td>
+            </tr>
+
+            <tr>
+              <td style={tdBold}>Net Pay</td>
+              <td style={tdBold}>{stubMoney(totals.netPay)}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   )
+}
+
+const stubTableStyle = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  fontSize: '11px',
 }
 
 const th = {
@@ -771,26 +889,24 @@ function PrintPreviewModal({
             <CheckStockPrint employee={employee} fullName={fullName} totals={totals} />
           </div>
 
-          <div className="print-report-sheet mx-auto mt-6 max-w-[920px] bg-white shadow-lg">
-            <div className="print-report-sheet mx-auto mt-6 max-w-[920px] bg-white shadow-lg p-4">
-  <PayrollStubCopy
-    title="EMPLOYEE COPY"
-    employee={employee}
-    fullName={fullName}
-    periodStart={periodStart}
-    periodEnd={periodEnd}
-    totals={totals}
-  />
+          <div className="print-report-sheet mx-auto mt-6 max-w-[920px] bg-white p-4 shadow-lg">
+            <PayrollStubCopy
+              title="EMPLOYEE COPY"
+              employee={employee}
+              fullName={fullName}
+              periodStart={periodStart}
+              periodEnd={periodEnd}
+              totals={totals}
+            />
 
-  <PayrollStubCopy
-    title="EMPLOYER COPY"
-    employee={employee}
-    fullName={fullName}
-    periodStart={periodStart}
-    periodEnd={periodEnd}
-    totals={totals}
-  />
-</div>
+            <PayrollStubCopy
+              title="EMPLOYER COPY"
+              employee={employee}
+              fullName={fullName}
+              periodStart={periodStart}
+              periodEnd={periodEnd}
+              totals={totals}
+            />
           </div>
         </div>
       </div>
@@ -1393,7 +1509,7 @@ export default function EmployeeDetailsPage() {
        cursor: pointer;
         }
         @page {
-          size: 215.9mm 88.9mm;
+          size: 215.9mm 279.4mm;
           margin: 0;
         }
 
@@ -1403,12 +1519,10 @@ export default function EmployeeDetailsPage() {
           #root {
             width: 215.9mm !important;
             min-width: 215.9mm !important;
-            height: 88.9mm !important;
-            min-height: 88.9mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
-            overflow: hidden !important;
+            overflow: visible !important;
           }
 
           body * {
@@ -1416,12 +1530,14 @@ export default function EmployeeDetailsPage() {
           }
 
           .print-modal-sheet,
-          .print-modal-sheet * {
+          .print-modal-sheet *,
+          .print-report-sheet,
+          .print-report-sheet * {
             visibility: visible !important;
           }
 
           .print-modal-sheet {
-            position: fixed !important;
+            position: absolute !important;
             left: 0 !important;
             top: 0 !important;
             width: 215.9mm !important;
@@ -1436,10 +1552,16 @@ export default function EmployeeDetailsPage() {
             z-index: 999999 !important;
           }
 
-          .print-report-sheet,
-          .print-report-sheet * {
-            display: none !important;
-            visibility: hidden !important;
+          .print-report-sheet {
+            position: absolute !important;
+            left: 8mm !important;
+            top: 96mm !important;
+            width: 200mm !important;
+            margin: 0 !important;
+            padding: 4mm !important;
+            background: white !important;
+            box-shadow: none !important;
+            z-index: 999998 !important;
           }
 
           .no-print {
