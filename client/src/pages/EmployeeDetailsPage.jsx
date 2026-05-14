@@ -71,73 +71,9 @@ function moneyRaw(value) {
   return `$${num.toFixed(2)}`
 }
 
-function pad2(value) {
-  return String(value).padStart(2, '0')
-}
-
-function parseISODateParts(value) {
-  const match = String(value || '').match(/^(\d{4})-(\d{2})-(\d{2})$/)
-  if (!match) return null
-
-  return {
-    year: Number(match[1]),
-    month: Number(match[2]),
-    day: Number(match[3]),
-  }
-}
-
 function formatDate(value) {
   if (!value) return '—'
-
-  const parts = parseISODateParts(value)
-  if (parts) {
-    return `${pad2(parts.month)}/${pad2(parts.day)}/${parts.year}`
-  }
-
-  try {
-    return new Date(value).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    })
-  } catch {
-    return value
-  }
-}
-
-function formatDateShort(value) {
-  if (!value) return '—'
-  const parts = parseISODateParts(value)
-  if (!parts) return formatDate(value)
-  return `${pad2(parts.month)}/${pad2(parts.day)}/${String(parts.year).slice(-2)}`
-}
-
-function parseAmericanDateToISO(value) {
-  const text = String(value || '').trim()
-  if (!text) return ''
-
-  const iso = parseISODateParts(text)
-  if (iso) return `${iso.year}-${pad2(iso.month)}-${pad2(iso.day)}`
-
-  const match = text.match(/^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{2}|\d{4})$/)
-  if (!match) return ''
-
-  const month = Number(match[1])
-  const day = Number(match[2])
-  let year = Number(match[3])
-
-  if (year < 100) year += year >= 70 ? 1900 : 2000
-
-  const date = new Date(year, month - 1, day)
-  if (
-    date.getFullYear() !== year ||
-    date.getMonth() !== month - 1 ||
-    date.getDate() !== day
-  ) {
-    return ''
-  }
-
-  return `${year}-${pad2(month)}-${pad2(day)}`
+  return value
 }
 
 function formatDateTime(value) {
@@ -147,53 +83,12 @@ function formatDateTime(value) {
       year: 'numeric',
       month: '2-digit',
       day: '2-digit',
-      hour: 'numeric',
+      hour: '2-digit',
       minute: '2-digit',
-      hour12: true,
     })
   } catch {
     return value
   }
-}
-
-function formatTimeUS(value) {
-  if (!value) return ''
-
-  const parts = String(value).split(':')
-  const h = Number(parts[0])
-  const m = Number(parts[1])
-
-  if (Number.isNaN(h) || Number.isNaN(m)) return value
-
-  const suffix = h >= 12 ? 'PM' : 'AM'
-  const hour12 = h % 12 || 12
-
-  return `${hour12}:${pad2(m)} ${suffix}`
-}
-
-function parseAmericanTimeToDb(value) {
-  const text = String(value || '').trim().toUpperCase()
-  if (!text) return ''
-
-  const twentyFour = text.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/)
-  if (twentyFour) {
-    const h = Number(twentyFour[1])
-    const m = Number(twentyFour[2])
-    if (h >= 0 && h <= 23 && m >= 0 && m <= 59) return `${pad2(h)}:${pad2(m)}`
-  }
-
-  const twelve = text.match(/^(\d{1,2})(?::(\d{2}))?\s*(AM|PM)$/)
-  if (!twelve) return ''
-
-  let h = Number(twelve[1])
-  const m = Number(twelve[2] || 0)
-  const suffix = twelve[3]
-
-  if (h < 1 || h > 12 || m < 0 || m > 59) return ''
-  if (suffix === 'AM' && h === 12) h = 0
-  if (suffix === 'PM' && h !== 12) h += 12
-
-  return `${pad2(h)}:${pad2(m)}`
 }
 
 function round2(value) {
@@ -402,7 +297,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
       : fullName
 
   const dateObj = new Date()
-  const dateText = `${pad2(dateObj.getMonth() + 1)}/${pad2(dateObj.getDate())}/${String(
+  const dateText = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${String(
     dateObj.getFullYear()
   ).slice(-2)}`
 
@@ -695,7 +590,7 @@ function PrintPaymentReport({
             <div className="flex justify-between gap-4">
               <span className="text-slate-600">Period</span>
               <span className="font-medium">
-                {formatDate(periodStart)} - {formatDate(periodEnd)}
+                {periodStart} - {periodEnd}
               </span>
             </div>
           </div>
@@ -788,9 +683,9 @@ function PrintPaymentReport({
               key={row.id}
               className="grid grid-cols-[1.1fr_0.9fr_0.9fr_0.5fr_0.7fr_0.7fr_0.9fr] border-t border-slate-200 px-4 py-3 text-sm"
             >
-              <div>{formatDate(row.work_date)}</div>
-              <div>{formatTimeUS(row.time_in) || '—'}</div>
-              <div>{formatTimeUS(row.time_out) || '—'}</div>
+              <div>{row.work_date || '—'}</div>
+              <div>{row.time_in || '—'}</div>
+              <div>{row.time_out || '—'}</div>
               <div>{row.shift_letter || getShiftLetter(row.time_in)}</div>
               <div>{Number(row.lunch_hours || 0).toFixed(2)}</div>
               <div>{Number(row.reg_hours || 0).toFixed(2)}</div>
@@ -1008,48 +903,9 @@ export default function EmployeeDetailsPage() {
       prev.map((row) => {
         if (row.id !== rowId) return row
 
-        const nextRow = { ...row }
-        let actualField = field
-        let actualValue = value
+        const nextRow = { ...row, [field]: value }
 
-        if (field === '_work_date_input') {
-          nextRow._work_date_input = value
-
-          const parsedDate = parseAmericanDateToISO(value)
-          if (parsedDate) {
-            nextRow.work_date = parsedDate
-          }
-
-          return nextRow
-        }
-
-        if (field === '_time_in_input') {
-          nextRow._time_in_input = value
-
-          const parsedTime = parseAmericanTimeToDb(value)
-          if (!parsedTime && value.trim() !== '') return nextRow
-
-          actualField = 'time_in'
-          actualValue = parsedTime
-        }
-
-        if (field === '_time_out_input') {
-          nextRow._time_out_input = value
-
-          const parsedTime = parseAmericanTimeToDb(value)
-          if (!parsedTime && value.trim() !== '') return nextRow
-
-          actualField = 'time_out'
-          actualValue = parsedTime
-        }
-
-        nextRow[actualField] = actualValue
-
-        if (
-          actualField === 'time_in' ||
-          actualField === 'time_out' ||
-          actualField === 'lunch_hours'
-        ) {
+        if (field === 'time_in' || field === 'time_out' || field === 'lunch_hours') {
           const computedHours = calcDayHours(
             nextRow.time_in,
             nextRow.time_out,
@@ -1064,9 +920,9 @@ export default function EmployeeDetailsPage() {
           }
         }
 
-        if (actualField === 'reg_hours' && employee?.pay_type === 'hourly') {
+        if (field === 'reg_hours' && employee?.pay_type === 'hourly') {
           const hourlyRate = Number(employee?.hourly_rate || 0)
-          const reg = roundHoursToNearestQuarter(actualValue)
+          const reg = roundHoursToNearestQuarter(value)
           nextRow.reg_hours = String(reg)
           nextRow.labor_amount = String(round2(reg * hourlyRate))
         }
@@ -1082,20 +938,16 @@ export default function EmployeeDetailsPage() {
       setError('')
       setSuccess('')
 
-      const workDate = parseAmericanDateToISO(row._work_date_input) || row.work_date
-      const timeIn = parseAmericanTimeToDb(row._time_in_input) || row.time_in || null
-      const timeOut = parseAmericanTimeToDb(row._time_out_input) || row.time_out || null
-
-      if (!workDate) {
-        setError('Date is required. Use MM/DD/YYYY.')
+      if (!row.work_date) {
+        setError('Date is required')
         return
       }
 
       const payload = {
         employee_id: id,
-        work_date: workDate,
-        time_in: timeIn,
-        time_out: timeOut,
+        work_date: row.work_date,
+        time_in: row.time_in || null,
+        time_out: row.time_out || null,
         lunch_hours: Number(row.lunch_hours || 0),
         reg_hours: Number(row.reg_hours || 0),
         labor_amount: Number(row.labor_amount || 0),
@@ -1152,6 +1004,34 @@ export default function EmployeeDetailsPage() {
     } catch (err) {
       console.error('deleteRow error:', err)
       setError(err.message || 'Failed to delete row')
+    }
+  }
+
+  async function rebuildRowFromZkt(row) {
+    try {
+      setError('')
+      setSuccess('')
+
+      if (!row.work_date) {
+        setError('Date is required')
+        return
+      }
+
+      const ok = window.confirm('Delete this row and rebuild it from ZKT punches?')
+      if (!ok) return
+
+      const { error } = await supabase.rpc('rebuild_employee_work_log_day_from_zkt', {
+        p_employee_id: id,
+        p_work_date: row.work_date,
+      })
+
+      if (error) throw error
+
+      setSuccess('Row rebuilt from ZKT')
+      await loadPage()
+    } catch (err) {
+      console.error('rebuildRowFromZkt error:', err)
+      setError(err.message || 'Failed to rebuild row from ZKT')
     }
   }
 
@@ -1632,16 +1512,10 @@ export default function EmployeeDetailsPage() {
                 <div>
                   <label className="mb-1 block text-xs text-slate-300">Period start</label>
                   <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="MM/DD/YYYY"
-                    value={formatDate(periodStart)}
+                    type="date"
+                    value={periodStart}
                     onFocus={() => setPeriodMode('custom')}
-                    onChange={(e) => {
-                      setPeriodMode('custom')
-                      const parsed = parseAmericanDateToISO(e.target.value)
-                      if (parsed) setPeriodStart(parsed)
-                    }}
+                    onChange={(e) => setPeriodStart(e.target.value)}
                     className={darkInput}
                   />
                 </div>
@@ -1649,16 +1523,10 @@ export default function EmployeeDetailsPage() {
                 <div>
                   <label className="mb-1 block text-xs text-slate-300">Period end</label>
                   <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="MM/DD/YYYY"
-                    value={formatDate(periodEnd)}
+                    type="date"
+                    value={periodEnd}
                     onFocus={() => setPeriodMode('custom')}
-                    onChange={(e) => {
-                      setPeriodMode('custom')
-                      const parsed = parseAmericanDateToISO(e.target.value)
-                      if (parsed) setPeriodEnd(parsed)
-                    }}
+                    onChange={(e) => setPeriodEnd(e.target.value)}
                     className={darkInput}
                   />
                 </div>
@@ -1809,7 +1677,7 @@ export default function EmployeeDetailsPage() {
                           >
                             <div>{formatDateTime(row.paid_at)}</div>
                             <div>
-                              {formatDate(row.period_start)} - {formatDate(row.period_end)}
+                              {row.period_start || '—'} - {row.period_end || '—'}
                             </div>
                             <div className="font-semibold text-emerald-300">
                               {money(row.net_pay)}
@@ -1853,7 +1721,7 @@ export default function EmployeeDetailsPage() {
 
               <div className="overflow-x-auto">
                 <div className="min-w-[1160px]">
-                  <div className="grid grid-cols-[1fr_0.95fr_0.95fr_0.45fr_0.8fr_0.8fr_0.95fr_0.8fr] bg-slate-900/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                  <div className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.55fr_0.7fr_1fr] bg-slate-900/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>Date</div>
                     <div>Time In</div>
                     <div>Time Out</div>
@@ -1872,16 +1740,14 @@ export default function EmployeeDetailsPage() {
                     displayLogs.map((row) => (
                       <div
                         key={row.id}
-                        className="grid grid-cols-[1fr_0.95fr_0.95fr_0.45fr_0.8fr_0.8fr_0.95fr_0.8fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-2.5"
+                        className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.55fr_0.7fr_1fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-2.5"
                       >
                         <div className="relative">
   <input
-    type="text"
-    inputMode="numeric"
-    placeholder="MM/DD/YYYY"
-    value={row._work_date_input ?? formatDate(row.work_date)}
+    type="date"
+    value={row.work_date || ''}
     onChange={(e) =>
-      updateRowValue(row.id, '_work_date_input', e.target.value)
+      updateRowValue(row.id, 'work_date', e.target.value)
     }
     className={`${darkInput} pr-16`}
   />
@@ -1896,23 +1762,19 @@ export default function EmployeeDetailsPage() {
 </div>
 
                         <input
-                          type="text"
-                          inputMode="text"
-                          placeholder="7:00 AM"
-                          value={row._time_in_input ?? formatTimeUS(row.time_in)}
+                          type="time"
+                          value={row.time_in || ''}
                           onChange={(e) =>
-                            updateRowValue(row.id, '_time_in_input', e.target.value)
+                            updateRowValue(row.id, 'time_in', e.target.value)
                           }
                           className={darkInput}
                         />
 
                         <input
-                          type="text"
-                          inputMode="text"
-                          placeholder="6:00 PM"
-                          value={row._time_out_input ?? formatTimeUS(row.time_out)}
+                          type="time"
+                          value={row.time_out || ''}
                           onChange={(e) =>
-                            updateRowValue(row.id, '_time_out_input', e.target.value)
+                            updateRowValue(row.id, 'time_out', e.target.value)
                           }
                           className={darkInput}
                         />
@@ -1954,18 +1816,26 @@ export default function EmployeeDetailsPage() {
                           className={darkInput}
                         />
 
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <button
                             onClick={() => saveRow(row)}
                             disabled={saving}
-                            className="rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
+                            className="rounded-lg bg-cyan-600 px-2 py-2 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
                           >
                             Save
                           </button>
 
                           <button
+                            onClick={() => rebuildRowFromZkt(row)}
+                            className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-2 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20"
+                            title="Rebuild this day from ZKT punches"
+                          >
+                            ZKT
+                          </button>
+
+                          <button
                             onClick={() => deleteRow(row)}
-                            className="rounded-lg border border-red-500/30 bg-red-600/10 px-3 py-2 text-red-300 transition hover:bg-red-600/20"
+                            className="rounded-lg border border-red-500/30 bg-red-600/10 px-2 py-2 text-red-300 transition hover:bg-red-600/20"
                           >
                             <Trash2 size={14} />
                           </button>
