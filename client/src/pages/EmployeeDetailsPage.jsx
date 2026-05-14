@@ -35,7 +35,7 @@ const CHECK_COORDS = {
   company: { x: 28, y: 7 },
   checkNumber: { right: 16, y: 11 },
 
-  payToLabel: { x: 12, y: 32 },
+  payToLabel: { x: 16, y: 32 },
   payeeText: { x: 34, y: 33 },
   payeeLine: { x: 34, y: 38, w: 120 },
 
@@ -490,7 +490,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
       <div
         style={posStyle('payToLabel', {
           width: '16mm',
-          fontSize: '2.1mm',
+          fontSize: '2.2mm',
           fontWeight: 700,
           lineHeight: 1.0,
         })}
