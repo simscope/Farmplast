@@ -410,7 +410,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
   // MICR на настоящих чеках печатается специальным шрифтом MICR E-13B.
   // В браузере такого шрифта обычно нет, поэтому здесь fallback.
   // Если поставишь MICR E13B.ttf в проект и подключишь @font-face, он автоматически будет использован.
-  const micrText = '⑆007049⑆ ⑆031101266⑆ 443187254⑆'
+  const micrText = `C${checkNumber}C A031101266A 443187254C`
 
   const posStyle = (name, extra = {}) => {
     const pos = CHECK_COORDS[name]
@@ -626,7 +626,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
 
       <div
         style={posStyle('micr', {
-          fontFamily: '"MICR E13B", "OCR A Extended", Consolas, monospace',
+          fontFamily: '"MICR E13B"',
           fontSize: '4.7mm',
           fontWeight: 500,
           letterSpacing: '0.35mm',
