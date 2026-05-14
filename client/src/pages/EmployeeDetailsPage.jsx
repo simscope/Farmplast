@@ -889,13 +889,7 @@ function PrintPreviewModal({
             >
               <CheckStockPrint employee={employee} fullName={fullName} totals={totals} />
             </div>
-<div
-  style={{
-    borderTop: '2px dashed #555',
-    margin: '10px 0',
-    width: '100%',
-  }}
-/>
+            <div className="print-tear-line" />
             <div className="print-report-sheet bg-white p-4">
               <PayrollStubCopy
                 title="EMPLOYEE COPY"
@@ -906,13 +900,7 @@ function PrintPreviewModal({
                 totals={totals}
               />
               <div
-  style={{
-    borderTop: '2px dashed #555',
-    margin: '10px 0',
-    width: '100%',
-  }}
-/>
-
+              <div className="print-tear-line" />
               <PayrollStubCopy
                 title="EMPLOYER COPY"
                 employee={employee}
@@ -1555,7 +1543,9 @@ export default function EmployeeDetailsPage() {
           .print-modal-sheet,
           .print-modal-sheet *,
           .print-report-sheet,
-          .print-report-sheet * {
+          .print-report-sheet *,
+          .print-tear-line,
+          .print-tear-line * {
             visibility: visible !important;
           }
 
