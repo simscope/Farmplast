@@ -1868,27 +1868,103 @@ export default function DashboardPage() {
       : 'bg-slate-500/15 text-slate-300 border-slate-600/40'
   }
 
+  function getTodayText() {
+    return toLocalDateString(new Date())
+  }
+
+  function normalizeDateText(value) {
+    if (!value) return ''
+
+    const asString = String(value)
+
+    if (/^\d{4}-\d{2}-\d{2}$/.test(asString)) {
+      return asString
+    }
+
+    const date = new Date(asString)
+    if (Number.isNaN(date.getTime())) return asString.slice(0, 10)
+
+    return toLocalDateString(date)
+  }
+
+  function getDaysSinceDate(value) {
+    const dateText = normalizeDateText(value)
+    if (!dateText) return null
+
+    const start = new Date(`${dateText}T00:00:00`)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+
+    if (Number.isNaN(start.getTime())) return null
+
+    const diff = Math.floor((today.getTime() - start.getTime()) / 86400000)
+    return diff >= 0 ? diff : 0
+  }
+
+  function getPresenceKind(employee) {
+    const todayText = getTodayText()
+    const lastPunchDate = normalizeDateText(employee?.last_punch_time)
+    const lastWorkDate = normalizeDateText(employee?.last_work_date)
+    const direction = String(employee?.last_punch_type || '').trim().toUpperCase()
+    const status = String(employee?.presence_status || '').trim().toUpperCase()
+
+    if (employee?.is_on_site === true && (lastPunchDate === todayText || lastWorkDate === todayText)) {
+      return 'on_site'
+    }
+
+    if (lastPunchDate === todayText) {
+      if (direction === 'IN') return 'on_site'
+      if (direction === 'OUT') return 'off_site'
+    }
+
+    if ((status === 'ON_SITE' || status === 'PRESENT') && (lastPunchDate === todayText || lastWorkDate === todayText)) {
+      return 'on_site'
+    }
+
+    if (status === 'OFF_SITE' && (lastPunchDate === todayText || lastWorkDate === todayText)) {
+      return 'off_site'
+    }
+
+    return 'absent'
+  }
+
   function getPresenceLabel(employee) {
-    if (employee?.is_on_site === true) return 'ON SITE'
+    const kind = getPresenceKind(employee)
 
-    const status = String(employee?.presence_status || '').toUpperCase()
-    if (status === 'OFF_SITE') return 'OFF SITE'
+    if (kind === 'on_site') return 'ON SITE'
+    if (kind === 'off_site') return 'OFF SITE'
 
-    const daysRaw = employee?.absence_days
-    const days = Number(daysRaw)
+    const byLastWorkDate = getDaysSinceDate(employee?.last_work_date)
+    const byLastPunchDate = getDaysSinceDate(employee?.last_punch_time)
+    const fromView = Number(employee?.absence_days)
+
+    const days = Number.isFinite(byLastWorkDate)
+      ? byLastWorkDate
+      : Number.isFinite(byLastPunchDate)
+        ? byLastPunchDate
+        : Number.isFinite(fromView)
+          ? fromView
+          : null
 
     if (Number.isFinite(days) && days > 0) {
-      if (days >= 3) return 'ABSENT 3+'
-      return `ABSENT ${days}`
+      return `ABSENT ${days} ${days === 1 ? 'DAY' : 'DAYS'}`
     }
 
     return 'ABSENT'
   }
 
   function getPresenceBadgeClass(employee) {
-    return employee?.is_on_site === true
-      ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
-      : 'border-red-500/30 bg-red-500/15 text-red-300'
+    const kind = getPresenceKind(employee)
+
+    if (kind === 'on_site') {
+      return 'border border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
+    }
+
+    if (kind === 'off_site') {
+      return 'border border-amber-500/30 bg-amber-500/15 text-amber-300'
+    }
+
+    return 'text-red-400'
   }
 
   function formatPresenceTime(value) {
@@ -1939,7 +2015,10 @@ export default function DashboardPage() {
       total: employees.length,
       active: employees.filter((e) => e.active).length,
       inactive: employees.filter((e) => !e.active).length,
-      onSite: employees.filter((e) => e.is_on_site === true).length,
+      onSite: employees.filter((e) => getPresenceKind(e) === 'on_site').length,
+      presenceOnline: employees.filter((e) => getPresenceKind(e) === 'on_site').length,
+      offSite: employees.filter((e) => getPresenceKind(e) === 'off_site').length,
+      absent: employees.filter((e) => getPresenceKind(e) === 'absent').length,
       zktVerified: employees.filter((e) =>
         ['synced', 'verified', 'already_exists'].includes(e.zkt_sync_status)
       ).length,
@@ -1961,7 +2040,7 @@ export default function DashboardPage() {
               <div>
                 <h1 className="text-xl font-bold text-white">Employees</h1>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Total: {counts.total} · Presence online: {counts.onSite}
+                  Total: {counts.total} · Presence: {counts.presenceOnline} online · {counts.offSite} off site · {counts.absent} absent
                 </p>
               </div>
             </div>
@@ -2110,7 +2189,7 @@ export default function DashboardPage() {
                     <div>No.</div>
                     <div>Name</div>
                     <div>ZKT ID</div>
-                    <div>Presence</div>
+                    <div>Presence ({counts.presenceOnline})</div>
                     <div>Last punch</div>
                     <div>Direction</div>
                     <div>Payment</div>
@@ -2159,7 +2238,7 @@ export default function DashboardPage() {
 
                         <div>
                           <span
-                            className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${getPresenceBadgeClass(employee)}`}
+                            className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${getPresenceBadgeClass(employee)}`}
                           >
                             {getPresenceLabel(employee)}
                           </span>
@@ -2284,7 +2363,7 @@ export default function DashboardPage() {
                     </div>
 
                     <span
-                      className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${getPresenceBadgeClass(employee)}`}
+                      className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold uppercase ${getPresenceBadgeClass(employee)}`}
                     >
                       {getPresenceLabel(employee)}
                     </span>
@@ -2294,7 +2373,7 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
                       <span className="text-slate-400">Presence</span>
                       <span
-                        className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${getPresenceBadgeClass(employee)}`}
+                        className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${getPresenceBadgeClass(employee)}`}
                       >
                         {getPresenceLabel(employee)}
                       </span>
