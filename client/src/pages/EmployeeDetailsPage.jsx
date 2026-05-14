@@ -405,16 +405,14 @@ function CheckStockPrint({ employee, fullName, totals }) {
   const amountWords = amountToWords(amount)
 
   const rawCheckNumber = Number(employee?.last_check_number || 0) + 1
-
-const checkNumberTop = String(rawCheckNumber)
-
-const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
+  const checkNumberTop = String(rawCheckNumber)
+  const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
   const memoText = `Payroll ${employee?.employee_number || ''}`
 
   // MICR на настоящих чеках печатается специальным шрифтом MICR E-13B.
   // В браузере такого шрифта обычно нет, поэтому здесь fallback.
   // Если поставишь MICR E13B.ttf в проект и подключишь @font-face, он автоматически будет использован.
-  const micrText = `C${checkNumber}C A031201360A 443187254C`
+  const micrText = `C${checkNumberMicr}C A031201360A 443187254C`
 
   const posStyle = (name, extra = {}) => {
     const pos = CHECK_COORDS[name]
@@ -488,7 +486,7 @@ const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
           lineHeight: 1,
         })}
       >
-        {checkNumber}
+        {checkNumberTop}
       </div>
 
       <div
@@ -812,7 +810,7 @@ function PrintPreviewModal({
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4 no-print">
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4">
       <div className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-[#07111f] shadow-2xl">
         <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
           <div>
@@ -1415,11 +1413,14 @@ export default function EmployeeDetailsPage() {
 
       if (paymentError) throw paymentError
 
+      const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
+
       const { error: employeeUpdateError } = await supabase
         .from('employees')
         .update({
           last_payment_date: today,
           last_payment_amount: netPay,
+          last_check_number: nextCheckNumber,
         })
         .eq('id', id)
 
@@ -1431,6 +1432,7 @@ export default function EmployeeDetailsPage() {
               ...prev,
               last_payment_date: today,
               last_payment_amount: netPay,
+              last_check_number: nextCheckNumber,
             }
           : prev
       )
@@ -1466,6 +1468,19 @@ export default function EmployeeDetailsPage() {
         }
 
         @media print {
+          html,
+          body,
+          #root {
+            width: 215.9mm !important;
+            min-width: 215.9mm !important;
+            height: 88.9mm !important;
+            min-height: 88.9mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            overflow: hidden !important;
+          }
+
           body * {
             visibility: hidden !important;
           }
@@ -1475,37 +1490,31 @@ export default function EmployeeDetailsPage() {
             visibility: visible !important;
           }
 
-          .print-report-sheet,
-          .print-report-sheet * {
-            visibility: visible !important;
-          }
-
           .print-modal-sheet {
-            position: absolute !important;
+            position: fixed !important;
             left: 0 !important;
             top: 0 !important;
             width: 215.9mm !important;
             height: 88.9mm !important;
+            min-width: 215.9mm !important;
+            min-height: 88.9mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
             box-shadow: none !important;
             overflow: hidden !important;
+            z-index: 999999 !important;
           }
 
-          .print-report-sheet {
-            position: absolute !important;
-            left: 0 !important;
-            top: 95mm !important;
-            width: 210mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            box-shadow: none !important;
+          .print-report-sheet,
+          .print-report-sheet * {
+            display: none !important;
+            visibility: hidden !important;
           }
 
           .no-print {
             display: none !important;
+            visibility: hidden !important;
           }
         }
       `}</style>
