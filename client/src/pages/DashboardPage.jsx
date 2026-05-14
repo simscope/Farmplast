@@ -862,11 +862,6 @@ export default function DashboardPage() {
         { event: '*', schema: 'public', table: 'employees' },
         () => loadEmployees()
       )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'employee_work_logs' },
-        () => loadEmployees()
-      )
       .subscribe()
 
     return () => {
@@ -912,9 +907,8 @@ export default function DashboardPage() {
           last_punch_type,
           is_on_site,
           last_work_date,
-          current_work_date,
-          current_time_in,
-          current_time_out
+          absence_days,
+          presence_status
         `)
         .order('created_at', { ascending: false })
 
@@ -1874,51 +1868,30 @@ export default function DashboardPage() {
       : 'bg-slate-500/15 text-slate-300 border-slate-600/40'
   }
 
-  function getTodayDateText() {
-    return toLocalDateString(new Date())
-  }
-
-  function getDaysBetweenDates(fromDateText, toDateText = getTodayDateText()) {
-    if (!fromDateText || !toDateText) return null
-
-    const fromDate = new Date(`${fromDateText}T00:00:00`)
-    const toDate = new Date(`${toDateText}T00:00:00`)
-
-    if (Number.isNaN(fromDate.getTime()) || Number.isNaN(toDate.getTime())) return null
-
-    return Math.max(0, Math.floor((toDate.getTime() - fromDate.getTime()) / 86400000))
-  }
-
-  function hasTodayWorkLog(employee) {
-    return employee?.current_work_date === getTodayDateText()
-  }
-
   function getPresenceLabel(employee) {
     if (employee?.is_on_site === true) return 'ON SITE'
-    if (hasTodayWorkLog(employee)) return 'OFF SITE'
 
-    const absentDays = getDaysBetweenDates(employee?.last_work_date)
+    const status = String(employee?.presence_status || '').toUpperCase()
+    if (status === 'OFF_SITE') return 'OFF SITE'
 
-    if (absentDays === null) return 'ABSENT'
-    if (absentDays <= 0) return 'ABSENT'
-    if (absentDays >= 3) return 'ABSENT 3+'
+    const daysRaw = employee?.absence_days
+    const days = Number(daysRaw)
 
-    return `ABSENT ${absentDays}`
+    if (Number.isFinite(days) && days > 0) {
+      if (days >= 3) return 'ABSENT 3+'
+      return `ABSENT ${days}`
+    }
+
+    return 'ABSENT'
   }
 
   function getPresenceBadgeClass(employee) {
-    if (employee?.is_on_site === true) {
-      return 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
-    }
-
-    if (hasTodayWorkLog(employee)) {
-      return 'border-red-500/30 bg-red-500/15 text-red-300'
-    }
-
-    return 'border-red-500/40 bg-red-600/15 text-red-300'
+    return employee?.is_on_site === true
+      ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
+      : 'border-red-500/30 bg-red-500/15 text-red-300'
   }
 
-  function formatLastPunchTime(value) {
+  function formatPresenceTime(value) {
     if (!value) return '—'
 
     const date = new Date(value)
@@ -1934,9 +1907,7 @@ export default function DashboardPage() {
   }
 
   function getPresenceDirection(employee) {
-    if (employee?.is_on_site === true) return 'IN'
-    if (hasTodayWorkLog(employee)) return 'OUT'
-    return '—'
+    return employee?.last_punch_type || '—'
   }
 
   const filteredEmployees = useMemo(() => {
@@ -1958,7 +1929,7 @@ export default function DashboardPage() {
         (employee.position || '').toLowerCase().includes(q) ||
         (employee.zkt_sync_status || '').toLowerCase().includes(q) ||
         (employee.last_punch_type || '').toLowerCase().includes(q) ||
-        getPresenceLabel(employee).toLowerCase().includes(q)
+        (employee.is_on_site ? 'on site на работе present' : 'off site не на работе absent').includes(q)
       )
     })
   }, [employees, search])
@@ -2083,14 +2054,14 @@ export default function DashboardPage() {
             <div>
               <h2 className="text-base font-semibold text-white">Workers list</h2>
               <p className="mt-0.5 text-xs text-slate-400">
-                Database employees + real ZKT sync status
+                Database employees + live presence from work logs
               </p>
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row">
               <input
                 type="text"
-                placeholder="Search by number, ZKT ID, name, presence, status..."
+                placeholder="Search by number, ZKT ID, name, presence..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full min-w-[320px] rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
@@ -2134,8 +2105,8 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
-                <div className="min-w-[1580px]">
-                  <div className="grid grid-cols-[70px_240px_110px_150px_180px_110px_120px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                <div className="min-w-[1430px]">
+                  <div className="grid grid-cols-[70px_230px_110px_150px_170px_110px_110px_120px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>No.</div>
                     <div>Name</div>
                     <div>ZKT ID</div>
@@ -2155,7 +2126,7 @@ export default function DashboardPage() {
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="grid grid-cols-[70px_240px_110px_150px_180px_110px_120px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
+                        className="grid grid-cols-[70px_230px_110px_150px_170px_110px_110px_120px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
                       >
                         <div className="font-semibold text-cyan-300">
                           {employee.employee_number ?? '—'}
@@ -2195,7 +2166,7 @@ export default function DashboardPage() {
                         </div>
 
                         <div className="truncate whitespace-nowrap font-semibold text-slate-200">
-                          {formatLastPunchTime(employee.last_punch_time)}
+                          {formatPresenceTime(employee.last_punch_time)}
                         </div>
 
                         <div className="truncate whitespace-nowrap font-semibold text-cyan-300">
@@ -2213,7 +2184,6 @@ export default function DashboardPage() {
                             {getOvertimeLabel(employee)}
                           </span>
                         </div>
-
 
                         <div className="flex flex-wrap gap-1.5">
                           <Link
@@ -2313,6 +2283,11 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
+                    <span
+                      className={`inline-flex rounded-full border px-2 py-1 text-[10px] font-bold uppercase ${getPresenceBadgeClass(employee)}`}
+                    >
+                      {getPresenceLabel(employee)}
+                    </span>
                   </div>
 
                   <div className="mt-3 grid gap-2 text-xs text-slate-300">
@@ -2326,7 +2301,7 @@ export default function DashboardPage() {
                     </div>
                     <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
                       <span className="text-slate-400">Last punch</span>
-                      <span className="font-semibold text-white">{formatLastPunchTime(employee.last_punch_time)}</span>
+                      <span className="font-semibold text-white">{formatPresenceTime(employee.last_punch_time)}</span>
                     </div>
                     <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
                       <span className="text-slate-400">Direction</span>
@@ -2334,6 +2309,11 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
+                  {employee.zkt_sync_error ? (
+                    <div className="mt-2 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">
+                      {employee.zkt_sync_error}
+                    </div>
+                  ) : null}
 
                   <div className="mt-3 flex flex-wrap gap-2">
                     <Link
