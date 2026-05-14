@@ -1743,14 +1743,18 @@ export default function EmployeeDetailsPage() {
                         className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.55fr_0.7fr_1fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-2.5"
                       >
                         <div className="relative">
-  <input
-    type="date"
-    value={row.work_date || ''}
-    onChange={(e) =>
-      updateRowValue(row.id, 'work_date', e.target.value)
-    }
-    className={`${darkInput} pr-16`}
-  />
+ <input
+  type="date"
+  lang="en-US"
+  value={row.work_date || ''}
+  onChange={(e) =>
+    updateRowValue(row.id, 'work_date', e.target.value)
+  }
+  className={`${darkInput} pr-16`}
+  style={{
+    colorScheme: 'dark',
+  }}
+/>
 
   <div className="pointer-events-none absolute right-10 top-1/2 -translate-y-1/2 text-[11px] font-semibold tracking-wide text-white">
     {row.work_date
@@ -1762,8 +1766,9 @@ export default function EmployeeDetailsPage() {
 </div>
 
                         <input
-                          type="time"
-                          value={row.time_in || ''}
+  type="time"
+  lang="en-US"
+  value={row.time_in || ''}
                           onChange={(e) =>
                             updateRowValue(row.id, 'time_in', e.target.value)
                           }
@@ -1771,8 +1776,9 @@ export default function EmployeeDetailsPage() {
                         />
 
                         <input
-                          type="time"
-                          value={row.time_out || ''}
+  type="time"
+  lang="en-US"
+  value={row.time_out || ''}
                           onChange={(e) =>
                             updateRowValue(row.id, 'time_out', e.target.value)
                           }
