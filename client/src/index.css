@@ -1,5 +1,12 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: 'MICR E13B';
+  src: url('./assets/fonts/MICRE13B.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
 html,
 body,
 #root {
