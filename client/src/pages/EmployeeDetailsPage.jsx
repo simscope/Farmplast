@@ -490,7 +490,7 @@ function CheckStockPrint({ employee, fullName, totals }) {
       <div
         style={posStyle('payToLabel', {
           width: '16mm',
-          fontSize: '2mm',
+          fontSize: '2,8mm',
           fontWeight: 700,
           lineHeight: 1.0,
         })}
