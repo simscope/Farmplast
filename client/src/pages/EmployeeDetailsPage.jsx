@@ -238,6 +238,16 @@ function getShiftLetter(timeIn) {
   return 'D'
 }
 
+function getManualEditLabel(row) {
+  const manualIn = row?.manual_time_in === true
+  const manualOut = row?.manual_time_out === true
+
+  if (manualIn && manualOut) return 'IN + OUT'
+  if (manualIn) return 'IN'
+  if (manualOut) return 'OUT'
+  return '—'
+}
+
 function buildEmptyRow() {
   return {
     id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -247,6 +257,9 @@ function buildEmptyRow() {
     lunch_hours: '1',
     reg_hours: '0',
     labor_amount: '0',
+    manual_time_in: false,
+    manual_time_out: false,
+    manually_edited: false,
   }
 }
 
@@ -1121,6 +1134,16 @@ export default function EmployeeDetailsPage() {
         if (parsedTime) {
           nextRow[field] = parsedTime
 
+          if (field === 'time_in') {
+            nextRow.manual_time_in = true
+            nextRow.manually_edited = true
+          }
+
+          if (field === 'time_out') {
+            nextRow.manual_time_out = true
+            nextRow.manually_edited = true
+          }
+
           const computedHours = calcDayHours(
             field === 'time_in' ? parsedTime : nextRow.time_in,
             field === 'time_out' ? parsedTime : nextRow.time_out,
@@ -1173,7 +1196,12 @@ export default function EmployeeDetailsPage() {
         reg_hours: Number(row.reg_hours || 0),
         labor_amount: Number(row.labor_amount || 0),
         source: 'manual',
-        manually_edited: true,
+        manually_edited:
+          row.manually_edited === true ||
+          row.manual_time_in === true ||
+          row.manual_time_out === true,
+        manual_time_in: row.manual_time_in === true,
+        manual_time_out: row.manual_time_out === true,
         is_deleted: false,
         updated_at: new Date().toISOString(),
       }
@@ -2006,8 +2034,8 @@ export default function EmployeeDetailsPage() {
               </div>
 
               <div className="overflow-x-auto">
-                <div className="min-w-[1160px]">
-                  <div className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.55fr_0.7fr_1fr] bg-slate-900/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                <div className="min-w-[1280px]">
+                  <div className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.55fr_0.7fr_0.65fr_1fr] bg-slate-900/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>Date</div>
                     <div>Time In</div>
                     <div>Time Out</div>
@@ -2015,6 +2043,7 @@ export default function EmployeeDetailsPage() {
                     <div>Lunch</div>
                     <div>Reg</div>
                     <div>Labor</div>
+                    <div>Manual</div>
                     <div>Delete</div>
                   </div>
 
@@ -2026,7 +2055,7 @@ export default function EmployeeDetailsPage() {
                     displayLogs.map((row) => (
                       <div
                         key={row.id}
-                        className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.55fr_0.7fr_1fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-2.5"
+                        className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.55fr_0.7fr_0.65fr_1fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-2.5"
                       >
                         <div className="relative">
                           <input
@@ -2128,6 +2157,17 @@ export default function EmployeeDetailsPage() {
                           }
                           className={darkInput}
                         />
+
+                        <div
+                          className={`rounded-lg border px-2 py-2 text-center text-xs font-bold ${
+                            row.manual_time_in || row.manual_time_out
+                              ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
+                              : 'border-slate-800 bg-[#07101d] text-slate-500'
+                          }`}
+                          title="Manual correction"
+                        >
+                          {getManualEditLabel(row)}
+                        </div>
 
                         <div className="flex gap-1">
                           <button
