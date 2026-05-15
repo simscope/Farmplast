@@ -28,6 +28,9 @@ const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
+const MAX_SHIFT_MINUTES = 12 * 60 + 30
+const RECENT_OUT_MINUTES = 15 * 60
+
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
@@ -204,6 +207,34 @@ function formatTimeValue(value) {
     hour: '2-digit',
     minute: '2-digit',
   })
+}
+
+function addMinutes(date, minutes) {
+  const d = new Date(date)
+  if (Number.isNaN(d.getTime())) return null
+  d.setMinutes(d.getMinutes() + minutes)
+  return d
+}
+
+function getMinutesSince(value) {
+  if (!value) return null
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return null
+  return Math.floor((Date.now() - date.getTime()) / 60000)
+}
+
+function normalizeShiftType(value) {
+  return String(value || 'day').toLowerCase() === 'night' ? 'night' : 'day'
+}
+
+function getShiftLabel(employee) {
+  return normalizeShiftType(employee?.shift_type) === 'night' ? 'NIGHT' : 'DAY'
+}
+
+function getShiftBadgeClass(employee) {
+  return normalizeShiftType(employee?.shift_type) === 'night'
+    ? 'border-indigo-500/30 bg-indigo-500/15 text-indigo-300'
+    : 'border-sky-500/30 bg-sky-500/15 text-sky-300'
 }
 
 function getLogEmployeeId(log) {
@@ -681,6 +712,23 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
               </div>
 
               <div>
+                <label className="mb-1 block text-xs text-slate-300">Shift</label>
+                <select
+                  className={inputClass}
+                  value={normalizeShiftType(form.shift_type)}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, shift_type: e.target.value }))
+                  }
+                >
+                  <option value="day">DAY 7 AM → 7 PM</option>
+                  <option value="night">NIGHT 7 PM → 7 AM</option>
+                </select>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Payroll auto-close limit stays 12h 30m from IN.
+                </p>
+              </div>
+
+              <div>
                 <label className="mb-1 block text-xs text-slate-300">Status</label>
                 <select
                   className={inputClass}
@@ -819,6 +867,7 @@ export default function DashboardPage() {
     hourly_rate: '',
     monthly_salary: '',
     overtime_enabled: false,
+    shift_type: 'day',
     active: true,
     hire_date: '',
     employer_form: 'W2',
@@ -888,6 +937,7 @@ export default function DashboardPage() {
           hourly_rate,
           monthly_salary,
           overtime_enabled,
+          shift_type,
           active,
           hire_date,
           employer_form,
@@ -1069,6 +1119,7 @@ export default function DashboardPage() {
       hourly_rate: employee.hourly_rate ?? '',
       monthly_salary: employee.monthly_salary ?? '',
       overtime_enabled: employee.overtime_enabled ?? false,
+      shift_type: normalizeShiftType(employee.shift_type),
       active: employee.active ?? true,
       hire_date: employee.hire_date || '',
       employer_form: employee.employer_form || 'W2',
@@ -1131,6 +1182,7 @@ export default function DashboardPage() {
             ? Number(form.monthly_salary)
             : null,
         overtime_enabled: Boolean(form.overtime_enabled),
+        shift_type: normalizeShiftType(form.shift_type),
         active: Boolean(form.active),
         hire_date: form.hire_date || null,
         employer_form: form.employer_form || null,
@@ -1178,6 +1230,30 @@ export default function DashboardPage() {
     } catch (err) {
       console.error('handleDelete error:', err)
       setError(err.message || 'Failed to delete employee')
+    }
+  }
+
+  async function handleShiftChange(employeeId, shiftType) {
+    try {
+      setError('')
+
+      const { error } = await supabase
+        .from('employees')
+        .update({ shift_type: normalizeShiftType(shiftType) })
+        .eq('id', employeeId)
+
+      if (error) throw error
+
+      setEmployees((prev) =>
+        prev.map((employee) =>
+          employee.id === employeeId
+            ? { ...employee, shift_type: normalizeShiftType(shiftType) }
+            : employee
+        )
+      )
+    } catch (err) {
+      console.error('handleShiftChange error:', err)
+      setError(err.message || 'Failed to update shift')
     }
   }
 
@@ -1902,28 +1978,29 @@ export default function DashboardPage() {
   }
 
   function getPresenceKind(employee) {
-    const todayText = getTodayText()
-    const lastPunchDate = normalizeDateText(employee?.last_punch_time)
-    const lastWorkDate = normalizeDateText(employee?.last_work_date)
     const direction = String(employee?.last_punch_type || '').trim().toUpperCase()
-    const status = String(employee?.presence_status || '').trim().toUpperCase()
+    const minutesSinceLastPunch = getMinutesSince(employee?.last_punch_time)
 
-    if (employee?.is_on_site === true && (lastPunchDate === todayText || lastWorkDate === todayText)) {
+    if (direction === 'IN') {
+      if (Number.isFinite(minutesSinceLastPunch) && minutesSinceLastPunch > MAX_SHIFT_MINUTES) {
+        return 'open_shift'
+      }
+
       return 'on_site'
     }
 
-    if (lastPunchDate === todayText) {
-      if (direction === 'IN') return 'on_site'
-      if (direction === 'OUT') return 'off_site'
-    }
+    if (direction === 'OUT') {
+      if (Number.isFinite(minutesSinceLastPunch) && minutesSinceLastPunch <= RECENT_OUT_MINUTES) {
+        return 'off_site'
+      }
 
-    if ((status === 'ON_SITE' || status === 'PRESENT') && (lastPunchDate === todayText || lastWorkDate === todayText)) {
-      return 'on_site'
-    }
-
-    if (status === 'OFF_SITE' && (lastPunchDate === todayText || lastWorkDate === todayText)) {
       return 'off_site'
     }
+
+    const status = String(employee?.presence_status || '').trim().toUpperCase()
+
+    if (status === 'ON_SITE' || status === 'PRESENT') return 'on_site'
+    if (status === 'OFF_SITE') return 'off_site'
 
     return 'absent'
   }
@@ -1933,15 +2010,16 @@ export default function DashboardPage() {
 
     if (kind === 'on_site') return 'ON SITE'
     if (kind === 'off_site') return 'OFF SITE'
+    if (kind === 'open_shift') return 'MISSED OUT'
 
-    const byLastWorkDate = getDaysSinceDate(employee?.last_work_date)
     const byLastPunchDate = getDaysSinceDate(employee?.last_punch_time)
+    const byLastWorkDate = getDaysSinceDate(employee?.last_work_date)
     const fromView = Number(employee?.absence_days)
 
-    const days = Number.isFinite(byLastWorkDate)
-      ? byLastWorkDate
-      : Number.isFinite(byLastPunchDate)
-        ? byLastPunchDate
+    const days = Number.isFinite(byLastPunchDate)
+      ? byLastPunchDate
+      : Number.isFinite(byLastWorkDate)
+        ? byLastWorkDate
         : Number.isFinite(fromView)
           ? fromView
           : null
@@ -1953,6 +2031,17 @@ export default function DashboardPage() {
     return 'ABSENT'
   }
 
+  function getPresenceTitle(employee) {
+    const direction = String(employee?.last_punch_type || '').trim().toUpperCase()
+
+    if (direction !== 'IN' || !employee?.last_punch_time) return ''
+
+    const autoOut = addMinutes(employee.last_punch_time, MAX_SHIFT_MINUTES)
+    if (!autoOut) return ''
+
+    return `Auto close: ${formatPresenceTime(autoOut)}`
+  }
+
   function getPresenceBadgeClass(employee) {
     const kind = getPresenceKind(employee)
 
@@ -1962,6 +2051,10 @@ export default function DashboardPage() {
 
     if (kind === 'off_site') {
       return 'border border-amber-500/30 bg-amber-500/15 text-amber-300'
+    }
+
+    if (kind === 'open_shift') {
+      return 'border border-red-500/40 bg-red-500/15 text-red-300'
     }
 
     return 'text-red-400'
@@ -2003,6 +2096,8 @@ export default function DashboardPage() {
         (employee.phone || '').toLowerCase().includes(q) ||
         (employee.email || '').toLowerCase().includes(q) ||
         (employee.position || '').toLowerCase().includes(q) ||
+        normalizeShiftType(employee.shift_type).includes(q) ||
+        getShiftLabel(employee).toLowerCase().includes(q) ||
         (employee.zkt_sync_status || '').toLowerCase().includes(q) ||
         (employee.last_punch_type || '').toLowerCase().includes(q) ||
         (employee.is_on_site ? 'on site на работе present' : 'off site не на работе absent').includes(q)
@@ -2019,6 +2114,7 @@ export default function DashboardPage() {
       presenceOnline: employees.filter((e) => getPresenceKind(e) === 'on_site').length,
       offSite: employees.filter((e) => getPresenceKind(e) === 'off_site').length,
       absent: employees.filter((e) => getPresenceKind(e) === 'absent').length,
+      openShift: employees.filter((e) => getPresenceKind(e) === 'open_shift').length,
       zktVerified: employees.filter((e) =>
         ['synced', 'verified', 'already_exists'].includes(e.zkt_sync_status)
       ).length,
@@ -2040,7 +2136,7 @@ export default function DashboardPage() {
               <div>
                 <h1 className="text-xl font-bold text-white">Employees</h1>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Total: {counts.total} · Presence: {counts.presenceOnline} online · {counts.offSite} off site · {counts.absent} absent
+                  Total: {counts.total} · Presence: {counts.presenceOnline} online · {counts.offSite} off site · {counts.openShift} missed out · {counts.absent} absent
                 </p>
               </div>
             </div>
@@ -2184,14 +2280,15 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
-                <div className="min-w-[1430px]">
-                  <div className="grid grid-cols-[70px_230px_110px_150px_170px_110px_110px_120px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                <div className="min-w-[1530px]">
+                  <div className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_110px_120px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>No.</div>
                     <div>Name</div>
                     <div>ZKT ID</div>
                     <div>Presence ({counts.presenceOnline})</div>
                     <div>Last punch</div>
                     <div>Direction</div>
+                    <div>Shift</div>
                     <div>Payment</div>
                     <div>Overtime</div>
                     <div>Actions</div>
@@ -2205,7 +2302,7 @@ export default function DashboardPage() {
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="grid grid-cols-[70px_230px_110px_150px_170px_110px_110px_120px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
+                        className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_110px_120px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
                       >
                         <div className="font-semibold text-cyan-300">
                           {employee.employee_number ?? '—'}
@@ -2238,6 +2335,7 @@ export default function DashboardPage() {
 
                         <div>
                           <span
+                            title={getPresenceTitle(employee)}
                             className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${getPresenceBadgeClass(employee)}`}
                           >
                             {getPresenceLabel(employee)}
@@ -2250,6 +2348,17 @@ export default function DashboardPage() {
 
                         <div className="truncate whitespace-nowrap font-semibold text-cyan-300">
                           {getPresenceDirection(employee)}
+                        </div>
+
+                        <div>
+                          <select
+                            className={`rounded-lg border px-2 py-1 text-[11px] font-bold uppercase outline-none ${getShiftBadgeClass(employee)} bg-[#08101c]`}
+                            value={normalizeShiftType(employee.shift_type)}
+                            onChange={(e) => handleShiftChange(employee.id, e.target.value)}
+                          >
+                            <option value="day">DAY</option>
+                            <option value="night">NIGHT</option>
+                          </select>
                         </div>
 
                         <div className="truncate whitespace-nowrap font-semibold text-cyan-300">
@@ -2357,7 +2466,7 @@ export default function DashboardPage() {
                           {getFullName(employee)}
                         </div>
                         <div className="mt-1 text-xs text-slate-400">
-                          {employee.position || 'worker'} · {getPayLabel(employee)} · {getOvertimeLabel(employee)}
+                          {employee.position || 'worker'} · {getShiftLabel(employee)} · {getPayLabel(employee)} · {getOvertimeLabel(employee)}
                         </div>
                       </div>
                     </div>
@@ -2385,6 +2494,17 @@ export default function DashboardPage() {
                     <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
                       <span className="text-slate-400">Direction</span>
                       <span className="font-semibold text-cyan-300">{getPresenceDirection(employee)}</span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                      <span className="text-slate-400">Shift</span>
+                      <select
+                        className={`rounded-lg border px-2 py-1 text-[11px] font-bold uppercase outline-none ${getShiftBadgeClass(employee)} bg-[#08101c]`}
+                        value={normalizeShiftType(employee.shift_type)}
+                        onChange={(e) => handleShiftChange(employee.id, e.target.value)}
+                      >
+                        <option value="day">DAY</option>
+                        <option value="night">NIGHT</option>
+                      </select>
                     </div>
                   </div>
 
