@@ -2082,7 +2082,7 @@ export default function DashboardPage() {
     const checkNumberTop = String(rawCheckNumber)
     const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
     const amountWords = escapeHtml(amountToWords(amount))
-    const memoText = escapeHtml(`Payroll ${employee?.employee_number || ''}`)
+    const memoText = `${formatCheckDate(week.startText)} - ${formatCheckDate(week.endText)}`
     const micrText = escapeHtml(`C${checkNumberMicr}C A031201360A 443187254C`)
 
     return `
