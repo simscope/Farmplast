@@ -28,7 +28,7 @@ const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
-const MAX_SHIFT_MINUTES = 12 * 60 + 30
+const MAX_OPEN_SHIFT_MINUTES = 13 * 60
 const RECENT_OUT_MINUTES = 15 * 60
 
 function sleep(ms) {
@@ -724,7 +724,7 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
                   <option value="night">NIGHT 7 PM → 7 AM</option>
                 </select>
                 <p className="mt-1 text-[11px] text-slate-500">
-                  Payroll auto-close limit stays 12h 30m from IN.
+                  If shift stays open over 13 hours, it will show MISSED OUT. No automatic close.
                 </p>
               </div>
 
@@ -1208,6 +1208,7 @@ export default function DashboardPage() {
         if (error) throw error
       }
 
+      await rebuildZktWorkLogs()
       closeModal()
       await loadEmployees()
     } catch (err) {
@@ -1233,27 +1234,30 @@ export default function DashboardPage() {
     }
   }
 
+  async function rebuildZktWorkLogs() {
+    const { error } = await supabase.rpc('process_zkt_attendance_to_work_logs')
+    if (error) throw error
+  }
+
   async function handleShiftChange(employeeId, shiftType) {
+    const nextShiftType = normalizeShiftType(shiftType)
+
     try {
       setError('')
 
       const { error } = await supabase
         .from('employees')
-        .update({ shift_type: normalizeShiftType(shiftType) })
+        .update({ shift_type: nextShiftType })
         .eq('id', employeeId)
 
       if (error) throw error
 
-      setEmployees((prev) =>
-        prev.map((employee) =>
-          employee.id === employeeId
-            ? { ...employee, shift_type: normalizeShiftType(shiftType) }
-            : employee
-        )
-      )
+      await rebuildZktWorkLogs()
+      await loadEmployees()
     } catch (err) {
       console.error('handleShiftChange error:', err)
-      setError(err.message || 'Failed to update shift')
+      setError(err.message || 'Failed to update shift and rebuild ZKT work logs')
+      await loadEmployees()
     }
   }
 
@@ -1982,7 +1986,7 @@ export default function DashboardPage() {
     const minutesSinceLastPunch = getMinutesSince(employee?.last_punch_time)
 
     if (direction === 'IN') {
-      if (Number.isFinite(minutesSinceLastPunch) && minutesSinceLastPunch > MAX_SHIFT_MINUTES) {
+      if (Number.isFinite(minutesSinceLastPunch) && minutesSinceLastPunch > MAX_OPEN_SHIFT_MINUTES) {
         return 'open_shift'
       }
 
@@ -2036,10 +2040,10 @@ export default function DashboardPage() {
 
     if (direction !== 'IN' || !employee?.last_punch_time) return ''
 
-    const autoOut = addMinutes(employee.last_punch_time, MAX_SHIFT_MINUTES)
-    if (!autoOut) return ''
+    const missedOutAt = addMinutes(employee.last_punch_time, MAX_OPEN_SHIFT_MINUTES)
+    if (!missedOutAt) return ''
 
-    return `Auto close: ${formatPresenceTime(autoOut)}`
+    return `MISSED OUT after: ${formatPresenceTime(missedOutAt)}`
   }
 
   function getPresenceBadgeClass(employee) {
