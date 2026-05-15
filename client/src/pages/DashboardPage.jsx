@@ -219,6 +219,24 @@ function formatReportDate(date) {
   })
 }
 
+function formatCheckDate(value) {
+  if (!value) return ''
+
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    const [year, month, day] = value.split('-')
+    return `${month}/${day}/${year}`
+  }
+
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return String(value || '')
+
+  return date.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  })
+}
+
 function formatTimeValue(value) {
   if (!value) return ''
 
@@ -2071,18 +2089,18 @@ export default function DashboardPage() {
       : getFullName(employee)
   }
 
-  function buildCheckStockHtml(employee, totals) {
+  function buildCheckStockHtml(employee, totals, week, checkNumber) {
     const payeeName = escapeHtml(getPayeeNameForCheck(employee))
     const dateObj = new Date()
     const dateText = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${String(dateObj.getFullYear()).slice(-2)}`
     const amount = Number(totals.netPay || 0)
     const dollars = Math.floor(amount)
     const cents = Math.round((amount - dollars) * 100)
-    const rawCheckNumber = Number(employee?.last_check_number || 0) + 1
+    const rawCheckNumber = Number(checkNumber || employee?.last_check_number || 0)
     const checkNumberTop = String(rawCheckNumber)
     const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
     const amountWords = escapeHtml(amountToWords(amount))
-    const memoText = `${formatCheckDate(week.startText)} - ${formatCheckDate(week.endText)}`
+    const memoText = escapeHtml(`${formatCheckDate(week?.startText || week?.start)} - ${formatCheckDate(week?.endText || week?.end)}`)
     const micrText = escapeHtml(`C${checkNumberMicr}C A031201360A 443187254C`)
 
     return `
@@ -2104,17 +2122,17 @@ export default function DashboardPage() {
       </div>`
   }
 
-  function buildPayrollStubHtml(title, employee, week, totals) {
+  function buildPayrollStubHtml(title, employee, week, totals, checkNumber) {
     const payeeName = escapeHtml(getPayeeNameForCheck(employee))
     const payDate = new Date().toLocaleDateString('en-US')
-    const checkNumber = String(Number(employee?.last_check_number || 0) + 1)
+    const checkNumberText = String(Number(checkNumber || employee?.last_check_number || 0))
     const stubMoney = (value) => `$${Math.round(Number(value || 0)).toLocaleString('en-US')}`
 
     return `
       <div class="payroll-stub-copy">
         <div class="stub-header">
           <div class="stub-title">${escapeHtml(title)}</div>
-          <div class="stub-meta"><div><b>Check #:</b> ${escapeHtml(checkNumber)}</div><div><b>Pay Date:</b> ${escapeHtml(payDate)}</div></div>
+          <div class="stub-meta"><div><b>Check #:</b> ${escapeHtml(checkNumberText)}</div><div><b>Pay Date:</b> ${escapeHtml(payDate)}</div></div>
         </div>
         <div class="stub-info">
           <div><b>Employee:</b> ${payeeName}</div>
@@ -2163,15 +2181,16 @@ export default function DashboardPage() {
       .map((item) => {
         const totals = mapPayrollRowToCheckTotals(item)
         const employee = item.employee
+        const checkNumber = item.print_check_number || employee?.last_check_number || 0
 
         return `
           <section class="print-payroll-sheet">
-            ${buildCheckStockHtml(employee, totals)}
+            ${buildCheckStockHtml(employee, totals, week, checkNumber)}
             <div class="print-report-sheet">
               <div class="print-tear-line"></div>
-              ${buildPayrollStubHtml('EMPLOYEE COPY', employee, week, totals)}
+              ${buildPayrollStubHtml('EMPLOYEE COPY', employee, week, totals, checkNumber)}
               <div class="print-tear-line"></div>
-              ${buildPayrollStubHtml('EMPLOYER COPY', employee, week, totals)}
+              ${buildPayrollStubHtml('EMPLOYER COPY', employee, week, totals, checkNumber)}
             </div>
           </section>`
       })
@@ -2185,7 +2204,10 @@ export default function DashboardPage() {
   <style>
     @page { size: 215.9mm 279.4mm; margin: 0; }
     * { box-sizing: border-box; }
-    html, body { margin: 0; padding: 0; background: white; color: black; font-family: Arial, Helvetica, sans-serif; }
+    @font-face { font-family: "MICR E13B"; src: url("/fonts/MICR.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+    @font-face { font-family: "CheckArial"; src: url("/fonts/Arial.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+    @font-face { font-family: "CheckArial"; src: url("/fonts/Arial-Bold.ttf") format("truetype"); font-weight: 700 900; font-style: normal; font-display: swap; }
+    html, body { margin: 0; padding: 0; background: white; color: black; font-family: CheckArial, Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .print-payroll-sheet { position: relative; width: 215.9mm; height: 279.4mm; overflow: hidden; page-break-after: always; break-after: page; background: white; }
     .print-payroll-sheet:last-child { page-break-after: auto; break-after: auto; }
     .check-stock { position: relative; width: 215.9mm; height: 88.9mm; min-width: 215.9mm; min-height: 88.9mm; overflow: hidden; background: white; color: black; }
@@ -2208,7 +2230,7 @@ export default function DashboardPage() {
     .memo-text { position: absolute; left: 28mm; top: 69mm; font-size: 4.2mm; font-weight: 500; line-height: 1; white-space: nowrap; max-width: 90mm; overflow: hidden; }
     .memo-line { position: absolute; left: 22mm; top: 73mm; width: 75mm; border-top: 0.28mm solid #222; }
     .memo-line-2 { position: absolute; left: 120mm; top: 73mm; width: 80mm; border-top: 0.28mm solid #222; }
-    .micr-text { position: absolute; left: 34mm; top: 80mm; font-family: "MICR E13B", Arial, sans-serif; font-size: 4.7mm; font-weight: 500; letter-spacing: 0.35mm; line-height: 1; white-space: nowrap; }
+    .micr-text { position: absolute; left: 34mm; top: 80mm; font-family: "MICR E13B", "OCR A Extended", "Courier New", monospace; font-size: 4.7mm; font-weight: 500; letter-spacing: 0.35mm; line-height: 1; white-space: nowrap; }
     .print-report-sheet { padding: 4mm; background: white; }
     .print-tear-line { width: 100%; border-top: 2px dashed #555; margin: 0 0 8px 0; }
     .payroll-stub-copy { border: 1px solid #222; padding: 8px 12px; margin-bottom: 8px; font-size: 11px; color: black; background: white; page-break-inside: avoid; }
@@ -2305,6 +2327,7 @@ export default function DashboardPage() {
 
         if (employeeUpdateError) throw employeeUpdateError
 
+        item.print_check_number = nextCheckNumber
         employee.last_payment_date = today
         employee.last_payment_amount = Number(totals.netPay || 0)
         employee.last_check_number = nextCheckNumber
