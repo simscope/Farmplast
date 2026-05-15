@@ -182,6 +182,33 @@ function getPreviousWeekRange() {
   }
 }
 
+function getCurrentWeekRange() {
+  const today = new Date()
+  const currentDay = today.getDay() || 7
+
+  const start = new Date(today)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(today.getDate() - currentDay + 1)
+
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  end.setHours(23, 59, 59, 999)
+
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(start)
+    day.setDate(start.getDate() + index)
+    return day
+  })
+
+  return {
+    start,
+    end,
+    startText: toLocalDateString(start),
+    endText: toLocalDateString(end),
+    days,
+  }
+}
+
 function formatReportDate(date) {
   return date.toLocaleDateString('en-US', {
     weekday: 'short',
@@ -963,7 +990,47 @@ export default function DashboardPage() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setEmployees(data || [])
+
+      const week = getCurrentWeekRange()
+
+      const { data: workLogs, error: workLogsError } = await supabase
+        .from('employee_work_logs')
+        .select('employee_id, work_date, time_in, time_out, missed_punch, auto_closed_reason, punch_error')
+        .gte('work_date', week.startText)
+        .lte('work_date', week.endText)
+        .eq('is_deleted', false)
+        .order('work_date', { ascending: true })
+
+      if (workLogsError) throw workLogsError
+
+      const punchErrorsByEmployee = new Map()
+
+      ;(workLogs || []).forEach((log) => {
+        const errorText = String(
+          log.punch_error || log.auto_closed_reason || ''
+        ).trim()
+        const hasError = log.missed_punch === true || Boolean(errorText)
+
+        if (!hasError || !log.employee_id) return
+
+        const current = punchErrorsByEmployee.get(log.employee_id) || []
+        current.push({
+          work_date: log.work_date,
+          time_in: log.time_in,
+          time_out: log.time_out,
+          error: errorText || 'Punch error',
+        })
+        punchErrorsByEmployee.set(log.employee_id, current)
+      })
+
+      const employeesWithPunchErrors = (data || []).map((employee) => ({
+        ...employee,
+        punch_errors_week: punchErrorsByEmployee.get(employee.id) || [],
+        punch_errors_week_start: week.startText,
+        punch_errors_week_end: week.endText,
+      }))
+
+      setEmployees(employeesWithPunchErrors)
     } catch (err) {
       console.error('loadEmployees error:', err)
       setError(err.message || 'Failed to load employees')
@@ -2083,6 +2150,85 @@ export default function DashboardPage() {
     return employee?.last_punch_type || '—'
   }
 
+
+  function normalizePunchErrorText(value) {
+    const text = String(value || '').toUpperCase()
+
+    if (text.includes('MISSED IN')) return 'MISSED IN'
+    if (text.includes('MISSING OUT') || text.includes('MISSED OUT') || text.includes('OPEN SHIFT OVER')) return 'MISSED OUT'
+    if (text.includes('OPEN SHIFT')) return 'OPEN SHIFT'
+
+    return text ? 'PUNCH ERROR' : ''
+  }
+
+  function formatPunchErrorDay(value) {
+    if (!value) return ''
+
+    const date = new Date(`${value}T00:00:00`)
+    if (Number.isNaN(date.getTime())) return String(value)
+
+    return date.toLocaleDateString('en-US', {
+      weekday: 'short',
+      month: '2-digit',
+      day: '2-digit',
+    })
+  }
+
+  function getPunchErrorItems(employee) {
+    return Array.isArray(employee?.punch_errors_week)
+      ? employee.punch_errors_week
+      : []
+  }
+
+  function getPunchErrorLabel(employee) {
+    const items = getPunchErrorItems(employee)
+
+    if (!items.length) return 'OK'
+
+    const shortItems = items.slice(0, 2).map((item) => {
+      const type = normalizePunchErrorText(item.error)
+      const day = formatPunchErrorDay(item.work_date)
+      return `${day} ${type}`.trim()
+    })
+
+    const rest = items.length > 2 ? ` +${items.length - 2}` : ''
+    return `${shortItems.join(' · ')}${rest}`
+  }
+
+  function getPunchErrorTitle(employee) {
+    const items = getPunchErrorItems(employee)
+
+    if (!items.length) {
+      return `No punch errors for current payroll week`
+    }
+
+    return items
+      .map((item) => {
+        const day = formatPunchErrorDay(item.work_date)
+        const time = `${formatTimeValue(item.time_in) || '—'} - ${formatTimeValue(item.time_out) || '—'}`
+        return `${day}: ${normalizePunchErrorText(item.error)} (${time})`
+      })
+      .join('\n')
+  }
+
+  function getPunchErrorBadgeClass(employee) {
+    const items = getPunchErrorItems(employee)
+
+    if (!items.length) {
+      return 'border border-emerald-500/25 bg-emerald-500/10 text-emerald-300'
+    }
+
+    const hasMissedOut = items.some((item) =>
+      normalizePunchErrorText(item.error) === 'MISSED OUT'
+    )
+
+    if (hasMissedOut) {
+      return 'border border-red-500/40 bg-red-500/15 text-red-300'
+    }
+
+    return 'border border-amber-500/40 bg-amber-500/15 text-amber-300'
+  }
+
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return employees
@@ -2140,7 +2286,7 @@ export default function DashboardPage() {
               <div>
                 <h1 className="text-xl font-bold text-white">Employees</h1>
                 <p className="mt-0.5 text-xs text-slate-400">
-                  Total: {counts.total} · Presence: {counts.presenceOnline} online · {counts.offSite} off site · {counts.openShift} missed out · {counts.absent} absent
+                  Total: {counts.total} · Presence: {counts.presenceOnline} online · {counts.offSite} off site · {counts.openShift} missed out · {counts.punchErrors} punch errors · {counts.absent} absent
                 </p>
               </div>
             </div>
@@ -2284,8 +2430,8 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
-                <div className="min-w-[1530px]">
-                  <div className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_110px_120px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                <div className="min-w-[1710px]">
+                  <div className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_180px_110px_120px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>No.</div>
                     <div>Name</div>
                     <div>ZKT ID</div>
@@ -2293,6 +2439,7 @@ export default function DashboardPage() {
                     <div>Last punch</div>
                     <div>Direction</div>
                     <div>Shift</div>
+                    <div>Punch error</div>
                     <div>Payment</div>
                     <div>Overtime</div>
                     <div>Actions</div>
@@ -2306,7 +2453,7 @@ export default function DashboardPage() {
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_110px_120px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
+                        className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_180px_110px_120px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
                       >
                         <div className="font-semibold text-cyan-300">
                           {employee.employee_number ?? '—'}
@@ -2363,6 +2510,15 @@ export default function DashboardPage() {
                             <option value="day">DAY</option>
                             <option value="night">NIGHT</option>
                           </select>
+                        </div>
+
+                        <div className="min-w-0">
+                          <span
+                            title={getPunchErrorTitle(employee)}
+                            className={`inline-flex max-w-full rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${getPunchErrorBadgeClass(employee)}`}
+                          >
+                            <span className="truncate">{getPunchErrorLabel(employee)}</span>
+                          </span>
                         </div>
 
                         <div className="truncate whitespace-nowrap font-semibold text-cyan-300">
@@ -2470,7 +2626,7 @@ export default function DashboardPage() {
                           {getFullName(employee)}
                         </div>
                         <div className="mt-1 text-xs text-slate-400">
-                          {employee.position || 'worker'} · {getShiftLabel(employee)} · {getPayLabel(employee)} · {getOvertimeLabel(employee)}
+                          {employee.position || 'worker'} · {getShiftLabel(employee)} · {getPunchErrorLabel(employee)} · {getPayLabel(employee)} · {getOvertimeLabel(employee)}
                         </div>
                       </div>
                     </div>
@@ -2509,6 +2665,15 @@ export default function DashboardPage() {
                         <option value="day">DAY</option>
                         <option value="night">NIGHT</option>
                       </select>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                      <span className="text-slate-400">Punch error</span>
+                      <span
+                        title={getPunchErrorTitle(employee)}
+                        className={`inline-flex max-w-[210px] rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${getPunchErrorBadgeClass(employee)}`}
+                      >
+                        <span className="truncate">{getPunchErrorLabel(employee)}</span>
+                      </span>
                     </div>
                   </div>
 
