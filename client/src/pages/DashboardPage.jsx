@@ -18,6 +18,7 @@ import {
   CalendarDays,
   FileText,
   FileSpreadsheet,
+  Printer,
   ShieldCheck,
   ShieldAlert,
 } from 'lucide-react'
@@ -920,6 +921,7 @@ export default function DashboardPage() {
   const [form, setForm] = useState(emptyForm)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportError, setReportError] = useState('')
+  const [selectedCheckIds, setSelectedCheckIds] = useState([])
 
   const isEditing = Boolean(form.id)
 
@@ -1003,6 +1005,22 @@ export default function DashboardPage() {
 
       if (workLogsError) throw workLogsError
 
+      const employeeIds = (data || []).map((employee) => employee.id).filter(Boolean)
+      const employeePaymentMetaById = new Map()
+
+      if (employeeIds.length > 0) {
+        const { data: paymentMetaRows, error: paymentMetaError } = await supabase
+          .from('employees')
+          .select('id, last_payment_date, last_payment_amount, last_check_number')
+          .in('id', employeeIds)
+
+        if (paymentMetaError) throw paymentMetaError
+
+        ;(paymentMetaRows || []).forEach((row) => {
+          employeePaymentMetaById.set(row.id, row)
+        })
+      }
+
       const punchErrorsByEmployee = new Map()
 
       ;(workLogs || []).forEach((log) => {
@@ -1023,12 +1041,19 @@ export default function DashboardPage() {
         punchErrorsByEmployee.set(log.employee_id, current)
       })
 
-      const employeesWithPunchErrors = (data || []).map((employee) => ({
-        ...employee,
-        punch_errors_week: punchErrorsByEmployee.get(employee.id) || [],
-        punch_errors_week_start: week.startText,
-        punch_errors_week_end: week.endText,
-      }))
+      const employeesWithPunchErrors = (data || []).map((employee) => {
+        const paymentMeta = employeePaymentMetaById.get(employee.id) || {}
+
+        return {
+          ...employee,
+          last_payment_date: paymentMeta.last_payment_date || null,
+          last_payment_amount: paymentMeta.last_payment_amount ?? null,
+          last_check_number: paymentMeta.last_check_number ?? null,
+          punch_errors_week: punchErrorsByEmployee.get(employee.id) || [],
+          punch_errors_week_start: week.startText,
+          punch_errors_week_end: week.endText,
+        }
+      })
 
       setEmployees(employeesWithPunchErrors)
     } catch (err) {
@@ -1963,6 +1988,352 @@ export default function DashboardPage() {
     }
   }
 
+  function numberToWordsUnder1000(n) {
+    const ones = [
+      'zero',
+      'one',
+      'two',
+      'three',
+      'four',
+      'five',
+      'six',
+      'seven',
+      'eight',
+      'nine',
+      'ten',
+      'eleven',
+      'twelve',
+      'thirteen',
+      'fourteen',
+      'fifteen',
+      'sixteen',
+      'seventeen',
+      'eighteen',
+      'nineteen',
+    ]
+
+    const tens = [
+      '',
+      '',
+      'twenty',
+      'thirty',
+      'forty',
+      'fifty',
+      'sixty',
+      'seventy',
+      'eighty',
+      'ninety',
+    ]
+
+    if (n < 20) return ones[n]
+    if (n < 100) {
+      const ten = Math.floor(n / 10)
+      const rest = n % 10
+      return rest ? `${tens[ten]}-${ones[rest]}` : tens[ten]
+    }
+
+    const hundred = Math.floor(n / 100)
+    const rest = n % 100
+    return rest
+      ? `${ones[hundred]} hundred ${numberToWordsUnder1000(rest)}`
+      : `${ones[hundred]} hundred`
+  }
+
+  function numberToWords(n) {
+    const num = Math.floor(Number(n || 0))
+
+    if (num === 0) return 'zero'
+    if (num < 1000) return numberToWordsUnder1000(num)
+
+    if (num < 1000000) {
+      const thousands = Math.floor(num / 1000)
+      const rest = num % 1000
+      return rest
+        ? `${numberToWordsUnder1000(thousands)} thousand ${numberToWordsUnder1000(rest)}`
+        : `${numberToWordsUnder1000(thousands)} thousand`
+    }
+
+    const millions = Math.floor(num / 1000000)
+    const rest = num % 1000000
+    return rest ? `${numberToWords(millions)} million ${numberToWords(rest)}` : `${numberToWords(millions)} million`
+  }
+
+  function amountToWords(amount) {
+    const value = Number(amount || 0)
+    const dollars = Math.floor(value)
+    const cents = Math.round((value - dollars) * 100)
+    return `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
+  }
+
+  function getPayeeNameForCheck(employee) {
+    return employee?.employer_form === 'Other' && employee?.company_name
+      ? employee.company_name
+      : getFullName(employee)
+  }
+
+  function buildCheckStockHtml(employee, totals) {
+    const payeeName = escapeHtml(getPayeeNameForCheck(employee))
+    const dateObj = new Date()
+    const dateText = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${String(dateObj.getFullYear()).slice(-2)}`
+    const amount = Number(totals.netPay || 0)
+    const dollars = Math.floor(amount)
+    const cents = Math.round((amount - dollars) * 100)
+    const rawCheckNumber = Number(employee?.last_check_number || 0) + 1
+    const checkNumberTop = String(rawCheckNumber)
+    const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
+    const amountWords = escapeHtml(amountToWords(amount))
+    const memoText = escapeHtml(`Payroll ${employee?.employee_number || ''}`)
+    const micrText = escapeHtml(`C${checkNumberMicr}C A031201360A 443187254C`)
+
+    return `
+      <div class="check-stock">
+        <div class="company-block">
+          <div class="company-name">FARMPLAST LLC</div>
+          <div>125 EAST HALSEY ROAD</div>
+          <div>PARSIPPANY, NJ 07054</div>
+        </div>
+        <div class="check-number">${checkNumberTop}</div>
+        <div class="pay-label"><div>PAY</div><div>TO THE</div><div>ORDER OF</div></div>
+        <div class="payee-text">${payeeName}</div><div class="payee-line"></div>
+        <div class="date-label">DATE</div><div class="date-text">${dateText}</div><div class="date-line"></div>
+        <div class="amount-number"><span>$</span><span>${dollars}</span><sup>${String(cents).padStart(2, '0')}</sup></div>
+        <div class="amount-words">${amountWords}</div><div class="amount-words-line"></div><div class="dollars-label">DOLLARS</div>
+        <div class="bank-name">TD BANK, N.A.</div>
+        <div class="for-label">FOR</div><div class="memo-text">${memoText}</div><div class="memo-line"></div><div class="memo-line-2"></div>
+        <div class="micr-text">${micrText}</div>
+      </div>`
+  }
+
+  function buildPayrollStubHtml(title, employee, week, totals) {
+    const payeeName = escapeHtml(getPayeeNameForCheck(employee))
+    const payDate = new Date().toLocaleDateString('en-US')
+    const checkNumber = String(Number(employee?.last_check_number || 0) + 1)
+    const stubMoney = (value) => `$${Math.round(Number(value || 0)).toLocaleString('en-US')}`
+
+    return `
+      <div class="payroll-stub-copy">
+        <div class="stub-header">
+          <div class="stub-title">${escapeHtml(title)}</div>
+          <div class="stub-meta"><div><b>Check #:</b> ${escapeHtml(checkNumber)}</div><div><b>Pay Date:</b> ${escapeHtml(payDate)}</div></div>
+        </div>
+        <div class="stub-info">
+          <div><b>Employee:</b> ${payeeName}</div>
+          <div><b>Employee #:</b> ${escapeHtml(employee?.employee_number || '—')}</div>
+          <div><b>Period:</b> ${formatReportDate(week.start)} - ${formatReportDate(week.end)}</div>
+          <div><b>Pay Type:</b> ${escapeHtml(employee?.pay_type || '—')}</div>
+        </div>
+        <div class="stub-grid">
+          <table><thead><tr><th>EARNINGS</th><th>HOURS</th><th>AMOUNT</th></tr></thead><tbody>
+            <tr><td>Regular Pay</td><td>${Number(totals.mainHours || 0).toFixed(2)}</td><td>${stubMoney(totals.mainLabor)}</td></tr>
+            <tr><td>Overtime Pay</td><td>${Number(totals.overtimeHours || 0).toFixed(2)}</td><td>${stubMoney(totals.overtimeLabor)}</td></tr>
+            <tr><td><b>Gross Pay</b></td><td></td><td><b>${stubMoney(totals.totalLabor)}</b></td></tr>
+          </tbody></table>
+          <table><thead><tr><th>DEDUCTIONS</th><th>AMOUNT</th></tr></thead><tbody>
+            <tr><td>Employee Tax</td><td>${stubMoney(totals.employeeTaxNum)}</td></tr>
+            <tr><td>Rent</td><td>${stubMoney(totals.rentNum)}</td></tr>
+            <tr><td>Electric</td><td>${stubMoney(totals.electricNum)}</td></tr>
+            <tr><td>Water</td><td>${stubMoney(totals.waterNum)}</td></tr>
+            <tr><td>Clean</td><td>${stubMoney(totals.cleanNum)}</td></tr>
+            <tr><td>Transport</td><td>${stubMoney(totals.transportNum)}</td></tr>
+            <tr><td><b>Net Pay</b></td><td><b>${stubMoney(totals.netPay)}</b></td></tr>
+          </tbody></table>
+        </div>
+      </div>`
+  }
+
+  function mapPayrollRowToCheckTotals(item) {
+    return {
+      mainHours: item.regularHours,
+      overtimeHours: item.overtimeHours,
+      totalLabor: item.grossPay,
+      mainLabor: item.regularLabor,
+      overtimeLabor: item.overtimeLabor,
+      employeeTaxNum: item.deductions.tax,
+      rentNum: item.deductions.rent,
+      electricNum: item.deductions.electric,
+      waterNum: item.deductions.water,
+      cleanNum: item.deductions.clean,
+      transportNum: item.deductions.transport,
+      netPay: item.netPay,
+    }
+  }
+
+  function buildSelectedChecksPrintHtml(week, payrollRows) {
+    const pages = payrollRows
+      .map((item) => {
+        const totals = mapPayrollRowToCheckTotals(item)
+        const employee = item.employee
+
+        return `
+          <section class="print-payroll-sheet">
+            ${buildCheckStockHtml(employee, totals)}
+            <div class="print-report-sheet">
+              <div class="print-tear-line"></div>
+              ${buildPayrollStubHtml('EMPLOYEE COPY', employee, week, totals)}
+              <div class="print-tear-line"></div>
+              ${buildPayrollStubHtml('EMPLOYER COPY', employee, week, totals)}
+            </div>
+          </section>`
+      })
+      .join('')
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Selected payroll checks</title>
+  <style>
+    @page { size: 215.9mm 279.4mm; margin: 0; }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; background: white; color: black; font-family: Arial, Helvetica, sans-serif; }
+    .print-payroll-sheet { position: relative; width: 215.9mm; height: 279.4mm; overflow: hidden; page-break-after: always; break-after: page; background: white; }
+    .print-payroll-sheet:last-child { page-break-after: auto; break-after: auto; }
+    .check-stock { position: relative; width: 215.9mm; height: 88.9mm; min-width: 215.9mm; min-height: 88.9mm; overflow: hidden; background: white; color: black; }
+    .company-block { position: absolute; left: 28mm; top: 7mm; width: 46mm; text-align: center; line-height: 1.05; font-weight: 700; font-size: 2.5mm; letter-spacing: 0.03mm; }
+    .company-name { font-size: 3.5mm; font-weight: 800; }
+    .check-number { position: absolute; right: 16mm; top: 11mm; font-size: 4.6mm; font-weight: 500; line-height: 1; }
+    .pay-label { position: absolute; left: 16mm; top: 32mm; width: 16mm; font-size: 2.2mm; font-weight: 700; line-height: 1; }
+    .payee-text { position: absolute; left: 34mm; top: 33mm; font-size: 5.1mm; font-weight: 500; line-height: 1; white-space: nowrap; max-width: 150mm; overflow: hidden; }
+    .payee-line { position: absolute; left: 28mm; top: 38mm; width: 120mm; border-top: 0.28mm solid #222; }
+    .date-label { position: absolute; left: 151mm; top: 27mm; font-size: 3mm; font-weight: 700; line-height: 1; }
+    .date-text { position: absolute; left: 164mm; top: 26mm; width: 27mm; text-align: center; font-size: 4.4mm; font-weight: 500; line-height: 1; white-space: nowrap; }
+    .date-line { position: absolute; left: 151mm; top: 30mm; width: 35mm; border-top: 0.28mm solid #222; }
+    .amount-number { position: absolute; right: 24mm; top: 34mm; display: flex; align-items: flex-start; justify-content: flex-end; min-width: 34mm; white-space: nowrap; line-height: 1; text-align: right; font-size: 5.8mm; font-weight: 500; }
+    .amount-number sup { font-size: 3mm; font-weight: 500; margin-left: 0.25mm; transform: translateY(-1.1mm); line-height: 1; }
+    .amount-words { position: absolute; left: 18mm; top: 48mm; font-size: 4.5mm; font-weight: 500; line-height: 1; white-space: nowrap; max-width: 160mm; overflow: hidden; text-transform: capitalize; }
+    .amount-words-line { position: absolute; left: 14mm; top: 52mm; width: 160mm; border-top: 0.28mm solid #222; }
+    .dollars-label { position: absolute; left: 158mm; top: 48mm; font-size: 3mm; font-weight: 700; line-height: 1; }
+    .bank-name { position: absolute; left: 20mm; top: 53mm; font-size: 3mm; font-weight: 700; line-height: 1; }
+    .for-label { position: absolute; left: 14mm; top: 70mm; font-size: 3mm; font-weight: 700; line-height: 1; }
+    .memo-text { position: absolute; left: 28mm; top: 69mm; font-size: 4.2mm; font-weight: 500; line-height: 1; white-space: nowrap; max-width: 90mm; overflow: hidden; }
+    .memo-line { position: absolute; left: 22mm; top: 73mm; width: 75mm; border-top: 0.28mm solid #222; }
+    .memo-line-2 { position: absolute; left: 120mm; top: 73mm; width: 80mm; border-top: 0.28mm solid #222; }
+    .micr-text { position: absolute; left: 34mm; top: 80mm; font-family: "MICR E13B", Arial, sans-serif; font-size: 4.7mm; font-weight: 500; letter-spacing: 0.35mm; line-height: 1; white-space: nowrap; }
+    .print-report-sheet { padding: 4mm; background: white; }
+    .print-tear-line { width: 100%; border-top: 2px dashed #555; margin: 0 0 8px 0; }
+    .payroll-stub-copy { border: 1px solid #222; padding: 8px 12px; margin-bottom: 8px; font-size: 11px; color: black; background: white; page-break-inside: avoid; }
+    .stub-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 6px; margin-bottom: 8px; }
+    .stub-title { font-weight: 800; font-size: 14px; letter-spacing: 0.4px; }
+    .stub-meta { text-align: right; font-size: 11px; line-height: 1.35; }
+    .stub-info { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin-bottom: 10px; font-size: 11px; }
+    .stub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+    th { border: 1px solid #222; padding: 4px; background: #efefef; text-align: left; font-weight: 700; }
+    td { border: 1px solid #222; padding: 4px; }
+  </style>
+</head>
+<body>${pages}<script>window.onload = () => setTimeout(() => window.print(), 250)</script></body>
+</html>`
+  }
+
+  function toggleSelectedCheck(employeeId) {
+    setSelectedCheckIds((prev) =>
+      prev.includes(employeeId)
+        ? prev.filter((id) => id !== employeeId)
+        : [...prev, employeeId]
+    )
+  }
+
+  function toggleAllVisibleChecks() {
+    const visibleIds = filteredEmployees.map((employee) => employee.id).filter(Boolean)
+    const allSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedCheckIds.includes(id))
+
+    setSelectedCheckIds((prev) => {
+      if (allSelected) return prev.filter((id) => !visibleIds.includes(id))
+      return Array.from(new Set([...prev, ...visibleIds]))
+    })
+  }
+
+  async function handlePrintSelectedChecks() {
+    try {
+      setReportLoading(true)
+      setReportError('')
+      setError('')
+
+      if (selectedCheckIds.length === 0) {
+        throw new Error('Select at least one employee for check printing')
+      }
+
+      const selectedIdSet = new Set(selectedCheckIds)
+      const { week, logs } = await loadPreviousWeekWorkLogs()
+      const deductionsRows = await tryLoadPayrollDeductions(week)
+      const payrollRows = buildPayrollRows(week, logs, deductionsRows)
+        .filter((item) => selectedIdSet.has(item.employee.id))
+        .filter((item) => Number(item.netPay || 0) > 0)
+
+      if (payrollRows.length === 0) {
+        throw new Error('Selected employees have no net pay for previous week')
+      }
+
+      const nowIso = new Date().toISOString()
+      const today = nowIso.slice(0, 10)
+
+      for (const item of payrollRows) {
+        const employee = item.employee
+        const totals = mapPayrollRowToCheckTotals(item)
+        const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
+
+        const payload = {
+          employee_id: employee.id,
+          period_start: week.startText,
+          period_end: week.endText,
+          total_labor: Number(totals.totalLabor || 0),
+          employee_tax: Number(totals.employeeTaxNum || 0),
+          rent: Number(totals.rentNum || 0),
+          electric: Number(totals.electricNum || 0),
+          water: Number(totals.waterNum || 0),
+          clean: Number(totals.cleanNum || 0),
+          transport: Number(totals.transportNum || 0),
+          net_pay: Number(totals.netPay || 0),
+          paid_at: nowIso,
+        }
+
+        const { error: paymentError } = await supabase
+          .from('employee_payments')
+          .insert(payload)
+
+        if (paymentError) throw paymentError
+
+        const { error: employeeUpdateError } = await supabase
+          .from('employees')
+          .update({
+            last_payment_date: today,
+            last_payment_amount: Number(totals.netPay || 0),
+            last_check_number: nextCheckNumber,
+          })
+          .eq('id', employee.id)
+
+        if (employeeUpdateError) throw employeeUpdateError
+
+        employee.last_payment_date = today
+        employee.last_payment_amount = Number(totals.netPay || 0)
+        employee.last_check_number = nextCheckNumber
+      }
+
+      const html = buildSelectedChecksPrintHtml(week, payrollRows)
+      const printWindow = window.open('', '_blank')
+
+      if (!printWindow) {
+        throw new Error('Popup blocked. Allow popups for this site and click Print selected checks again.')
+      }
+
+      printWindow.document.open()
+      printWindow.document.write(html)
+      printWindow.document.close()
+      printWindow.focus()
+
+      setSelectedCheckIds([])
+      await loadEmployees()
+    } catch (err) {
+      console.error('handlePrintSelectedChecks error:', err)
+      const message = err.message || 'Failed to print selected checks'
+      setReportError(message)
+      setError(message)
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
   async function handlePayrollCsvExport() {
     try {
       setReportLoading(true)
@@ -2401,12 +2772,13 @@ export default function DashboardPage() {
               </button>
 
               <button
-                onClick={handlePayrollCsvExport}
-                disabled={reportLoading}
+                onClick={handlePrintSelectedChecks}
+                disabled={reportLoading || selectedCheckIds.length === 0}
                 className="inline-flex items-center justify-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                title={selectedCheckIds.length === 0 ? 'Select employees first' : `Print ${selectedCheckIds.length} selected checks`}
               >
-                {reportLoading ? <Loader2 size={16} className="animate-spin" /> : <FileSpreadsheet size={16} />}
-                CSV export
+                {reportLoading ? <Loader2 size={16} className="animate-spin" /> : <Printer size={16} />}
+                Print selected checks{selectedCheckIds.length ? ` (${selectedCheckIds.length})` : ''}
               </button>
             </div>
           </div>
@@ -2430,8 +2802,8 @@ export default function DashboardPage() {
               </div>
             ) : (
               <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
-                <div className="min-w-[1710px]">
-                  <div className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_180px_110px_120px_360px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                <div className="min-w-[1870px]">
+                  <div className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_180px_110px_120px_360px_160px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>No.</div>
                     <div>Name</div>
                     <div>ZKT ID</div>
@@ -2443,6 +2815,15 @@ export default function DashboardPage() {
                     <div>Payment</div>
                     <div>Overtime</div>
                     <div>Actions</div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={filteredEmployees.length > 0 && filteredEmployees.every((employee) => selectedCheckIds.includes(employee.id))}
+                        onChange={toggleAllVisibleChecks}
+                        className="h-4 w-4 rounded border-slate-600 bg-slate-950 accent-cyan-500"
+                      />
+                      <span>Print check</span>
+                    </div>
                   </div>
 
                   {filteredEmployees.length === 0 ? (
@@ -2453,7 +2834,7 @@ export default function DashboardPage() {
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_180px_110px_120px_360px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
+                        className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_180px_110px_120px_360px_160px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
                       >
                         <div className="font-semibold text-cyan-300">
                           {employee.employee_number ?? '—'}
@@ -2593,6 +2974,25 @@ export default function DashboardPage() {
                             <Trash2 size={13} />
                           </button>
                         </div>
+
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={selectedCheckIds.includes(employee.id)}
+                            onChange={() => toggleSelectedCheck(employee.id)}
+                            className="h-4 w-4 rounded border-slate-600 bg-slate-950 accent-cyan-500"
+                          />
+                          <div className="min-w-0 leading-tight">
+                            <div className="text-[11px] font-semibold text-slate-200">
+                              {employee.last_payment_date ? formatReportDate(new Date(`${employee.last_payment_date}T00:00:00`)) : 'Not printed'}
+                            </div>
+                            {employee.last_check_number ? (
+                              <div className="text-[10px] text-slate-500">
+                                Check #{employee.last_check_number}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
                       </div>
                     ))
                   )}
@@ -2674,6 +3074,18 @@ export default function DashboardPage() {
                       >
                         <span className="truncate">{getPunchErrorLabel(employee)}</span>
                       </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
+                      <span className="text-slate-400">Print check</span>
+                      <label className="inline-flex items-center gap-2 text-xs font-semibold text-slate-200">
+                        <input
+                          type="checkbox"
+                          checked={selectedCheckIds.includes(employee.id)}
+                          onChange={() => toggleSelectedCheck(employee.id)}
+                          className="h-4 w-4 rounded border-slate-600 bg-slate-950 accent-cyan-500"
+                        />
+                        {employee.last_payment_date ? formatReportDate(new Date(`${employee.last_payment_date}T00:00:00`)) : 'Not printed'}
+                      </label>
                     </div>
                   </div>
 
