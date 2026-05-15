@@ -398,7 +398,7 @@ function amountToWords(amount) {
   return `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
 }
 
-function CheckStockPrint({ employee, fullName, totals }) {
+function CheckStockPrint({ employee, fullName, totals, periodStart, periodEnd, checkNumber }) {
   const payeeName =
     employee?.employer_form === 'Other' && employee?.company_name
       ? employee.company_name
@@ -417,10 +417,12 @@ function CheckStockPrint({ employee, fullName, totals }) {
   const amountNumberCents = String(cents).padStart(2, '0')
   const amountWords = amountToWords(amount)
 
-  const rawCheckNumber = Number(employee?.last_check_number || 0) + 1
+  const rawCheckNumber = Number(checkNumber || employee?.last_check_number || 0)
   const checkNumberTop = String(rawCheckNumber)
   const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
-  const memoText = `Payroll ${employee?.employee_number || ''}`
+  const memoText = periodStart && periodEnd
+    ? `${formatDate(periodStart)} - ${formatDate(periodEnd)}`
+    : ''
 
   // MICR на настоящих чеках печатается специальным шрифтом MICR E-13B.
   // В браузере такого шрифта обычно нет, поэтому здесь fallback.
@@ -662,6 +664,7 @@ function PayrollStubCopy({
   periodStart,
   periodEnd,
   totals,
+  checkNumber,
 }) {
   const payeeName =
     employee?.employer_form === 'Other' && employee?.company_name
@@ -669,7 +672,7 @@ function PayrollStubCopy({
       : fullName
 
   const payDate = new Date().toLocaleDateString('en-US')
-  const rawCheckNumber = Number(employee?.last_check_number || 0) + 1
+  const rawCheckNumber = Number(checkNumber || employee?.last_check_number || 0)
   const checkNumberTop = String(rawCheckNumber)
 
   const stubMoney = (value) => `$${Math.round(Number(value || 0)).toLocaleString('en-US')}`
@@ -900,7 +903,14 @@ function PrintPreviewModal({
                 flex: '0 0 auto',
               }}
             >
-              <CheckStockPrint employee={employee} fullName={fullName} totals={totals} />
+              <CheckStockPrint
+                employee={employee}
+                fullName={fullName}
+                totals={totals}
+                periodStart={periodStart}
+                periodEnd={periodEnd}
+                checkNumber={Number(employee?.last_check_number || 0) + 1}
+              />
             </div>
             <div className="print-report-sheet bg-white p-4">
               <div className="print-tear-line" />
@@ -911,6 +921,7 @@ function PrintPreviewModal({
                 periodStart={periodStart}
                 periodEnd={periodEnd}
                 totals={totals}
+                checkNumber={Number(employee?.last_check_number || 0) + 1}
               />
               <div className="print-tear-line" />
               <PayrollStubCopy
@@ -920,6 +931,7 @@ function PrintPreviewModal({
                 periodStart={periodStart}
                 periodEnd={periodEnd}
                 totals={totals}
+                checkNumber={Number(employee?.last_check_number || 0) + 1}
               />
             </div>
           </div>
