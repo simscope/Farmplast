@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import micrFontUrl from '../assets/fonts/MICRE13B.ttf'
 import { Link } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -25,7 +24,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-
+import micrFontUrl from '../assets/fonts/MICRE13B.ttf'
 const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
@@ -2205,7 +2204,7 @@ export default function DashboardPage() {
   <style>
     @page { size: 215.9mm 279.4mm; margin: 0; }
     * { box-sizing: border-box; }
-    @font-face { font-family: "MICR E13B"; src: url("/fonts/MICR.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+    @font-face { font-family: "MICRE13B"; src: url("/fonts/MICR.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
     @font-face { font-family: "CheckArial"; src: url("/fonts/Arial.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
     @font-face { font-family: "CheckArial"; src: url("/fonts/Arial-Bold.ttf") format("truetype"); font-weight: 700 900; font-style: normal; font-display: swap; }
     html, body { margin: 0; padding: 0; background: white; color: black; font-family: CheckArial, Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
