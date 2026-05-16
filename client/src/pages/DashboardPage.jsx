@@ -183,6 +183,42 @@ function getPreviousWeekRange() {
   }
 }
 
+function getPreviousWeekMondayText() {
+  return getPreviousWeekRange().startText
+}
+
+function getWeekRangeFromDate(dateStr) {
+  const selectedDate = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date()
+
+  if (Number.isNaN(selectedDate.getTime())) {
+    return getPreviousWeekRange()
+  }
+
+  const currentDay = selectedDate.getDay() || 7
+
+  const start = new Date(selectedDate)
+  start.setHours(0, 0, 0, 0)
+  start.setDate(selectedDate.getDate() - currentDay + 1)
+
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  end.setHours(23, 59, 59, 999)
+
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(start)
+    day.setDate(start.getDate() + index)
+    return day
+  })
+
+  return {
+    start,
+    end,
+    startText: toLocalDateString(start),
+    endText: toLocalDateString(end),
+    days,
+  }
+}
+
 function getCurrentWeekRange() {
   const today = new Date()
   const currentDay = today.getDay() || 7
@@ -939,6 +975,8 @@ export default function DashboardPage() {
   const [form, setForm] = useState(emptyForm)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportError, setReportError] = useState('')
+  const [showPayrollMenu, setShowPayrollMenu] = useState(false)
+  const [payrollSelectedDate, setPayrollSelectedDate] = useState(getPreviousWeekMondayText())
   const [selectedCheckIds, setSelectedCheckIds] = useState([])
 
   const isEditing = Boolean(form.id)
@@ -1387,8 +1425,8 @@ export default function DashboardPage() {
     }
   }
 
-  async function loadPreviousWeekWorkLogs() {
-    const week = getPreviousWeekRange()
+  async function loadPreviousWeekWorkLogs(customWeek = null) {
+    const week = customWeek || getPreviousWeekRange()
 
     const { data, error } = await supabase
       .from('employee_work_logs')
@@ -1852,7 +1890,7 @@ export default function DashboardPage() {
       <div>
         <div class="brand">Payroll Report</div>
         <h1>Weekly Payroll</h1>
-        <div class="period">Previous week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
+        <div class="period">Payroll week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
         <div class="rules">If Overtime is enabled: first 40h/week at regular rate, hours over 40h at 1.5x. If No OT: all hours stay regular. Main tax 15.3%, OT tax 27%. All money rounded to whole dollars.</div>
       </div>
       <div class="top-actions">
@@ -1969,13 +2007,13 @@ export default function DashboardPage() {
     return `Payroll Report,${week.startText} to ${week.endText}\nAll money rounded to whole dollars\n${lines.join('\n')}`
   }
 
-  async function handlePayrollPdfReport() {
+  async function handlePayrollPdfReport(selectedWeek = null) {
     try {
       setReportLoading(true)
       setReportError('')
       setError('')
 
-      const { week, logs } = await loadPreviousWeekWorkLogs()
+      const { week, logs } = await loadPreviousWeekWorkLogs(selectedWeek)
       const deductionsRows = await tryLoadPayrollDeductions(week)
       const html = buildPayrollReportHtml(week, logs, deductionsRows)
 
@@ -2785,14 +2823,54 @@ export default function DashboardPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full min-w-[320px] rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
               />
-              <button
-                onClick={handlePayrollPdfReport}
-                disabled={reportLoading}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {reportLoading ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-                Payroll PDF
-              </button>
+              <div className="relative">
+                <button
+                  onClick={() => setShowPayrollMenu((value) => !value)}
+                  disabled={reportLoading}
+                  className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {reportLoading ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                  <span className="leading-tight">
+                    Payroll<br />PDF
+                  </span>
+                </button>
+
+                {showPayrollMenu ? (
+                  <div className="absolute right-0 top-[50px] z-50 w-[300px] rounded-2xl border border-slate-700 bg-[#07111f] p-4 shadow-2xl">
+                    <div className="mb-3">
+                      <div className="text-sm font-bold text-white">Select payroll week</div>
+                      <div className="mt-1 text-xs text-slate-400">
+                        Click any day. Report will use Monday → Sunday.
+                      </div>
+                    </div>
+
+                    <input
+                      type="date"
+                      value={payrollSelectedDate}
+                      onChange={(e) => setPayrollSelectedDate(e.target.value)}
+                      className={inputClass}
+                    />
+
+                    <div className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-300">
+                      Week: {getWeekRangeFromDate(payrollSelectedDate).startText} →{' '}
+                      {getWeekRangeFromDate(payrollSelectedDate).endText}
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const week = getWeekRangeFromDate(payrollSelectedDate)
+                        setShowPayrollMenu(false)
+                        handlePayrollPdfReport(week)
+                      }}
+                      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-500"
+                    >
+                      <FileText size={16} />
+                      Generate PDF
+                    </button>
+                  </div>
+                ) : null}
+              </div>
 
               <button
                 onClick={handlePrintSelectedChecks}
