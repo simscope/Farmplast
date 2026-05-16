@@ -1539,37 +1539,29 @@ export default function EmployeeDetailsPage() {
     }
   }
 
-  const displayLogs = useMemo(() => {
-  const result = []
-
-  if (!periodStart || !periodEnd) {
-    return totals.filteredForView || []
-  }
+ const displayLogs = useMemo(() => {
+  if (!periodStart) return totals.filteredForView || []
 
   const map = {}
 
   ;(totals.filteredForView || []).forEach((row) => {
-    if (row.work_date) {
-      map[row.work_date] = row
-    }
+    if (row.work_date) map[row.work_date] = row
   })
 
+  const result = []
   const start = new Date(`${periodStart}T00:00:00`)
-  const end = new Date(`${periodEnd}T00:00:00`)
 
-  const current = new Date(start)
+  for (let i = 0; i < 7; i += 1) {
+    const current = new Date(start)
+    current.setDate(start.getDate() + i)
 
-  while (current <= end) {
-     const year = current.getFullYear()
-     const month = String(current.getMonth() + 1).padStart(2, '0')
-     const day = String(current.getDate()).padStart(2, '0')
+    const year = current.getFullYear()
+    const month = String(current.getMonth() + 1).padStart(2, '0')
+    const day = String(current.getDate()).padStart(2, '0')
+    const dateStr = `${year}-${month}-${day}`
 
-     const dateStr = `${year}-${month}-${day}`
-
-    if (map[dateStr]) {
-      result.push(map[dateStr])
-    } else {
-      result.push({
+    result.push(
+      map[dateStr] || {
         id: `empty-${dateStr}`,
         work_date: dateStr,
         time_in: '',
@@ -1581,16 +1573,14 @@ export default function EmployeeDetailsPage() {
         manual_time_out: false,
         manually_edited: false,
         is_empty: true,
-      })
-    }
-
-    current.setDate(current.getDate() + 1)
+      }
+    )
   }
 
   return result.sort((a, b) =>
     String(b.work_date || '').localeCompare(String(a.work_date || ''))
   )
-}, [totals.filteredForView, periodStart, periodEnd])
+}, [totals.filteredForView, periodStart])
 
   return (
     <div className="min-h-screen bg-[#020817] text-white print:bg-white print:text-black">
