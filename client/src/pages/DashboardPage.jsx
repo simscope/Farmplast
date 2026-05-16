@@ -255,6 +255,23 @@ function formatReportDate(date) {
   })
 }
 
+
+function formatUsDate(value) {
+  if (!value) return ''
+
+  const date = value instanceof Date
+    ? value
+    : new Date(`${value}T00:00:00`)
+
+  if (Number.isNaN(date.getTime())) return String(value || '')
+
+  return date.toLocaleDateString('en-US', {
+    month: '2-digit',
+    day: '2-digit',
+    year: 'numeric',
+  })
+}
+
 function formatCheckDate(value) {
   if (!value) return ''
 
@@ -1804,7 +1821,7 @@ export default function DashboardPage() {
       color: #0f172a;
       background: #ffffff;
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 9px;
+      font-size: 10px;
     }
     .invoice-shell { width: 100%; margin: 0 auto; }
     .top {
@@ -1816,10 +1833,10 @@ export default function DashboardPage() {
       padding-bottom: 8px;
     }
     .brand { font-size: 10px; font-weight: 900; color: #0369a1; letter-spacing: .08em; text-transform: uppercase; }
-    h1 { margin: 2px 0 4px; font-size: 22px; line-height: 1; color: #0f172a; }
+    h1 { margin: 2px 0 4px; font-size: 24px; line-height: 1; color: #0f172a; }
     .period { font-size: 11px; font-weight: 800; }
-    .muted { color: #64748b; font-size: 8px; line-height: 1.2; }
-    .rules { margin-top: 3px; color: #334155; font-size: 8px; }
+    .muted { color: #64748b; font-size: 9px; line-height: 1.2; }
+    .rules { margin-top: 3px; color: #334155; font-size: 9px; }
     .top-actions { display: flex; align-items: start; gap: 8px; }
     .invoice-box {
       min-width: 250px;
@@ -1850,12 +1867,12 @@ export default function DashboardPage() {
       background: #f0f9ff;
       min-height: 38px;
     }
-    .summary-card span { display: block; color: #0369a1; font-weight: 800; font-size: 7px; text-transform: uppercase; }
-    .summary-card b { display: block; font-size: 13px; margin-top: 2px; color: #0f172a; }
+    .summary-card span { display: block; color: #0369a1; font-weight: 800; font-size: 8px; text-transform: uppercase; }
+    .summary-card b { display: block; font-size: 14px; margin-top: 2px; color: #0f172a; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     th, td { border: 1px solid #cbd5e1; padding: 3px 4px; vertical-align: top; }
-    th { background: #0369a1; color: white; text-align: left; font-size: 7px; text-transform: uppercase; line-height: 1.1; }
-    td { font-size: 8px; line-height: 1.15; }
+    th { background: #0369a1; color: white; text-align: left; font-size: 8px; text-transform: uppercase; line-height: 1.1; }
+    td { font-size: 9px; line-height: 1.15; }
     .tiny { width: 24px; }
     .emp-cell { width: 130px; }
     .day-col { width: 66px; }
@@ -1864,7 +1881,7 @@ export default function DashboardPage() {
     .strong { font-weight: 900; }
     .tax-cell { background: #fff7ed; color: #9a3412; }
     .total-net { background: #dcfce7; color: #166534; }
-    .footer-note { margin-top: 6px; color: #64748b; font-size: 8px; }
+    .footer-note { margin-top: 6px; color: #64748b; font-size: 9px; }
     .no-print {
       border: 0;
       border-radius: 7px;
@@ -1876,7 +1893,7 @@ export default function DashboardPage() {
       cursor: pointer;
     }
     @media print {
-      body { padding: 0; font-size: 8px; }
+      body { padding: 0; font-size: 9px; }
       .no-print { display: none !important; }
       .summary-card { padding: 4px; }
       th, td { padding: 2px 3px; }
