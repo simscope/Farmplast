@@ -967,49 +967,7 @@ function SelectedChecksPrintModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4 no-print-modal-shell">
-      <style>{`
-        @media print {
-          .no-print-modal-shell,
-          .no-print-modal-shell * {
-            visibility: visible !important;
-          }
-
-          .selected-checks-modal-frame,
-          .selected-checks-modal-header {
-            display: none !important;
-            visibility: hidden !important;
-          }
-
-          .selected-checks-print-root {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 215.9mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-          }
-
-          .selected-checks-print-root .print-payroll-sheet {
-            position: relative !important;
-            left: auto !important;
-            top: auto !important;
-            width: 215.9mm !important;
-            height: 279.4mm !important;
-            min-height: 279.4mm !important;
-            page-break-after: always !important;
-            break-after: page !important;
-            overflow: hidden !important;
-          }
-
-          .selected-checks-print-root .print-payroll-sheet:last-child {
-            page-break-after: auto !important;
-            break-after: auto !important;
-          }
-        }
-      `}</style>
-
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4 selected-checks-modal-shell">
       <div className="selected-checks-modal-frame flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-[#07111f] shadow-2xl">
         <div className="selected-checks-modal-header flex items-center justify-between border-b border-slate-800 px-5 py-4">
           <div>
@@ -1040,7 +998,7 @@ function SelectedChecksPrintModal({
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto bg-slate-200 p-5">
+        <div className="selected-checks-scroll-area flex-1 overflow-auto bg-slate-200 p-5">
           <div className="selected-checks-print-root mx-auto space-y-6">
             {(rows || []).map((item) => {
               const employee = item.employee
@@ -1062,10 +1020,123 @@ function SelectedChecksPrintModal({
           </div>
         </div>
       </div>
+
+      <style>{`
+        @media print {
+          .selected-checks-modal-shell {
+            position: static !important;
+            inset: auto !important;
+            display: block !important;
+            width: 215.9mm !important;
+            min-width: 215.9mm !important;
+            height: auto !important;
+            min-height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            overflow: visible !important;
+          }
+
+          .selected-checks-modal-shell,
+          .selected-checks-modal-shell *,
+          .selected-checks-print-root,
+          .selected-checks-print-root * {
+            visibility: visible !important;
+          }
+
+          .selected-checks-modal-frame {
+            position: static !important;
+            display: block !important;
+            width: 215.9mm !important;
+            max-width: none !important;
+            height: auto !important;
+            max-height: none !important;
+            min-height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            background: white !important;
+            box-shadow: none !important;
+            overflow: visible !important;
+          }
+
+          .selected-checks-modal-header {
+            display: none !important;
+            visibility: hidden !important;
+          }
+
+          .selected-checks-scroll-area {
+            display: block !important;
+            width: 215.9mm !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            overflow: visible !important;
+          }
+
+          .selected-checks-print-root {
+            position: static !important;
+            display: block !important;
+            width: 215.9mm !important;
+            min-width: 215.9mm !important;
+            height: auto !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+          }
+
+          .selected-checks-print-root .print-payroll-sheet {
+            position: relative !important;
+            left: auto !important;
+            top: auto !important;
+            display: block !important;
+            width: 215.9mm !important;
+            height: 279.4mm !important;
+            min-width: 215.9mm !important;
+            min-height: 279.4mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            background: white !important;
+            box-shadow: none !important;
+            overflow: hidden !important;
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+
+          .selected-checks-print-root .print-payroll-sheet:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
+          }
+
+          .selected-checks-print-root .print-modal-sheet {
+            position: absolute !important;
+            left: 0 !important;
+            top: 0 !important;
+            width: 215.9mm !important;
+            height: 88.9mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+          }
+
+          .selected-checks-print-root .print-report-sheet {
+            position: absolute !important;
+            left: 8mm !important;
+            top: 96mm !important;
+            width: 200mm !important;
+            margin: 0 !important;
+            padding: 4mm !important;
+          }
+
+          .selected-checks-print-root .print-payroll-sheet + .print-payroll-sheet {
+            margin-top: 0 !important;
+          }
+        }
+      `}</style>
     </div>
   )
 }
-
 
 export default function DashboardPage() {
   const { signOut } = useAuth()
