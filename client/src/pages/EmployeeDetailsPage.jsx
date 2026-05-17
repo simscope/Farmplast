@@ -296,10 +296,11 @@ function PrintPreviewModal({
   totals,
   periodStart,
   periodEnd,
-  checkNumber,
-  payDate,
 }) {
   if (!open) return null
+
+  const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
+  const payDate = new Date().toISOString().slice(0, 10)
 
   return (
     <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4">
@@ -338,7 +339,7 @@ function PrintPreviewModal({
               totals={totals}
               periodStart={periodStart}
               periodEnd={periodEnd}
-              checkNumber={checkNumber || 0}
+              checkNumber={nextCheckNumber}
               payDate={payDate}
             />
           </div>
@@ -357,8 +358,6 @@ export default function EmployeeDetailsPage() {
   const [payments, setPayments] = useState([])
   const [paymentsOpen, setPaymentsOpen] = useState(false)
   const [printModalOpen, setPrintModalOpen] = useState(false)
-  const [printCheckNumber, setPrintCheckNumber] = useState(null)
-  const [printPayDate, setPrintPayDate] = useState(new Date().toISOString().slice(0, 10))
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -908,8 +907,6 @@ export default function EmployeeDetailsPage() {
   function handleOpenPrintModal() {
     setError('')
     setSuccess('')
-    setPrintCheckNumber(null)
-    setPrintPayDate(new Date().toISOString().slice(0, 10))
     setPrintModalOpen(true)
   }
 
@@ -926,32 +923,8 @@ export default function EmployeeDetailsPage() {
         return
       }
 
-      const { data: createdCheck, error: checkError } = await supabase.rpc(
-        'create_payroll_check',
-        {
-          p_employee_id: id,
-          p_pay_period_start: periodStart,
-          p_pay_period_end: periodEnd,
-          p_regular_hours: Number(totals.mainHours || 0),
-          p_overtime_hours: Number(totals.overtimeHours || 0),
-          p_regular_labor: Number(totals.mainLabor || 0),
-          p_overtime_labor: Number(totals.overtimeLabor || 0),
-          p_gross_pay: Number(totals.totalLabor || 0),
-          p_employee_tax: Number(totals.employeeTaxNum || 0),
-          p_rent: Number(totals.rentNum || 0),
-          p_electric: Number(totals.electricNum || 0),
-          p_water: Number(totals.waterNum || 0),
-          p_clean: Number(totals.cleanNum || 0),
-          p_transport: Number(totals.transportNum || 0),
-          p_net_pay: netPay,
-        }
-      )
-
-      if (checkError) throw checkError
-      if (!createdCheck?.check_number) throw new Error('Check number was not created')
-
-      const paidAt = createdCheck.printed_at || new Date().toISOString()
-      const paidDate = String(paidAt).slice(0, 10)
+      const nowIso = new Date().toISOString()
+      const today = nowIso.slice(0, 10)
 
       const payload = {
         employee_id: id,
@@ -965,7 +938,7 @@ export default function EmployeeDetailsPage() {
         clean: Number(totals.cleanNum || 0),
         transport: Number(totals.transportNum || 0),
         net_pay: netPay,
-        paid_at: paidAt,
+        paid_at: nowIso,
       }
 
       const { error: paymentError } = await supabase
@@ -974,26 +947,36 @@ export default function EmployeeDetailsPage() {
 
       if (paymentError) throw paymentError
 
-      setPrintCheckNumber(createdCheck.check_number)
-      setPrintPayDate(paidDate)
+      const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
+
+      const { error: employeeUpdateError } = await supabase
+        .from('employees')
+        .update({
+          last_payment_date: today,
+          last_payment_amount: netPay,
+          last_check_number: nextCheckNumber,
+        })
+        .eq('id', id)
+
+      if (employeeUpdateError) throw employeeUpdateError
 
       setEmployee((prev) =>
         prev
           ? {
               ...prev,
-              last_payment_date: paidDate,
-              last_payment_amount: createdCheck.net_pay ?? netPay,
-              last_check_number: createdCheck.check_number,
+              last_payment_date: today,
+              last_payment_amount: netPay,
+              last_check_number: nextCheckNumber,
             }
           : prev
       )
 
       await loadPaymentsOnly()
-      setSuccess(`Payment saved. Check #${createdCheck.check_number}`)
+      setSuccess('Payment saved')
 
       setTimeout(() => {
         window.print()
-      }, 250)
+      }, 150)
     } catch (err) {
       console.error('handleSaveAndPrint error:', err)
       setError(err.message || 'Failed to save payment')
@@ -1760,8 +1743,6 @@ export default function EmployeeDetailsPage() {
           totals={totals}
           periodStart={periodStart}
           periodEnd={periodEnd}
-          checkNumber={printCheckNumber || employee?.last_check_number || 0}
-          payDate={printPayDate}
         />
       </div>
     </div>
