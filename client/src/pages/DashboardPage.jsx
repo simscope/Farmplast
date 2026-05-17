@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
 import { Link } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -952,79 +953,6 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
   )
 }
 
-
-function SelectedChecksPrintModal({
-  open,
-  onClose,
-  rows,
-  week,
-  getFullName,
-}) {
-  if (!open) return null
-
-  function handlePrint() {
-    window.print()
-  }
-
-  return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4">
-      <div className="selected-checks-modal-frame flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-[#07111f] shadow-2xl">
-        <div className="selected-checks-modal-header no-print flex items-center justify-between border-b border-slate-800 px-5 py-4">
-          <div>
-            <h2 className="text-xl font-bold text-white">Selected checks preview</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Same PayrollCheck component used for dashboard and employee details.
-            </p>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={handlePrint}
-              className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500"
-            >
-              <Printer size={16} />
-              Print
-            </button>
-
-            <button
-              type="button"
-              onClick={onClose}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-red-500"
-            >
-              <X size={16} />
-              Close
-            </button>
-          </div>
-        </div>
-
-        <div className="flex-1 overflow-auto bg-slate-200 p-5">
-          <div className="payroll-print-host selected-checks-print-root mx-auto space-y-6">
-            {(rows || []).map((item) => {
-              const employee = item.employee
-              const totals = item.print_totals || {}
-
-              return (
-                <PayrollCheck
-                  key={`${employee.id}-${item.print_check_number || employee?.last_check_number || 0}`}
-                  employee={employee}
-                  fullName={getFullName(employee)}
-                  totals={totals}
-                  periodStart={week?.startText}
-                  periodEnd={week?.endText}
-                  checkNumber={item.print_check_number || employee?.last_check_number || 0}
-                  payDate={new Date().toISOString().slice(0, 10)}
-                />
-              )
-            })}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-
 export default function DashboardPage() {
   const { signOut } = useAuth()
 
@@ -1069,9 +997,6 @@ export default function DashboardPage() {
   const [showPayrollMenu, setShowPayrollMenu] = useState(false)
   const [payrollSelectedDate, setPayrollSelectedDate] = useState(getPreviousWeekMondayText())
   const [selectedCheckIds, setSelectedCheckIds] = useState([])
-  const [selectedCheckPrintRows, setSelectedCheckPrintRows] = useState([])
-  const [selectedCheckPrintWeek, setSelectedCheckPrintWeek] = useState(null)
-  const [selectedChecksModalOpen, setSelectedChecksModalOpen] = useState(false)
 
   const isEditing = Boolean(form.id)
 
@@ -2155,6 +2080,56 @@ export default function DashboardPage() {
     }
   }
 
+  function buildSelectedChecksPrintHtml(week, payrollRows) {
+    const pages = payrollRows
+      .map((item) => {
+        const totals = mapPayrollRowToCheckTotals(item)
+        const employee = item.employee
+        const checkNumber = item.print_check_number || Number(employee?.last_check_number || 0) + 1
+
+        return renderToStaticMarkup(
+          <PayrollCheck
+            employee={employee}
+            fullName={getFullName(employee)}
+            totals={totals}
+            periodStart={week.startText}
+            periodEnd={week.endText}
+            checkNumber={checkNumber}
+            payDate={new Date().toISOString().slice(0, 10)}
+          />
+        )
+      })
+      .join('')
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Selected payroll checks</title>
+  <style>
+    @page { size: 215.9mm 279.4mm; margin: 0; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      background: white;
+      color: black;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .payroll-check-page {
+      page-break-after: always;
+      break-after: page;
+    }
+    .payroll-check-page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+  </style>
+</head>
+<body>${pages}<script>window.onload = () => setTimeout(() => window.print(), 250)</script></body>
+</html>`
+  }
+
   function toggleSelectedCheck(employeeId) {
     setSelectedCheckIds((prev) =>
       prev.includes(employeeId)
@@ -2235,20 +2210,28 @@ export default function DashboardPage() {
         if (employeeUpdateError) throw employeeUpdateError
 
         item.print_check_number = nextCheckNumber
-        item.print_totals = totals
         employee.last_payment_date = today
         employee.last_payment_amount = Number(totals.netPay || 0)
         employee.last_check_number = nextCheckNumber
       }
 
-      setSelectedCheckPrintWeek(week)
-      setSelectedCheckPrintRows(payrollRows)
-      setSelectedChecksModalOpen(true)
+      const html = buildSelectedChecksPrintHtml(week, payrollRows)
+      const printWindow = window.open('', '_blank')
+
+      if (!printWindow) {
+        throw new Error('Popup blocked. Allow popups for this site and click Print selected checks again.')
+      }
+
+      printWindow.document.open()
+      printWindow.document.write(html)
+      printWindow.document.close()
+      printWindow.focus()
+
       setSelectedCheckIds([])
       await loadEmployees()
     } catch (err) {
       console.error('handlePrintSelectedChecks error:', err)
-      const message = err.message || 'Failed to prepare selected checks'
+      const message = err.message || 'Failed to print selected checks'
       setReportError(message)
       setError(message)
     } finally {
@@ -3117,14 +3100,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-
-        <SelectedChecksPrintModal
-          open={selectedChecksModalOpen}
-          onClose={() => setSelectedChecksModalOpen(false)}
-          rows={selectedCheckPrintRows}
-          week={selectedCheckPrintWeek}
-          getFullName={getFullName}
-        />
 
         <EmployeeModal
           open={modalOpen}
