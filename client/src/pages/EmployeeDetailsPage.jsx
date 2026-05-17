@@ -377,7 +377,9 @@ export default function EmployeeDetailsPage() {
   const [payments, setPayments] = useState([])
   const [paymentsOpen, setPaymentsOpen] = useState(false)
   const [printModalOpen, setPrintModalOpen] = useState(false)
+  const [printCheckId, setPrintCheckId] = useState(null)
   const [printCheckNumber, setPrintCheckNumber] = useState(null)
+  const [printCheckStatus, setPrintCheckStatus] = useState(null)
   const [printPayDate, setPrintPayDate] = useState(new Date().toISOString().slice(0, 10))
 
   const [loading, setLoading] = useState(true)
@@ -930,7 +932,9 @@ export default function EmployeeDetailsPage() {
       setPaying(true)
       setError('')
       setSuccess('')
+      setPrintCheckId(null)
       setPrintCheckNumber(null)
+      setPrintCheckStatus(null)
       setPrintPayDate(new Date().toISOString().slice(0, 10))
 
       const netPay = Number(totals.netPay || 0)
@@ -962,10 +966,84 @@ export default function EmployeeDetailsPage() {
       )
 
       if (checkError) throw checkError
+      if (!createdCheck?.id) throw new Error('Check record was not created')
       if (!createdCheck?.check_number) throw new Error('Check number was not created')
 
-      const paidAt = createdCheck.printed_at || new Date().toISOString()
-      const paidDate = String(paidAt).slice(0, 10)
+      const payDateSource =
+        createdCheck.printed_at || createdCheck.created_at || new Date().toISOString()
+      const payDate = String(payDateSource).slice(0, 10)
+
+      flushSync(() => {
+        setPrintCheckId(createdCheck.id)
+        setPrintCheckNumber(createdCheck.check_number)
+        setPrintCheckStatus(createdCheck.status || 'draft')
+        setPrintPayDate(payDate)
+        setEmployee((prev) =>
+          prev
+            ? {
+                ...prev,
+                last_payment_date: payDate,
+                last_payment_amount: createdCheck.net_pay ?? netPay,
+                last_check_number: createdCheck.check_number,
+              }
+            : prev
+        )
+        setPrintModalOpen(true)
+      })
+
+      setSuccess(`Draft check #${createdCheck.check_number} created. Print to confirm, or close to void.`)
+    } catch (err) {
+      console.error('handleOpenPrintModal error:', err)
+      setError(err.message || 'Failed to create check')
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  async function handleClosePrintModal() {
+    try {
+      setError('')
+
+      if (printCheckId && printCheckStatus === 'draft') {
+        const { error: voidError } = await supabase.rpc('void_payroll_check', {
+          p_check_id: printCheckId,
+        })
+
+        if (voidError) throw voidError
+        setSuccess(`Draft check #${printCheckNumber} voided`)
+      }
+    } catch (err) {
+      console.error('handleClosePrintModal error:', err)
+      setError(err.message || 'Failed to void draft check')
+    } finally {
+      setPrintModalOpen(false)
+      setPrintCheckId(null)
+      setPrintCheckNumber(null)
+      setPrintCheckStatus(null)
+    }
+  }
+
+  async function handleSaveAndPrint() {
+    try {
+      setPaying(true)
+      setError('')
+
+      if (!printCheckId || !printCheckNumber) {
+        setError('Check number was not created')
+        return
+      }
+
+      const { data: printedCheck, error: printedError } = await supabase.rpc(
+        'mark_payroll_check_printed',
+        {
+          p_check_id: printCheckId,
+        }
+      )
+
+      if (printedError) throw printedError
+
+      const confirmedAt =
+        printedCheck?.printed_confirmed_at || printedCheck?.printed_at || new Date().toISOString()
 
       const payload = {
         employee_id: id,
@@ -978,8 +1056,8 @@ export default function EmployeeDetailsPage() {
         water: Number(totals.waterNum || 0),
         clean: Number(totals.cleanNum || 0),
         transport: Number(totals.transportNum || 0),
-        net_pay: netPay,
-        paid_at: paidAt,
+        net_pay: Number(totals.netPay || 0),
+        paid_at: confirmedAt,
       }
 
       const { error: paymentError } = await supabase
@@ -989,44 +1067,26 @@ export default function EmployeeDetailsPage() {
       if (paymentError) throw paymentError
 
       flushSync(() => {
-        setPrintCheckNumber(createdCheck.check_number)
-        setPrintPayDate(paidDate)
-        setEmployee((prev) =>
-          prev
-            ? {
-                ...prev,
-                last_payment_date: paidDate,
-                last_payment_amount: createdCheck.net_pay ?? netPay,
-                last_check_number: createdCheck.check_number,
-              }
-            : prev
-        )
-        setPrintModalOpen(true)
+        setPrintCheckStatus('printed')
+        setPrintPayDate(String(confirmedAt).slice(0, 10))
       })
 
       await loadPaymentsOnly()
-      setSuccess(`Payment saved. Check #${createdCheck.check_number}`)
+      setSuccess(`Check #${printCheckNumber} marked as printed`)
+
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => {
+          requestAnimationFrame(resolve)
+        })
+      })
+
+      window.print()
     } catch (err) {
-      console.error('handleOpenPrintModal error:', err)
-      setError(err.message || 'Failed to create check')
+      console.error('handleSaveAndPrint error:', err)
+      setError(err.message || 'Failed to print check')
     } finally {
       setPaying(false)
     }
-  }
-
-  async function handleSaveAndPrint() {
-    if (!printCheckNumber) {
-      setError('Check number was not created')
-      return
-    }
-
-    await new Promise((resolve) => {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(resolve)
-      })
-    })
-
-    window.print()
   }
 
  const displayLogs = useMemo(() => {
@@ -1779,7 +1839,7 @@ export default function EmployeeDetailsPage() {
 
         <PrintPreviewModal
           open={printModalOpen}
-          onClose={() => setPrintModalOpen(false)}
+          onClose={handleClosePrintModal}
           onPrintAndSave={handleSaveAndPrint}
           printing={paying}
           employee={employee}
