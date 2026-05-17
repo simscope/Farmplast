@@ -953,6 +953,79 @@ function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing
   )
 }
 
+
+function SelectedChecksPrintModal({
+  open,
+  onClose,
+  rows,
+  week,
+  getFullName,
+}) {
+  if (!open) return null
+
+  function handlePrint() {
+    window.print()
+  }
+
+  return (
+    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/75 p-4">
+      <div className="selected-checks-modal-frame flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-slate-700 bg-[#07111f] shadow-2xl">
+        <div className="selected-checks-modal-header no-print flex items-center justify-between border-b border-slate-800 px-5 py-4">
+          <div>
+            <h2 className="text-xl font-bold text-white">Selected checks preview</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Same PayrollCheck component used for dashboard and employee details.
+            </p>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500"
+            >
+              <Printer size={16} />
+              Print
+            </button>
+
+            <button
+              type="button"
+              onClick={onClose}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-red-500"
+            >
+              <X size={16} />
+              Close
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-auto bg-slate-200 p-5">
+          <div className="payroll-print-host selected-checks-print-root mx-auto space-y-6">
+            {(rows || []).map((item) => {
+              const employee = item.employee
+              const totals = item.print_totals || {}
+
+              return (
+                <PayrollCheck
+                  key={`${employee.id}-${item.saved_check_number || employee?.last_check_number || 0}`}
+                  employee={employee}
+                  fullName={getFullName(employee)}
+                  totals={totals}
+                  periodStart={week?.startText}
+                  periodEnd={week?.endText}
+                  checkNumber={item.saved_check_number || employee?.last_check_number || 0}
+                  payDate={new Date().toISOString().slice(0, 10)}
+                />
+              )
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+
 export default function DashboardPage() {
   const { signOut } = useAuth()
 
@@ -997,6 +1070,9 @@ export default function DashboardPage() {
   const [showPayrollMenu, setShowPayrollMenu] = useState(false)
   const [payrollSelectedDate, setPayrollSelectedDate] = useState(getPreviousWeekMondayText())
   const [selectedCheckIds, setSelectedCheckIds] = useState([])
+  const [selectedCheckPrintRows, setSelectedCheckPrintRows] = useState([])
+  const [selectedCheckPrintWeek, setSelectedCheckPrintWeek] = useState(null)
+  const [selectedChecksModalOpen, setSelectedChecksModalOpen] = useState(false)
 
   const isEditing = Boolean(form.id)
 
@@ -2080,56 +2156,6 @@ export default function DashboardPage() {
     }
   }
 
-  function buildSelectedChecksPrintHtml(week, payrollRows) {
-    const pages = payrollRows
-      .map((item) => {
-        const totals = mapPayrollRowToCheckTotals(item)
-        const employee = item.employee
-        const checkNumber = item.print_check_number || Number(employee?.last_check_number || 0) + 1
-
-        return renderToStaticMarkup(
-          <PayrollCheck
-            employee={employee}
-            fullName={getFullName(employee)}
-            totals={totals}
-            periodStart={week.startText}
-            periodEnd={week.endText}
-            checkNumber={checkNumber}
-            payDate={new Date().toISOString().slice(0, 10)}
-          />
-        )
-      })
-      .join('')
-
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Selected payroll checks</title>
-  <style>
-    @page { size: 215.9mm 279.4mm; margin: 0; }
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: white;
-      color: black;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .payroll-check-page {
-      page-break-after: always;
-      break-after: page;
-    }
-    .payroll-check-page:last-child {
-      page-break-after: auto;
-      break-after: auto;
-    }
-  </style>
-</head>
-<body>${pages}<script>window.onload = () => setTimeout(() => window.print(), 250)</script></body>
-</html>`
-  }
-
   function toggleSelectedCheck(employeeId) {
     setSelectedCheckIds((prev) =>
       prev.includes(employeeId)
@@ -2148,11 +2174,146 @@ export default function DashboardPage() {
     })
   }
 
+
+
+  function buildSelectedChecksPrintHtml(week, payrollRows) {
+    const pages = payrollRows
+      .map((item) => {
+        const employee = item.employee
+        const totals = item.print_totals || mapPayrollRowToCheckTotals(item)
+        const checkNumber = item.saved_check_number || item.check_number || ''
+
+        return renderToStaticMarkup(
+          <div className="payroll-print-host batch-payroll-page">
+            <PayrollCheck
+              employee={employee}
+              fullName={getFullName(employee)}
+              totals={totals}
+              periodStart={week.startText}
+              periodEnd={week.endText}
+              checkNumber={checkNumber}
+              payDate={new Date().toISOString().slice(0, 10)}
+            />
+          </div>
+        )
+      })
+      .join('')
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Payroll checks ${week.startText} - ${week.endText}</title>
+  <style>
+    @font-face {
+      font-family: 'MICR E13B';
+      src: url('/fonts/micr.ttf') format('truetype');
+      font-weight: normal;
+      font-style: normal;
+    }
+
+    @page {
+      size: 215.9mm 279.4mm;
+      margin: 0;
+    }
+
+    html,
+    body {
+      width: 215.9mm;
+      margin: 0;
+      padding: 0;
+      background: white;
+      color: black;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .batch-payroll-page {
+      width: 215.9mm;
+      min-height: 279.4mm;
+      page-break-after: always;
+      break-after: page;
+      background: white;
+      overflow: hidden;
+    }
+
+    .batch-payroll-page:last-child {
+      page-break-after: auto;
+      break-after: auto;
+    }
+
+    .print-payroll-sheet,
+    .payroll-check-page {
+      width: 215.9mm !important;
+      min-height: 279.4mm !important;
+      background: white !important;
+      color: black !important;
+      box-sizing: border-box !important;
+      overflow: hidden !important;
+    }
+
+    .print-modal-sheet {
+      width: 215.9mm !important;
+      height: 88.9mm !important;
+      min-width: 215.9mm !important;
+      min-height: 88.9mm !important;
+      background: white !important;
+      overflow: hidden !important;
+      position: relative !important;
+      display: block !important;
+      box-sizing: border-box !important;
+    }
+
+    .print-report-sheet {
+      position: absolute !important;
+      left: 8mm !important;
+      top: 96mm !important;
+      width: 200mm !important;
+      margin: 0 !important;
+      padding: 4mm !important;
+      background: white !important;
+      box-sizing: border-box !important;
+    }
+
+    .print-tear-line {
+      display: block !important;
+      width: 100% !important;
+      border-top: 2px dashed #555 !important;
+      margin: 0 0 6mm 0 !important;
+    }
+
+    .payroll-micr {
+      font-family: 'MICR E13B', 'Courier New', monospace !important;
+    }
+
+    .no-print {
+      display: none !important;
+    }
+  </style>
+</head>
+<body>
+  ${pages}
+  <script>
+    window.onload = () => setTimeout(() => window.print(), 250)
+  </script>
+</body>
+</html>`
+  }
   async function handlePrintSelectedChecks() {
+    const printWindow = window.open('', '_blank')
+
     try {
       setReportLoading(true)
       setReportError('')
       setError('')
+
+      if (!printWindow) {
+        throw new Error('Popup blocked. Allow popups for this site and click Print selected checks again.')
+      }
+
+      printWindow.document.open()
+      printWindow.document.write('<!doctype html><html><head><title>Preparing checks...</title></head><body style="font-family:Arial;padding:20px;">Preparing payroll checks...</body></html>')
+      printWindow.document.close()
 
       if (selectedCheckIds.length === 0) {
         throw new Error('Select at least one employee for check printing')
@@ -2170,14 +2331,12 @@ export default function DashboardPage() {
       }
 
       const nowIso = new Date().toISOString()
-      const today = nowIso.slice(0, 10)
 
       for (const item of payrollRows) {
         const employee = item.employee
         const totals = mapPayrollRowToCheckTotals(item)
-        const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
 
-        const payload = {
+        const paymentPayload = {
           employee_id: employee.id,
           period_start: week.startText,
           period_end: week.endText,
@@ -2194,33 +2353,52 @@ export default function DashboardPage() {
 
         const { error: paymentError } = await supabase
           .from('employee_payments')
-          .insert(payload)
+          .insert(paymentPayload)
 
         if (paymentError) throw paymentError
 
-        const { error: employeeUpdateError } = await supabase
-          .from('employees')
-          .update({
-            last_payment_date: today,
-            last_payment_amount: Number(totals.netPay || 0),
-            last_check_number: nextCheckNumber,
-          })
-          .eq('id', employee.id)
+        const { data: createdCheck, error: checkError } = await supabase.rpc(
+          'create_payroll_check',
+          {
+            p_employee_id: employee.id,
+            p_pay_period_start: week.startText,
+            p_pay_period_end: week.endText,
+            p_regular_hours: Number(totals.mainHours || 0),
+            p_overtime_hours: Number(totals.overtimeHours || 0),
+            p_regular_labor: Number(totals.mainLabor || 0),
+            p_overtime_labor: Number(totals.overtimeLabor || 0),
+            p_gross_pay: Number(totals.totalLabor || 0),
+            p_employee_tax: Number(totals.employeeTaxNum || 0),
+            p_rent: Number(totals.rentNum || 0),
+            p_electric: Number(totals.electricNum || 0),
+            p_water: Number(totals.waterNum || 0),
+            p_clean: Number(totals.cleanNum || 0),
+            p_transport: Number(totals.transportNum || 0),
+            p_net_pay: Number(totals.netPay || 0),
+          }
+        )
 
-        if (employeeUpdateError) throw employeeUpdateError
+        if (checkError) throw checkError
+        if (!createdCheck?.id || !createdCheck?.check_number) {
+          throw new Error('Payroll check was not created correctly')
+        }
 
-        item.print_check_number = nextCheckNumber
-        employee.last_payment_date = today
+        const { error: markPrintedError } = await supabase.rpc(
+          'mark_payroll_check_printed',
+          { p_check_id: createdCheck.id }
+        )
+
+        if (markPrintedError) throw markPrintedError
+
+        item.saved_check_id = createdCheck.id
+        item.saved_check_number = createdCheck.check_number
+        item.print_totals = totals
+        employee.last_payment_date = createdCheck.printed_at || nowIso
         employee.last_payment_amount = Number(totals.netPay || 0)
-        employee.last_check_number = nextCheckNumber
+        employee.last_check_number = createdCheck.check_number
       }
 
       const html = buildSelectedChecksPrintHtml(week, payrollRows)
-      const printWindow = window.open('', '_blank')
-
-      if (!printWindow) {
-        throw new Error('Popup blocked. Allow popups for this site and click Print selected checks again.')
-      }
 
       printWindow.document.open()
       printWindow.document.write(html)
@@ -2234,6 +2412,12 @@ export default function DashboardPage() {
       const message = err.message || 'Failed to print selected checks'
       setReportError(message)
       setError(message)
+
+      if (printWindow && !printWindow.closed) {
+        printWindow.document.open()
+        printWindow.document.write(`<!doctype html><html><body style="font-family:Arial;padding:20px;color:#991b1b;"><h2>Payroll print error</h2><p>${escapeHtml(message)}</p></body></html>`)
+        printWindow.document.close()
+      }
     } finally {
       setReportLoading(false)
     }
@@ -3100,6 +3284,14 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+
+        <SelectedChecksPrintModal
+          open={selectedChecksModalOpen}
+          onClose={() => setSelectedChecksModalOpen(false)}
+          rows={selectedCheckPrintRows}
+          week={selectedCheckPrintWeek}
+          getFullName={getFullName}
+        />
 
         <EmployeeModal
           open={modalOpen}
