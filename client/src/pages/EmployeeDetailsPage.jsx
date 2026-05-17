@@ -356,7 +356,7 @@ function PrintPreviewModal({
                 <div className="max-w-md rounded-xl border border-slate-300 p-6 text-center">
                   <div className="text-2xl font-bold">Check number pending</div>
                   <div className="mt-3 text-sm text-slate-700">
-                    Check number will be created only when you press Print.
+                    The check number must be created by the database before preview opens.
                   </div>
                 </div>
               </div>
@@ -927,52 +927,15 @@ export default function EmployeeDetailsPage() {
   const fullName =
     [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || '—'
 
-  function handleOpenPrintModal() {
-    setError('')
-    setSuccess('')
-    setPrintCheckId(null)
-    setPrintCheckNumber(null)
-    setPrintCheckStatus(null)
-    setPrintPayDate(new Date().toISOString().slice(0, 10))
-
-    const netPay = Number(totals.netPay || 0)
-
-    if (netPay <= 0) {
-      setError('Net pay must be greater than 0')
-      return
-    }
-
-    setPrintModalOpen(true)
-  }
-
-  async function handleClosePrintModal() {
-    try {
-      setError('')
-
-      if (printCheckId && printCheckStatus === 'draft') {
-        const { error: voidError } = await supabase.rpc('void_payroll_check', {
-          p_check_id: printCheckId,
-        })
-
-        if (voidError) throw voidError
-        setSuccess(`Draft check #${printCheckNumber} voided`)
-      }
-    } catch (err) {
-      console.error('handleClosePrintModal error:', err)
-      setError(err.message || 'Failed to close print preview')
-    } finally {
-      setPrintModalOpen(false)
-      setPrintCheckId(null)
-      setPrintCheckNumber(null)
-      setPrintCheckStatus(null)
-    }
-  }
-
-  async function handleSaveAndPrint() {
+  async function handleOpenPrintModal() {
     try {
       setPaying(true)
       setError('')
       setSuccess('')
+      setPrintCheckId(null)
+      setPrintCheckNumber(null)
+      setPrintCheckStatus(null)
+      setPrintPayDate(new Date().toISOString().slice(0, 10))
 
       const netPay = Number(totals.netPay || 0)
 
@@ -1006,21 +969,81 @@ export default function EmployeeDetailsPage() {
       if (!createdCheck?.id) throw new Error('Check record was not created')
       if (!createdCheck?.check_number) throw new Error('Check number was not created')
 
+      const payDateSource =
+        createdCheck.printed_at || createdCheck.created_at || new Date().toISOString()
+      const payDate = String(payDateSource).slice(0, 10)
+
+      flushSync(() => {
+        setPrintCheckId(createdCheck.id)
+        setPrintCheckNumber(createdCheck.check_number)
+        setPrintCheckStatus(createdCheck.status || 'draft')
+        setPrintPayDate(payDate)
+        setEmployee((prev) =>
+          prev
+            ? {
+                ...prev,
+                last_payment_date: payDate,
+                last_payment_amount: createdCheck.net_pay ?? netPay,
+                last_check_number: createdCheck.check_number,
+              }
+            : prev
+        )
+        setPrintModalOpen(true)
+      })
+
+      setSuccess(`Draft check #${createdCheck.check_number} created. Print to confirm, or close to void.`)
+    } catch (err) {
+      console.error('handleOpenPrintModal error:', err)
+      setError(err.message || 'Failed to create check')
+    } finally {
+      setPaying(false)
+    }
+  }
+
+  async function handleClosePrintModal() {
+    try {
+      setError('')
+
+      if (printCheckId && printCheckStatus === 'draft') {
+        const { error: voidError } = await supabase.rpc('void_payroll_check', {
+          p_check_id: printCheckId,
+        })
+
+        if (voidError) throw voidError
+        setSuccess(`Draft check #${printCheckNumber} voided`)
+      }
+    } catch (err) {
+      console.error('handleClosePrintModal error:', err)
+      setError(err.message || 'Failed to void draft check')
+    } finally {
+      setPrintModalOpen(false)
+      setPrintCheckId(null)
+      setPrintCheckNumber(null)
+      setPrintCheckStatus(null)
+    }
+  }
+
+  async function handleSaveAndPrint() {
+    try {
+      setPaying(true)
+      setError('')
+
+      if (!printCheckId || !printCheckNumber) {
+        setError('Check number was not created')
+        return
+      }
+
       const { data: printedCheck, error: printedError } = await supabase.rpc(
         'mark_payroll_check_printed',
         {
-          p_check_id: createdCheck.id,
+          p_check_id: printCheckId,
         }
       )
 
       if (printedError) throw printedError
 
       const confirmedAt =
-        printedCheck?.printed_confirmed_at ||
-        printedCheck?.printed_at ||
-        createdCheck.printed_at ||
-        createdCheck.created_at ||
-        new Date().toISOString()
+        printedCheck?.printed_confirmed_at || printedCheck?.printed_at || new Date().toISOString()
 
       const payload = {
         employee_id: id,
@@ -1033,7 +1056,7 @@ export default function EmployeeDetailsPage() {
         water: Number(totals.waterNum || 0),
         clean: Number(totals.cleanNum || 0),
         transport: Number(totals.transportNum || 0),
-        net_pay: netPay,
+        net_pay: Number(totals.netPay || 0),
         paid_at: confirmedAt,
       }
 
@@ -1043,27 +1066,13 @@ export default function EmployeeDetailsPage() {
 
       if (paymentError) throw paymentError
 
-      const payDate = String(confirmedAt).slice(0, 10)
-
       flushSync(() => {
-        setPrintCheckId(createdCheck.id)
-        setPrintCheckNumber(createdCheck.check_number)
         setPrintCheckStatus('printed')
-        setPrintPayDate(payDate)
-        setEmployee((prev) =>
-          prev
-            ? {
-                ...prev,
-                last_payment_date: payDate,
-                last_payment_amount: netPay,
-                last_check_number: createdCheck.check_number,
-              }
-            : prev
-        )
+        setPrintPayDate(String(confirmedAt).slice(0, 10))
       })
 
       await loadPaymentsOnly()
-      setSuccess(`Check #${createdCheck.check_number} marked as printed`)
+      setSuccess(`Check #${printCheckNumber} marked as printed`)
 
       await new Promise((resolve) => {
         requestAnimationFrame(() => {
