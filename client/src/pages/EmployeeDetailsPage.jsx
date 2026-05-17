@@ -318,7 +318,7 @@ function PrintPreviewModal({
               className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
             >
               <Printer size={16} />
-              {printing ? 'Saving...' : 'Save & Print'}
+              {printing ? 'Preparing...' : 'Print'}
             </button>
 
             <button
@@ -356,7 +356,7 @@ function PrintPreviewModal({
                 <div className="max-w-md rounded-xl border border-slate-300 p-6 text-center">
                   <div className="text-2xl font-bold">Check number pending</div>
                   <div className="mt-3 text-sm text-slate-700">
-                    Click <strong>Save & Print</strong>. The check number will be created by the database and then printed.
+                    The check number must be created by the database before preview opens.
                   </div>
                 </div>
               </div>
@@ -925,19 +925,13 @@ export default function EmployeeDetailsPage() {
   const fullName =
     [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || '—'
 
-  function handleOpenPrintModal() {
-    setError('')
-    setSuccess('')
-    setPrintCheckNumber(null)
-    setPrintPayDate(new Date().toISOString().slice(0, 10))
-    setPrintModalOpen(true)
-  }
-
-  async function handleSaveAndPrint() {
+  async function handleOpenPrintModal() {
     try {
       setPaying(true)
       setError('')
       setSuccess('')
+      setPrintCheckNumber(null)
+      setPrintPayDate(new Date().toISOString().slice(0, 10))
 
       const netPay = Number(totals.netPay || 0)
 
@@ -1007,24 +1001,32 @@ export default function EmployeeDetailsPage() {
               }
             : prev
         )
+        setPrintModalOpen(true)
       })
 
       await loadPaymentsOnly()
       setSuccess(`Payment saved. Check #${createdCheck.check_number}`)
-
-      await new Promise((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(resolve)
-        })
-      })
-
-      window.print()
     } catch (err) {
-      console.error('handleSaveAndPrint error:', err)
-      setError(err.message || 'Failed to save payment')
+      console.error('handleOpenPrintModal error:', err)
+      setError(err.message || 'Failed to create check')
     } finally {
       setPaying(false)
     }
+  }
+
+  async function handleSaveAndPrint() {
+    if (!printCheckNumber) {
+      setError('Check number was not created')
+      return
+    }
+
+    await new Promise((resolve) => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(resolve)
+      })
+    })
+
+    window.print()
   }
 
  const displayLogs = useMemo(() => {
