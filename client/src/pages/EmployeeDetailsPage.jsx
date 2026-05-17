@@ -1068,9 +1068,42 @@ export default function EmployeeDetailsPage() {
     setLogs((prev) => [buildEmptyRow(), ...prev])
   }
 
+
+  function buildDraftRowForDate(rowId) {
+    const dateStr = String(rowId || '').startsWith('empty-')
+      ? String(rowId).replace('empty-', '')
+      : new Date().toISOString().slice(0, 10)
+
+    return {
+      id: rowId,
+      work_date: dateStr,
+      time_in: '',
+      time_out: '',
+      lunch_hours: '1',
+      reg_hours: '0',
+      labor_amount: '0',
+      manual_time_in: false,
+      manual_time_out: false,
+      manually_edited: false,
+      is_deleted: false,
+      is_empty: true,
+    }
+  }
+
+  function ensureEditableLogsRow(prev, rowId) {
+    if (!String(rowId || '').startsWith('empty-')) return prev
+
+    const exists = prev.some((row) => row.id === rowId)
+    if (exists) return prev
+
+    return [buildDraftRowForDate(rowId), ...prev]
+  }
+
   function updateRowValue(rowId, field, value) {
-    setLogs((prev) =>
-      prev.map((row) => {
+    setLogs((prev) => {
+      const editableLogs = ensureEditableLogsRow(prev, rowId)
+
+      return editableLogs.map((row) => {
         if (row.id !== rowId) return row
 
         const nextRow = { ...row, [field]: value }
@@ -1099,23 +1132,26 @@ export default function EmployeeDetailsPage() {
 
         return nextRow
       })
-    )
+    })
   }
 
   function updateUsDateInput(rowId, displayValue) {
     const parsedDate = parseUSDateInput(displayValue)
 
-    setLogs((prev) =>
-      prev.map((row) => {
+    setLogs((prev) => {
+      const editableLogs = ensureEditableLogsRow(prev, rowId)
+
+      return editableLogs.map((row) => {
         if (row.id !== rowId) return row
 
         return {
           ...row,
           work_date_display: displayValue,
           work_date: parsedDate || row.work_date,
+          manually_edited: true,
         }
       })
-    )
+    })
   }
 
   function finishUsDateInput(rowId) {
@@ -1134,8 +1170,10 @@ export default function EmployeeDetailsPage() {
   function updateUsTimeInput(rowId, field, displayField, displayValue) {
     const parsedTime = parseUSTimeInput(displayValue)
 
-    setLogs((prev) =>
-      prev.map((row) => {
+    setLogs((prev) => {
+      const editableLogs = ensureEditableLogsRow(prev, rowId)
+
+      return editableLogs.map((row) => {
         if (row.id !== rowId) return row
 
         const nextRow = {
@@ -1172,7 +1210,7 @@ export default function EmployeeDetailsPage() {
 
         return nextRow
       })
-    )
+    })
   }
 
   function finishUsTimeInput(rowId, displayField) {
@@ -1218,7 +1256,7 @@ export default function EmployeeDetailsPage() {
         updated_at: new Date().toISOString(),
       }
 
-      if (String(row.id).startsWith('new-')) {
+      if (String(row.id).startsWith('new-') || String(row.id).startsWith('empty-')) {
         const { error } = await supabase.from('employee_work_logs').insert(payload)
         if (error) throw error
       } else {
@@ -1245,7 +1283,7 @@ export default function EmployeeDetailsPage() {
       setError('')
       setSuccess('')
 
-      if (String(row.id).startsWith('new-')) {
+      if (String(row.id).startsWith('new-') || String(row.id).startsWith('empty-')) {
         setLogs((prev) => prev.filter((item) => item.id !== row.id))
         return
       }
