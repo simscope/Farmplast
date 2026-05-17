@@ -3,17 +3,16 @@
   src: url('/fonts/micr.ttf') format('truetype');
   font-weight: normal;
   font-style: normal;
+  font-display: swap;
 }
 
-.payroll-check-page {
-  width: 215.9mm;
-  min-height: 279.4mm;
+.payroll-print-host {
   background: white;
   color: black;
   box-sizing: border-box;
-  overflow: hidden;
 }
 
+.payroll-check-page,
 .print-payroll-sheet {
   width: 215.9mm;
   min-height: 279.4mm;
@@ -106,10 +105,6 @@
   white-space: nowrap;
 }
 
-.no-print {
-  display: block;
-}
-
 @page {
   size: 215.9mm 279.4mm;
   margin: 0;
@@ -125,104 +120,90 @@
     padding: 0 !important;
     background: white !important;
     overflow: visible !important;
-
     -webkit-print-color-adjust: exact !important;
     print-color-adjust: exact !important;
-  }
-
-  body {
-    background: white !important;
   }
 
   body * {
     visibility: hidden !important;
   }
 
-  .print-payroll-sheet,
-  .print-payroll-sheet *,
-  .print-modal-sheet,
-  .print-modal-sheet *,
-  .print-report-sheet,
-  .print-report-sheet *,
-  .print-tear-line,
-  .print-tear-line * {
+  .payroll-print-host,
+  .payroll-print-host * {
     visibility: visible !important;
   }
 
-  .print-payroll-sheet {
+  .payroll-print-host {
     position: absolute !important;
     left: 0 !important;
     top: 0 !important;
-
     width: 215.9mm !important;
-    min-height: 279.4mm !important;
-
     margin: 0 !important;
     padding: 0 !important;
-
     background: white !important;
-
+    color: black !important;
     box-shadow: none !important;
-
-    overflow: hidden !important;
-
-    z-index: 999997 !important;
-  }
-
-  .print-modal-sheet {
-    position: absolute !important;
-
-    left: 0 !important;
-    top: 0 !important;
-
-    width: 215.9mm !important;
-    height: 88.9mm !important;
-
-    min-width: 215.9mm !important;
-    min-height: 88.9mm !important;
-
-    margin: 0 !important;
-    padding: 0 !important;
-
-    background: white !important;
-
-    overflow: hidden !important;
-
-    box-shadow: none !important;
-
+    overflow: visible !important;
     z-index: 999999 !important;
   }
 
-  .print-report-sheet {
-    position: absolute !important;
-
-    left: 8mm !important;
-    top: 96mm !important;
-
-    width: 200mm !important;
-
+  .payroll-print-host .print-payroll-sheet {
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 215.9mm !important;
+    height: 279.4mm !important;
+    min-width: 215.9mm !important;
+    min-height: 279.4mm !important;
     margin: 0 !important;
-    padding: 4mm !important;
-
+    padding: 0 !important;
     background: white !important;
-
     box-shadow: none !important;
-
-    z-index: 999998 !important;
+    overflow: hidden !important;
+    page-break-after: always !important;
+    break-after: page !important;
   }
 
-  .print-tear-line {
+  .payroll-print-host .print-payroll-sheet:last-child {
+    page-break-after: auto !important;
+    break-after: auto !important;
+  }
+
+  .payroll-print-host .print-modal-sheet {
+    position: absolute !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 215.9mm !important;
+    height: 88.9mm !important;
+    min-width: 215.9mm !important;
+    min-height: 88.9mm !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: white !important;
+    box-shadow: none !important;
+    overflow: hidden !important;
+  }
+
+  .payroll-print-host .print-report-sheet {
+    position: absolute !important;
+    left: 8mm !important;
+    top: 96mm !important;
+    width: 200mm !important;
+    margin: 0 !important;
+    padding: 4mm !important;
+    background: white !important;
+    box-shadow: none !important;
+  }
+
+  .payroll-print-host .print-tear-line {
     display: block !important;
-    visibility: visible !important;
-
     width: 100% !important;
-
     border-top: 2px dashed #555 !important;
-
     margin: 0 0 6mm 0 !important;
   }
 
-  .no-print {
+  .no-print,
+  .selected-checks-modal-header {
     display: none !important;
     visibility: hidden !important;
   }
