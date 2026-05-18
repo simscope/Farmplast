@@ -1,5 +1,4 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { renderToStaticMarkup } from 'react-dom/server'
 import { Link } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -25,8 +24,8 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
-import PayrollCheck from '../components/payroll/PayrollCheck'
-import '../components/payroll/PayrollCheck.css'
+import micrFontUrl from '../assets/fonts/MICRE13B.ttf'
+
 const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
@@ -185,42 +184,6 @@ function getPreviousWeekRange() {
   }
 }
 
-function getPreviousWeekMondayText() {
-  return getPreviousWeekRange().startText
-}
-
-function getWeekRangeFromDate(dateStr) {
-  const selectedDate = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date()
-
-  if (Number.isNaN(selectedDate.getTime())) {
-    return getPreviousWeekRange()
-  }
-
-  const currentDay = selectedDate.getDay() || 7
-
-  const start = new Date(selectedDate)
-  start.setHours(0, 0, 0, 0)
-  start.setDate(selectedDate.getDate() - currentDay + 1)
-
-  const end = new Date(start)
-  end.setDate(start.getDate() + 6)
-  end.setHours(23, 59, 59, 999)
-
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const day = new Date(start)
-    day.setDate(start.getDate() + index)
-    return day
-  })
-
-  return {
-    start,
-    end,
-    startText: toLocalDateString(start),
-    endText: toLocalDateString(end),
-    days,
-  }
-}
-
 function getCurrentWeekRange() {
   const today = new Date()
   const currentDay = today.getDay() || 7
@@ -251,23 +214,6 @@ function getCurrentWeekRange() {
 function formatReportDate(date) {
   return date.toLocaleDateString('en-US', {
     weekday: 'short',
-    month: '2-digit',
-    day: '2-digit',
-    year: 'numeric',
-  })
-}
-
-
-function formatUsDate(value) {
-  if (!value) return ''
-
-  const date = value instanceof Date
-    ? value
-    : new Date(`${value}T00:00:00`)
-
-  if (Number.isNaN(date.getTime())) return String(value || '')
-
-  return date.toLocaleDateString('en-US', {
     month: '2-digit',
     day: '2-digit',
     year: 'numeric',
@@ -994,8 +940,6 @@ export default function DashboardPage() {
   const [form, setForm] = useState(emptyForm)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportError, setReportError] = useState('')
-  const [showPayrollMenu, setShowPayrollMenu] = useState(false)
-  const [payrollSelectedDate, setPayrollSelectedDate] = useState(getPreviousWeekMondayText())
   const [selectedCheckIds, setSelectedCheckIds] = useState([])
 
   const isEditing = Boolean(form.id)
@@ -1444,8 +1388,8 @@ export default function DashboardPage() {
     }
   }
 
-  async function loadPreviousWeekWorkLogs(customWeek = null) {
-    const week = customWeek || getPreviousWeekRange()
+  async function loadPreviousWeekWorkLogs() {
+    const week = getPreviousWeekRange()
 
     const { data, error } = await supabase
       .from('employee_work_logs')
@@ -1823,7 +1767,7 @@ export default function DashboardPage() {
       color: #0f172a;
       background: #ffffff;
       font-family: Arial, Helvetica, sans-serif;
-      font-size: 10px;
+      font-size: 9px;
     }
     .invoice-shell { width: 100%; margin: 0 auto; }
     .top {
@@ -1835,10 +1779,10 @@ export default function DashboardPage() {
       padding-bottom: 8px;
     }
     .brand { font-size: 10px; font-weight: 900; color: #0369a1; letter-spacing: .08em; text-transform: uppercase; }
-    h1 { margin: 2px 0 4px; font-size: 24px; line-height: 1; color: #0f172a; }
+    h1 { margin: 2px 0 4px; font-size: 22px; line-height: 1; color: #0f172a; }
     .period { font-size: 11px; font-weight: 800; }
-    .muted { color: #64748b; font-size: 9px; line-height: 1.2; }
-    .rules { margin-top: 3px; color: #334155; font-size: 9px; }
+    .muted { color: #64748b; font-size: 8px; line-height: 1.2; }
+    .rules { margin-top: 3px; color: #334155; font-size: 8px; }
     .top-actions { display: flex; align-items: start; gap: 8px; }
     .invoice-box {
       min-width: 250px;
@@ -1869,12 +1813,12 @@ export default function DashboardPage() {
       background: #f0f9ff;
       min-height: 38px;
     }
-    .summary-card span { display: block; color: #0369a1; font-weight: 800; font-size: 8px; text-transform: uppercase; }
-    .summary-card b { display: block; font-size: 14px; margin-top: 2px; color: #0f172a; }
+    .summary-card span { display: block; color: #0369a1; font-weight: 800; font-size: 7px; text-transform: uppercase; }
+    .summary-card b { display: block; font-size: 13px; margin-top: 2px; color: #0f172a; }
     table { width: 100%; border-collapse: collapse; table-layout: fixed; }
     th, td { border: 1px solid #cbd5e1; padding: 3px 4px; vertical-align: top; }
-    th { background: #0369a1; color: white; text-align: left; font-size: 8px; text-transform: uppercase; line-height: 1.1; }
-    td { font-size: 9px; line-height: 1.15; }
+    th { background: #0369a1; color: white; text-align: left; font-size: 7px; text-transform: uppercase; line-height: 1.1; }
+    td { font-size: 8px; line-height: 1.15; }
     .tiny { width: 24px; }
     .emp-cell { width: 130px; }
     .day-col { width: 66px; }
@@ -1883,7 +1827,7 @@ export default function DashboardPage() {
     .strong { font-weight: 900; }
     .tax-cell { background: #fff7ed; color: #9a3412; }
     .total-net { background: #dcfce7; color: #166534; }
-    .footer-note { margin-top: 6px; color: #64748b; font-size: 9px; }
+    .footer-note { margin-top: 6px; color: #64748b; font-size: 8px; }
     .no-print {
       border: 0;
       border-radius: 7px;
@@ -1895,7 +1839,7 @@ export default function DashboardPage() {
       cursor: pointer;
     }
     @media print {
-      body { padding: 0; font-size: 9px; }
+      body { padding: 0; font-size: 8px; }
       .no-print { display: none !important; }
       .summary-card { padding: 4px; }
       th, td { padding: 2px 3px; }
@@ -1909,7 +1853,7 @@ export default function DashboardPage() {
       <div>
         <div class="brand">Payroll Report</div>
         <h1>Weekly Payroll</h1>
-        <div class="period">Payroll week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
+        <div class="period">Previous week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
         <div class="rules">If Overtime is enabled: first 40h/week at regular rate, hours over 40h at 1.5x. If No OT: all hours stay regular. Main tax 15.3%, OT tax 27%. All money rounded to whole dollars.</div>
       </div>
       <div class="top-actions">
@@ -2026,13 +1970,13 @@ export default function DashboardPage() {
     return `Payroll Report,${week.startText} to ${week.endText}\nAll money rounded to whole dollars\n${lines.join('\n')}`
   }
 
-  async function handlePayrollPdfReport(selectedWeek = null) {
+  async function handlePayrollPdfReport() {
     try {
       setReportLoading(true)
       setReportError('')
       setError('')
 
-      const { week, logs } = await loadPreviousWeekWorkLogs(selectedWeek)
+      const { week, logs } = await loadPreviousWeekWorkLogs()
       const deductionsRows = await tryLoadPayrollDeductions(week)
       const html = buildPayrollReportHtml(week, logs, deductionsRows)
 
@@ -2063,6 +2007,159 @@ export default function DashboardPage() {
     }
   }
 
+  function numberToWordsUnder1000(n) {
+    const ones = [
+      'zero',
+      'one',
+      'two',
+      'three',
+      'four',
+      'five',
+      'six',
+      'seven',
+      'eight',
+      'nine',
+      'ten',
+      'eleven',
+      'twelve',
+      'thirteen',
+      'fourteen',
+      'fifteen',
+      'sixteen',
+      'seventeen',
+      'eighteen',
+      'nineteen',
+    ]
+
+    const tens = [
+      '',
+      '',
+      'twenty',
+      'thirty',
+      'forty',
+      'fifty',
+      'sixty',
+      'seventy',
+      'eighty',
+      'ninety',
+    ]
+
+    if (n < 20) return ones[n]
+    if (n < 100) {
+      const ten = Math.floor(n / 10)
+      const rest = n % 10
+      return rest ? `${tens[ten]}-${ones[rest]}` : tens[ten]
+    }
+
+    const hundred = Math.floor(n / 100)
+    const rest = n % 100
+    return rest
+      ? `${ones[hundred]} hundred ${numberToWordsUnder1000(rest)}`
+      : `${ones[hundred]} hundred`
+  }
+
+  function numberToWords(n) {
+    const num = Math.floor(Number(n || 0))
+
+    if (num === 0) return 'zero'
+    if (num < 1000) return numberToWordsUnder1000(num)
+
+    if (num < 1000000) {
+      const thousands = Math.floor(num / 1000)
+      const rest = num % 1000
+      return rest
+        ? `${numberToWordsUnder1000(thousands)} thousand ${numberToWordsUnder1000(rest)}`
+        : `${numberToWordsUnder1000(thousands)} thousand`
+    }
+
+    const millions = Math.floor(num / 1000000)
+    const rest = num % 1000000
+    return rest ? `${numberToWords(millions)} million ${numberToWords(rest)}` : `${numberToWords(millions)} million`
+  }
+
+  function amountToWords(amount) {
+    const value = Number(amount || 0)
+    const dollars = Math.floor(value)
+    const cents = Math.round((value - dollars) * 100)
+    return `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
+  }
+
+  function getPayeeNameForCheck(employee) {
+    return employee?.employer_form === 'Other' && employee?.company_name
+      ? employee.company_name
+      : getFullName(employee)
+  }
+
+  function buildCheckStockHtml(employee, totals, week, checkNumber) {
+    const payeeName = escapeHtml(getPayeeNameForCheck(employee))
+    const dateObj = new Date()
+    const dateText = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${String(dateObj.getFullYear()).slice(-2)}`
+    const amount = Number(totals.netPay || 0)
+    const dollars = Math.floor(amount)
+    const cents = Math.round((amount - dollars) * 100)
+    const rawCheckNumber = Number(checkNumber || employee?.last_check_number || 0)
+    const checkNumberTop = String(rawCheckNumber)
+    const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
+    const amountWords = escapeHtml(amountToWords(amount))
+    const memoText = escapeHtml(`${formatCheckDate(week?.startText || week?.start)} - ${formatCheckDate(week?.endText || week?.end)}`)
+    const micrText = escapeHtml(`C${checkNumberMicr}C A031201360A 443187254C`)
+
+    return `
+      <div class="check-stock">
+        <div class="company-block">
+          <div class="company-name">FARMPLAST LLC</div>
+          <div>125 EAST HALSEY ROAD</div>
+          <div>PARSIPPANY, NJ 07054</div>
+        </div>
+        <div class="check-number">${checkNumberTop}</div>
+        <div class="pay-label"><div>PAY</div><div>TO THE</div><div>ORDER OF</div></div>
+        <div class="payee-text">${payeeName}</div><div class="payee-line"></div>
+        <div class="date-label">DATE</div><div class="date-text">${dateText}</div><div class="date-line"></div>
+        <div class="amount-number"><span>$</span><span>${dollars}</span><sup>${String(cents).padStart(2, '0')}</sup></div>
+        <div class="amount-words">${amountWords}</div><div class="amount-words-line"></div><div class="dollars-label">DOLLARS</div>
+        <div class="bank-name">TD BANK, N.A.</div>
+        <div class="for-label">FOR</div><div class="memo-text">${memoText}</div><div class="memo-line"></div><div class="memo-line-2"></div>
+        <div class="micr-text">${micrText}</div>
+      </div>`
+  }
+
+  function buildPayrollStubHtml(title, employee, week, totals, checkNumber) {
+    const payeeName = escapeHtml(getPayeeNameForCheck(employee))
+    const payDate = new Date().toLocaleDateString('en-US')
+    const checkNumberText = String(Number(checkNumber || employee?.last_check_number || 0))
+    const stubMoney = (value) => `$${Math.round(Number(value || 0)).toLocaleString('en-US')}`
+
+    return `
+      <div class="payroll-stub-copy">
+        <div class="stub-header">
+          <div class="stub-title">${escapeHtml(title)}</div>
+          <div class="stub-meta"><div><b>Check #:</b> ${escapeHtml(checkNumberText)}</div><div><b>Pay Date:</b> ${escapeHtml(payDate)}</div></div>
+        </div>
+        <div class="stub-info">
+          <div><b>Employee:</b> ${payeeName}</div>
+          <div><b>Employee #:</b> ${escapeHtml(employee?.employee_number || '—')}</div>
+          <div><b>Period:</b> ${formatReportDate(week.start)} - ${formatReportDate(week.end)}</div>
+          <div><b>Pay Type:</b> ${escapeHtml(employee?.pay_type || '—')}</div>
+        </div>
+        <div class="stub-grid">
+          <table><thead><tr><th>EARNINGS</th><th>HOURS</th><th>AMOUNT</th></tr></thead><tbody>
+            <tr><td>Regular Pay</td><td>${Number(totals.mainHours || 0).toFixed(2)}</td><td>${stubMoney(totals.mainLabor)}</td></tr>
+            <tr><td>Overtime Pay</td><td>${Number(totals.overtimeHours || 0).toFixed(2)}</td><td>${stubMoney(totals.overtimeLabor)}</td></tr>
+            <tr><td><b>Gross Pay</b></td><td></td><td><b>${stubMoney(totals.totalLabor)}</b></td></tr>
+          </tbody></table>
+          <table><thead><tr><th>DEDUCTIONS</th><th>AMOUNT</th></tr></thead><tbody>
+            <tr><td>Employee Tax</td><td>${stubMoney(totals.employeeTaxNum)}</td></tr>
+            <tr><td>Rent</td><td>${stubMoney(totals.rentNum)}</td></tr>
+            <tr><td>Electric</td><td>${stubMoney(totals.electricNum)}</td></tr>
+            <tr><td>Water</td><td>${stubMoney(totals.waterNum)}</td></tr>
+            <tr><td>Clean</td><td>${stubMoney(totals.cleanNum)}</td></tr>
+            <tr><td>Transport</td><td>${stubMoney(totals.transportNum)}</td></tr>
+            <tr><td><b>Net Pay</b></td><td><b>${stubMoney(totals.netPay)}</b></td></tr>
+          </tbody></table>
+        </div>
+      </div>`
+  }
+
   function mapPayrollRowToCheckTotals(item) {
     return {
       mainHours: item.regularHours,
@@ -2085,19 +2182,18 @@ export default function DashboardPage() {
       .map((item) => {
         const totals = mapPayrollRowToCheckTotals(item)
         const employee = item.employee
-        const checkNumber = item.print_check_number || Number(employee?.last_check_number || 0) + 1
+        const checkNumber = item.print_check_number || employee?.last_check_number || 0
 
-        return renderToStaticMarkup(
-          <PayrollCheck
-            employee={employee}
-            fullName={getFullName(employee)}
-            totals={totals}
-            periodStart={week.startText}
-            periodEnd={week.endText}
-            checkNumber={checkNumber}
-            payDate={new Date().toISOString().slice(0, 10)}
-          />
-        )
+        return `
+          <section class="print-payroll-sheet">
+            ${buildCheckStockHtml(employee, totals, week, checkNumber)}
+            <div class="print-report-sheet">
+              <div class="print-tear-line"></div>
+              ${buildPayrollStubHtml('EMPLOYEE COPY', employee, week, totals, checkNumber)}
+              <div class="print-tear-line"></div>
+              ${buildPayrollStubHtml('EMPLOYER COPY', employee, week, totals, checkNumber)}
+            </div>
+          </section>`
       })
       .join('')
 
@@ -2108,22 +2204,45 @@ export default function DashboardPage() {
   <title>Selected payroll checks</title>
   <style>
     @page { size: 215.9mm 279.4mm; margin: 0; }
-    html, body {
-      margin: 0;
-      padding: 0;
-      background: white;
-      color: black;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    .payroll-check-page {
-      page-break-after: always;
-      break-after: page;
-    }
-    .payroll-check-page:last-child {
-      page-break-after: auto;
-      break-after: auto;
-    }
+    * { box-sizing: border-box; }
+    @font-face { font-family: "MICR E13B"; src: url("${micrFontUrl}") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+    @font-face { font-family: "CheckArial"; src: url("/fonts/Arial.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
+    @font-face { font-family: "CheckArial"; src: url("/fonts/Arial-Bold.ttf") format("truetype"); font-weight: 700 900; font-style: normal; font-display: swap; }
+    html, body { margin: 0; padding: 0; background: white; color: black; font-family: CheckArial, Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .print-payroll-sheet { position: relative; width: 215.9mm; height: 279.4mm; overflow: hidden; page-break-after: always; break-after: page; background: white; }
+    .print-payroll-sheet:last-child { page-break-after: auto; break-after: auto; }
+    .check-stock { position: relative; width: 215.9mm; height: 88.9mm; min-width: 215.9mm; min-height: 88.9mm; overflow: hidden; background: white; color: black; }
+    .company-block { position: absolute; left: 28mm; top: 7mm; width: 46mm; text-align: center; line-height: 1.05; font-weight: 700; font-size: 2.5mm; letter-spacing: 0.03mm; }
+    .company-name { font-size: 3.5mm; font-weight: 800; }
+    .check-number { position: absolute; right: 16mm; top: 11mm; font-size: 4.6mm; font-weight: 500; line-height: 1; }
+    .pay-label { position: absolute; left: 16mm; top: 32mm; width: 16mm; font-size: 2.2mm; font-weight: 700; line-height: 1; }
+    .payee-text { position: absolute; left: 34mm; top: 33mm; font-size: 5.1mm; font-weight: 500; line-height: 1; white-space: nowrap; max-width: 150mm; overflow: hidden; }
+    .payee-line { position: absolute; left: 28mm; top: 38mm; width: 120mm; border-top: 0.28mm solid #222; }
+    .date-label { position: absolute; left: 151mm; top: 27mm; font-size: 3mm; font-weight: 700; line-height: 1; }
+    .date-text { position: absolute; left: 164mm; top: 26mm; width: 27mm; text-align: center; font-size: 4.4mm; font-weight: 500; line-height: 1; white-space: nowrap; }
+    .date-line { position: absolute; left: 151mm; top: 30mm; width: 35mm; border-top: 0.28mm solid #222; }
+    .amount-number { position: absolute; right: 24mm; top: 34mm; display: flex; align-items: flex-start; justify-content: flex-end; min-width: 34mm; white-space: nowrap; line-height: 1; text-align: right; font-size: 5.8mm; font-weight: 500; }
+    .amount-number sup { font-size: 3mm; font-weight: 500; margin-left: 0.25mm; transform: translateY(-1.1mm); line-height: 1; }
+    .amount-words { position: absolute; left: 18mm; top: 48mm; font-size: 4.5mm; font-weight: 500; line-height: 1; white-space: nowrap; max-width: 160mm; overflow: hidden; text-transform: capitalize; }
+    .amount-words-line { position: absolute; left: 14mm; top: 52mm; width: 160mm; border-top: 0.28mm solid #222; }
+    .dollars-label { position: absolute; left: 158mm; top: 48mm; font-size: 3mm; font-weight: 700; line-height: 1; }
+    .bank-name { position: absolute; left: 20mm; top: 53mm; font-size: 3mm; font-weight: 700; line-height: 1; }
+    .for-label { position: absolute; left: 14mm; top: 70mm; font-size: 3mm; font-weight: 700; line-height: 1; }
+    .memo-text { position: absolute; left: 28mm; top: 69mm; font-size: 4.2mm; font-weight: 500; line-height: 1; white-space: nowrap; max-width: 90mm; overflow: hidden; }
+    .memo-line { position: absolute; left: 22mm; top: 73mm; width: 75mm; border-top: 0.28mm solid #222; }
+    .memo-line-2 { position: absolute; left: 120mm; top: 73mm; width: 80mm; border-top: 0.28mm solid #222; }
+    .micr-text { position: absolute; left: 34mm; top: 80mm; font-family: "MICR E13B", "OCR A Extended", "Courier New", monospace; font-size: 4.7mm; font-weight: 400; letter-spacing: 0.35mm; line-height: 1; white-space: nowrap; }
+    .print-report-sheet { padding: 4mm; background: white; }
+    .print-tear-line { width: 100%; border-top: 2px dashed #555; margin: 0 0 8px 0; }
+    .payroll-stub-copy { border: 1px solid #222; padding: 8px 12px; margin-bottom: 8px; font-size: 11px; color: black; background: white; page-break-inside: avoid; }
+    .stub-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 6px; margin-bottom: 8px; }
+    .stub-title { font-weight: 800; font-size: 14px; letter-spacing: 0.4px; }
+    .stub-meta { text-align: right; font-size: 11px; line-height: 1.35; }
+    .stub-info { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin-bottom: 10px; font-size: 11px; }
+    .stub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
+    th { border: 1px solid #222; padding: 4px; background: #efefef; text-align: left; font-weight: 700; }
+    td { border: 1px solid #222; padding: 4px; }
   </style>
 </head>
 <body>${pages}<script>window.onload = () => setTimeout(() => window.print(), 250)</script></body>
@@ -2667,54 +2786,14 @@ export default function DashboardPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full min-w-[320px] rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
               />
-              <div className="relative">
-                <button
-                  onClick={() => setShowPayrollMenu((value) => !value)}
-                  disabled={reportLoading}
-                  className="inline-flex min-h-[42px] items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {reportLoading ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-                  <span className="leading-tight">
-                    Payroll<br />PDF
-                  </span>
-                </button>
-
-                {showPayrollMenu ? (
-                  <div className="absolute right-0 top-[50px] z-50 w-[300px] rounded-2xl border border-slate-700 bg-[#07111f] p-4 shadow-2xl">
-                    <div className="mb-3">
-                      <div className="text-sm font-bold text-white">Select payroll week</div>
-                      <div className="mt-1 text-xs text-slate-400">
-                        Click any day. Report will use Monday → Sunday.
-                      </div>
-                    </div>
-
-                    <input
-                      type="date"
-                      value={payrollSelectedDate}
-                      onChange={(e) => setPayrollSelectedDate(e.target.value)}
-                      className={inputClass}
-                    />
-
-                    <div className="mt-3 rounded-lg border border-cyan-500/20 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-300">
-                      Week: {getWeekRangeFromDate(payrollSelectedDate).startText} →{' '}
-                      {getWeekRangeFromDate(payrollSelectedDate).endText}
-                    </div>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const week = getWeekRangeFromDate(payrollSelectedDate)
-                        setShowPayrollMenu(false)
-                        handlePayrollPdfReport(week)
-                      }}
-                      className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white transition hover:bg-emerald-500"
-                    >
-                      <FileText size={16} />
-                      Generate PDF
-                    </button>
-                  </div>
-                ) : null}
-              </div>
+              <button
+                onClick={handlePayrollPdfReport}
+                disabled={reportLoading}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {reportLoading ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
+                Payroll PDF
+              </button>
 
               <button
                 onClick={handlePrintSelectedChecks}
