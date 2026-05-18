@@ -230,6 +230,7 @@ function buildEmptyRow() {
     manual_time_in: false,
     manual_time_out: false,
     manually_edited: false,
+    is_dirty: true,
   }
 }
 
@@ -513,6 +514,7 @@ export default function EmployeeDetailsPage() {
       time_in: '',
       time_out: '',
       lunch_hours: '1',
+      downtime_hours: '1',
       reg_hours: '0',
       labor_amount: '0',
       manual_time_in: false,
@@ -520,6 +522,7 @@ export default function EmployeeDetailsPage() {
       manually_edited: false,
       is_deleted: false,
       is_empty: true,
+      is_dirty: false,
     }
   }
 
@@ -539,7 +542,7 @@ export default function EmployeeDetailsPage() {
       return editableLogs.map((row) => {
         if (row.id !== rowId) return row
 
-        const nextRow = { ...row, [field]: value }
+        const nextRow = { ...row, [field]: value, is_dirty: true }
 
         if (
           field === 'time_in' ||
@@ -588,6 +591,7 @@ export default function EmployeeDetailsPage() {
           work_date_display: displayValue,
           work_date: parsedDate || row.work_date,
           manually_edited: true,
+          is_dirty: true,
         }
       })
     })
@@ -622,6 +626,7 @@ export default function EmployeeDetailsPage() {
 
         if (parsedTime) {
           nextRow[field] = parsedTime
+          nextRow.is_dirty = true
 
           if (field === 'time_in') {
             nextRow.manual_time_in = true
@@ -666,54 +671,82 @@ export default function EmployeeDetailsPage() {
     )
   }
 
-  async function saveRow(row) {
+  function buildWorkLogPayload(row) {
+    return {
+      employee_id: id,
+      work_date: row.work_date,
+      time_in: row.time_in || null,
+      time_out: row.time_out || null,
+      lunch_hours: Number(row.lunch_hours || 0),
+      downtime_hours: Number(row.downtime_hours || 0),
+      reg_hours: Number(row.reg_hours || 0),
+      labor_amount: Number(row.labor_amount || 0),
+      source: 'manual',
+      manually_edited:
+        row.manually_edited === true ||
+        row.manual_time_in === true ||
+        row.manual_time_out === true,
+      manual_time_in: row.manual_time_in === true,
+      manual_time_out: row.manual_time_out === true,
+      is_deleted: false,
+      updated_at: new Date().toISOString(),
+    }
+  }
+
+  function isRowChanged(row) {
+    const rowId = String(row?.id || '')
+    return (
+      row?.is_dirty === true ||
+      rowId.startsWith('new-') ||
+      (rowId.startsWith('empty-') && row?.is_empty !== true)
+    )
+  }
+
+  async function saveChangedRows() {
     try {
       setSaving(true)
       setError('')
       setSuccess('')
 
-      if (!row.work_date) {
-        setError('Date is required')
+      const rowsToSave = logs.filter((row) => {
+        if (!row?.work_date) return false
+        if (row?.is_deleted === true) return false
+        if (!isRowChanged(row)) return false
+        if (periodStart && row.work_date < periodStart) return false
+        if (periodEnd && row.work_date > periodEnd) return false
+        return true
+      })
+
+      if (rowsToSave.length === 0) {
+        setSuccess('No changed rows to save')
         return
       }
 
-      const payload = {
-        employee_id: id,
-        work_date: row.work_date,
-        time_in: row.time_in || null,
-        time_out: row.time_out || null,
-        lunch_hours: Number(row.lunch_hours || 0),
-        downtime_hours: Number(row.downtime_hours || 0),
-        reg_hours: Number(row.reg_hours || 0),
-        labor_amount: Number(row.labor_amount || 0),
-        source: 'manual',
-        manually_edited:
-          row.manually_edited === true ||
-          row.manual_time_in === true ||
-          row.manual_time_out === true,
-        manual_time_in: row.manual_time_in === true,
-        manual_time_out: row.manual_time_out === true,
-        is_deleted: false,
-        updated_at: new Date().toISOString(),
+      for (const row of rowsToSave) {
+        if (!row.work_date) {
+          throw new Error('Date is required')
+        }
+
+        const payload = buildWorkLogPayload(row)
+
+        if (String(row.id).startsWith('new-') || String(row.id).startsWith('empty-')) {
+          const { error } = await supabase.from('employee_work_logs').insert(payload)
+          if (error) throw error
+        } else {
+          const { error } = await supabase
+            .from('employee_work_logs')
+            .update(payload)
+            .eq('id', row.id)
+
+          if (error) throw error
+        }
       }
 
-      if (String(row.id).startsWith('new-') || String(row.id).startsWith('empty-')) {
-        const { error } = await supabase.from('employee_work_logs').insert(payload)
-        if (error) throw error
-      } else {
-        const { error } = await supabase
-          .from('employee_work_logs')
-          .update(payload)
-          .eq('id', row.id)
-
-        if (error) throw error
-      }
-
-      setSuccess('Row saved')
+      setSuccess(`${rowsToSave.length} changed row${rowsToSave.length === 1 ? '' : 's'} saved`)
       await loadPage()
     } catch (err) {
-      console.error('saveRow error:', err)
-      setError(err.message || 'Failed to save row')
+      console.error('saveChangedRows error:', err)
+      setError(err.message || 'Failed to save changed rows')
     } finally {
       setSaving(false)
     }
@@ -1728,11 +1761,11 @@ export default function EmployeeDetailsPage() {
 
                         <div className="flex gap-1">
                           <button
-                            onClick={() => saveRow(row)}
+                            onClick={saveChangedRows}
                             disabled={saving}
                             className="rounded-lg bg-cyan-600 px-2 py-2 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
                           >
-                            Save
+                            Save All
                           </button>
 
                           <button
