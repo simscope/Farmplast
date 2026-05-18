@@ -181,7 +181,7 @@ function roundHoursToNearestQuarter(hours) {
   return round2(roundMinutesToNearestQuarter(value * 60) / 60)
 }
 
-function calcDayHours(timeIn, timeOut, lunchHours) {
+function calcDayHours(timeIn, timeOut, lunchHours, downtimeHours = 0) {
   const start = timeToMinutes(timeIn)
   let end = timeToMinutes(timeOut)
 
@@ -192,7 +192,8 @@ function calcDayHours(timeIn, timeOut, lunchHours) {
   const roundedMinutes = roundMinutesToNearestQuarter(rawMinutes)
   const cappedMinutes = Math.min(roundedMinutes, 12 * 60)
   const lunchMinutes = roundMinutesToNearestQuarter(Number(lunchHours || 0) * 60)
-  const payableMinutes = Math.max(0, cappedMinutes - lunchMinutes)
+  const downtimeMinutes = roundMinutesToNearestQuarter(Number(downtimeHours || 0) * 60)
+  const payableMinutes = Math.max(0, cappedMinutes - lunchMinutes - downtimeMinutes)
 
   return round2(payableMinutes / 60)
 }
@@ -223,6 +224,7 @@ function buildEmptyRow() {
     time_in: '',
     time_out: '',
     lunch_hours: '1',
+    downtime_hours: '1',
     reg_hours: '0',
     labor_amount: '0',
     manual_time_in: false,
@@ -539,11 +541,17 @@ export default function EmployeeDetailsPage() {
 
         const nextRow = { ...row, [field]: value }
 
-        if (field === 'time_in' || field === 'time_out' || field === 'lunch_hours') {
+        if (
+          field === 'time_in' ||
+          field === 'time_out' ||
+          field === 'lunch_hours' ||
+          field === 'downtime_hours'
+        ) {
           const computedHours = calcDayHours(
             nextRow.time_in,
             nextRow.time_out,
-            nextRow.lunch_hours
+            nextRow.lunch_hours,
+            nextRow.downtime_hours
           )
 
           nextRow.reg_hours = String(computedHours)
@@ -628,7 +636,8 @@ export default function EmployeeDetailsPage() {
           const computedHours = calcDayHours(
             field === 'time_in' ? parsedTime : nextRow.time_in,
             field === 'time_out' ? parsedTime : nextRow.time_out,
-            nextRow.lunch_hours
+            nextRow.lunch_hours,
+            nextRow.downtime_hours
           )
 
           nextRow.reg_hours = String(computedHours)
@@ -674,6 +683,7 @@ export default function EmployeeDetailsPage() {
         time_in: row.time_in || null,
         time_out: row.time_out || null,
         lunch_hours: Number(row.lunch_hours || 0),
+        downtime_hours: Number(row.downtime_hours || 0),
         reg_hours: Number(row.reg_hours || 0),
         labor_amount: Number(row.labor_amount || 0),
         source: 'manual',
@@ -784,7 +794,7 @@ export default function EmployeeDetailsPage() {
     const recalculated = sorted.map((row) => {
       const fullHours =
         employee?.pay_type === 'hourly'
-          ? calcDayHours(row.time_in, row.time_out, row.lunch_hours)
+          ? calcDayHours(row.time_in, row.time_out, row.lunch_hours, row.downtime_hours)
           : Number(row.reg_hours || 0)
 
       let laborAmount = Number(row.labor_amount || 0)
@@ -803,6 +813,14 @@ export default function EmployeeDetailsPage() {
 
     const totalReg = round2(
       recalculated.reduce((sum, row) => sum + Number(row.reg_hours || 0), 0)
+    )
+
+    const totalLunch = round2(
+      recalculated.reduce((sum, row) => sum + Number(row.lunch_hours || 0), 0)
+    )
+
+    const totalDowntime = round2(
+      recalculated.reduce((sum, row) => sum + Number(row.downtime_hours || 0), 0)
     )
 
     const weeksCount = getWeeksInSelectedPeriod(periodStart, periodEnd)
@@ -885,6 +903,8 @@ export default function EmployeeDetailsPage() {
       ),
       weeksCount,
       totalReg,
+      totalLunch,
+      totalDowntime,
       mainHours,
       overtimeHours,
       totalLabor,
@@ -1117,6 +1137,7 @@ export default function EmployeeDetailsPage() {
         time_in: '',
         time_out: '',
         lunch_hours: '',
+        downtime_hours: '1',
         reg_hours: '',
         labor_amount: '',
         manual_time_in: false,
@@ -1316,7 +1337,7 @@ export default function EmployeeDetailsPage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
+              <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-8">
                 <div>
                   <label className="mb-1 block text-xs text-slate-300">Period start</label>
                   <input
@@ -1356,6 +1377,26 @@ export default function EmployeeDetailsPage() {
                   </div>
                   <div className="mt-1 text-xl font-bold text-white">
                     {totals.totalReg.toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <Clock3 size={14} />
+                    Lunch h
+                  </div>
+                  <div className="mt-1 text-xl font-bold text-slate-200">
+                    {totals.totalLunch.toFixed(2)}
+                  </div>
+                </div>
+
+                <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
+                  <div className="flex items-center gap-2 text-xs text-slate-400">
+                    <Clock3 size={14} />
+                    Downtime h
+                  </div>
+                  <div className="mt-1 text-xl font-bold text-orange-200">
+                    {totals.totalDowntime.toFixed(2)}
                   </div>
                 </div>
 
@@ -1531,7 +1572,7 @@ export default function EmployeeDetailsPage() {
                   <div>
                     <h2 className="text-xl font-bold text-white">Work log</h2>
                     <p className="text-sm text-slate-400">
-                      Max 12h/day, rounded to nearest 15 min, lunch deducted. Employee tax is calculated automatically: main labor 15.3%, overtime labor 27%.
+                      Max 12h/day, rounded to nearest 15 min. Lunch and downtime are deducted. Employee tax is calculated automatically: main labor 15.3%, overtime labor 27%.
                     </p>
                   </div>
                 </div>
@@ -1539,12 +1580,13 @@ export default function EmployeeDetailsPage() {
 
               <div className="overflow-x-auto">
                 <div className="min-w-[1280px]">
-                  <div className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.55fr_0.7fr_0.65fr_1fr] bg-slate-900/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                  <div className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.65fr_0.55fr_0.7fr_0.65fr_1fr] bg-slate-900/70 px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>Date</div>
                     <div>Time In</div>
                     <div>Time Out</div>
                     <div>S</div>
                     <div>Lunch</div>
+                    <div>Downtime</div>
                     <div>Reg</div>
                     <div>Labor</div>
                     <div>Manual</div>
@@ -1559,7 +1601,7 @@ export default function EmployeeDetailsPage() {
                     displayLogs.map((row) => (
                       <div
                         key={row.id}
-                        className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.55fr_0.7fr_0.65fr_1fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-2.5"
+                        className="grid grid-cols-[0.9fr_0.8fr_0.8fr_0.35fr_0.55fr_0.65fr_0.55fr_0.7fr_0.65fr_1fr] items-center gap-2 border-t border-slate-800 bg-[#0b1220] px-4 py-2.5"
                       >
                         <div className="relative">
                           <input
@@ -1636,6 +1678,17 @@ export default function EmployeeDetailsPage() {
                           value={row.lunch_hours ?? '1'}
                           onChange={(e) =>
                             updateRowValue(row.id, 'lunch_hours', e.target.value)
+                          }
+                          className={darkInput}
+                        />
+
+                        <input
+                          type="number"
+                          step="0.25"
+                          min="0"
+                          value={row.downtime_hours ?? '1'}
+                          onChange={(e) =>
+                            updateRowValue(row.id, 'downtime_hours', e.target.value)
                           }
                           className={darkInput}
                         />
