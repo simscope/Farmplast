@@ -87,26 +87,72 @@ function formatTime(value) {
 
   let hour = Number(match[1])
   const minute = match[2]
+
   if (!Number.isFinite(hour) || hour < 0 || hour > 23) return text
 
   const suffix = hour >= 12 ? 'PM' : 'AM'
-  hour %= 12
+  hour = hour % 12
   if (hour === 0) hour = 12
 
   return `${hour}:${minute} ${suffix}`
 }
 
-function formatDayShort(value) {
+function getDayShort(value) {
   if (!value) return ''
   const date = new Date(`${value}T00:00:00`)
   if (Number.isNaN(date.getTime())) return ''
   return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]
 }
 
-function formatHoursOrBlank(value) {
-  const num = Number(value || 0)
-  if (!Number.isFinite(num) || num === 0) return ''
-  return num.toFixed(2)
+function addDays(dateStr, days) {
+  const date = new Date(`${dateStr}T00:00:00`)
+  date.setDate(date.getDate() + days)
+
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
+function buildWeeklyRows(totals, periodStart) {
+  const rowsFromTotals = Array.isArray(totals?.filteredForView)
+    ? totals.filteredForView
+    : Array.isArray(totals?.weeklyRows)
+      ? totals.weeklyRows
+      : Array.isArray(totals?.rows)
+        ? totals.rows
+        : []
+
+  const byDate = {}
+
+  rowsFromTotals.forEach((row) => {
+    if (row?.work_date) byDate[row.work_date] = row
+  })
+
+  if (!periodStart) {
+    return rowsFromTotals
+      .filter((row) => row?.work_date)
+      .sort((a, b) => String(a.work_date).localeCompare(String(b.work_date)))
+  }
+
+  const result = []
+
+  for (let i = 0; i < 7; i += 1) {
+    const dateStr = addDays(periodStart, i)
+    const sourceRow = byDate[dateStr] || {}
+
+    result.push({
+      work_date: dateStr,
+      time_in: sourceRow.time_in || '',
+      time_out: sourceRow.time_out || '',
+      lunch_hours: Number(sourceRow.lunch_hours || 0),
+      downtime_hours: Number(sourceRow.downtime_hours || 0),
+      reg_hours: Number(sourceRow.reg_hours || 0),
+    })
+  }
+
+  return result
 }
 
 function numberToWordsUnder1000(n) {
@@ -203,13 +249,6 @@ function getPayeeName(employee, fullName) {
   }
 
   return fullName || [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || '—'
-}
-
-function getWeeklyRows(totals) {
-  const rows = totals?.filteredForView || totals?.weeklyRows || totals?.rows || []
-  return [...rows]
-    .filter((row) => row?.work_date)
-    .sort((a, b) => String(a.work_date || '').localeCompare(String(b.work_date || '')))
 }
 
 function CheckStockPrint({
@@ -483,23 +522,21 @@ function CheckStockPrint({
   )
 }
 
-function WeeklyTimeReport({ totals }) {
-  const weeklyRows = getWeeklyRows(totals)
-  const showLunch = weeklyRows.some((row) => Number(row?.lunch_hours || 0) > 0)
-  const showDowntime = weeklyRows.some((row) => Number(row?.downtime_hours || 0) > 0)
+function WeeklyTimeReport({ totals, periodStart }) {
+  const weeklyRows = buildWeeklyRows(totals, periodStart)
+  const showLunch = weeklyRows.some((row) => Number(row.lunch_hours || 0) > 0)
+  const showDowntime = weeklyRows.some((row) => Number(row.downtime_hours || 0) > 0)
+  const totalReg = weeklyRows.reduce((sum, row) => sum + Number(row.reg_hours || 0), 0)
 
   if (!weeklyRows.length) return null
 
   return (
-    <div className="payroll-time-report" style={{ marginTop: '8px', fontSize: '10px' }}>
-      <div
-        className="payroll-time-report-title"
-        style={{ fontWeight: 800, fontSize: '11px', marginBottom: '4px' }}
-      >
+    <div style={{ marginTop: '8px' }}>
+      <div style={{ marginBottom: '5px', fontSize: '11px', fontWeight: 800 }}>
         WEEKLY TIME REPORT
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9.5px' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
         <thead>
           <tr>
             <th style={th}>DATE</th>
@@ -514,14 +551,31 @@ function WeeklyTimeReport({ totals }) {
 
         <tbody>
           {weeklyRows.map((row) => (
-            <tr key={row.id || row.work_date}>
+            <tr key={row.work_date}>
               <td style={td}>{formatDate(row.work_date)}</td>
-              <td style={td}>{formatDayShort(row.work_date)}</td>
+              <td style={td}>{getDayShort(row.work_date)}</td>
               <td style={td}>{formatTime(row.time_in)}</td>
               <td style={td}>{formatTime(row.time_out)}</td>
-              {showLunch ? <td style={td}>{formatHoursOrBlank(row.lunch_hours)}</td> : null}
-              {showDowntime ? <td style={td}>{formatHoursOrBlank(row.downtime_hours)}</td> : null}
-              <td style={td}>{formatHoursOrBlank(row.reg_hours)}</td>
+
+              {showLunch ? (
+                <td style={td}>
+                  {Number(row.lunch_hours || 0) > 0
+                    ? Number(row.lunch_hours || 0).toFixed(2)
+                    : ''}
+                </td>
+              ) : null}
+
+              {showDowntime ? (
+                <td style={td}>
+                  {Number(row.downtime_hours || 0) > 0
+                    ? Number(row.downtime_hours || 0).toFixed(2)
+                    : ''}
+                </td>
+              ) : null}
+
+              <td style={td}>
+                {Number(row.reg_hours || 0) > 0 ? Number(row.reg_hours || 0).toFixed(2) : ''}
+              </td>
             </tr>
           ))}
 
@@ -532,7 +586,7 @@ function WeeklyTimeReport({ totals }) {
             <td style={tdBold}></td>
             {showLunch ? <td style={tdBold}></td> : null}
             {showDowntime ? <td style={tdBold}></td> : null}
-            <td style={tdBold}>{Number(totals?.totalReg || 0).toFixed(2)}</td>
+            <td style={tdBold}>{totalReg.toFixed(2)}</td>
           </tr>
         </tbody>
       </table>
@@ -555,6 +609,15 @@ function PayrollStubCopy({
   const payDateText = payDate ? formatDate(payDate) : new Date().toLocaleDateString('en-US')
   const rawCheckNumber = Number(checkNumber || employee?.last_check_number || 0)
   const checkNumberTop = String(rawCheckNumber)
+
+  const deductionRows = [
+    { label: 'Employee Tax', value: totals?.employeeTaxNum },
+    { label: 'Rent', value: totals?.rentNum },
+    { label: 'Electric', value: totals?.electricNum },
+    { label: 'Water', value: totals?.waterNum },
+    { label: 'Clean', value: totals?.cleanNum },
+    { label: 'Transport', value: totals?.transportNum },
+  ].filter((row) => Number(row.value || 0) !== 0)
 
   return (
     <div
@@ -638,11 +701,13 @@ function PayrollStubCopy({
               <td style={td}>{stubMoney(totals?.mainLabor)}</td>
             </tr>
 
-            <tr>
-              <td style={td}>Overtime Pay</td>
-              <td style={td}>{Number(totals?.overtimeHours || 0).toFixed(2)}</td>
-              <td style={td}>{stubMoney(totals?.overtimeLabor)}</td>
-            </tr>
+            {Number(totals?.overtimeHours || 0) > 0 || Number(totals?.overtimeLabor || 0) > 0 ? (
+              <tr>
+                <td style={td}>Overtime Pay</td>
+                <td style={td}>{Number(totals?.overtimeHours || 0).toFixed(2)}</td>
+                <td style={td}>{stubMoney(totals?.overtimeLabor)}</td>
+              </tr>
+            ) : null}
 
             <tr>
               <td style={tdBold}>Gross Pay</td>
@@ -661,35 +726,12 @@ function PayrollStubCopy({
           </thead>
 
           <tbody>
-            <tr>
-              <td style={td}>Employee Tax</td>
-              <td style={td}>{stubMoney(totals?.employeeTaxNum)}</td>
-            </tr>
-
-            <tr>
-              <td style={td}>Rent</td>
-              <td style={td}>{stubMoney(totals?.rentNum)}</td>
-            </tr>
-
-            <tr>
-              <td style={td}>Electric</td>
-              <td style={td}>{stubMoney(totals?.electricNum)}</td>
-            </tr>
-
-            <tr>
-              <td style={td}>Water</td>
-              <td style={td}>{stubMoney(totals?.waterNum)}</td>
-            </tr>
-
-            <tr>
-              <td style={td}>Clean</td>
-              <td style={td}>{stubMoney(totals?.cleanNum)}</td>
-            </tr>
-
-            <tr>
-              <td style={td}>Transport</td>
-              <td style={td}>{stubMoney(totals?.transportNum)}</td>
-            </tr>
+            {deductionRows.map((row) => (
+              <tr key={row.label}>
+                <td style={td}>{row.label}</td>
+                <td style={td}>{stubMoney(row.value)}</td>
+              </tr>
+            ))}
 
             <tr>
               <td style={tdBold}>Net Pay</td>
@@ -699,7 +741,7 @@ function PayrollStubCopy({
         </table>
       </div>
 
-      <WeeklyTimeReport totals={totals} />
+      <WeeklyTimeReport totals={totals} periodStart={periodStart} />
     </div>
   )
 }
