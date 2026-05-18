@@ -99,6 +99,35 @@
   font-weight: 700;
 }
 
+.payroll-time-report {
+  margin-top: 8px;
+  font-size: 10px;
+}
+
+.payroll-time-report-title {
+  font-weight: 800;
+  margin-bottom: 4px;
+  letter-spacing: 0.2px;
+}
+
+.payroll-time-report table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5px;
+}
+
+.payroll-time-report th,
+.payroll-time-report td {
+  border: 1px solid #222;
+  padding: 3px 4px;
+  text-align: left;
+}
+
+.payroll-time-report th {
+  background: #efefef;
+  font-weight: 700;
+}
+
 .payroll-micr {
   font-family: 'MICR E13B', 'Courier New', monospace;
   letter-spacing: 0.35mm;
