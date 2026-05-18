@@ -78,7 +78,6 @@ function formatDate(value) {
   })
 }
 
-
 function formatTime(value) {
   if (!value) return ''
 
@@ -88,77 +87,26 @@ function formatTime(value) {
 
   let hour = Number(match[1])
   const minute = match[2]
-
   if (!Number.isFinite(hour) || hour < 0 || hour > 23) return text
 
   const suffix = hour >= 12 ? 'PM' : 'AM'
-  hour = hour % 12
+  hour %= 12
   if (hour === 0) hour = 12
 
   return `${hour}:${minute} ${suffix}`
 }
 
-function formatHourCell(value) {
-  const num = Number(value || 0)
-  if (!Number.isFinite(num) || num === 0) return ''
-  return num.toFixed(2)
-}
-
-function getDayName(dateStr) {
-  if (!dateStr) return ''
-  const date = new Date(`${dateStr}T00:00:00`)
+function formatDayShort(value) {
+  if (!value) return ''
+  const date = new Date(`${value}T00:00:00`)
   if (Number.isNaN(date.getTime())) return ''
   return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][date.getDay()]
 }
 
-function buildTimeReportRows(totals, periodStart, periodEnd) {
-  const sourceRows = Array.isArray(totals?.filteredForView) ? totals.filteredForView : []
-  const byDate = {}
-
-  sourceRows.forEach((row) => {
-    if (row?.work_date) byDate[row.work_date] = row
-  })
-
-  if (!periodStart || !periodEnd) {
-    return sourceRows
-      .filter((row) => row?.work_date)
-      .sort((a, b) => String(a.work_date || '').localeCompare(String(b.work_date || '')))
-  }
-
-  const start = new Date(`${periodStart}T00:00:00`)
-  const end = new Date(`${periodEnd}T00:00:00`)
-
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime()) || end < start) {
-    return sourceRows
-      .filter((row) => row?.work_date)
-      .sort((a, b) => String(a.work_date || '').localeCompare(String(b.work_date || '')))
-  }
-
-  const rows = []
-  const current = new Date(start)
-
-  while (current <= end && rows.length < 7) {
-    const year = current.getFullYear()
-    const month = String(current.getMonth() + 1).padStart(2, '0')
-    const day = String(current.getDate()).padStart(2, '0')
-    const dateStr = `${year}-${month}-${day}`
-
-    rows.push(
-      byDate[dateStr] || {
-        id: `report-empty-${dateStr}`,
-        work_date: dateStr,
-        time_in: '',
-        time_out: '',
-        lunch_hours: 0,
-        downtime_hours: 0,
-        reg_hours: 0,
-      }
-    )
-
-    current.setDate(current.getDate() + 1)
-  }
-
-  return rows
+function formatHoursOrBlank(value) {
+  const num = Number(value || 0)
+  if (!Number.isFinite(num) || num === 0) return ''
+  return num.toFixed(2)
 }
 
 function numberToWordsUnder1000(n) {
@@ -255,6 +203,13 @@ function getPayeeName(employee, fullName) {
   }
 
   return fullName || [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || '—'
+}
+
+function getWeeklyRows(totals) {
+  const rows = totals?.filteredForView || totals?.weeklyRows || totals?.rows || []
+  return [...rows]
+    .filter((row) => row?.work_date)
+    .sort((a, b) => String(a.work_date || '').localeCompare(String(b.work_date || '')))
 }
 
 function CheckStockPrint({
@@ -528,15 +483,18 @@ function CheckStockPrint({
   )
 }
 
+function WeeklyTimeReport({ totals }) {
+  const weeklyRows = getWeeklyRows(totals)
+  const showLunch = weeklyRows.some((row) => Number(row?.lunch_hours || 0) > 0)
+  const showDowntime = weeklyRows.some((row) => Number(row?.downtime_hours || 0) > 0)
 
-function PayrollTimeReport({ totals, periodStart, periodEnd }) {
-  const rows = buildTimeReportRows(totals, periodStart, periodEnd)
+  if (!weeklyRows.length) return null
 
   return (
     <div className="payroll-time-report" style={{ marginTop: '8px', fontSize: '10px' }}>
       <div
         className="payroll-time-report-title"
-        style={{ fontWeight: 800, marginBottom: '4px', letterSpacing: '0.2px' }}
+        style={{ fontWeight: 800, fontSize: '11px', marginBottom: '4px' }}
       >
         WEEKLY TIME REPORT
       </div>
@@ -548,30 +506,33 @@ function PayrollTimeReport({ totals, periodStart, periodEnd }) {
             <th style={th}>DAY</th>
             <th style={th}>TIME IN</th>
             <th style={th}>TIME OUT</th>
-            <th style={th}>LUNCH</th>
-            <th style={th}>DOWNTIME</th>
+            {showLunch ? <th style={th}>LUNCH</th> : null}
+            {showDowntime ? <th style={th}>DOWNTIME</th> : null}
             <th style={th}>REG</th>
           </tr>
         </thead>
 
         <tbody>
-          {rows.map((row) => (
+          {weeklyRows.map((row) => (
             <tr key={row.id || row.work_date}>
               <td style={td}>{formatDate(row.work_date)}</td>
-              <td style={td}>{getDayName(row.work_date)}</td>
+              <td style={td}>{formatDayShort(row.work_date)}</td>
               <td style={td}>{formatTime(row.time_in)}</td>
               <td style={td}>{formatTime(row.time_out)}</td>
-              <td style={td}>{formatHourCell(row.lunch_hours)}</td>
-              <td style={td}>{formatHourCell(row.downtime_hours)}</td>
-              <td style={td}>{formatHourCell(row.reg_hours)}</td>
+              {showLunch ? <td style={td}>{formatHoursOrBlank(row.lunch_hours)}</td> : null}
+              {showDowntime ? <td style={td}>{formatHoursOrBlank(row.downtime_hours)}</td> : null}
+              <td style={td}>{formatHoursOrBlank(row.reg_hours)}</td>
             </tr>
           ))}
 
           <tr>
-            <td style={tdBold} colSpan={4}>TOTAL</td>
-            <td style={tdBold}>{formatHourCell(totals?.totalLunch)}</td>
-            <td style={tdBold}>{formatHourCell(totals?.totalDowntime)}</td>
-            <td style={tdBold}>{formatHourCell(totals?.totalReg)}</td>
+            <td style={tdBold}>TOTAL</td>
+            <td style={tdBold}></td>
+            <td style={tdBold}></td>
+            <td style={tdBold}></td>
+            {showLunch ? <td style={tdBold}></td> : null}
+            {showDowntime ? <td style={tdBold}></td> : null}
+            <td style={tdBold}>{Number(totals?.totalReg || 0).toFixed(2)}</td>
           </tr>
         </tbody>
       </table>
@@ -738,7 +699,7 @@ function PayrollStubCopy({
         </table>
       </div>
 
-      <PayrollTimeReport totals={totals} periodStart={periodStart} periodEnd={periodEnd} />
+      <WeeklyTimeReport totals={totals} />
     </div>
   )
 }
@@ -787,36 +748,6 @@ export default function PayrollCheck({
           width: 100%;
           border-top: 2px dashed #555;
           margin: 0 0 8px 0;
-        }
-
-
-        .payroll-time-report {
-          margin-top: 8px;
-          font-size: 10px;
-        }
-
-        .payroll-time-report-title {
-          font-weight: 800;
-          margin-bottom: 4px;
-          letter-spacing: 0.2px;
-        }
-
-        .payroll-time-report table {
-          width: 100%;
-          border-collapse: collapse;
-          font-size: 9.5px;
-        }
-
-        .payroll-time-report th,
-        .payroll-time-report td {
-          border: 1px solid #222;
-          padding: 3px 4px;
-          text-align: left;
-        }
-
-        .payroll-time-report th {
-          background: #efefef;
-          font-weight: 700;
         }
 
         @page {
