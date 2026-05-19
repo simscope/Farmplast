@@ -146,25 +146,6 @@ export function normalizePayrollRow(row, employee = {}) {
   }
 }
 
-/*
-  Supports BOTH calls:
-
-  1) calculatePayrollTotals(rows, employee)
-     Used by EmployeeDetailsPage and PayrollReport.
-
-  2) calculatePayrollTotals({
-       employee,
-       logs,
-       periodStart,
-       periodEnd,
-       rent,
-       electric,
-       water,
-       clean,
-       transport,
-     })
-     Safe for future pages.
-*/
 export function calculatePayrollTotals(input = [], employeeArg = {}) {
   const objectMode = !Array.isArray(input) && typeof input === 'object'
 
@@ -262,8 +243,18 @@ export function calculatePayrollTotals(input = [], employeeArg = {}) {
     totalLabor = mainLabor
   }
 
-  const mainTax = roundDollar(mainLabor * 0.153)
-  const overtimeTax = roundDollar(overtimeLabor * 0.27)
+  const is1099 = String(employee?.employer_form || '')
+    .trim()
+    .toUpperCase() === '1099'
+
+  const mainTax = is1099
+    ? 0
+    : roundDollar(mainLabor * 0.153)
+
+  const overtimeTax = is1099
+    ? 0
+    : roundDollar(overtimeLabor * 0.27)
+
   const employeeTaxNum = roundDollar(mainTax + overtimeTax)
 
   const rentNum = roundDollar(rent)
