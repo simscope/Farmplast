@@ -157,5 +157,19 @@ export function calculatePayrollTotals(rows = [], employee = {}) {
     mainTax,
     overtimeTax,
     employeeTaxNum,
+    
+    export function getWeeksInSelectedPeriod(periodStart, periodEnd) {
+  if (!periodStart || !periodEnd) return 1
+
+  const start = new Date(`${periodStart}T00:00:00`)
+  const end = new Date(`${periodEnd}T00:00:00`)
+
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1
+  if (end < start) return 1
+
+  const daysInclusive = Math.floor((end - start) / 86400000) + 1
+
+  return Math.max(1, Math.ceil(daysInclusive / 7))
+}
   }
 }
