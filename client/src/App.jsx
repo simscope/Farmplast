@@ -16,6 +16,8 @@ import EmployeeDetailsPage from './pages/EmployeeDetailsPage'
 import Chiller1HMIPage from './pages/Chiller1HMIPage'
 import Chiller2HMIPage from './pages/Chiller2HMIPage'
 import Chiller3HMIPage from './pages/Chiller3HMIPage'
+import BackupPage from './pages/BackupPage'
+
 export default function App() {
   return (
     <AuthProvider>
@@ -26,9 +28,22 @@ export default function App() {
         <Route path="/monitoring" element={<MonitoringPage />} />
         <Route path="/monitoring/nj" element={<MonitoringNJPage />} />
         <Route path="/monitoring/pa" element={<MonitoringPAPage />} />
-        <Route path="/monitoring/nj/chiller-1" element={<Chiller1HMIPage />} />
-        <Route path="/monitoring/nj/chiller-2" element={<Chiller2HMIPage />} />
-        <Route path="/monitoring/nj/chiller-3" element={<Chiller3HMIPage />} />
+
+        <Route
+          path="/monitoring/nj/chiller-1"
+          element={<Chiller1HMIPage />}
+        />
+
+        <Route
+          path="/monitoring/nj/chiller-2"
+          element={<Chiller2HMIPage />}
+        />
+
+        <Route
+          path="/monitoring/nj/chiller-3"
+          element={<Chiller3HMIPage />}
+        />
+
         <Route
           path="/dashboard"
           element={
@@ -43,6 +58,15 @@ export default function App() {
           element={
             <ProtectedRoute roles={['admin']}>
               <AdminPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/admin/backup"
+          element={
+            <ProtectedRoute roles={['admin']}>
+              <BackupPage />
             </ProtectedRoute>
           }
         />
