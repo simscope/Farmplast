@@ -5,6 +5,11 @@ import { supabase } from '../lib/supabase'
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
+
+function normalizeShiftType(value) {
+  return String(value || 'day').toLowerCase() === 'night' ? 'night' : 'day'
+}
+
 function sanitizeFileName(name) {
   return String(name || 'file')
     .toLowerCase()
