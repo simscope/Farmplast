@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useState } from 'react'
 import { FileText, FileSpreadsheet } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
@@ -14,18 +14,22 @@ function pad2(value) {
 }
 
 function toLocalDateString(date) {
-  return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(
-    date.getDate()
-  )}`
+  const year = date.getFullYear()
+  const month = pad2(date.getMonth() + 1)
+  const day = pad2(date.getDate())
+
+  return `${year}-${month}-${day}`
 }
 
 function getPreviousWeekRange() {
   const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
   const currentDay = today.getDay() || 7
 
   const start = new Date(today)
-  start.setHours(0, 0, 0, 0)
   start.setDate(today.getDate() - currentDay - 6)
+  start.setHours(0, 0, 0, 0)
 
   const end = new Date(start)
   end.setDate(start.getDate() + 6)
@@ -134,6 +138,13 @@ function buildDayCell(row) {
   )}h</b>${lunch}${downtime}</div>`
 }
 
+function getNetPay(totals) {
+  return roundDollars(
+    Number(totals.totalLabor || 0) -
+      Number(totals.employeeTaxNum || 0)
+  )
+}
+
 function buildPayrollReportHtml(week, payrollRows) {
   const grandHours = payrollRows.reduce(
     (sum, item) => sum + Number(item.totals.totalReg || 0),
@@ -165,6 +176,11 @@ function buildPayrollReportHtml(week, payrollRows) {
     0
   )
 
+  const grandNetPay = payrollRows.reduce(
+    (sum, item) => sum + getNetPay(item.totals),
+    0
+  )
+
   const generatedAt = new Date().toLocaleString('en-US')
 
   const dayHeaders = week.days
@@ -180,6 +196,7 @@ function buildPayrollReportHtml(week, payrollRows) {
   const bodyRows = payrollRows
     .map((item, index) => {
       const employee = item.employee
+      const netPay = getNetPay(item.totals)
 
       const dayCells = week.days
         .map((day) => {
@@ -210,6 +227,7 @@ function buildPayrollReportHtml(week, payrollRows) {
         <td class="num strong tax-cell">${formatMoney(
           item.totals.employeeTaxNum
         )}</td>
+        <td class="num strong net-cell">${formatMoney(netPay)}</td>
       </tr>`
     })
     .join('')
@@ -290,7 +308,7 @@ function buildPayrollReportHtml(week, payrollRows) {
     }
     .summary {
       display: grid;
-      grid-template-columns: repeat(6, 1fr);
+      grid-template-columns: repeat(7, 1fr);
       gap: 5px;
       margin: 7px 0;
     }
@@ -343,6 +361,7 @@ function buildPayrollReportHtml(week, payrollRows) {
     .num { text-align: right; white-space: nowrap; }
     .strong { font-weight: 900; }
     .tax-cell { background: #fff7ed; color: #9a3412; }
+    .net-cell { background: #dcfce7; color: #166534; }
     .footer-note {
       margin-top: 6px;
       color: #64748b;
@@ -376,7 +395,7 @@ function buildPayrollReportHtml(week, payrollRows) {
         <div class="period">Previous week: ${escapeHtml(
           week.startText
         )} - ${escapeHtml(week.endText)}</div>
-        <div class="rules">Uses the same shared payroll calculation as employee payroll card. REG = Time Out - Time In - Lunch - DT. Max 12h/day. Rounded to nearest 15 min.</div>
+        <div class="rules">Uses the same shared payroll calculation as employee payroll card. REG = Time Out - Time In - Lunch - DT. Net Pay = Gross - Employee Tax.</div>
       </div>
       <div>
         <div class="invoice-box">
@@ -391,6 +410,9 @@ function buildPayrollReportHtml(week, payrollRows) {
           )}</span></div>
           <div class="invoice-box-row"><span class="invoice-box-label">Tax</span><span class="invoice-box-value">${formatMoney(
             grandTax
+          )}</span></div>
+          <div class="invoice-box-row"><span class="invoice-box-label">Net Pay</span><span class="invoice-box-value">${formatMoney(
+            grandNetPay
           )}</span></div>
         </div>
         <button class="no-print" onclick="window.print()">Print / Save PDF</button>
@@ -416,6 +438,9 @@ function buildPayrollReportHtml(week, payrollRows) {
       <div class="summary-card"><span>Employee tax</span><b>${formatMoney(
         grandTax
       )}</b></div>
+      <div class="summary-card"><span>Net Pay</span><b>${formatMoney(
+        grandNetPay
+      )}</b></div>
     </div>
 
     <table>
@@ -432,9 +457,10 @@ function buildPayrollReportHtml(week, payrollRows) {
           <th>15.3%</th>
           <th>OT 27%</th>
           <th>Emp Tax</th>
+          <th>Net Pay</th>
         </tr>
       </thead>
-      <tbody>${bodyRows || '<tr><td colspan="18">No employees found</td></tr>'}</tbody>
+      <tbody>${bodyRows || '<tr><td colspan="19">No employees found</td></tr>'}</tbody>
     </table>
 
     <div class="footer-note">Report generated from employee_work_logs.</div>
@@ -460,6 +486,7 @@ function buildPayrollCsv(week, payrollRows) {
       'Main Tax 15.3%',
       'Overtime Tax 27%',
       'Employee Tax Amount',
+      'Net Pay',
       'Mon',
       'Tue',
       'Wed',
@@ -474,6 +501,7 @@ function buildPayrollCsv(week, payrollRows) {
 
   payrollRows.forEach((item) => {
     const employee = item.employee
+    const netPay = getNetPay(item.totals)
 
     const dayValues = week.days.map((day) => {
       const dateText = toLocalDateString(day)
@@ -502,6 +530,7 @@ function buildPayrollCsv(week, payrollRows) {
         roundDollars(item.totals.mainTax),
         roundDollars(item.totals.overtimeTax),
         roundDollars(item.totals.employeeTaxNum),
+        roundDollars(netPay),
         ...dayValues,
       ]
         .map(csvCell)
@@ -526,7 +555,7 @@ export default function PayrollReport({ employees = [] }) {
       .select('*')
       .gte('work_date', week.startText)
       .lte('work_date', week.endText)
-      .eq('is_deleted', false)
+      .or('is_deleted.is.null,is_deleted.eq.false')
       .order('work_date', { ascending: true })
 
     if (logsError) throw logsError
@@ -553,7 +582,7 @@ export default function PayrollReport({ employees = [] }) {
 
       const rowsByDate = {}
 
-      normalizedRows.forEach((row) => {
+      ;(totals.rows || normalizedRows).forEach((row) => {
         if (row.work_date) {
           rowsByDate[row.work_date] = row
         }
@@ -561,7 +590,7 @@ export default function PayrollReport({ employees = [] }) {
 
       return {
         employee,
-        rows: normalizedRows,
+        rows: totals.rows || normalizedRows,
         rowsByDate,
         totals,
       }
@@ -631,7 +660,7 @@ export default function PayrollReport({ employees = [] }) {
         <div>
           <h2 className="text-lg font-bold text-white">Payroll report</h2>
           <p className="mt-1 text-xs text-cyan-200">
-            Uses the same shared calculation as employee payroll card. Includes Lunch and DT.
+            Uses the same shared calculation as employee payroll card. Includes Lunch, DT and Net Pay.
           </p>
         </div>
 
