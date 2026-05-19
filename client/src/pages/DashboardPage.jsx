@@ -7,13 +7,13 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
-  Upload,
-  Loader2,
   Hash,
   User,
   Phone,
   Mail,
   ExternalLink,
+  Upload,
+  Loader2,
   CalendarDays,
   FileText,
   FileSpreadsheet,
@@ -24,6 +24,7 @@ import {
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import EmployeeModal from '../components/EmployeeModal'
+import PayrollReport from '../components/PayrollReport'
 import micrFontUrl from '../assets/fonts/MICRE13B.ttf'
 
 const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
@@ -2210,6 +2211,8 @@ export default function DashboardPage() {
           ) : null}
         </div>
 
+        <PayrollReport employees={employees} />
+
         <div className={cardClass}>
           <div className="flex flex-col gap-3 border-b border-slate-800 p-3 lg:flex-row lg:items-center lg:justify-between">
             <div>
@@ -2227,15 +2230,6 @@ export default function DashboardPage() {
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full min-w-[320px] rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
               />
-              <button
-                onClick={handlePayrollPdfReport}
-                disabled={reportLoading}
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {reportLoading ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
-                Payroll PDF
-              </button>
-
               <button
                 onClick={handlePrintSelectedChecks}
                 disabled={reportLoading || selectedCheckIds.length === 0}
