@@ -21,15 +21,14 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
+  calculatePayrollTotals,
+  normalizePayrollRow,
   round2,
   roundDollar,
-  timeToMinutes,
-  roundMinutesToNearestQuarter,
   roundHoursToNearestQuarter,
   calcDayHours,
   getShiftLetter,
   getWeeksInSelectedPeriod,
-  getWeekStartMonday,
 } from '../utils/payrollMath'
 import PayrollCheck from '../components/payroll/PayrollCheck'
 import '../components/payroll/PayrollCheck.css'
@@ -774,100 +773,13 @@ export default function EmployeeDetailsPage() {
       String(a.work_date || '').localeCompare(String(b.work_date || ''))
     )
 
-    const hourlyRate = Number(employee?.hourly_rate || 0)
-
-    const recalculated = sorted.map((row) => {
-      const fullHours =
-        employee?.pay_type === 'hourly'
-          ? calcDayHours(row.time_in, row.time_out, row.lunch_hours, row.downtime_hours)
-          : Number(row.reg_hours || 0)
-
-      let laborAmount = Number(row.labor_amount || 0)
-
-      if (employee?.pay_type === 'hourly') {
-        laborAmount = round2(fullHours * hourlyRate)
-      }
-
-      return {
-        ...row,
-        shift_letter: getShiftLetter(row.time_in),
-        reg_hours: round2(fullHours),
-        labor_amount: laborAmount,
-      }
-    })
-
-    const totalReg = round2(
-      recalculated.reduce((sum, row) => sum + Number(row.reg_hours || 0), 0)
+    const recalculated = sorted.map((row) =>
+      normalizePayrollRow(row, employee)
     )
 
-    const totalLunch = round2(
-      recalculated.reduce((sum, row) => sum + Number(row.lunch_hours || 0), 0)
-    )
-
-    const totalDowntime = round2(
-      recalculated.reduce((sum, row) => sum + Number(row.downtime_hours || 0), 0)
-    )
+    const payrollTotals = calculatePayrollTotals(recalculated, employee)
 
     const weeksCount = getWeeksInSelectedPeriod(periodStart, periodEnd)
-
-    let mainHours = 0
-    let overtimeHours = 0
-    let mainLabor = 0
-    let overtimeLabor = 0
-    let totalLabor = 0
-
-    if (employee?.pay_type === 'hourly') {
-      const overtimeEnabled = employee?.overtime_enabled === true
-      const weeklyHoursMap = {}
-
-      recalculated.forEach((row) => {
-        const weekKey = getWeekStartMonday(row.work_date)
-        weeklyHoursMap[weekKey] = (weeklyHoursMap[weekKey] || 0) + Number(row.reg_hours || 0)
-      })
-
-      Object.values(weeklyHoursMap).forEach((weekHoursRaw) => {
-        const weekHours = Number(weekHoursRaw || 0)
-
-        if (overtimeEnabled) {
-          const weekMainHours = Math.min(weekHours, 40)
-          const weekOvertimeHours = Math.max(0, weekHours - 40)
-
-          mainHours += weekMainHours
-          overtimeHours += weekOvertimeHours
-        } else {
-          mainHours += weekHours
-          overtimeHours += 0
-        }
-      })
-
-      mainHours = round2(mainHours)
-      overtimeHours = round2(overtimeHours)
-      mainLabor = roundDollar(mainHours * hourlyRate)
-      overtimeLabor = overtimeEnabled
-        ? roundDollar(overtimeHours * hourlyRate * 1.5)
-        : 0
-      totalLabor = roundDollar(mainLabor + overtimeLabor)
-    }
-
-    if (employee?.pay_type === 'monthly') {
-      mainHours = 0
-      overtimeHours = 0
-      mainLabor = roundDollar((Number(employee?.monthly_salary || 0) / 4) * weeksCount)
-      overtimeLabor = 0
-      totalLabor = mainLabor
-    }
-
-    if (employee?.pay_type === 'one_time') {
-      mainHours = 0
-      overtimeHours = 0
-      mainLabor = roundDollar(Number(employee?.monthly_salary || 0))
-      overtimeLabor = 0
-      totalLabor = mainLabor
-    }
-
-    const mainTax = roundDollar(mainLabor * 0.153)
-    const overtimeTax = roundDollar(overtimeLabor * 0.27)
-    const employeeTaxAmount = roundDollar(mainTax + overtimeTax)
 
     const rentNum = roundDollar(rent)
     const electricNum = roundDollar(electric)
@@ -879,27 +791,22 @@ export default function EmployeeDetailsPage() {
       rentNum + electricNum + waterNum + cleanNum + transportNum
     )
 
-    const totalDeductions = roundDollar(employeeTaxAmount + employeeDeductions)
-    const netPay = roundDollar(totalLabor - totalDeductions)
+    const totalDeductions = roundDollar(
+      Number(payrollTotals.employeeTaxNum || 0) + employeeDeductions
+    )
+
+    const netPay = roundDollar(
+      Number(payrollTotals.totalLabor || 0) - totalDeductions
+    )
 
     return {
       filteredForView: recalculated.sort((a, b) =>
         String(b.work_date || '').localeCompare(String(a.work_date || ''))
       ),
       weeksCount,
-      totalReg,
-      totalLunch,
-      totalDowntime,
-      mainHours,
-      overtimeHours,
-      totalLabor,
-      mainLabor,
-      overtimeLabor,
-      taxableHours: mainHours,
-      taxableLabor: mainLabor,
-      mainTax,
-      overtimeTax,
-      employeeTaxNum: employeeTaxAmount,
+      ...payrollTotals,
+      taxableHours: payrollTotals.mainHours,
+      taxableLabor: payrollTotals.mainLabor,
       rentNum,
       electricNum,
       waterNum,
