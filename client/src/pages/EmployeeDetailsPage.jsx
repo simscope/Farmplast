@@ -39,6 +39,20 @@ const pageCard =
 const darkInput =
   'w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
+function toLocalDateString(date) {
+  const d = date instanceof Date ? date : new Date(date)
+
+  if (Number.isNaN(d.getTime())) {
+    return ''
+  }
+
+  const year = d.getFullYear()
+  const month = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+
+  return `${year}-${month}-${day}`
+}
+
 function money(value) {
   const num = Math.round(Number(value || 0))
   return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
@@ -189,7 +203,7 @@ function rowHasWorkData(row) {
 function buildEmptyRow(downtimeEnabled = true) {
   return {
     id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    work_date: new Date().toISOString().slice(0, 10),
+    work_date: toLocalDateString(new Date()),
     time_in: '',
     time_out: '',
     lunch_hours: '1',
@@ -225,8 +239,8 @@ function getPayrollWeekRange(type = 'last', baseDate = new Date()) {
   end.setHours(23, 59, 59, 999)
 
   return {
-    start: start.toISOString().slice(0, 10),
-    end: end.toISOString().slice(0, 10),
+    start: toLocalDateString(start),
+    end: toLocalDateString(end),
   }
 }
 
@@ -323,7 +337,7 @@ export default function EmployeeDetailsPage() {
   const [printCheckId, setPrintCheckId] = useState(null)
   const [printCheckNumber, setPrintCheckNumber] = useState(null)
   const [printCheckStatus, setPrintCheckStatus] = useState(null)
-  const [printPayDate, setPrintPayDate] = useState(new Date().toISOString().slice(0, 10))
+  const [printPayDate, setPrintPayDate] = useState(toLocalDateString(new Date()))
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -396,7 +410,7 @@ export default function EmployeeDetailsPage() {
         .from('employee_work_logs')
         .select('*')
         .eq('employee_id', id)
-        .eq('is_deleted', false)
+        .or('is_deleted.is.null,is_deleted.eq.false')
         .order('work_date', { ascending: false })
         .order('created_at', { ascending: false })
 
@@ -446,7 +460,7 @@ export default function EmployeeDetailsPage() {
   function buildDraftRowForDate(rowId) {
     const dateStr = String(rowId || '').startsWith('empty-')
       ? String(rowId).replace('empty-', '')
-      : new Date().toISOString().slice(0, 10)
+      : toLocalDateString(new Date())
 
     return {
       id: rowId,
@@ -853,7 +867,7 @@ export default function EmployeeDetailsPage() {
       setPrintCheckId(null)
       setPrintCheckNumber(null)
       setPrintCheckStatus(null)
-      setPrintPayDate(new Date().toISOString().slice(0, 10))
+      setPrintPayDate(toLocalDateString(new Date()))
 
       const netPay = Number(totals.netPay || 0)
 
@@ -1018,15 +1032,18 @@ export default function EmployeeDetailsPage() {
 
   const result = []
   const start = new Date(`${periodStart}T00:00:00`)
+  const end = periodEnd
+    ? new Date(`${periodEnd}T00:00:00`)
+    : new Date(start)
 
-  for (let i = 0; i < 7; i += 1) {
-    const current = new Date(start)
-    current.setDate(start.getDate() + i)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    return totals.filteredForView || []
+  }
 
-    const year = current.getFullYear()
-    const month = String(current.getMonth() + 1).padStart(2, '0')
-    const day = String(current.getDate()).padStart(2, '0')
-    const dateStr = `${year}-${month}-${day}`
+  let current = new Date(start)
+
+  while (current <= end) {
+    const dateStr = toLocalDateString(current)
 
     result.push(
       map[dateStr] || {
@@ -1044,12 +1061,14 @@ export default function EmployeeDetailsPage() {
         is_empty: true,
       }
     )
+
+    current.setDate(current.getDate() + 1)
   }
 
   return result.sort((a, b) =>
     String(b.work_date || '').localeCompare(String(a.work_date || ''))
   )
-}, [totals.filteredForView, periodStart])
+}, [totals.filteredForView, periodStart, periodEnd, employee])
 
   return (
     <div className="min-h-screen bg-[#020817] text-white print:bg-white print:text-black">
