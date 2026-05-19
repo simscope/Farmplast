@@ -20,6 +20,17 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import {
+  round2,
+  roundDollar,
+  timeToMinutes,
+  roundMinutesToNearestQuarter,
+  roundHoursToNearestQuarter,
+  calcDayHours,
+  getShiftLetter,
+  getWeeksInSelectedPeriod,
+  getWeekStartMonday,
+} from '../utils/payrollMath'
 import PayrollCheck from '../components/payroll/PayrollCheck'
 import '../components/payroll/PayrollCheck.css'
 
@@ -154,59 +165,6 @@ function parseUSTimeInput(value) {
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`
 }
 
-function round2(value) {
-  return Math.round((Number(value || 0) + Number.EPSILON) * 100) / 100
-}
-
-function roundDollar(value) {
-  return Math.round(Number(value || 0))
-}
-
-function timeToMinutes(value) {
-  if (!value) return null
-  const [h, m] = String(value).split(':').map(Number)
-  if (Number.isNaN(h) || Number.isNaN(m)) return null
-  return h * 60 + m
-}
-
-function roundMinutesToNearestQuarter(minutes) {
-  const value = Number(minutes || 0)
-  if (!Number.isFinite(value)) return 0
-  return Math.round(value / 15) * 15
-}
-
-function roundHoursToNearestQuarter(hours) {
-  const value = Number(hours || 0)
-  if (!Number.isFinite(value)) return 0
-  return round2(roundMinutesToNearestQuarter(value * 60) / 60)
-}
-
-function calcDayHours(timeIn, timeOut, lunchHours, downtimeHours = 0) {
-  const start = timeToMinutes(timeIn)
-  let end = timeToMinutes(timeOut)
-
-  if (start === null || end === null) return 0
-  if (end < start) end += 24 * 60
-
-  const rawMinutes = end - start
-  const roundedMinutes = roundMinutesToNearestQuarter(rawMinutes)
-  const cappedMinutes = Math.min(roundedMinutes, 12 * 60)
-  const lunchMinutes = roundMinutesToNearestQuarter(Number(lunchHours || 0) * 60)
-  const downtimeMinutes = roundMinutesToNearestQuarter(Number(downtimeHours || 0) * 60)
-  const payableMinutes = Math.max(0, cappedMinutes - lunchMinutes - downtimeMinutes)
-
-  return round2(payableMinutes / 60)
-}
-
-function getShiftLetter(timeIn) {
-  const start = timeToMinutes(timeIn)
-  if (start === null) return '—'
-
-  const hour = Math.floor(start / 60)
-  if (hour >= 18 || hour < 6) return 'N'
-  return 'D'
-}
-
 function getManualEditLabel(row) {
   const manualIn = row?.manual_time_in === true
   const manualOut = row?.manual_time_out === true
@@ -271,35 +229,6 @@ function getPayrollWeekRange(type = 'last', baseDate = new Date()) {
     start: start.toISOString().slice(0, 10),
     end: end.toISOString().slice(0, 10),
   }
-}
-
-function getWeeksInSelectedPeriod(periodStart, periodEnd) {
-  if (!periodStart || !periodEnd) return 1
-
-  const start = new Date(`${periodStart}T00:00:00`)
-  const end = new Date(`${periodEnd}T00:00:00`)
-
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return 1
-  if (end < start) return 1
-
-  const daysInclusive = Math.floor((end - start) / 86400000) + 1
-  return Math.max(1, Math.ceil(daysInclusive / 7))
-}
-
-function getWeekStartMonday(dateStr) {
-  if (!dateStr) return 'unknown'
-
-  const d = new Date(`${dateStr}T00:00:00`)
-  if (Number.isNaN(d.getTime())) return 'unknown'
-
-  const day = d.getDay()
-  const diffToMonday = day === 0 ? -6 : 1 - day
-
-  const monday = new Date(d)
-  monday.setHours(0, 0, 0, 0)
-  monday.setDate(d.getDate() + diffToMonday)
-
-  return monday.toISOString().slice(0, 10)
 }
 
 function PrintPreviewModal({
