@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { createRoot } from 'react-dom/client'
 import { Link } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -25,7 +26,8 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import EmployeeModal from '../components/EmployeeModal'
 import PayrollReport from '../components/PayrollReport'
-import micrFontUrl from '../assets/fonts/MICRE13B.ttf'
+import PayrollCheck from '../components/payroll/PayrollCheck'
+import '../components/payroll/PayrollCheck.css'
 
 const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const MAX_OPEN_SHIFT_MINUTES = 13 * 60
@@ -1453,159 +1455,6 @@ export default function DashboardPage() {
     }
   }
 
-  function numberToWordsUnder1000(n) {
-    const ones = [
-      'zero',
-      'one',
-      'two',
-      'three',
-      'four',
-      'five',
-      'six',
-      'seven',
-      'eight',
-      'nine',
-      'ten',
-      'eleven',
-      'twelve',
-      'thirteen',
-      'fourteen',
-      'fifteen',
-      'sixteen',
-      'seventeen',
-      'eighteen',
-      'nineteen',
-    ]
-
-    const tens = [
-      '',
-      '',
-      'twenty',
-      'thirty',
-      'forty',
-      'fifty',
-      'sixty',
-      'seventy',
-      'eighty',
-      'ninety',
-    ]
-
-    if (n < 20) return ones[n]
-    if (n < 100) {
-      const ten = Math.floor(n / 10)
-      const rest = n % 10
-      return rest ? `${tens[ten]}-${ones[rest]}` : tens[ten]
-    }
-
-    const hundred = Math.floor(n / 100)
-    const rest = n % 100
-    return rest
-      ? `${ones[hundred]} hundred ${numberToWordsUnder1000(rest)}`
-      : `${ones[hundred]} hundred`
-  }
-
-  function numberToWords(n) {
-    const num = Math.floor(Number(n || 0))
-
-    if (num === 0) return 'zero'
-    if (num < 1000) return numberToWordsUnder1000(num)
-
-    if (num < 1000000) {
-      const thousands = Math.floor(num / 1000)
-      const rest = num % 1000
-      return rest
-        ? `${numberToWordsUnder1000(thousands)} thousand ${numberToWordsUnder1000(rest)}`
-        : `${numberToWordsUnder1000(thousands)} thousand`
-    }
-
-    const millions = Math.floor(num / 1000000)
-    const rest = num % 1000000
-    return rest ? `${numberToWords(millions)} million ${numberToWords(rest)}` : `${numberToWords(millions)} million`
-  }
-
-  function amountToWords(amount) {
-    const value = Number(amount || 0)
-    const dollars = Math.floor(value)
-    const cents = Math.round((value - dollars) * 100)
-    return `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
-  }
-
-  function getPayeeNameForCheck(employee) {
-    return employee?.employer_form === 'Other' && employee?.company_name
-      ? employee.company_name
-      : getFullName(employee)
-  }
-
-  function buildCheckStockHtml(employee, totals, week, checkNumber) {
-    const payeeName = escapeHtml(getPayeeNameForCheck(employee))
-    const dateObj = new Date()
-    const dateText = `${dateObj.getMonth() + 1}/${dateObj.getDate()}/${String(dateObj.getFullYear()).slice(-2)}`
-    const amount = Number(totals.netPay || 0)
-    const dollars = Math.floor(amount)
-    const cents = Math.round((amount - dollars) * 100)
-    const rawCheckNumber = Number(checkNumber || employee?.last_check_number || 0)
-    const checkNumberTop = String(rawCheckNumber)
-    const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
-    const amountWords = escapeHtml(amountToWords(amount))
-    const memoText = escapeHtml(`${formatCheckDate(week?.startText || week?.start)} - ${formatCheckDate(week?.endText || week?.end)}`)
-    const micrText = escapeHtml(`C${checkNumberMicr}C A031201360A 443187254C`)
-
-    return `
-      <div class="check-stock">
-        <div class="company-block">
-          <div class="company-name">FARMPLAST LLC</div>
-          <div>125 EAST HALSEY ROAD</div>
-          <div>PARSIPPANY, NJ 07054</div>
-        </div>
-        <div class="check-number">${checkNumberTop}</div>
-        <div class="pay-label"><div>PAY</div><div>TO THE</div><div>ORDER OF</div></div>
-        <div class="payee-text">${payeeName}</div><div class="payee-line"></div>
-        <div class="date-label">DATE</div><div class="date-text">${dateText}</div><div class="date-line"></div>
-        <div class="amount-number"><span>$</span><span>${dollars}</span><sup>${String(cents).padStart(2, '0')}</sup></div>
-        <div class="amount-words">${amountWords}</div><div class="amount-words-line"></div><div class="dollars-label">DOLLARS</div>
-        <div class="bank-name">TD BANK, N.A.</div>
-        <div class="for-label">FOR</div><div class="memo-text">${memoText}</div><div class="memo-line"></div><div class="memo-line-2"></div>
-        <div class="micr-text">${micrText}</div>
-      </div>`
-  }
-
-  function buildPayrollStubHtml(title, employee, week, totals, checkNumber) {
-    const payeeName = escapeHtml(getPayeeNameForCheck(employee))
-    const payDate = new Date().toLocaleDateString('en-US')
-    const checkNumberText = String(Number(checkNumber || employee?.last_check_number || 0))
-    const stubMoney = (value) => `$${Math.round(Number(value || 0)).toLocaleString('en-US')}`
-
-    return `
-      <div class="payroll-stub-copy">
-        <div class="stub-header">
-          <div class="stub-title">${escapeHtml(title)}</div>
-          <div class="stub-meta"><div><b>Check #:</b> ${escapeHtml(checkNumberText)}</div><div><b>Pay Date:</b> ${escapeHtml(payDate)}</div></div>
-        </div>
-        <div class="stub-info">
-          <div><b>Employee:</b> ${payeeName}</div>
-          <div><b>Employee #:</b> ${escapeHtml(employee?.employee_number || '—')}</div>
-          <div><b>Period:</b> ${formatReportDate(week.start)} - ${formatReportDate(week.end)}</div>
-          <div><b>Pay Type:</b> ${escapeHtml(employee?.pay_type || '—')}</div>
-        </div>
-        <div class="stub-grid">
-          <table><thead><tr><th>EARNINGS</th><th>HOURS</th><th>AMOUNT</th></tr></thead><tbody>
-            <tr><td>Regular Pay</td><td>${Number(totals.mainHours || 0).toFixed(2)}</td><td>${stubMoney(totals.mainLabor)}</td></tr>
-            <tr><td>Overtime Pay</td><td>${Number(totals.overtimeHours || 0).toFixed(2)}</td><td>${stubMoney(totals.overtimeLabor)}</td></tr>
-            <tr><td><b>Gross Pay</b></td><td></td><td><b>${stubMoney(totals.totalLabor)}</b></td></tr>
-          </tbody></table>
-          <table><thead><tr><th>DEDUCTIONS</th><th>AMOUNT</th></tr></thead><tbody>
-            <tr><td>Employee Tax</td><td>${stubMoney(totals.employeeTaxNum)}</td></tr>
-            <tr><td>Rent</td><td>${stubMoney(totals.rentNum)}</td></tr>
-            <tr><td>Electric</td><td>${stubMoney(totals.electricNum)}</td></tr>
-            <tr><td>Water</td><td>${stubMoney(totals.waterNum)}</td></tr>
-            <tr><td>Clean</td><td>${stubMoney(totals.cleanNum)}</td></tr>
-            <tr><td>Transport</td><td>${stubMoney(totals.transportNum)}</td></tr>
-            <tr><td><b>Net Pay</b></td><td><b>${stubMoney(totals.netPay)}</b></td></tr>
-          </tbody></table>
-        </div>
-      </div>`
-  }
-
   function mapPayrollRowToCheckTotals(item) {
     return {
       mainHours: item.regularHours,
@@ -1623,76 +1472,79 @@ export default function DashboardPage() {
     }
   }
 
-  function buildSelectedChecksPrintHtml(week, payrollRows) {
-    const pages = payrollRows
-      .map((item) => {
-        const totals = mapPayrollRowToCheckTotals(item)
-        const employee = item.employee
-        const checkNumber = item.print_check_number || employee?.last_check_number || 0
+  function copyPrintStylesToWindow(printDocument) {
+    Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).forEach((node) => {
+      try {
+        printDocument.head.appendChild(node.cloneNode(true))
+      } catch (err) {
+        console.warn('Could not copy print style node:', err)
+      }
+    })
 
-        return `
-          <section class="print-payroll-sheet">
-            ${buildCheckStockHtml(employee, totals, week, checkNumber)}
-            <div class="print-report-sheet">
-              <div class="print-tear-line"></div>
-              ${buildPayrollStubHtml('EMPLOYEE COPY', employee, week, totals, checkNumber)}
-              <div class="print-tear-line"></div>
-              ${buildPayrollStubHtml('EMPLOYER COPY', employee, week, totals, checkNumber)}
-            </div>
-          </section>`
-      })
-      .join('')
+    const style = printDocument.createElement('style')
+    style.textContent = `
+      @page { size: 215.9mm 279.4mm; margin: 0; }
+      html, body { margin: 0; padding: 0; background: white; color: black; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      #print-root { background: white; }
+      .dashboard-selected-checks-print { background: white; }
+      .dashboard-selected-checks-print > * { page-break-after: always; break-after: page; }
+      .dashboard-selected-checks-print > *:last-child { page-break-after: auto; break-after: auto; }
+    `
+    printDocument.head.appendChild(style)
+  }
 
-    return `<!doctype html>
+  function openSelectedChecksPrintWindow(week, payrollRows) {
+    const printWindow = window.open('', '_blank')
+
+    if (!printWindow) {
+      throw new Error('Popup blocked. Allow popups for this site and click Print selected checks again.')
+    }
+
+    printWindow.document.open()
+    printWindow.document.write(`<!doctype html>
 <html>
 <head>
   <meta charset="utf-8" />
   <title>Selected payroll checks</title>
-  <style>
-    @page { size: 215.9mm 279.4mm; margin: 0; }
-    * { box-sizing: border-box; }
-    @font-face { font-family: "MICR E13B"; src: url("${micrFontUrl}") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
-    @font-face { font-family: "CheckArial"; src: url("/fonts/Arial.ttf") format("truetype"); font-weight: 400; font-style: normal; font-display: swap; }
-    @font-face { font-family: "CheckArial"; src: url("/fonts/Arial-Bold.ttf") format("truetype"); font-weight: 700 900; font-style: normal; font-display: swap; }
-    html, body { margin: 0; padding: 0; background: white; color: black; font-family: CheckArial, Arial, Helvetica, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .print-payroll-sheet { position: relative; width: 215.9mm; height: 279.4mm; overflow: hidden; page-break-after: always; break-after: page; background: white; }
-    .print-payroll-sheet:last-child { page-break-after: auto; break-after: auto; }
-    .check-stock { position: relative; width: 215.9mm; height: 88.9mm; min-width: 215.9mm; min-height: 88.9mm; overflow: hidden; background: white; color: black; }
-    .company-block { position: absolute; left: 28mm; top: 7mm; width: 46mm; text-align: center; line-height: 1.05; font-weight: 700; font-size: 2.5mm; letter-spacing: 0.03mm; }
-    .company-name { font-size: 3.5mm; font-weight: 800; }
-    .check-number { position: absolute; right: 16mm; top: 11mm; font-size: 4.6mm; font-weight: 500; line-height: 1; }
-    .pay-label { position: absolute; left: 16mm; top: 32mm; width: 16mm; font-size: 2.2mm; font-weight: 700; line-height: 1; }
-    .payee-text { position: absolute; left: 34mm; top: 33mm; font-size: 5.1mm; font-weight: 500; line-height: 1; white-space: nowrap; max-width: 150mm; overflow: hidden; }
-    .payee-line { position: absolute; left: 28mm; top: 38mm; width: 120mm; border-top: 0.28mm solid #222; }
-    .date-label { position: absolute; left: 151mm; top: 27mm; font-size: 3mm; font-weight: 700; line-height: 1; }
-    .date-text { position: absolute; left: 164mm; top: 26mm; width: 27mm; text-align: center; font-size: 4.4mm; font-weight: 500; line-height: 1; white-space: nowrap; }
-    .date-line { position: absolute; left: 151mm; top: 30mm; width: 35mm; border-top: 0.28mm solid #222; }
-    .amount-number { position: absolute; right: 24mm; top: 34mm; display: flex; align-items: flex-start; justify-content: flex-end; min-width: 34mm; white-space: nowrap; line-height: 1; text-align: right; font-size: 5.8mm; font-weight: 500; }
-    .amount-number sup { font-size: 3mm; font-weight: 500; margin-left: 0.25mm; transform: translateY(-1.1mm); line-height: 1; }
-    .amount-words { position: absolute; left: 18mm; top: 48mm; font-size: 4.5mm; font-weight: 500; line-height: 1; white-space: nowrap; max-width: 160mm; overflow: hidden; text-transform: capitalize; }
-    .amount-words-line { position: absolute; left: 14mm; top: 52mm; width: 160mm; border-top: 0.28mm solid #222; }
-    .dollars-label { position: absolute; left: 158mm; top: 48mm; font-size: 3mm; font-weight: 700; line-height: 1; }
-    .bank-name { position: absolute; left: 20mm; top: 53mm; font-size: 3mm; font-weight: 700; line-height: 1; }
-    .for-label { position: absolute; left: 14mm; top: 70mm; font-size: 3mm; font-weight: 700; line-height: 1; }
-    .memo-text { position: absolute; left: 28mm; top: 69mm; font-size: 4.2mm; font-weight: 500; line-height: 1; white-space: nowrap; max-width: 90mm; overflow: hidden; }
-    .memo-line { position: absolute; left: 22mm; top: 73mm; width: 75mm; border-top: 0.28mm solid #222; }
-    .memo-line-2 { position: absolute; left: 120mm; top: 73mm; width: 80mm; border-top: 0.28mm solid #222; }
-    .micr-text { position: absolute; left: 34mm; top: 80mm; font-family: "MICR E13B", "OCR A Extended", "Courier New", monospace; font-size: 4.7mm; font-weight: 400; letter-spacing: 0.35mm; line-height: 1; white-space: nowrap; }
-    .print-report-sheet { padding: 4mm; background: white; }
-    .print-tear-line { width: 100%; border-top: 2px dashed #555; margin: 0 0 8px 0; }
-    .payroll-stub-copy { border: 1px solid #222; padding: 8px 12px; margin-bottom: 8px; font-size: 11px; color: black; background: white; page-break-inside: avoid; }
-    .stub-header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #444; padding-bottom: 6px; margin-bottom: 8px; }
-    .stub-title { font-weight: 800; font-size: 14px; letter-spacing: 0.4px; }
-    .stub-meta { text-align: right; font-size: 11px; line-height: 1.35; }
-    .stub-info { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 20px; margin-bottom: 10px; font-size: 11px; }
-    .stub-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-    table { width: 100%; border-collapse: collapse; font-size: 10.5px; }
-    th { border: 1px solid #222; padding: 4px; background: #efefef; text-align: left; font-weight: 700; }
-    td { border: 1px solid #222; padding: 4px; }
-  </style>
 </head>
-<body>${pages}<script>window.onload = () => setTimeout(() => window.print(), 250)</script></body>
-</html>`
+<body>
+  <div id="print-root"></div>
+</body>
+</html>`)
+    printWindow.document.close()
+
+    copyPrintStylesToWindow(printWindow.document)
+
+    const rootElement = printWindow.document.getElementById('print-root')
+    const root = createRoot(rootElement)
+    const payDate = toLocalDateString(new Date())
+
+    root.render(
+      <div className="dashboard-selected-checks-print">
+        {payrollRows.map((item) => {
+          const employee = item.employee
+          const checkNumber = item.print_check_number || employee?.last_check_number || 0
+
+          return (
+            <PayrollCheck
+              key={`${employee.id}-${checkNumber}`}
+              employee={employee}
+              fullName={getFullName(employee)}
+              totals={mapPayrollRowToCheckTotals(item)}
+              periodStart={week.startText}
+              periodEnd={week.endText}
+              checkNumber={checkNumber}
+              payDate={payDate}
+            />
+          )
+        })}
+      </div>
+    )
+
+    setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+    }, 500)
   }
 
   function toggleSelectedCheck(employeeId) {
@@ -1780,17 +1632,7 @@ export default function DashboardPage() {
         employee.last_check_number = nextCheckNumber
       }
 
-      const html = buildSelectedChecksPrintHtml(week, payrollRows)
-      const printWindow = window.open('', '_blank')
-
-      if (!printWindow) {
-        throw new Error('Popup blocked. Allow popups for this site and click Print selected checks again.')
-      }
-
-      printWindow.document.open()
-      printWindow.document.write(html)
-      printWindow.document.close()
-      printWindow.focus()
+      openSelectedChecksPrintWindow(week, payrollRows)
 
       setSelectedCheckIds([])
       await loadEmployees()
