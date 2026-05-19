@@ -186,14 +186,14 @@ function rowHasWorkData(row) {
   )
 }
 
-function buildEmptyRow(downtimeEnabled = true) {
+function buildEmptyRow() {
   return {
     id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     work_date: new Date().toISOString().slice(0, 10),
     time_in: '',
     time_out: '',
     lunch_hours: '1',
-    downtime_hours: downtimeEnabled ? '1' : '0',
+    downtime_hours: '1',
     reg_hours: '0',
     labor_amount: '0',
     manual_time_in: false,
@@ -396,7 +396,7 @@ export default function EmployeeDetailsPage() {
         .from('employee_work_logs')
         .select('*')
         .eq('employee_id', id)
-        .eq('is_deleted', false)
+        .or('is_deleted.is.null,is_deleted.eq.false')
         .order('work_date', { ascending: false })
         .order('created_at', { ascending: false })
 
@@ -439,7 +439,7 @@ export default function EmployeeDetailsPage() {
 }
 
   function addRow() {
-    setLogs((prev) => [buildEmptyRow(employee?.downtime_enabled !== false), ...prev])
+    setLogs((prev) => [buildEmptyRow(), ...prev])
   }
 
 
@@ -454,7 +454,7 @@ export default function EmployeeDetailsPage() {
       time_in: '',
       time_out: '',
       lunch_hours: '',
-      downtime_hours: employee?.downtime_enabled === false ? '0' : '',
+      downtime_hours: '',
       reg_hours: '0',
       labor_amount: '0',
       manual_time_in: false,
@@ -484,9 +484,6 @@ export default function EmployeeDetailsPage() {
 
         const nextRow = { ...row, [field]: value, is_dirty: true }
 
-        if (employee?.downtime_enabled === false) {
-          nextRow.downtime_hours = '0'
-        }
 
         if (
           field === 'time_in' ||
@@ -498,7 +495,7 @@ export default function EmployeeDetailsPage() {
             nextRow.time_in,
             nextRow.time_out,
             nextRow.lunch_hours,
-            employee?.downtime_enabled === false ? 0 : nextRow.downtime_hours
+            nextRow.downtime_hours
           )
 
           nextRow.reg_hours = String(computedHours)
@@ -576,9 +573,7 @@ export default function EmployeeDetailsPage() {
             nextRow.lunch_hours = '1'
           }
 
-          if (employee?.downtime_enabled === false) {
-            nextRow.downtime_hours = '0'
-          } else if (nextRow.downtime_hours === '' || nextRow.downtime_hours === null || nextRow.downtime_hours === undefined) {
+          if (nextRow.downtime_hours === '' || nextRow.downtime_hours === null || nextRow.downtime_hours === undefined) {
             nextRow.downtime_hours = '1'
           }
 
@@ -596,7 +591,7 @@ export default function EmployeeDetailsPage() {
             field === 'time_in' ? parsedTime : nextRow.time_in,
             field === 'time_out' ? parsedTime : nextRow.time_out,
             nextRow.lunch_hours,
-            employee?.downtime_enabled === false ? 0 : nextRow.downtime_hours
+            nextRow.downtime_hours
           )
 
           nextRow.reg_hours = String(computedHours)
@@ -634,7 +629,7 @@ export default function EmployeeDetailsPage() {
       time_in: row.time_in || null,
       time_out: row.time_out || null,
       lunch_hours: hasAnyTime ? Number(row.lunch_hours || 0) : 0,
-      downtime_hours: employee?.downtime_enabled === false ? 0 : hasAnyTime ? Number(row.downtime_hours || 0) : 0,
+      downtime_hours: hasAnyTime ? Number(row.downtime_hours || 0) : 0,
       reg_hours: hasAnyTime ? Number(row.reg_hours || 0) : 0,
       labor_amount: hasAnyTime ? Number(row.labor_amount || 0) : 0,
       source: 'manual',
@@ -1035,7 +1030,7 @@ export default function EmployeeDetailsPage() {
         time_in: '',
         time_out: '',
         lunch_hours: '',
-        downtime_hours: employee?.downtime_enabled === false ? '0' : '',
+        downtime_hours: '',
         reg_hours: '',
         labor_amount: '',
         manual_time_in: false,
@@ -1049,7 +1044,7 @@ export default function EmployeeDetailsPage() {
   return result.sort((a, b) =>
     String(b.work_date || '').localeCompare(String(a.work_date || ''))
   )
-}, [totals.filteredForView, periodStart])
+}, [totals.filteredForView, periodStart, employee])
 
   return (
     <div className="min-h-screen bg-[#020817] text-white print:bg-white print:text-black">
@@ -1584,22 +1579,11 @@ export default function EmployeeDetailsPage() {
                           type="number"
                           step="0.25"
                           min="0"
-                          disabled={employee?.downtime_enabled === false}
-                          value={
-                            employee?.downtime_enabled === false
-                              ? '0'
-                              : rowHasAnyTime(row)
-                                ? row.downtime_hours ?? '1'
-                                : ''
-                          }
+                          value={rowHasAnyTime(row) ? row.downtime_hours ?? '1' : ''}
                           onChange={(e) =>
                             updateRowValue(row.id, 'downtime_hours', e.target.value)
                           }
-                          className={`${darkInput} ${
-                            employee?.downtime_enabled === false
-                              ? 'cursor-not-allowed opacity-60'
-                              : ''
-                          }`}
+                          className={darkInput}
                         />
 
                         <input
