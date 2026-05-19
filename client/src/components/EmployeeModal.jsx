@@ -425,6 +425,28 @@ export default function EmployeeModal({ open, onClose, onSave, form, setForm, sa
                 </p>
               </div>
 
+
+
+              <div>
+                <label className="mb-1 block text-xs text-slate-300">Downtime</label>
+                <select
+                  className={inputClass}
+                  value={form.downtime_enabled === false ? 'false' : 'true'}
+                  onChange={(e) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      downtime_enabled: e.target.value === 'true',
+                    }))
+                  }
+                >
+                  <option value="true">Downtime enabled</option>
+                  <option value="false">No downtime / always 0</option>
+                </select>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Default is enabled. If disabled, employee work log downtime is saved as 0.
+                </p>
+              </div>
+
               <div>
                 <label className="mb-1 block text-xs text-slate-300">Shift</label>
                 <select
