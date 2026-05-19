@@ -116,6 +116,10 @@ export function getWeeksInSelectedPeriod(periodStart, periodEnd) {
 
 export function normalizePayrollRow(row, employee = {}) {
   const hourlyRate = Number(employee?.hourly_rate || 0)
+  const downtimeHours =
+    employee?.downtime_enabled === false
+      ? 0
+      : Number(row.downtime_hours || 0)
 
   const fullHours =
     employee?.pay_type === 'hourly'
@@ -123,7 +127,7 @@ export function normalizePayrollRow(row, employee = {}) {
           row.time_in,
           row.time_out,
           row.lunch_hours,
-          row.downtime_hours
+          downtimeHours
         )
       : Number(row.reg_hours || 0)
 
@@ -135,6 +139,7 @@ export function normalizePayrollRow(row, employee = {}) {
 
   return {
     ...row,
+    downtime_hours: downtimeHours,
     shift_letter: getShiftLetter(row.time_in),
     reg_hours: round2(fullHours),
     labor_amount: laborAmount,
