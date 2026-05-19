@@ -1470,7 +1470,80 @@ export default function DashboardPage() {
     ])
   }
 
+  function getDowntimeHours(log) {
+    return getNumberFromObject(log, [
+      'downtime_hours',
+      'downtime',
+      'down_time',
+      'downtime_deducted',
+      'downtime_deduction',
+      'stop_hours',
+    ])
+  }
+
+  function parseTimeToMinutes(value) {
+    if (!value) return null
+
+    const text = String(value).trim()
+    const timeMatch = text.match(/(\d{1,2}):(\d{2})(?::\d{2})?\s*(AM|PM)?/i)
+
+    if (timeMatch) {
+      let hours = Number(timeMatch[1])
+      const minutes = Number(timeMatch[2])
+      const ampm = timeMatch[3]?.toUpperCase()
+
+      if (Number.isNaN(hours) || Number.isNaN(minutes)) return null
+
+      if (ampm === 'PM' && hours < 12) hours += 12
+      if (ampm === 'AM' && hours === 12) hours = 0
+
+      return hours * 60 + minutes
+    }
+
+    const date = new Date(value)
+    if (Number.isNaN(date.getTime())) return null
+
+    return date.getHours() * 60 + date.getMinutes()
+  }
+
+  function getCalculatedRegularHours(log) {
+    const inRaw =
+      log.clock_in ||
+      log.check_in ||
+      log.in_time ||
+      log.start_time ||
+      log.first_in ||
+      log.time_in
+
+    const outRaw =
+      log.clock_out ||
+      log.check_out ||
+      log.out_time ||
+      log.end_time ||
+      log.last_out ||
+      log.time_out
+
+    if (!inRaw || !outRaw) return null
+
+    const inMinutes = parseTimeToMinutes(inRaw)
+    let outMinutes = parseTimeToMinutes(outRaw)
+
+    if (inMinutes === null || outMinutes === null) return null
+
+    if (outMinutes < inMinutes) {
+      outMinutes += 24 * 60
+    }
+
+    const grossHours = Math.max((outMinutes - inMinutes) / 60, 0)
+    const lunchHours = getLunchHours(log)
+    const downtimeHours = getDowntimeHours(log)
+
+    return Math.min(Math.max(grossHours - lunchHours - downtimeHours, 0), 12)
+  }
+
   function getRegularHours(log) {
+    const calculated = getCalculatedRegularHours(log)
+
     const explicit = getNumberFromObject(log, [
       'regular_hours',
       'reg_hours',
@@ -1482,21 +1555,19 @@ export default function DashboardPage() {
       'hours',
     ], null)
 
-    if (explicit !== null) return Math.min(Math.max(explicit, 0), 12)
+    if (explicit !== null && explicit > 0) {
+      return Math.min(Math.max(explicit, 0), 12)
+    }
 
-    const inRaw = log.clock_in || log.check_in || log.in_time || log.start_time || log.first_in || log.time_in
-    const outRaw = log.clock_out || log.check_out || log.out_time || log.end_time || log.last_out || log.time_out
+    if (calculated !== null) {
+      return calculated
+    }
 
-    if (!inRaw || !outRaw) return 0
+    if (explicit !== null) {
+      return Math.min(Math.max(explicit, 0), 12)
+    }
 
-    const inDate = new Date(inRaw)
-    const outDate = new Date(outRaw)
-
-    if (Number.isNaN(inDate.getTime()) || Number.isNaN(outDate.getTime())) return 0
-
-    const grossHours = Math.max((outDate.getTime() - inDate.getTime()) / 3600000, 0)
-    const lunchHours = getLunchHours(log)
-    return Math.min(Math.max(grossHours - lunchHours, 0), 12)
+    return 0
   }
 
   function getEmployeeHourlyRate(employee) {
@@ -1574,6 +1645,7 @@ export default function DashboardPage() {
       const rows = dayLogs.map((log) => {
         const hours = getRegularHours(log)
         const lunchHours = getLunchHours(log)
+        const downtimeHours = getDowntimeHours(log)
         const labor = employee.pay_type === 'hourly' ? hours * hourlyRate : getLogLaborAmount(log, employee)
 
         totalHours += hours
@@ -1584,6 +1656,7 @@ export default function DashboardPage() {
           inTime: getLogInTime(log),
           outTime: getLogOutTime(log),
           lunchHours,
+          downtimeHours,
           regularHours: hours,
           labor,
           status: log.status || log.note || log.notes || '',
@@ -1702,7 +1775,8 @@ export default function DashboardPage() {
       .map((row) => {
         const time = `${escapeHtml(row.inTime || '—')}-${escapeHtml(row.outTime || '—')}`
         const lunch = Number(row.lunchHours || 0) > 0 ? ` L:${formatHours(row.lunchHours)}` : ''
-        return `<div>${time}<br/><b>${formatHours(row.regularHours)}h</b>${lunch}</div>`
+        const downtime = Number(row.downtimeHours || 0) > 0 ? ` DT:${formatHours(row.downtimeHours)}` : ''
+        return `<div>${time}<br/><b>${formatHours(row.regularHours)}h</b>${lunch}${downtime}</div>`
       })
       .join('')
   }
@@ -1943,7 +2017,7 @@ export default function DashboardPage() {
       const dayValues = item.days.map((day) => {
         if (!day.rows.length) return ''
         return day.rows
-          .map((row) => `${row.inTime || '—'}-${row.outTime || '—'} ${formatHours(row.regularHours)}h L:${formatHours(row.lunchHours)}`)
+          .map((row) => `${row.inTime || '—'}-${row.outTime || '—'} ${formatHours(row.regularHours)}h L:${formatHours(row.lunchHours)} DT:${formatHours(row.downtimeHours)}`)
           .join(' | ')
       })
 
