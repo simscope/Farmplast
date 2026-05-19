@@ -217,6 +217,18 @@ function getManualEditLabel(row) {
   return '—'
 }
 
+function rowHasAnyTime(row) {
+  return Boolean(row?.time_in || row?.time_out)
+}
+
+function rowHasWorkData(row) {
+  return (
+    rowHasAnyTime(row) ||
+    Number(row?.reg_hours || 0) > 0 ||
+    Number(row?.labor_amount || 0) > 0
+  )
+}
+
 function buildEmptyRow() {
   return {
     id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -513,8 +525,8 @@ export default function EmployeeDetailsPage() {
       work_date: dateStr,
       time_in: '',
       time_out: '',
-      lunch_hours: '1',
-      downtime_hours: '1',
+      lunch_hours: '',
+      downtime_hours: '',
       reg_hours: '0',
       labor_amount: '0',
       manual_time_in: false,
@@ -628,6 +640,14 @@ export default function EmployeeDetailsPage() {
           nextRow[field] = parsedTime
           nextRow.is_dirty = true
 
+          if (nextRow.lunch_hours === '' || nextRow.lunch_hours === null || nextRow.lunch_hours === undefined) {
+            nextRow.lunch_hours = '1'
+          }
+
+          if (nextRow.downtime_hours === '' || nextRow.downtime_hours === null || nextRow.downtime_hours === undefined) {
+            nextRow.downtime_hours = '1'
+          }
+
           if (field === 'time_in') {
             nextRow.manual_time_in = true
             nextRow.manually_edited = true
@@ -672,15 +692,17 @@ export default function EmployeeDetailsPage() {
   }
 
   function buildWorkLogPayload(row) {
+    const hasAnyTime = rowHasAnyTime(row)
+
     return {
       employee_id: id,
       work_date: row.work_date,
       time_in: row.time_in || null,
       time_out: row.time_out || null,
-      lunch_hours: Number(row.lunch_hours || 0),
-      downtime_hours: Number(row.downtime_hours || 0),
-      reg_hours: Number(row.reg_hours || 0),
-      labor_amount: Number(row.labor_amount || 0),
+      lunch_hours: hasAnyTime ? Number(row.lunch_hours || 0) : 0,
+      downtime_hours: hasAnyTime ? Number(row.downtime_hours || 0) : 0,
+      reg_hours: hasAnyTime ? Number(row.reg_hours || 0) : 0,
+      labor_amount: hasAnyTime ? Number(row.labor_amount || 0) : 0,
       source: 'manual',
       manually_edited:
         row.manually_edited === true ||
@@ -712,6 +734,7 @@ export default function EmployeeDetailsPage() {
         if (!row?.work_date) return false
         if (row?.is_deleted === true) return false
         if (!isRowChanged(row)) return false
+        if (!rowHasWorkData(row)) return false
         if (periodStart && row.work_date < periodStart) return false
         if (periodEnd && row.work_date > periodEnd) return false
         return true
@@ -1170,7 +1193,7 @@ export default function EmployeeDetailsPage() {
         time_in: '',
         time_out: '',
         lunch_hours: '',
-        downtime_hours: '1',
+        downtime_hours: '',
         reg_hours: '',
         labor_amount: '',
         manual_time_in: false,
@@ -1708,7 +1731,7 @@ export default function EmployeeDetailsPage() {
                           type="number"
                           step="0.25"
                           min="0"
-                          value={row.lunch_hours ?? '1'}
+                          value={rowHasAnyTime(row) ? row.lunch_hours ?? '1' : ''}
                           onChange={(e) =>
                             updateRowValue(row.id, 'lunch_hours', e.target.value)
                           }
@@ -1719,7 +1742,7 @@ export default function EmployeeDetailsPage() {
                           type="number"
                           step="0.25"
                           min="0"
-                          value={row.downtime_hours ?? '1'}
+                          value={rowHasAnyTime(row) ? row.downtime_hours ?? '1' : ''}
                           onChange={(e) =>
                             updateRowValue(row.id, 'downtime_hours', e.target.value)
                           }
