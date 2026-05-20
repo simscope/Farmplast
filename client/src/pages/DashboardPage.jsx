@@ -1569,26 +1569,45 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#020817] text-white">
       <style>{`
         @media screen {
-          .dashboard-selected-checks-print-root { display: none; }
+          .dashboard-selected-checks-print-root { display: none !important; }
         }
         @media print {
-          body { background: white !important; }
-          body * { visibility: hidden !important; }
-          .dashboard-selected-checks-print-root,
-          .dashboard-selected-checks-print-root * { visibility: visible !important; }
+          html,
+          body,
+          #root {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 215.9mm !important;
+            min-height: 279.4mm !important;
+            background: white !important;
+          }
+
+          .dashboard-screen {
+            display: none !important;
+          }
+
           .dashboard-selected-checks-print-root {
             display: block !important;
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
-            width: 100% !important;
+            position: static !important;
+            width: 215.9mm !important;
+            min-height: 279.4mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
             background: white !important;
             color: black !important;
           }
+
           .dashboard-selected-check-page {
+            display: block !important;
+            width: 215.9mm !important;
+            min-height: 279.4mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
             page-break-after: always;
             break-after: page;
+            background: white !important;
           }
+
           .dashboard-selected-check-page:last-child {
             page-break-after: auto;
             break-after: auto;
@@ -1619,7 +1638,7 @@ export default function DashboardPage() {
         })}
       </div>
 
-      <div className="mx-auto max-w-[1900px] px-3 py-4 sm:px-4 lg:px-5">
+      <div className="dashboard-screen mx-auto max-w-[1900px] px-3 py-4 sm:px-4 lg:px-5">
         <div className={`${cardClass} mb-4 p-3`}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-3">
