@@ -528,6 +528,7 @@ function CheckStockPrint({
         })}
       >
         {micrText}
+      </div>
     </div>
   )
 }
@@ -920,7 +921,6 @@ export default function PayrollCheck({
             />
           </>
         ) : null}
-      </div>
       </div>
     </div>
   )
