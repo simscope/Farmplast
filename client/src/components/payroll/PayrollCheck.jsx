@@ -45,7 +45,7 @@ const stubTableStyle = {
 
 const th = {
   border: '1px solid #222',
-  padding: '2px 4px',
+  padding: '1px 3px',
   background: '#efefef',
   textAlign: 'left',
   fontWeight: 700,
@@ -54,13 +54,13 @@ const th = {
 
 const td = {
   border: '1px solid #222',
-  padding: '2px 4px',
+  padding: '1px 3px',
   lineHeight: 1.05,
 }
 
 const tdBold = {
   border: '1px solid #222',
-  padding: '2px 4px',
+  padding: '1px 3px',
   fontWeight: 700,
   lineHeight: 1.05,
 }
@@ -68,7 +68,7 @@ const tdBold = {
 function capitalizeFirst(value) {
   const text = String(value || '').trim()
   if (!text) return ''
-  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 function formatDate(value) {
@@ -292,7 +292,7 @@ function CheckStockPrint({
 
   const amountNumberMain = String(dollars)
   const amountNumberCents = String(cents).padStart(2, '0')
-  const amountWords = capitalizeFirst(amountToWords(amount))
+  const amountWords = amountToWords(amount)
 
   const rawCheckNumber = Number(checkNumber || employee?.last_check_number || 0)
   const checkNumberTop = String(rawCheckNumber)
@@ -522,7 +522,7 @@ function CheckStockPrint({
         className="payroll-micr"
         style={posStyle('micr', {
           fontSize: '4.7mm',
-          fontWeight: 500,
+          fontWeight: 400,
           lineHeight: 1,
           whiteSpace: 'nowrap',
         })}
@@ -542,8 +542,8 @@ function WeeklyTimeReport({ totals, periodStart }) {
   if (!weeklyRows.length) return null
 
   return (
-    <div style={{ marginTop: '4px' }}>
-      <div style={{ marginBottom: '2px', fontSize: '11px', fontWeight: 800 }}>
+    <div style={{ marginTop: '3px' }}>
+      <div style={{ marginBottom: '2px', fontSize: '11px', fontWeight: 800, lineHeight: 1.05 }}>
         WEEKLY TIME REPORT
       </div>
 
@@ -636,9 +636,10 @@ function PayrollStubCopy({
       style={{
         border: '1px solid #222',
         padding: '5px 8px',
-        marginBottom: '5px',
+        marginBottom: '4px',
         fontFamily: 'Arial, Helvetica, sans-serif',
         fontSize: '11px',
+        lineHeight: 1.05,
         color: 'black',
         background: 'white',
         boxSizing: 'border-box',
@@ -651,15 +652,16 @@ function PayrollStubCopy({
           justifyContent: 'space-between',
           alignItems: 'center',
           borderBottom: '1px solid #444',
-          paddingBottom: '3px',
-          marginBottom: '5px',
+          paddingBottom: '2px',
+          marginBottom: '4px',
+          lineHeight: 1.05,
         }}
       >
-        <div style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '0.4px' }}>
+        <div style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '0.4px', lineHeight: 1.05 }}>
           {title}
         </div>
 
-        <div style={{ textAlign: 'right', fontSize: '11px', lineHeight: 1.12 }}>
+        <div style={{ textAlign: 'right', fontSize: '11px', lineHeight: 1.05 }}>
           <div>
             <strong>Check #:</strong> {checkNumberTop}
           </div>
@@ -673,9 +675,10 @@ function PayrollStubCopy({
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          gap: '3px 14px',
-          marginBottom: '5px',
+          gap: '2px 20px',
+          marginBottom: '4px',
           fontSize: '11px',
+          lineHeight: 1.05,
         }}
       >
         <div>
@@ -695,7 +698,7 @@ function PayrollStubCopy({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '3px' }}>
         <table style={stubTableStyle}>
           <thead>
             <tr>
@@ -775,11 +778,17 @@ export default function PayrollCheck({
     <div className="print-payroll-sheet payroll-check-page bg-white">
       <style>{`
         @font-face {
-          font-family: "MICR E13B";
-          src: url("${micrFontUrl}") format("truetype");
+          font-family: 'MICR E13B';
+          src: url(${micrFontUrl}) format('truetype');
           font-weight: 400;
           font-style: normal;
           font-display: swap;
+        }
+
+        .payroll-micr {
+          font-family: 'MICR E13B', 'Courier New', monospace !important;
+          letter-spacing: 0.35mm;
+          white-space: nowrap;
         }
 
         .print-payroll-sheet {
@@ -801,14 +810,14 @@ export default function PayrollCheck({
 
         .print-report-sheet {
           background: white;
-          padding: 3mm 4mm;
+          padding: 3mm 4mm 2mm 4mm;
           box-sizing: border-box;
         }
 
         .print-tear-line {
           width: 100%;
           border-top: 2px dashed #555;
-          margin: 0 0 4px 0;
+          margin: 0 0 2mm 0;
         }
 
         @page {
@@ -826,10 +835,14 @@ export default function PayrollCheck({
             padding: 0 !important;
             background: white !important;
             overflow: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .print-payroll-sheet {
             width: 215.9mm !important;
+            height: 279.4mm !important;
+            min-width: 215.9mm !important;
             min-height: 279.4mm !important;
             margin: 0 !important;
             padding: 0 !important;
@@ -855,7 +868,7 @@ export default function PayrollCheck({
           .print-report-sheet {
             width: 215.9mm !important;
             margin: 0 !important;
-            padding: 3mm 4mm !important;
+            padding: 3mm 4mm 2mm 4mm !important;
             background: white !important;
             box-shadow: none !important;
           }
@@ -864,7 +877,7 @@ export default function PayrollCheck({
             display: block !important;
             width: 100% !important;
             border-top: 2px dashed #555 !important;
-            margin: 0 0 3mm 0 !important;
+            margin: 0 0 2mm 0 !important;
           }
 
           .no-print {
