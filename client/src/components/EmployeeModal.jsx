@@ -478,8 +478,8 @@ export default function EmployeeModal({ open, onClose, onSave, form, setForm, sa
                 </select>
               </div>
 
-              <div className="md:col-span-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-amber-200">
+              <div className="md:col-span-2">
+                <label className="flex items-center gap-2 text-sm text-slate-300">
                   <input
                     type="checkbox"
                     checked={form.exclude_from_payroll_report === true}
