@@ -1578,7 +1578,9 @@ export default function DashboardPage() {
         }
 
         @media screen {
-          .dashboard-selected-checks-print-root { display: none !important; }
+          .dashboard-selected-checks-print-root {
+            display: none !important;
+          }
         }
 
         @page {
@@ -1595,9 +1597,12 @@ export default function DashboardPage() {
             width: 215.9mm !important;
             min-width: 215.9mm !important;
             max-width: 215.9mm !important;
-            height: auto !important;
+            height: 279.4mm !important;
+            min-height: 279.4mm !important;
+            max-height: 279.4mm !important;
+            overflow: hidden !important;
             background: white !important;
-            overflow: visible !important;
+            color: black !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -1608,26 +1613,23 @@ export default function DashboardPage() {
 
           .dashboard-selected-checks-print-root {
             display: block !important;
-            position: static !important;
+            position: fixed !important;
+            left: 0 !important;
+            top: 0 !important;
             width: 215.9mm !important;
-            min-width: 215.9mm !important;
-            max-width: 215.9mm !important;
+            height: 279.4mm !important;
             margin: 0 !important;
             padding: 0 !important;
+            overflow: hidden !important;
             background: white !important;
             color: black !important;
-            overflow: visible !important;
           }
 
           .dashboard-selected-check-page {
             display: block !important;
             position: relative !important;
             width: 215.9mm !important;
-            min-width: 215.9mm !important;
-            max-width: 215.9mm !important;
             height: 279.4mm !important;
-            min-height: 279.4mm !important;
-            max-height: 279.4mm !important;
             margin: 0 !important;
             padding: 0 !important;
             overflow: hidden !important;
@@ -1644,19 +1646,25 @@ export default function DashboardPage() {
           .dashboard-print-scale {
             display: block !important;
             width: 215.9mm !important;
-            min-width: 215.9mm !important;
-            transform: scale(0.94) !important;
+            height: 279.4mm !important;
+            overflow: visible !important;
+            transform: scale(0.86) !important;
             transform-origin: top left !important;
           }
 
           .dashboard-print-scale * {
-            font-family: Arial, Helvetica, sans-serif;
+            box-sizing: border-box !important;
           }
 
           .dashboard-print-scale .micr-text,
+          .dashboard-print-scale .micr-line,
           .dashboard-print-scale [class*="micr"],
-          .dashboard-print-scale [class*="MICR"] {
+          .dashboard-print-scale [class*="MICR"],
+          .dashboard-print-scale [class*="routing"],
+          .dashboard-print-scale [class*="account"] {
             font-family: "MICR E13B", "OCR A Extended", "Courier New", monospace !important;
+            font-weight: 400 !important;
+            letter-spacing: 0.35mm !important;
           }
         }
       `}</style>
