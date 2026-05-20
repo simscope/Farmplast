@@ -60,6 +60,12 @@ const tdBold = {
   fontWeight: 700,
 }
 
+function capitalizeFirst(value) {
+  const text = String(value || '').trim()
+  if (!text) return ''
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}`
+}
+
 function formatDate(value) {
   if (!value) return '—'
 
@@ -236,7 +242,9 @@ function amountToWords(amount) {
   const dollars = Math.floor(value)
   const cents = Math.round((value - dollars) * 100)
 
-  return `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
+  return capitalizeFirst(
+    `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
+  )
 }
 
 function stubMoney(value) {
@@ -452,7 +460,6 @@ function CheckStockPrint({
           whiteSpace: 'nowrap',
           maxWidth: '160mm',
           overflow: 'hidden',
-          textTransform: 'capitalize',
         })}
       >
         {amountWords}
@@ -507,11 +514,10 @@ function CheckStockPrint({
       <div style={lineStyle('memoLine2')} />
 
       <div
+        className="payroll-micr"
         style={posStyle('micr', {
-          fontFamily: '"MICR E13B", "Courier New", monospace',
           fontSize: '4.7mm',
           fontWeight: 500,
-          letterSpacing: '0.35mm',
           lineHeight: 1,
           whiteSpace: 'nowrap',
         })}
@@ -809,25 +815,7 @@ export default function PayrollCheck({
             overflow: visible !important;
           }
 
-          body * {
-            visibility: hidden !important;
-          }
-
-          .print-payroll-sheet,
-          .print-payroll-sheet *,
-          .print-modal-sheet,
-          .print-modal-sheet *,
-          .print-report-sheet,
-          .print-report-sheet *,
-          .print-tear-line,
-          .print-tear-line * {
-            visibility: visible !important;
-          }
-
           .print-payroll-sheet {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
             width: 215.9mm !important;
             min-height: 279.4mm !important;
             margin: 0 !important;
@@ -835,15 +823,11 @@ export default function PayrollCheck({
             background: white !important;
             box-shadow: none !important;
             overflow: hidden !important;
-            z-index: 999997 !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
 
           .print-modal-sheet {
-            position: absolute !important;
-            left: 0 !important;
-            top: 0 !important;
             width: 215.9mm !important;
             height: 88.9mm !important;
             min-width: 215.9mm !important;
@@ -853,24 +837,18 @@ export default function PayrollCheck({
             background: white !important;
             box-shadow: none !important;
             overflow: hidden !important;
-            z-index: 999999 !important;
           }
 
           .print-report-sheet {
-            position: absolute !important;
-            left: 8mm !important;
-            top: 96mm !important;
-            width: 200mm !important;
+            width: 215.9mm !important;
             margin: 0 !important;
             padding: 4mm !important;
             background: white !important;
             box-shadow: none !important;
-            z-index: 999998 !important;
           }
 
           .print-tear-line {
             display: block !important;
-            visibility: visible !important;
             width: 100% !important;
             border-top: 2px dashed #555 !important;
             margin: 0 0 6mm 0 !important;
