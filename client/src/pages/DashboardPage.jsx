@@ -1630,7 +1630,7 @@ export default function DashboardPage() {
         }
       `}</style>
 
-      <div className="dashboard-selected-checks-print-root">
+      <div className="dashboard-selected-checks-print-root payroll-print-host">
         {selectedPrintRows.map((item) => {
           const employee = item.employee
           const fullName = getFullName(employee)
