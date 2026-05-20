@@ -40,7 +40,6 @@ const stubTableStyle = {
   width: '100%',
   borderCollapse: 'collapse',
   fontSize: '10.5px',
-  lineHeight: 1.05,
 }
 
 const th = {
@@ -63,12 +62,6 @@ const tdBold = {
   padding: '1px 3px',
   fontWeight: 700,
   lineHeight: 1.05,
-}
-
-function capitalizeFirst(value) {
-  const text = String(value || '').trim()
-  if (!text) return ''
-  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 function formatDate(value) {
@@ -247,9 +240,13 @@ function amountToWords(amount) {
   const dollars = Math.floor(value)
   const cents = Math.round((value - dollars) * 100)
 
-  return capitalizeFirst(
-    `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
-  )
+  return `${numberToWords(dollars)} dollars and ${String(cents).padStart(2, '0')}/100`
+}
+
+function capitalizeFirstLetter(value) {
+  const text = String(value || '')
+  if (!text) return text
+  return text.charAt(0).toUpperCase() + text.slice(1)
 }
 
 function stubMoney(value) {
@@ -292,7 +289,7 @@ function CheckStockPrint({
 
   const amountNumberMain = String(dollars)
   const amountNumberCents = String(cents).padStart(2, '0')
-  const amountWords = amountToWords(amount)
+  const amountWords = capitalizeFirstLetter(amountToWords(amount))
 
   const rawCheckNumber = Number(checkNumber || employee?.last_check_number || 0)
   const checkNumberTop = String(rawCheckNumber)
@@ -522,7 +519,7 @@ function CheckStockPrint({
         className="payroll-micr"
         style={posStyle('micr', {
           fontSize: '4.7mm',
-          fontWeight: 400,
+          fontWeight: 500,
           lineHeight: 1,
           whiteSpace: 'nowrap',
         })}
@@ -542,7 +539,7 @@ function WeeklyTimeReport({ totals, periodStart }) {
   if (!weeklyRows.length) return null
 
   return (
-    <div style={{ marginTop: '3px' }}>
+    <div style={{ marginTop: '4px' }}>
       <div style={{ marginBottom: '2px', fontSize: '11px', fontWeight: 800, lineHeight: 1.05 }}>
         WEEKLY TIME REPORT
       </div>
@@ -652,16 +649,15 @@ function PayrollStubCopy({
           justifyContent: 'space-between',
           alignItems: 'center',
           borderBottom: '1px solid #444',
-          paddingBottom: '2px',
+          paddingBottom: '3px',
           marginBottom: '4px',
-          lineHeight: 1.05,
         }}
       >
-        <div style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '0.4px', lineHeight: 1.05 }}>
+        <div style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '0.4px' }}>
           {title}
         </div>
 
-        <div style={{ textAlign: 'right', fontSize: '11px', lineHeight: 1.05 }}>
+        <div style={{ textAlign: 'right', fontSize: '11px', lineHeight: 1.35 }}>
           <div>
             <strong>Check #:</strong> {checkNumberTop}
           </div>
@@ -698,7 +694,7 @@ function PayrollStubCopy({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px', marginBottom: '3px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '6px' }}>
         <table style={stubTableStyle}>
           <thead>
             <tr>
@@ -793,15 +789,21 @@ export default function PayrollCheck({
 
         .print-payroll-sheet {
           width: 215.9mm;
+          height: 279.4mm;
           min-height: 279.4mm;
           background: white;
           color: black;
           box-sizing: border-box;
+          overflow: hidden;
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
         }
 
         .print-modal-sheet {
           width: 215.9mm;
           height: 88.9mm;
+          min-width: 215.9mm;
+          min-height: 88.9mm;
           display: block;
           overflow: hidden;
           flex: 0 0 auto;
@@ -810,7 +812,7 @@ export default function PayrollCheck({
 
         .print-report-sheet {
           background: white;
-          padding: 3mm 4mm 2mm 4mm;
+          padding: 2mm 4mm;
           box-sizing: border-box;
         }
 
@@ -826,20 +828,8 @@ export default function PayrollCheck({
         }
 
         @media print {
-          html,
-          body,
-          #root {
-            width: 215.9mm !important;
-            min-width: 215.9mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            overflow: visible !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
           .print-payroll-sheet {
+            position: relative !important;
             width: 215.9mm !important;
             height: 279.4mm !important;
             min-width: 215.9mm !important;
@@ -849,8 +839,13 @@ export default function PayrollCheck({
             background: white !important;
             box-shadow: none !important;
             overflow: hidden !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
+            page-break-after: always !important;
+            break-after: page !important;
+          }
+
+          .print-payroll-sheet:last-child {
+            page-break-after: auto !important;
+            break-after: auto !important;
           }
 
           .print-modal-sheet {
@@ -868,7 +863,7 @@ export default function PayrollCheck({
           .print-report-sheet {
             width: 215.9mm !important;
             margin: 0 !important;
-            padding: 3mm 4mm 2mm 4mm !important;
+            padding: 2mm 4mm !important;
             background: white !important;
             box-shadow: none !important;
           }
