@@ -181,6 +181,23 @@ function buildPayrollReportHtml(week, payrollRows) {
     0
   )
 
+  const workedThisWeek = payrollRows.filter((item) => {
+    const totals = item.totals || {}
+    const rows = Array.isArray(item.rows) ? item.rows : []
+
+    return (
+      Number(totals.totalReg || 0) > 0 ||
+      Number(totals.totalLabor || 0) > 0 ||
+      rows.some(
+        (row) =>
+          row?.time_in ||
+          row?.time_out ||
+          Number(row?.reg_hours || 0) > 0 ||
+          Number(row?.labor_amount || 0) > 0
+      )
+    )
+  }).length
+
   const generatedAt = new Date().toLocaleString('en-US')
 
   const dayHeaders = week.days
@@ -207,7 +224,7 @@ function buildPayrollReportHtml(week, payrollRows) {
         .join('')
 
       return `<tr>
-        <td class="num tiny">${index + 1}</td>
+        <td class="num tiny">${escapeHtml(employee.employee_number ?? '')}</td>
         <td class="emp-cell">
           <b>${escapeHtml(getFullName(employee))}</b>
           <div class="muted">#${escapeHtml(
@@ -308,7 +325,7 @@ function buildPayrollReportHtml(week, payrollRows) {
     }
     .summary {
       display: grid;
-      grid-template-columns: repeat(7, 1fr);
+      grid-template-columns: repeat(8, 1fr);
       gap: 5px;
       margin: 7px 0;
     }
@@ -354,7 +371,7 @@ function buildPayrollReportHtml(week, payrollRows) {
       font-size: 8px;
       line-height: 1.15;
     }
-    .tiny { width: 24px; }
+    .tiny { width: 34px; }
     .emp-cell { width: 130px; }
     .day-col { width: 66px; }
     .day-cell { min-height: 34px; color: #0f172a; }
@@ -402,9 +419,10 @@ function buildPayrollReportHtml(week, payrollRows) {
           <div class="invoice-box-row"><span class="invoice-box-label">Generated</span><span class="invoice-box-value">${escapeHtml(
             generatedAt
           )}</span></div>
-          <div class="invoice-box-row"><span class="invoice-box-label">Workers</span><span class="invoice-box-value">${
+          <div class="invoice-box-row"><span class="invoice-box-label">Workers total</span><span class="invoice-box-value">${
             payrollRows.length
           }</span></div>
+          <div class="invoice-box-row"><span class="invoice-box-label">Worked this week</span><span class="invoice-box-value">${workedThisWeek}</span></div>
           <div class="invoice-box-row"><span class="invoice-box-label">Gross</span><span class="invoice-box-value">${formatMoney(
             grandGross
           )}</span></div>
@@ -420,9 +438,10 @@ function buildPayrollReportHtml(week, payrollRows) {
     </div>
 
     <div class="summary">
-      <div class="summary-card"><span>Workers</span><b>${
+      <div class="summary-card"><span>Workers total</span><b>${
         payrollRows.length
       }</b></div>
+      <div class="summary-card"><span>Worked this week</span><b>${workedThisWeek}</b></div>
       <div class="summary-card"><span>Total hours</span><b>${formatHours(
         grandHours
       )}</b></div>
@@ -446,7 +465,7 @@ function buildPayrollReportHtml(week, payrollRows) {
     <table>
       <thead>
         <tr>
-          <th class="tiny">#</th>
+          <th class="tiny">Emp #</th>
           <th class="emp-cell">Employee</th>
           ${dayHeaders}
           <th>Total h</th>
