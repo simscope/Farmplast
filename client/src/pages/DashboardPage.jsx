@@ -1246,6 +1246,12 @@ export default function DashboardPage() {
         })
       })
 
+      if (document.fonts?.ready) {
+        await document.fonts.ready
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 250))
+
       window.print()
 
       setSelectedCheckIds([])
@@ -1581,7 +1587,21 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#020817] text-white">
       <style>{`
         @media screen {
-          .dashboard-selected-checks-print-root { display: none; }
+          .dashboard-selected-checks-print-root {
+            display: block;
+            position: fixed;
+            left: -10000px;
+            top: 0;
+            width: 215.9mm;
+            min-height: 279.4mm;
+            margin: 0;
+            padding: 0;
+            background: white;
+            color: black;
+            opacity: 0;
+            pointer-events: none;
+            overflow: hidden;
+          }
         }
 
         @media print {
