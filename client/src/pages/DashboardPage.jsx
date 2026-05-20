@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { flushSync } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import { Link } from 'react-router-dom'
 import {
   LayoutDashboard,
@@ -26,10 +26,6 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import EmployeeModal from '../components/EmployeeModal'
 import PayrollReport from '../components/PayrollReport'
-import {
-  calculatePayrollTotals,
-  normalizePayrollRow,
-} from '../utils/payrollMath'
 import PayrollCheck from '../components/payroll/PayrollCheck'
 import '../components/payroll/PayrollCheck.css'
 
@@ -390,9 +386,6 @@ export default function DashboardPage() {
   const [reportLoading, setReportLoading] = useState(false)
   const [reportError, setReportError] = useState('')
   const [selectedCheckIds, setSelectedCheckIds] = useState([])
-  const [selectedPrintRows, setSelectedPrintRows] = useState([])
-  const [selectedPrintWeek, setSelectedPrintWeek] = useState(null)
-  const [selectedPrintPayDate, setSelectedPrintPayDate] = useState('')
 
   const isEditing = Boolean(form.id)
 
@@ -1016,98 +1009,115 @@ export default function DashboardPage() {
   }
 
   function getEmployeePayroll(employee, week, logsByEmployeeAndDate, deductionsRows) {
-    const normalizedRows = week.days.flatMap((day) => {
-      const dayText = toLocalDateString(day)
-      const dayLogs = logsByEmployeeAndDate.get(`${employee.id}__${dayText}`) || []
-
-      return dayLogs.map((log) => normalizePayrollRow(log, employee))
-    })
-
-    const payrollTotals = calculatePayrollTotals(normalizedRows, employee)
-    const calculatedRows = payrollTotals.rows || normalizedRows
-    const employeeDeductions = findEmployeeDeductions(employee, deductionsRows)
-
-    const rentNum = roundDollars(sumDeductions(employeeDeductions, ['rent']))
-    const electricNum = roundDollars(sumDeductions(employeeDeductions, ['electric', 'electricity']))
-    const waterNum = roundDollars(sumDeductions(employeeDeductions, ['water']))
-    const cleanNum = roundDollars(sumDeductions(employeeDeductions, ['clean', 'cleaning']))
-    const transportNum = roundDollars(sumDeductions(employeeDeductions, ['transport', 'transportation']))
-    const manualDeductions = roundDollars(rentNum + electricNum + waterNum + cleanNum + transportNum)
-
-    const employeeTaxNum = roundDollars(payrollTotals.employeeTaxNum || 0)
-    const totalDeductions = roundDollars(employeeTaxNum + manualDeductions)
-    const netPay = roundDollars(Number(payrollTotals.totalLabor || 0) - totalDeductions)
-
-    const rowsByDate = {}
-    calculatedRows.forEach((row) => {
-      if (row?.work_date) rowsByDate[row.work_date] = row
-    })
+    const hourlyRate = getEmployeeHourlyRate(employee)
 
     const days = week.days.map((day) => {
       const dayText = toLocalDateString(day)
-      const rows = calculatedRows
-        .filter((row) => row?.work_date === dayText)
-        .map((row) => ({
-          inTime: row.time_in ? String(row.time_in).slice(0, 5) : '',
-          outTime: row.time_out ? String(row.time_out).slice(0, 5) : '',
-          lunchHours: Number(row.lunch_hours || 0),
-          downtimeHours: Number(row.downtime_hours || 0),
-          regularHours: Number(row.reg_hours || 0),
-          labor: Number(row.labor_amount || 0),
-          status: row.punch_error || row.auto_closed_reason || row.status || row.note || '',
-        }))
+      const dayLogs = logsByEmployeeAndDate.get(`${employee.id}__${dayText}`) || []
+
+      let totalHours = 0
+      let totalLunchHours = 0
+      let baseLabor = 0
+
+      const rows = dayLogs.map((log) => {
+        const hours = getRegularHours(log)
+        const lunchHours = getLunchHours(log)
+        const labor = employee.pay_type === 'hourly' ? hours * hourlyRate : getLogLaborAmount(log, employee)
+
+        totalHours += hours
+        totalLunchHours += lunchHours
+        baseLabor += labor
+
+        return {
+          inTime: getLogInTime(log),
+          outTime: getLogOutTime(log),
+          lunchHours,
+          regularHours: hours,
+          labor,
+          status: log.status || log.note || log.notes || '',
+        }
+      })
 
       return {
         date: day,
         dateText: dayText,
         rows,
-        totalRegularHours: rows.reduce((sum, row) => sum + Number(row.regularHours || 0), 0),
-        totalLunchHours: rows.reduce((sum, row) => sum + Number(row.lunchHours || 0), 0),
-        totalLabor: rows.reduce((sum, row) => sum + Number(row.labor || 0), 0),
+        totalRegularHours: totalHours,
+        totalLunchHours,
+        totalLabor: baseLabor,
       }
     })
 
-    const checkTotals = {
-      ...payrollTotals,
-      rows: calculatedRows,
-      filteredForView: calculatedRows,
-      rowsByDate,
-      taxableHours: payrollTotals.mainHours,
-      taxableLabor: payrollTotals.mainLabor,
-      rentNum,
-      electricNum,
-      waterNum,
-      cleanNum,
-      transportNum,
-      employeeDeductions: manualDeductions,
-      totalDeductions,
-      netPay,
+    const totalHours = days.reduce((sum, day) => sum + day.totalRegularHours, 0)
+
+    const overtimeEnabled = employee?.overtime_enabled === true
+
+    let regularHours = totalHours
+    let overtimeHours = 0
+    let regularLabor = 0
+    let overtimeLabor = 0
+
+    if (employee.pay_type === 'hourly') {
+      if (overtimeEnabled) {
+        regularHours = Math.min(totalHours, 40)
+        overtimeHours = Math.max(totalHours - 40, 0)
+        regularLabor = regularHours * hourlyRate
+        overtimeLabor = overtimeHours * hourlyRate * 1.5
+      } else {
+        regularHours = totalHours
+        overtimeHours = 0
+        regularLabor = regularHours * hourlyRate
+        overtimeLabor = 0
+      }
+    } else if (employee.pay_type === 'monthly') {
+      const monthly = Number(employee.monthly_salary || 0)
+      regularHours = 0
+      overtimeHours = 0
+      regularLabor = Number.isNaN(monthly) ? 0 : monthly / 4.333333
+      overtimeLabor = 0
+    } else if (employee.pay_type === 'one_time') {
+      const amount = Number(employee.monthly_salary || 0)
+      regularHours = 0
+      overtimeHours = 0
+      regularLabor = Number.isNaN(amount) ? 0 : amount
+      overtimeLabor = 0
+    } else {
+      regularLabor = days.reduce((sum, day) => sum + day.totalLabor, 0)
+      overtimeLabor = 0
     }
+
+    const grossPay = regularLabor + overtimeLabor
+    const mainTax = regularLabor * 0.153
+    const overtimeTax = overtimeLabor * 0.27
+    const employeeTaxAmount = roundDollars(mainTax + overtimeTax)
+
+    const employeeDeductions = findEmployeeDeductions(employee, deductionsRows)
+    const deductions = {
+      tax: employeeTaxAmount,
+      rent: roundDollars(sumDeductions(employeeDeductions, ['rent'])),
+      electric: roundDollars(sumDeductions(employeeDeductions, ['electric', 'electricity'])),
+      water: roundDollars(sumDeductions(employeeDeductions, ['water'])),
+      clean: roundDollars(sumDeductions(employeeDeductions, ['clean', 'cleaning'])),
+      transport: roundDollars(sumDeductions(employeeDeductions, ['transport', 'transportation'])),
+    }
+
+    const otherDeductions = deductions.rent + deductions.electric + deductions.water + deductions.clean + deductions.transport
+    const totalDeductions = deductions.tax + otherDeductions
+    const netPay = roundDollars(grossPay) - totalDeductions
 
     return {
       employee,
-      rows: calculatedRows,
-      rowsByDate,
-      totals: checkTotals,
-      checkTotals,
       days,
-      totalRegularHours: Number(payrollTotals.totalReg || 0),
-      regularHours: Number(payrollTotals.mainHours || 0),
-      overtimeHours: Number(payrollTotals.overtimeHours || 0),
-      regularLabor: roundDollars(payrollTotals.mainLabor || 0),
-      overtimeLabor: roundDollars(payrollTotals.overtimeLabor || 0),
-      mainTax: roundDollars(payrollTotals.mainTax || 0),
-      overtimeTax: roundDollars(payrollTotals.overtimeTax || 0),
-      grossPay: roundDollars(payrollTotals.totalLabor || 0),
-      deductions: {
-        tax: employeeTaxNum,
-        rent: rentNum,
-        electric: electricNum,
-        water: waterNum,
-        clean: cleanNum,
-        transport: transportNum,
-      },
-      otherDeductions: manualDeductions,
+      totalRegularHours: totalHours,
+      regularHours,
+      overtimeHours,
+      regularLabor: roundDollars(regularLabor),
+      overtimeLabor: roundDollars(overtimeLabor),
+      mainTax: roundDollars(mainTax),
+      overtimeTax: roundDollars(overtimeTax),
+      grossPay: roundDollars(grossPay),
+      deductions,
+      otherDeductions,
       totalDeductions,
       netPay,
     }
@@ -1133,6 +1143,410 @@ export default function DashboardPage() {
     )
   }
 
+  function buildDayCompactHtml(day) {
+    if (!day.rows.length) return '<span class="muted">—</span>'
+
+    return day.rows
+      .map((row) => {
+        const time = `${escapeHtml(row.inTime || '—')}-${escapeHtml(row.outTime || '—')}`
+        const lunch = Number(row.lunchHours || 0) > 0 ? ` L:${formatHours(row.lunchHours)}` : ''
+        return `<div>${time}<br/><b>${formatHours(row.regularHours)}h</b>${lunch}</div>`
+      })
+      .join('')
+  }
+
+  function buildPayrollReportHtml(week, logs, deductionsRows) {
+    const payrollRows = buildPayrollRows(week, logs, deductionsRows)
+
+    const grandGross = payrollRows.reduce((sum, item) => sum + item.grossPay, 0)
+    const grandRegularLabor = payrollRows.reduce((sum, item) => sum + item.regularLabor, 0)
+    const grandOvertimeLabor = payrollRows.reduce((sum, item) => sum + item.overtimeLabor, 0)
+    const grandTax = payrollRows.reduce((sum, item) => sum + item.deductions.tax, 0)
+    const grandOtherDeductions = payrollRows.reduce((sum, item) => sum + item.otherDeductions, 0)
+    const grandDeductions = payrollRows.reduce((sum, item) => sum + item.totalDeductions, 0)
+    const grandNet = payrollRows.reduce((sum, item) => sum + item.netPay, 0)
+    const grandHours = payrollRows.reduce((sum, item) => sum + item.totalRegularHours, 0)
+    const grandOvertimeHours = payrollRows.reduce((sum, item) => sum + item.overtimeHours, 0)
+    const generatedAt = new Date().toLocaleString('en-US')
+
+    const dayHeaders = week.days
+      .map((day) => `<th class="day-col">${escapeHtml(formatReportDate(day)).replace(', 202', '<br/>202')}</th>`)
+      .join('')
+
+    const summaryRows = payrollRows
+      .map((item, index) => {
+        const employee = item.employee
+        const dayCells = item.days
+          .map((day) => `<td class="day-cell">${buildDayCompactHtml(day)}</td>`)
+          .join('')
+
+        return `<tr>
+          <td class="num tiny">${index + 1}</td>
+          <td class="emp-cell">
+            <b>${escapeHtml(getFullName(employee))}</b>
+            <div class="muted">#${escapeHtml(employee.employee_number ?? '')} · ${escapeHtml(getPayLabel(employee))} · ${escapeHtml(getOvertimeLabel(employee))}</div>
+          </td>
+          ${dayCells}
+          <td class="num">${formatHours(item.totalRegularHours)}</td>
+          <td class="num strong">${formatHours(item.overtimeHours)}</td>
+          <td class="num">${formatMoney(item.regularLabor)}</td>
+          <td class="num">${formatMoney(item.overtimeLabor)}</td>
+          <td class="num strong">${formatMoney(item.grossPay)}</td>
+          <td class="num">${formatMoney(item.mainTax)}</td>
+          <td class="num">${formatMoney(item.overtimeTax)}</td>
+          <td class="num strong tax-cell">${formatMoney(item.deductions.tax)}</td>
+          <td class="num">${formatMoney(item.otherDeductions)}</td>
+          <td class="num strong total-net">${formatMoney(item.netPay)}</td>
+        </tr>`
+      })
+      .join('')
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Payroll Report ${week.startText} - ${week.endText}</title>
+  <style>
+    @page { size: Letter landscape; margin: 6mm; }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 8px;
+      color: #0f172a;
+      background: #ffffff;
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: 9px;
+    }
+    .invoice-shell { width: 100%; margin: 0 auto; }
+    .top {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      margin-bottom: 8px;
+      border-bottom: 3px solid #0ea5e9;
+      padding-bottom: 8px;
+    }
+    .brand { font-size: 10px; font-weight: 900; color: #0369a1; letter-spacing: .08em; text-transform: uppercase; }
+    h1 { margin: 2px 0 4px; font-size: 22px; line-height: 1; color: #0f172a; }
+    .period { font-size: 11px; font-weight: 800; }
+    .muted { color: #64748b; font-size: 8px; line-height: 1.2; }
+    .rules { margin-top: 3px; color: #334155; font-size: 8px; }
+    .top-actions { display: flex; align-items: start; gap: 8px; }
+    .invoice-box {
+      min-width: 250px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .invoice-box-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      padding: 4px 7px;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    .invoice-box-row:last-child { border-bottom: 0; }
+    .invoice-box-label { color: #64748b; }
+    .invoice-box-value { font-weight: 900; text-align: right; }
+    .summary {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 5px;
+      margin: 7px 0;
+    }
+    .summary-card {
+      border: 1px solid #bae6fd;
+      border-radius: 7px;
+      padding: 6px;
+      background: #f0f9ff;
+      min-height: 38px;
+    }
+    .summary-card span { display: block; color: #0369a1; font-weight: 800; font-size: 7px; text-transform: uppercase; }
+    .summary-card b { display: block; font-size: 13px; margin-top: 2px; color: #0f172a; }
+    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+    th, td { border: 1px solid #cbd5e1; padding: 3px 4px; vertical-align: top; }
+    th { background: #0369a1; color: white; text-align: left; font-size: 7px; text-transform: uppercase; line-height: 1.1; }
+    td { font-size: 8px; line-height: 1.15; }
+    .tiny { width: 24px; }
+    .emp-cell { width: 130px; }
+    .day-col { width: 66px; }
+    .day-cell { min-height: 34px; color: #0f172a; }
+    .num { text-align: right; white-space: nowrap; }
+    .strong { font-weight: 900; }
+    .tax-cell { background: #fff7ed; color: #9a3412; }
+    .total-net { background: #dcfce7; color: #166534; }
+    .footer-note { margin-top: 6px; color: #64748b; font-size: 8px; }
+    .no-print {
+      border: 0;
+      border-radius: 7px;
+      background: #0ea5e9;
+      color: white;
+      padding: 7px 10px;
+      font-size: 10px;
+      font-weight: 900;
+      cursor: pointer;
+    }
+    @media print {
+      body { padding: 0; font-size: 8px; }
+      .no-print { display: none !important; }
+      .summary-card { padding: 4px; }
+      th, td { padding: 2px 3px; }
+      h1 { font-size: 18px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="invoice-shell">
+    <div class="top">
+      <div>
+        <div class="brand">Payroll Report</div>
+        <h1>Weekly Payroll</h1>
+        <div class="period">Previous week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
+        <div class="rules">If Overtime is enabled: first 40h/week at regular rate, hours over 40h at 1.5x. If No OT: all hours stay regular. Main tax 15.3%, OT tax 27%. All money rounded to whole dollars.</div>
+      </div>
+      <div class="top-actions">
+        <div class="invoice-box">
+          <div class="invoice-box-row"><span class="invoice-box-label">Generated</span><span class="invoice-box-value">${escapeHtml(generatedAt)}</span></div>
+          <div class="invoice-box-row"><span class="invoice-box-label">Workers</span><span class="invoice-box-value">${payrollRows.length}</span></div>
+          <div class="invoice-box-row"><span class="invoice-box-label">Total tax</span><span class="invoice-box-value">${formatMoney(grandTax)}</span></div>
+          <div class="invoice-box-row"><span class="invoice-box-label">Net payroll</span><span class="invoice-box-value">${formatMoney(grandNet)}</span></div>
+        </div>
+        <button class="no-print" onclick="window.print()">Print / Save PDF</button>
+      </div>
+    </div>
+
+    <div class="summary">
+      <div class="summary-card"><span>Workers</span><b>${payrollRows.length}</b></div>
+      <div class="summary-card"><span>Total hours</span><b>${formatHours(grandHours)}</b></div>
+      <div class="summary-card"><span>OT hours</span><b>${formatHours(grandOvertimeHours)}</b></div>
+      <div class="summary-card"><span>Main labor</span><b>${formatMoney(grandRegularLabor)}</b></div>
+      <div class="summary-card"><span>OT labor</span><b>${formatMoney(grandOvertimeLabor)}</b></div>
+      <div class="summary-card"><span>Employee tax</span><b>${formatMoney(grandTax)}</b></div>
+      <div class="summary-card"><span>Net payroll</span><b>${formatMoney(grandNet)}</b><div class="muted">Other deductions: ${formatMoney(grandOtherDeductions)}</div></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th class="tiny">#</th>
+          <th class="emp-cell">Employee</th>
+          ${dayHeaders}
+          <th>Total h</th>
+          <th>OT h</th>
+          <th>Main $</th>
+          <th>OT $</th>
+          <th>Gross</th>
+          <th>15.3%</th>
+          <th>OT 27%</th>
+          <th>Emp Tax</th>
+          <th>Deduct.</th>
+          <th>Net Pay</th>
+        </tr>
+      </thead>
+      <tbody>${summaryRows || '<tr><td colspan="21">No employees found</td></tr>'}</tbody>
+    </table>
+
+    <div class="footer-note">Report generated from employees and employee_work_logs. Employee tax amount = main labor tax + overtime labor tax. Rent/electric/water/clean/transport stay as manual deductions when available.</div>
+  </div>
+</body>
+</html>`
+  }
+
+  function csvCell(value) {
+    const text = String(value ?? '')
+    return `"${text.replace(/"/g, '""')}"`
+  }
+
+  function buildPayrollCsv(week, logs, deductionsRows) {
+    const payrollRows = buildPayrollRows(week, logs, deductionsRows)
+    const lines = []
+
+    lines.push([
+      'Employee No',
+      'Employee Name',
+      'Overtime Mode',
+      'Total Hours',
+      'Main Hours Up To 40',
+      'Overtime Hours',
+      'Main Labor',
+      'Overtime Labor',
+      'Gross Pay',
+      'Main Tax 15.3%',
+      'Overtime Tax 27%',
+      'Employee Tax Amount',
+      'Other Deductions',
+      'Total Deductions',
+      'Net Pay',
+      'Mon',
+      'Tue',
+      'Wed',
+      'Thu',
+      'Fri',
+      'Sat',
+      'Sun',
+    ].map(csvCell).join(','))
+
+    payrollRows.forEach((item) => {
+      const employee = item.employee
+      const dayValues = item.days.map((day) => {
+        if (!day.rows.length) return ''
+        return day.rows
+          .map((row) => `${row.inTime || '—'}-${row.outTime || '—'} ${formatHours(row.regularHours)}h L:${formatHours(row.lunchHours)}`)
+          .join(' | ')
+      })
+
+      lines.push([
+        employee.employee_number ?? '',
+        getFullName(employee),
+        getOvertimeLabel(employee),
+        formatHours(item.totalRegularHours),
+        formatHours(item.regularHours),
+        formatHours(item.overtimeHours),
+        formatCsvMoney(item.regularLabor),
+        formatCsvMoney(item.overtimeLabor),
+        formatCsvMoney(item.grossPay),
+        formatCsvMoney(item.mainTax),
+        formatCsvMoney(item.overtimeTax),
+        formatCsvMoney(item.deductions.tax),
+        formatCsvMoney(item.otherDeductions),
+        formatCsvMoney(item.totalDeductions),
+        formatCsvMoney(item.netPay),
+        ...dayValues,
+      ].map(csvCell).join(','))
+    })
+
+    return `Payroll Report,${week.startText} to ${week.endText}\nAll money rounded to whole dollars\n${lines.join('\n')}`
+  }
+
+  async function handlePayrollPdfReport() {
+    try {
+      setReportLoading(true)
+      setReportError('')
+      setError('')
+
+      const { week, logs } = await loadPreviousWeekWorkLogs()
+      const deductionsRows = await tryLoadPayrollDeductions(week)
+      const html = buildPayrollReportHtml(week, logs, deductionsRows)
+
+      const printWindow = window.open('', '_blank')
+      if (!printWindow) {
+        throw new Error('Popup blocked. Allow popups for this site and click Payroll PDF again.')
+      }
+
+      printWindow.document.open()
+      printWindow.document.write(html)
+      printWindow.document.close()
+      printWindow.focus()
+
+      setTimeout(() => {
+        try {
+          printWindow.print()
+        } catch (printError) {
+          console.warn('Auto print failed:', printError)
+        }
+      }, 500)
+    } catch (err) {
+      console.error('handlePayrollPdfReport error:', err)
+      const message = err.message || 'Failed to build payroll PDF report'
+      setReportError(message)
+      setError(message)
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
+  function mapPayrollRowToCheckTotals(item) {
+    return {
+      mainHours: item.regularHours,
+      overtimeHours: item.overtimeHours,
+      totalLabor: item.grossPay,
+      mainLabor: item.regularLabor,
+      overtimeLabor: item.overtimeLabor,
+      employeeTaxNum: item.deductions.tax,
+      rentNum: item.deductions.rent,
+      electricNum: item.deductions.electric,
+      waterNum: item.deductions.water,
+      cleanNum: item.deductions.clean,
+      transportNum: item.deductions.transport,
+      netPay: item.netPay,
+    }
+  }
+
+  function copyPrintStylesToWindow(printDocument) {
+    Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).forEach((node) => {
+      try {
+        printDocument.head.appendChild(node.cloneNode(true))
+      } catch (err) {
+        console.warn('Could not copy print style node:', err)
+      }
+    })
+
+    const style = printDocument.createElement('style')
+    style.textContent = `
+      @page { size: 215.9mm 279.4mm; margin: 0; }
+      html, body { margin: 0; padding: 0; background: white; color: black; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      #print-root { background: white; }
+      .dashboard-selected-checks-print { background: white; }
+      .dashboard-selected-checks-print > * { page-break-after: always; break-after: page; }
+      .dashboard-selected-checks-print > *:last-child { page-break-after: auto; break-after: auto; }
+    `
+    printDocument.head.appendChild(style)
+  }
+
+  function openSelectedChecksPrintWindow(week, payrollRows) {
+    const printWindow = window.open('', '_blank')
+
+    if (!printWindow) {
+      throw new Error('Popup blocked. Allow popups for this site and click Print selected checks again.')
+    }
+
+    printWindow.document.open()
+    printWindow.document.write(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Selected payroll checks</title>
+</head>
+<body>
+  <div id="print-root"></div>
+</body>
+</html>`)
+    printWindow.document.close()
+
+    copyPrintStylesToWindow(printWindow.document)
+
+    const rootElement = printWindow.document.getElementById('print-root')
+    const root = createRoot(rootElement)
+    const payDate = toLocalDateString(new Date())
+
+    root.render(
+      <div className="dashboard-selected-checks-print">
+        {payrollRows.map((item) => {
+          const employee = item.employee
+          const checkNumber = item.print_check_number || employee?.last_check_number || 0
+
+          return (
+            <PayrollCheck
+              key={`${employee.id}-${checkNumber}`}
+              employee={employee}
+              fullName={getFullName(employee)}
+              totals={mapPayrollRowToCheckTotals(item)}
+              periodStart={week.startText}
+              periodEnd={week.endText}
+              checkNumber={checkNumber}
+              payDate={payDate}
+            />
+          )
+        })}
+      </div>
+    )
+
+    setTimeout(() => {
+      printWindow.focus()
+      printWindow.print()
+    }, 500)
+  }
+
   function toggleSelectedCheck(employeeId) {
     setSelectedCheckIds((prev) =>
       prev.includes(employeeId)
@@ -1156,9 +1570,6 @@ export default function DashboardPage() {
       setReportLoading(true)
       setReportError('')
       setError('')
-      setSelectedPrintRows([])
-      setSelectedPrintWeek(null)
-      setSelectedPrintPayDate('')
 
       if (selectedCheckIds.length === 0) {
         throw new Error('Select at least one employee for check printing')
@@ -1178,22 +1589,10 @@ export default function DashboardPage() {
       const nowIso = new Date().toISOString()
       const today = nowIso.slice(0, 10)
 
-      const { data: maxCheckRows, error: maxCheckError } = await supabase
-        .from('employees')
-        .select('last_check_number')
-        .not('last_check_number', 'is', null)
-        .order('last_check_number', { ascending: false })
-        .limit(1)
-
-      if (maxCheckError) throw maxCheckError
-
-      const startingCheckNumber = Number(maxCheckRows?.[0]?.last_check_number || 0)
-
-      for (let index = 0; index < payrollRows.length; index += 1) {
-        const item = payrollRows[index]
+      for (const item of payrollRows) {
         const employee = item.employee
-        const totals = item.checkTotals
-        const nextCheckNumber = startingCheckNumber + index + 1
+        const totals = mapPayrollRowToCheckTotals(item)
+        const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
 
         const payload = {
           employee_id: employee.id,
@@ -1228,39 +1627,14 @@ export default function DashboardPage() {
         if (employeeUpdateError) throw employeeUpdateError
 
         item.print_check_number = nextCheckNumber
-        item.checkTotals = totals
         employee.last_payment_date = today
         employee.last_payment_amount = Number(totals.netPay || 0)
         employee.last_check_number = nextCheckNumber
       }
 
-      flushSync(() => {
-        setSelectedPrintRows(payrollRows)
-        setSelectedPrintWeek(week)
-        setSelectedPrintPayDate(today)
-      })
-
-      await new Promise((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(resolve)
-        })
-      })
-
-      if (document.fonts?.ready) {
-        await document.fonts.ready
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 250))
-
-      window.print()
+      openSelectedChecksPrintWindow(week, payrollRows)
 
       setSelectedCheckIds([])
-      setTimeout(() => {
-        setSelectedPrintRows([])
-        setSelectedPrintWeek(null)
-        setSelectedPrintPayDate('')
-      }, 500)
-
       await loadEmployees()
     } catch (err) {
       console.error('handlePrintSelectedChecks error:', err)
@@ -1574,7 +1948,6 @@ export default function DashboardPage() {
       offSite: employees.filter((e) => getPresenceKind(e) === 'off_site').length,
       absent: employees.filter((e) => getPresenceKind(e) === 'absent').length,
       openShift: employees.filter((e) => getPresenceKind(e) === 'open_shift').length,
-      punchErrors: employees.filter((e) => getPunchErrorItems(e).length > 0).length,
       zktVerified: employees.filter((e) =>
         ['synced', 'verified', 'already_exists'].includes(e.zkt_sync_status)
       ).length,
@@ -1585,78 +1958,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-[#020817] text-white">
-      <style>{`
-        @media screen {
-          .dashboard-selected-checks-print-root {
-            display: block;
-            position: fixed;
-            left: -10000px;
-            top: 0;
-            width: 215.9mm;
-            min-height: 279.4mm;
-            margin: 0;
-            padding: 0;
-            background: white;
-            color: black;
-            opacity: 0;
-            pointer-events: none;
-            overflow: hidden;
-          }
-        }
-
-        @media print {
-          @page { size: 215.9mm 279.4mm; margin: 0; }
-
-          html,
-          body,
-          #root {
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            color: black !important;
-            overflow: visible !important;
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-          }
-
-          .dashboard-screen {
-            display: none !important;
-          }
-
-          .dashboard-selected-checks-print-root {
-            display: block !important;
-            width: 215.9mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            background: white !important;
-            color: black !important;
-          }
-        }
-      `}</style>
-
-      <div className="dashboard-selected-checks-print-root payroll-print-host">
-        {selectedPrintRows.map((item) => {
-          const employee = item.employee
-          const fullName = getFullName(employee)
-          const totals = item.checkTotals
-          const checkNumber = item.print_check_number || employee?.last_check_number || 0
-
-          return (
-            <PayrollCheck
-              key={employee.id}
-              employee={employee}
-              fullName={fullName}
-              totals={totals}
-              periodStart={selectedPrintWeek?.startText || ''}
-              periodEnd={selectedPrintWeek?.endText || ''}
-              checkNumber={checkNumber}
-              payDate={selectedPrintPayDate}
-            />
-          )
-        })}
-      </div>
-
-      <div className="dashboard-screen mx-auto max-w-[1900px] px-3 py-4 sm:px-4 lg:px-5">
+      <div className="mx-auto max-w-[1900px] px-3 py-4 sm:px-4 lg:px-5">
         <div className={`${cardClass} mb-4 p-3`}>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-start gap-3">
