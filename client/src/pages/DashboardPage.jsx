@@ -365,6 +365,7 @@ export default function DashboardPage() {
     downtime_enabled: true,
     shift_type: 'day',
     active: true,
+    exclude_from_payroll_report: false,
     hire_date: '',
     employer_form: 'W2',
     company_name: '',
@@ -437,6 +438,7 @@ export default function DashboardPage() {
           downtime_enabled,
           shift_type,
           active,
+          exclude_from_payroll_report,
           hire_date,
           employer_form,
           company_name,
@@ -683,6 +685,7 @@ export default function DashboardPage() {
       downtime_enabled: employee.downtime_enabled ?? true,
       shift_type: normalizeShiftType(employee.shift_type),
       active: employee.active ?? true,
+      exclude_from_payroll_report: employee.exclude_from_payroll_report === true,
       hire_date: employee.hire_date || '',
       employer_form: employee.employer_form || 'W2',
       company_name: employee.company_name || '',
@@ -747,6 +750,7 @@ export default function DashboardPage() {
         downtime_enabled: form.downtime_enabled !== false,
         shift_type: normalizeShiftType(form.shift_type),
         active: Boolean(form.active),
+        exclude_from_payroll_report: form.exclude_from_payroll_report === true,
         hire_date: form.hire_date || null,
         employer_form: form.employer_form || null,
         company_name:
@@ -1111,8 +1115,12 @@ export default function DashboardPage() {
   }
 
 
-  function buildPayrollRows(week, logs, deductionsRows) {
+  function buildPayrollRows(week, logs, deductionsRows, options = {}) {
     const logsByEmployeeAndDate = new Map()
+    const includeExcluded = options.includeExcluded === true
+    const sourceEmployees = includeExcluded
+      ? employees
+      : employees.filter((employee) => employee.exclude_from_payroll_report !== true)
 
     logs.forEach((log) => {
       const employeeId = getLogEmployeeId(log)
@@ -1126,7 +1134,7 @@ export default function DashboardPage() {
       logsByEmployeeAndDate.set(key, current)
     })
 
-    return employees.map((employee) =>
+    return sourceEmployees.map((employee) =>
       getEmployeePayroll(employee, week, logsByEmployeeAndDate, deductionsRows)
     )
   }
@@ -1573,7 +1581,7 @@ export default function DashboardPage() {
       const selectedIdSet = new Set(selectedCheckIds)
       const { week, logs } = await loadPreviousWeekWorkLogs()
       const deductionsRows = await tryLoadPayrollDeductions(week)
-      const payrollRows = buildPayrollRows(week, logs, deductionsRows)
+      const payrollRows = buildPayrollRows(week, logs, deductionsRows, { includeExcluded: true })
         .filter((item) => selectedIdSet.has(item.employee.id))
         .filter((item) => Number(item.netPay || 0) > 0)
 
