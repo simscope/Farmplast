@@ -200,6 +200,23 @@ function rowHasWorkData(row) {
   )
 }
 
+function isRealSavedWorkLogRow(row) {
+  const rowId = String(row?.id || '')
+
+  return (
+    row &&
+    row.id &&
+    !rowId.startsWith('new-') &&
+    !rowId.startsWith('empty-') &&
+    row?.is_deleted !== true
+  )
+}
+
+function getDeductionNumber(value) {
+  const num = Number(value || 0)
+  return Number.isFinite(num) ? num : 0
+}
+
 function buildEmptyRow(downtimeEnabled = true) {
   return {
     id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
@@ -210,6 +227,11 @@ function buildEmptyRow(downtimeEnabled = true) {
     downtime_hours: downtimeEnabled ? '1' : '0',
     reg_hours: '0',
     labor_amount: '0',
+    rent: 0,
+    electric: 0,
+    water: 0,
+    clean: 0,
+    transport: 0,
     manual_time_in: false,
     manual_time_out: false,
     manually_edited: false,
@@ -361,6 +383,46 @@ export default function EmployeeDetailsPage() {
     loadPage()
   }, [id])
 
+  useEffect(() => {
+    const periodRows = logs.filter((row) => {
+      if (!isRealSavedWorkLogRow(row)) return false
+      if (!row.work_date) return false
+      if (periodStart && row.work_date < periodStart) return false
+      if (periodEnd && row.work_date > periodEnd) return false
+      return true
+    })
+
+    if (periodRows.length === 0) {
+      setRent('0')
+      setElectric('0')
+      setWater('0')
+      setClean('0')
+      setTransport('0')
+      return
+    }
+
+    const sortedRows = [...periodRows].sort((a, b) => {
+      const aTime = new Date(a.updated_at || a.created_at || 0).getTime() || 0
+      const bTime = new Date(b.updated_at || b.created_at || 0).getTime() || 0
+      return bTime - aTime
+    })
+
+    const rowWithDeductions =
+      sortedRows.find((row) =>
+        getDeductionNumber(row.rent) > 0 ||
+        getDeductionNumber(row.electric) > 0 ||
+        getDeductionNumber(row.water) > 0 ||
+        getDeductionNumber(row.clean) > 0 ||
+        getDeductionNumber(row.transport) > 0
+      ) || sortedRows[0]
+
+    setRent(String(getDeductionNumber(rowWithDeductions.rent)))
+    setElectric(String(getDeductionNumber(rowWithDeductions.electric)))
+    setWater(String(getDeductionNumber(rowWithDeductions.water)))
+    setClean(String(getDeductionNumber(rowWithDeductions.clean)))
+    setTransport(String(getDeductionNumber(rowWithDeductions.transport)))
+  }, [logs, periodStart, periodEnd])
+
   async function loadPaymentsOnly() {
     try {
       setRefreshingPayments(true)
@@ -470,6 +532,11 @@ export default function EmployeeDetailsPage() {
       downtime_hours: employee?.downtime_enabled === false ? '0' : '',
       reg_hours: '0',
       labor_amount: '0',
+      rent: 0,
+      electric: 0,
+      water: 0,
+      clean: 0,
+      transport: 0,
       manual_time_in: false,
       manual_time_out: false,
       manually_edited: false,
@@ -662,6 +729,11 @@ export default function EmployeeDetailsPage() {
       downtime_hours: employee?.downtime_enabled === false ? 0 : hasAnyTime ? Number(row.downtime_hours || 0) : 0,
       reg_hours: hasAnyTime ? Number(row.reg_hours || 0) : 0,
       labor_amount: hasAnyTime ? Number(row.labor_amount || 0) : 0,
+      rent: getDeductionNumber(rent),
+      electric: getDeductionNumber(electric),
+      water: getDeductionNumber(water),
+      clean: getDeductionNumber(clean),
+      transport: getDeductionNumber(transport),
       source: 'manual',
       manually_edited:
         row.manually_edited === true ||
@@ -683,6 +755,27 @@ export default function EmployeeDetailsPage() {
     )
   }
 
+  function buildDeductionsPayload() {
+    return {
+      rent: getDeductionNumber(rent),
+      electric: getDeductionNumber(electric),
+      water: getDeductionNumber(water),
+      clean: getDeductionNumber(clean),
+      transport: getDeductionNumber(transport),
+      updated_at: new Date().toISOString(),
+    }
+  }
+
+  function getExistingRowsInSelectedPeriod() {
+    return logs.filter((row) => {
+      if (!isRealSavedWorkLogRow(row)) return false
+      if (!row?.work_date) return false
+      if (periodStart && row.work_date < periodStart) return false
+      if (periodEnd && row.work_date > periodEnd) return false
+      return true
+    })
+  }
+
   async function saveChangedRows() {
     try {
       setSaving(true)
@@ -699,10 +792,7 @@ export default function EmployeeDetailsPage() {
         return true
       })
 
-      if (rowsToSave.length === 0) {
-        setSuccess('No changed rows to save')
-        return
-      }
+      const savedRowIds = new Set()
 
       for (const row of rowsToSave) {
         if (!row.work_date) {
@@ -712,8 +802,14 @@ export default function EmployeeDetailsPage() {
         const payload = buildWorkLogPayload(row)
 
         if (String(row.id).startsWith('new-') || String(row.id).startsWith('empty-')) {
-          const { error } = await supabase.from('employee_work_logs').insert(payload)
+          const { data, error } = await supabase
+            .from('employee_work_logs')
+            .insert(payload)
+            .select('id')
+            .maybeSingle()
+
           if (error) throw error
+          if (data?.id) savedRowIds.add(data.id)
         } else {
           const { error } = await supabase
             .from('employee_work_logs')
@@ -721,10 +817,38 @@ export default function EmployeeDetailsPage() {
             .eq('id', row.id)
 
           if (error) throw error
+          savedRowIds.add(row.id)
         }
       }
 
-      setSuccess(`${rowsToSave.length} changed row${rowsToSave.length === 1 ? '' : 's'} saved`)
+      const deductionsPayload = buildDeductionsPayload()
+      const existingRowsForDeductions = getExistingRowsInSelectedPeriod().filter(
+        (row) => !savedRowIds.has(row.id)
+      )
+
+      if (existingRowsForDeductions.length > 0) {
+        const { error } = await supabase
+          .from('employee_work_logs')
+          .update(deductionsPayload)
+          .in(
+            'id',
+            existingRowsForDeductions.map((row) => row.id)
+          )
+
+        if (error) throw error
+      }
+
+      const totalSavedRows = rowsToSave.length + existingRowsForDeductions.length
+
+      if (totalSavedRows === 0) {
+        setSuccess('No changed rows to save')
+        return
+      }
+
+      setSuccess(
+        `${rowsToSave.length} changed work row${rowsToSave.length === 1 ? '' : 's'} saved. ` +
+          `Deductions saved to ${totalSavedRows} row${totalSavedRows === 1 ? '' : 's'}.`
+      )
       await loadPage()
     } catch (err) {
       console.error('saveChangedRows error:', err)
@@ -1066,6 +1190,11 @@ export default function EmployeeDetailsPage() {
           downtime_hours: employee?.downtime_enabled === false ? '0' : '',
           reg_hours: '',
           labor_amount: '',
+          rent: 0,
+          electric: 0,
+          water: 0,
+          clean: 0,
+          transport: 0,
           manual_time_in: false,
           manual_time_out: false,
           manually_edited: false,
