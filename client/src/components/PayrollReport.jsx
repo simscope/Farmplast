@@ -213,6 +213,7 @@ function buildPayrollReportHtml(week, payrollRows) {
   const bodyRows = payrollRows
     .map((item, index) => {
       const employee = item.employee
+      const reportNumber = index + 1
       const netPay = getNetPay(item.totals)
 
       const dayCells = week.days
@@ -224,10 +225,10 @@ function buildPayrollReportHtml(week, payrollRows) {
         .join('')
 
       return `<tr>
-        <td class="num tiny">${escapeHtml(employee.employee_number ?? '')}</td>
+        <td class="num tiny">${reportNumber}</td>
         <td class="emp-cell">
           <b>${escapeHtml(getFullName(employee))}</b>
-          <div class="muted">#${escapeHtml(
+          <div class="muted">Employee #${escapeHtml(
             employee.employee_number ?? ''
           )} · ${escapeHtml(getPayLabel(employee))} · ${escapeHtml(
             getOvertimeLabel(employee)
@@ -465,7 +466,7 @@ function buildPayrollReportHtml(week, payrollRows) {
     <table>
       <thead>
         <tr>
-          <th class="tiny">Emp #</th>
+          <th class="tiny">#</th>
           <th class="emp-cell">Employee</th>
           ${dayHeaders}
           <th>Total h</th>
@@ -493,6 +494,7 @@ function buildPayrollCsv(week, payrollRows) {
 
   lines.push(
     [
+      'Report No',
       'Employee No',
       'Employee Name',
       'Overtime Mode',
@@ -518,8 +520,9 @@ function buildPayrollCsv(week, payrollRows) {
       .join(',')
   )
 
-  payrollRows.forEach((item) => {
+  payrollRows.forEach((item, index) => {
     const employee = item.employee
+    const reportNumber = index + 1
     const netPay = getNetPay(item.totals)
 
     const dayValues = week.days.map((day) => {
@@ -537,6 +540,7 @@ function buildPayrollCsv(week, payrollRows) {
 
     lines.push(
       [
+        reportNumber,
         employee.employee_number ?? '',
         getFullName(employee),
         getOvertimeLabel(employee),
@@ -562,6 +566,9 @@ function buildPayrollCsv(week, payrollRows) {
 
 export default function PayrollReport({ employees = [] }) {
   const safeEmployees = Array.isArray(employees) ? employees : []
+  const reportEmployees = safeEmployees.filter(
+    (employee) => employee?.exclude_from_payroll_report !== true
+  )
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -588,7 +595,7 @@ export default function PayrollReport({ employees = [] }) {
   function buildRows(week, logs) {
     const safeLogs = Array.isArray(logs) ? logs : []
 
-    return safeEmployees.map((employee) => {
+    return reportEmployees.map((employee) => {
       const employeeLogs = safeLogs.filter(
         (log) => String(log.employee_id) === String(employee.id)
       )
@@ -679,7 +686,7 @@ export default function PayrollReport({ employees = [] }) {
         <div>
           <h2 className="text-lg font-bold text-white">Payroll report</h2>
           <p className="mt-1 text-xs text-cyan-200">
-            Uses the same shared calculation as employee payroll card. Includes Lunch, DT and Net Pay.
+            Uses the same shared calculation as employee payroll card. Excludes workers marked in employee card.
           </p>
         </div>
 
