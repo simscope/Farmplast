@@ -1025,22 +1025,14 @@ export default function DashboardPage() {
 
     const payrollTotals = calculatePayrollTotals(normalizedRows, employee)
     const calculatedRows = payrollTotals.rows || normalizedRows
-
     const employeeDeductions = findEmployeeDeductions(employee, deductionsRows)
 
     const rentNum = roundDollars(sumDeductions(employeeDeductions, ['rent']))
-    const electricNum = roundDollars(
-      sumDeductions(employeeDeductions, ['electric', 'electricity'])
-    )
+    const electricNum = roundDollars(sumDeductions(employeeDeductions, ['electric', 'electricity']))
     const waterNum = roundDollars(sumDeductions(employeeDeductions, ['water']))
     const cleanNum = roundDollars(sumDeductions(employeeDeductions, ['clean', 'cleaning']))
-    const transportNum = roundDollars(
-      sumDeductions(employeeDeductions, ['transport', 'transportation'])
-    )
-
-    const manualDeductions = roundDollars(
-      rentNum + electricNum + waterNum + cleanNum + transportNum
-    )
+    const transportNum = roundDollars(sumDeductions(employeeDeductions, ['transport', 'transportation']))
+    const manualDeductions = roundDollars(rentNum + electricNum + waterNum + cleanNum + transportNum)
 
     const employeeTaxNum = roundDollars(payrollTotals.employeeTaxNum || 0)
     const totalDeductions = roundDollars(employeeTaxNum + manualDeductions)
@@ -1048,9 +1040,7 @@ export default function DashboardPage() {
 
     const rowsByDate = {}
     calculatedRows.forEach((row) => {
-      if (row?.work_date) {
-        rowsByDate[row.work_date] = row
-      }
+      if (row?.work_date) rowsByDate[row.work_date] = row
     })
 
     const days = week.days.map((day) => {
@@ -1143,318 +1133,6 @@ export default function DashboardPage() {
     )
   }
 
-  function buildDayCompactHtml(day) {
-    if (!day.rows.length) return '<span class="muted">—</span>'
-
-    return day.rows
-      .map((row) => {
-        const time = `${escapeHtml(row.inTime || '—')}-${escapeHtml(row.outTime || '—')}`
-        const lunch = Number(row.lunchHours || 0) > 0 ? ` L:${formatHours(row.lunchHours)}` : ''
-        return `<div>${time}<br/><b>${formatHours(row.regularHours)}h</b>${lunch}</div>`
-      })
-      .join('')
-  }
-
-  function buildPayrollReportHtml(week, logs, deductionsRows) {
-    const payrollRows = buildPayrollRows(week, logs, deductionsRows)
-
-    const grandGross = payrollRows.reduce((sum, item) => sum + item.grossPay, 0)
-    const grandRegularLabor = payrollRows.reduce((sum, item) => sum + item.regularLabor, 0)
-    const grandOvertimeLabor = payrollRows.reduce((sum, item) => sum + item.overtimeLabor, 0)
-    const grandTax = payrollRows.reduce((sum, item) => sum + item.deductions.tax, 0)
-    const grandOtherDeductions = payrollRows.reduce((sum, item) => sum + item.otherDeductions, 0)
-    const grandDeductions = payrollRows.reduce((sum, item) => sum + item.totalDeductions, 0)
-    const grandNet = payrollRows.reduce((sum, item) => sum + item.netPay, 0)
-    const grandHours = payrollRows.reduce((sum, item) => sum + item.totalRegularHours, 0)
-    const grandOvertimeHours = payrollRows.reduce((sum, item) => sum + item.overtimeHours, 0)
-    const generatedAt = new Date().toLocaleString('en-US')
-
-    const dayHeaders = week.days
-      .map((day) => `<th class="day-col">${escapeHtml(formatReportDate(day)).replace(', 202', '<br/>202')}</th>`)
-      .join('')
-
-    const summaryRows = payrollRows
-      .map((item, index) => {
-        const employee = item.employee
-        const dayCells = item.days
-          .map((day) => `<td class="day-cell">${buildDayCompactHtml(day)}</td>`)
-          .join('')
-
-        return `<tr>
-          <td class="num tiny">${index + 1}</td>
-          <td class="emp-cell">
-            <b>${escapeHtml(getFullName(employee))}</b>
-            <div class="muted">#${escapeHtml(employee.employee_number ?? '')} · ${escapeHtml(getPayLabel(employee))} · ${escapeHtml(getOvertimeLabel(employee))}</div>
-          </td>
-          ${dayCells}
-          <td class="num">${formatHours(item.totalRegularHours)}</td>
-          <td class="num strong">${formatHours(item.overtimeHours)}</td>
-          <td class="num">${formatMoney(item.regularLabor)}</td>
-          <td class="num">${formatMoney(item.overtimeLabor)}</td>
-          <td class="num strong">${formatMoney(item.grossPay)}</td>
-          <td class="num">${formatMoney(item.mainTax)}</td>
-          <td class="num">${formatMoney(item.overtimeTax)}</td>
-          <td class="num strong tax-cell">${formatMoney(item.deductions.tax)}</td>
-          <td class="num">${formatMoney(item.otherDeductions)}</td>
-          <td class="num strong total-net">${formatMoney(item.netPay)}</td>
-        </tr>`
-      })
-      .join('')
-
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Payroll Report ${week.startText} - ${week.endText}</title>
-  <style>
-    @page { size: Letter landscape; margin: 6mm; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 8px;
-      color: #0f172a;
-      background: #ffffff;
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 9px;
-    }
-    .invoice-shell { width: 100%; margin: 0 auto; }
-    .top {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 12px;
-      margin-bottom: 8px;
-      border-bottom: 3px solid #0ea5e9;
-      padding-bottom: 8px;
-    }
-    .brand { font-size: 10px; font-weight: 900; color: #0369a1; letter-spacing: .08em; text-transform: uppercase; }
-    h1 { margin: 2px 0 4px; font-size: 22px; line-height: 1; color: #0f172a; }
-    .period { font-size: 11px; font-weight: 800; }
-    .muted { color: #64748b; font-size: 8px; line-height: 1.2; }
-    .rules { margin-top: 3px; color: #334155; font-size: 8px; }
-    .top-actions { display: flex; align-items: start; gap: 8px; }
-    .invoice-box {
-      min-width: 250px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    .invoice-box-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 4px 7px;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .invoice-box-row:last-child { border-bottom: 0; }
-    .invoice-box-label { color: #64748b; }
-    .invoice-box-value { font-weight: 900; text-align: right; }
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 5px;
-      margin: 7px 0;
-    }
-    .summary-card {
-      border: 1px solid #bae6fd;
-      border-radius: 7px;
-      padding: 6px;
-      background: #f0f9ff;
-      min-height: 38px;
-    }
-    .summary-card span { display: block; color: #0369a1; font-weight: 800; font-size: 7px; text-transform: uppercase; }
-    .summary-card b { display: block; font-size: 13px; margin-top: 2px; color: #0f172a; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    th, td { border: 1px solid #cbd5e1; padding: 3px 4px; vertical-align: top; }
-    th { background: #0369a1; color: white; text-align: left; font-size: 7px; text-transform: uppercase; line-height: 1.1; }
-    td { font-size: 8px; line-height: 1.15; }
-    .tiny { width: 24px; }
-    .emp-cell { width: 130px; }
-    .day-col { width: 66px; }
-    .day-cell { min-height: 34px; color: #0f172a; }
-    .num { text-align: right; white-space: nowrap; }
-    .strong { font-weight: 900; }
-    .tax-cell { background: #fff7ed; color: #9a3412; }
-    .total-net { background: #dcfce7; color: #166534; }
-    .footer-note { margin-top: 6px; color: #64748b; font-size: 8px; }
-    .no-print {
-      border: 0;
-      border-radius: 7px;
-      background: #0ea5e9;
-      color: white;
-      padding: 7px 10px;
-      font-size: 10px;
-      font-weight: 900;
-      cursor: pointer;
-    }
-    @media print {
-      body { padding: 0; font-size: 8px; }
-      .no-print { display: none !important; }
-      .summary-card { padding: 4px; }
-      th, td { padding: 2px 3px; }
-      h1 { font-size: 18px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="invoice-shell">
-    <div class="top">
-      <div>
-        <div class="brand">Payroll Report</div>
-        <h1>Weekly Payroll</h1>
-        <div class="period">Previous week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
-        <div class="rules">If Overtime is enabled: first 40h/week at regular rate, hours over 40h at 1.5x. If No OT: all hours stay regular. Main tax 15.3%, OT tax 27%. All money rounded to whole dollars.</div>
-      </div>
-      <div class="top-actions">
-        <div class="invoice-box">
-          <div class="invoice-box-row"><span class="invoice-box-label">Generated</span><span class="invoice-box-value">${escapeHtml(generatedAt)}</span></div>
-          <div class="invoice-box-row"><span class="invoice-box-label">Workers</span><span class="invoice-box-value">${payrollRows.length}</span></div>
-          <div class="invoice-box-row"><span class="invoice-box-label">Total tax</span><span class="invoice-box-value">${formatMoney(grandTax)}</span></div>
-          <div class="invoice-box-row"><span class="invoice-box-label">Net payroll</span><span class="invoice-box-value">${formatMoney(grandNet)}</span></div>
-        </div>
-        <button class="no-print" onclick="window.print()">Print / Save PDF</button>
-      </div>
-    </div>
-
-    <div class="summary">
-      <div class="summary-card"><span>Workers</span><b>${payrollRows.length}</b></div>
-      <div class="summary-card"><span>Total hours</span><b>${formatHours(grandHours)}</b></div>
-      <div class="summary-card"><span>OT hours</span><b>${formatHours(grandOvertimeHours)}</b></div>
-      <div class="summary-card"><span>Main labor</span><b>${formatMoney(grandRegularLabor)}</b></div>
-      <div class="summary-card"><span>OT labor</span><b>${formatMoney(grandOvertimeLabor)}</b></div>
-      <div class="summary-card"><span>Employee tax</span><b>${formatMoney(grandTax)}</b></div>
-      <div class="summary-card"><span>Net payroll</span><b>${formatMoney(grandNet)}</b><div class="muted">Other deductions: ${formatMoney(grandOtherDeductions)}</div></div>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th class="tiny">#</th>
-          <th class="emp-cell">Employee</th>
-          ${dayHeaders}
-          <th>Total h</th>
-          <th>OT h</th>
-          <th>Main $</th>
-          <th>OT $</th>
-          <th>Gross</th>
-          <th>15.3%</th>
-          <th>OT 27%</th>
-          <th>Emp Tax</th>
-          <th>Deduct.</th>
-          <th>Net Pay</th>
-        </tr>
-      </thead>
-      <tbody>${summaryRows || '<tr><td colspan="21">No employees found</td></tr>'}</tbody>
-    </table>
-
-    <div class="footer-note">Report generated from employees and employee_work_logs. Employee tax amount = main labor tax + overtime labor tax. Rent/electric/water/clean/transport stay as manual deductions when available.</div>
-  </div>
-</body>
-</html>`
-  }
-
-  function csvCell(value) {
-    const text = String(value ?? '')
-    return `"${text.replace(/"/g, '""')}"`
-  }
-
-  function buildPayrollCsv(week, logs, deductionsRows) {
-    const payrollRows = buildPayrollRows(week, logs, deductionsRows)
-    const lines = []
-
-    lines.push([
-      'Employee No',
-      'Employee Name',
-      'Overtime Mode',
-      'Total Hours',
-      'Main Hours Up To 40',
-      'Overtime Hours',
-      'Main Labor',
-      'Overtime Labor',
-      'Gross Pay',
-      'Main Tax 15.3%',
-      'Overtime Tax 27%',
-      'Employee Tax Amount',
-      'Other Deductions',
-      'Total Deductions',
-      'Net Pay',
-      'Mon',
-      'Tue',
-      'Wed',
-      'Thu',
-      'Fri',
-      'Sat',
-      'Sun',
-    ].map(csvCell).join(','))
-
-    payrollRows.forEach((item) => {
-      const employee = item.employee
-      const dayValues = item.days.map((day) => {
-        if (!day.rows.length) return ''
-        return day.rows
-          .map((row) => `${row.inTime || '—'}-${row.outTime || '—'} ${formatHours(row.regularHours)}h L:${formatHours(row.lunchHours)}`)
-          .join(' | ')
-      })
-
-      lines.push([
-        employee.employee_number ?? '',
-        getFullName(employee),
-        getOvertimeLabel(employee),
-        formatHours(item.totalRegularHours),
-        formatHours(item.regularHours),
-        formatHours(item.overtimeHours),
-        formatCsvMoney(item.regularLabor),
-        formatCsvMoney(item.overtimeLabor),
-        formatCsvMoney(item.grossPay),
-        formatCsvMoney(item.mainTax),
-        formatCsvMoney(item.overtimeTax),
-        formatCsvMoney(item.deductions.tax),
-        formatCsvMoney(item.otherDeductions),
-        formatCsvMoney(item.totalDeductions),
-        formatCsvMoney(item.netPay),
-        ...dayValues,
-      ].map(csvCell).join(','))
-    })
-
-    return `Payroll Report,${week.startText} to ${week.endText}\nAll money rounded to whole dollars\n${lines.join('\n')}`
-  }
-
-  async function handlePayrollPdfReport() {
-    try {
-      setReportLoading(true)
-      setReportError('')
-      setError('')
-
-      const { week, logs } = await loadPreviousWeekWorkLogs()
-      const deductionsRows = await tryLoadPayrollDeductions(week)
-      const html = buildPayrollReportHtml(week, logs, deductionsRows)
-
-      const printWindow = window.open('', '_blank')
-      if (!printWindow) {
-        throw new Error('Popup blocked. Allow popups for this site and click Payroll PDF again.')
-      }
-
-      printWindow.document.open()
-      printWindow.document.write(html)
-      printWindow.document.close()
-      printWindow.focus()
-
-      setTimeout(() => {
-        try {
-          printWindow.print()
-        } catch (printError) {
-          console.warn('Auto print failed:', printError)
-        }
-      }, 500)
-    } catch (err) {
-      console.error('handlePayrollPdfReport error:', err)
-      const message = err.message || 'Failed to build payroll PDF report'
-      setReportError(message)
-      setError(message)
-    } finally {
-      setReportLoading(false)
-    }
-  }
-
   function toggleSelectedCheck(employeeId) {
     setSelectedCheckIds((prev) =>
       prev.includes(employeeId)
@@ -1502,7 +1180,7 @@ export default function DashboardPage() {
 
       for (const item of payrollRows) {
         const employee = item.employee
-        const totals = mapPayrollRowToCheckTotals(item)
+        const totals = item.checkTotals
         const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
 
         const payload = {
@@ -1878,6 +1556,7 @@ export default function DashboardPage() {
       offSite: employees.filter((e) => getPresenceKind(e) === 'off_site').length,
       absent: employees.filter((e) => getPresenceKind(e) === 'absent').length,
       openShift: employees.filter((e) => getPresenceKind(e) === 'open_shift').length,
+      punchErrors: employees.filter((e) => getPunchErrorItems(e).length > 0).length,
       zktVerified: employees.filter((e) =>
         ['synced', 'verified', 'already_exists'].includes(e.zkt_sync_status)
       ).length,
@@ -1921,7 +1600,7 @@ export default function DashboardPage() {
         {selectedPrintRows.map((item) => {
           const employee = item.employee
           const fullName = getFullName(employee)
-          const totals = item.checkTotals || mapPayrollRowToCheckTotals(item)
+          const totals = item.checkTotals
           const checkNumber = item.print_check_number || employee?.last_check_number || 0
 
           return (
