@@ -328,6 +328,7 @@ const initialForm = {
   position: 'technician',
   hourly_rate: '',
   overtime_enabled: false,
+  exclude_from_payroll_report: false,
   active: true,
 }
 
@@ -630,6 +631,7 @@ export default function EmployeesPage() {
             ? null
             : Number(parseFloat(form.hourly_rate).toFixed(2)),
         overtime_enabled: Boolean(form.overtime_enabled),
+        exclude_from_payroll_report: Boolean(form.exclude_from_payroll_report),
         active: !!form.active,
         photo_url: null,
 
@@ -929,6 +931,28 @@ export default function EmployeesPage() {
               </div>
 
               <div style={fieldStyle}>
+                <label style={labelStyle}>Payroll report</label>
+                <div style={checkboxRowStyle}>
+                  <input
+                    id="exclude-from-payroll-report"
+                    type="checkbox"
+                    name="exclude_from_payroll_report"
+                    checked={!!form.exclude_from_payroll_report}
+                    onChange={handleChange}
+                  />
+                  <label
+                    htmlFor="exclude-from-payroll-report"
+                    style={{ color: '#cbd5e1', fontSize: '12px' }}
+                  >
+                    Exclude from weekly report
+                  </label>
+                </div>
+                <div style={{ ...infoTextStyle, marginTop: 0, fontSize: '10px' }}>
+                  Employee will not appear in Payroll PDF / CSV.
+                </div>
+              </div>
+
+              <div style={fieldStyle}>
                 <label style={labelStyle}>Status</label>
                 <div style={checkboxRowStyle}>
                   <input
@@ -999,6 +1023,7 @@ export default function EmployeesPage() {
                     <th style={{ ...thStyle, width: '220px' }}>Email</th>
                     <th style={{ ...thStyle, width: '100px' }}>Hourly rate</th>
                     <th style={{ ...thStyle, width: '120px' }}>Overtime</th>
+                    <th style={{ ...thStyle, width: '130px' }}>Payroll report</th>
                     <th style={{ ...thStyle, width: '90px' }}>Status</th>
                     <th style={{ ...thStyle, width: '110px' }}>ZKT ID</th>
                     <th style={{ ...thStyle, width: '120px' }}>ZKT Status</th>
@@ -1088,6 +1113,12 @@ export default function EmployeesPage() {
                       <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
                         <span style={getZktBadgeStyle(employee.overtime_enabled ? 'verified' : 'skipped')}>
                           {employee.overtime_enabled ? 'With OT' : 'No OT'}
+                        </span>
+                      </td>
+
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                        <span style={getZktBadgeStyle(employee.exclude_from_payroll_report ? 'skipped' : 'verified')}>
+                          {employee.exclude_from_payroll_report ? 'Excluded' : 'Included'}
                         </span>
                       </td>
 
