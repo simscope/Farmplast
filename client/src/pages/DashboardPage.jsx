@@ -2108,10 +2108,9 @@ export default function DashboardPage() {
             ) : (
               <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
                 <div className="min-w-[1870px]">
-                  <div className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_180px_110px_120px_360px_160px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+                  <div className="grid grid-cols-[70px_230px_150px_170px_110px_100px_180px_110px_120px_110px_360px_160px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                     <div>No.</div>
                     <div>Name</div>
-                    <div>ZKT ID</div>
                     <div>Presence ({counts.presenceOnline})</div>
                     <div>Last punch</div>
                     <div>Direction</div>
@@ -2119,6 +2118,7 @@ export default function DashboardPage() {
                     <div>Punch error</div>
                     <div>Payment</div>
                     <div>Overtime</div>
+                    <div>ZKT ID</div>
                     <div>Actions</div>
                     <div className="flex items-center gap-2">
                       <input
@@ -2139,7 +2139,7 @@ export default function DashboardPage() {
                     filteredEmployees.map((employee) => (
                       <div
                         key={employee.id}
-                        className="grid grid-cols-[70px_230px_110px_150px_170px_110px_100px_180px_110px_120px_360px_160px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
+                        className="grid grid-cols-[70px_230px_150px_170px_110px_100px_180px_110px_120px_110px_360px_160px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
                       >
                         <div className="font-semibold text-cyan-300">
                           {employee.employee_number ?? '—'}
@@ -2164,10 +2164,6 @@ export default function DashboardPage() {
                               </div>
                             ) : null}
                           </div>
-                        </div>
-
-                        <div className="font-semibold text-blue-300">
-                          {employee.zkt_user_id ?? employee.employee_number ?? '—'}
                         </div>
 
                         <div>
@@ -2217,6 +2213,10 @@ export default function DashboardPage() {
                           >
                             {getOvertimeLabel(employee)}
                           </span>
+                        </div>
+
+                        <div className="font-semibold text-blue-300">
+                          {employee.zkt_user_id ?? employee.employee_number ?? '—'}
                         </div>
 
                         <div className="flex flex-wrap gap-1.5">
