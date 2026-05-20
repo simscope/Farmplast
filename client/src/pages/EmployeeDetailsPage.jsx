@@ -442,20 +442,19 @@ export default function EmployeeDetailsPage() {
     }
   }
 
- function applyPayrollPeriod(mode) {
-  setPeriodMode(mode)
+  function applyPayrollPeriod(mode) {
+    setPeriodMode(mode)
 
-  if (mode === 'custom') return
+    if (mode === 'custom') return
 
-  const range = getPayrollWeekRange(mode)
-  setPeriodStart(range.start)
-  setPeriodEnd(range.end)
-}
+    const range = getPayrollWeekRange(mode)
+    setPeriodStart(range.start)
+    setPeriodEnd(range.end)
+  }
 
   function addRow() {
     setLogs((prev) => [buildEmptyRow(employee?.downtime_enabled !== false), ...prev])
   }
-
 
   function buildDraftRowForDate(rowId) {
     const dateStr = String(rowId || '').startsWith('empty-')
@@ -497,6 +496,16 @@ export default function EmployeeDetailsPage() {
         if (row.id !== rowId) return row
 
         const nextRow = { ...row, [field]: value, is_dirty: true }
+
+        if (
+          field === 'lunch_hours' ||
+          field === 'downtime_hours' ||
+          field === 'reg_hours' ||
+          field === 'labor_amount'
+        ) {
+          nextRow.manually_edited = true
+          nextRow.is_empty = false
+        }
 
         if (employee?.downtime_enabled === false) {
           nextRow.downtime_hours = '0'
@@ -549,6 +558,7 @@ export default function EmployeeDetailsPage() {
           work_date_display: displayValue,
           work_date: parsedDate || row.work_date,
           manually_edited: true,
+          is_empty: false,
           is_dirty: true,
         }
       })
@@ -585,6 +595,7 @@ export default function EmployeeDetailsPage() {
         if (parsedTime) {
           nextRow[field] = parsedTime
           nextRow.is_dirty = true
+          nextRow.is_empty = false
 
           if (nextRow.lunch_hours === '' || nextRow.lunch_hours === null || nextRow.lunch_hours === undefined) {
             nextRow.lunch_hours = '1'
@@ -1021,54 +1032,54 @@ export default function EmployeeDetailsPage() {
     }
   }
 
- const displayLogs = useMemo(() => {
-  if (!periodStart) return totals.filteredForView || []
+  const displayLogs = useMemo(() => {
+    if (!periodStart) return totals.filteredForView || []
 
-  const map = {}
+    const map = {}
 
-  ;(totals.filteredForView || []).forEach((row) => {
-    if (row.work_date) map[row.work_date] = row
-  })
+    ;(totals.filteredForView || []).forEach((row) => {
+      if (row.work_date) map[row.work_date] = row
+    })
 
-  const result = []
-  const start = new Date(`${periodStart}T00:00:00`)
-  const end = periodEnd
-    ? new Date(`${periodEnd}T00:00:00`)
-    : new Date(start)
+    const result = []
+    const start = new Date(`${periodStart}T00:00:00`)
+    const end = periodEnd
+      ? new Date(`${periodEnd}T00:00:00`)
+      : new Date(start)
 
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
-    return totals.filteredForView || []
-  }
+    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+      return totals.filteredForView || []
+    }
 
-  let current = new Date(start)
+    let current = new Date(start)
 
-  while (current <= end) {
-    const dateStr = toLocalDateString(current)
+    while (current <= end) {
+      const dateStr = toLocalDateString(current)
 
-    result.push(
-      map[dateStr] || {
-        id: `empty-${dateStr}`,
-        work_date: dateStr,
-        time_in: '',
-        time_out: '',
-        lunch_hours: '',
-        downtime_hours: employee?.downtime_enabled === false ? '0' : '',
-        reg_hours: '',
-        labor_amount: '',
-        manual_time_in: false,
-        manual_time_out: false,
-        manually_edited: false,
-        is_empty: true,
-      }
+      result.push(
+        map[dateStr] || {
+          id: `empty-${dateStr}`,
+          work_date: dateStr,
+          time_in: '',
+          time_out: '',
+          lunch_hours: '',
+          downtime_hours: employee?.downtime_enabled === false ? '0' : '',
+          reg_hours: '',
+          labor_amount: '',
+          manual_time_in: false,
+          manual_time_out: false,
+          manually_edited: false,
+          is_empty: true,
+        }
+      )
+
+      current.setDate(current.getDate() + 1)
+    }
+
+    return result.sort((a, b) =>
+      String(b.work_date || '').localeCompare(String(a.work_date || ''))
     )
-
-    current.setDate(current.getDate() + 1)
-  }
-
-  return result.sort((a, b) =>
-    String(b.work_date || '').localeCompare(String(a.work_date || ''))
-  )
-}, [totals.filteredForView, periodStart, periodEnd, employee])
+  }, [totals.filteredForView, periodStart, periodEnd, employee])
 
   return (
     <div className="min-h-screen bg-[#020817] text-white print:bg-white print:text-black">
@@ -1100,42 +1111,42 @@ export default function EmployeeDetailsPage() {
           </button>
 
           <div className="inline-flex overflow-hidden rounded-lg border border-slate-700 bg-slate-900">
-  <button
-    type="button"
-    onClick={() => applyPayrollPeriod('last')}
-    className={`px-3 py-2 text-sm font-semibold transition ${
-      periodMode === 'last'
-        ? 'bg-cyan-600 text-white'
-        : 'text-slate-300 hover:bg-slate-800'
-    }`}
-  >
-    Last Week
-  </button>
+            <button
+              type="button"
+              onClick={() => applyPayrollPeriod('last')}
+              className={`px-3 py-2 text-sm font-semibold transition ${
+                periodMode === 'last'
+                  ? 'bg-cyan-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              Last Week
+            </button>
 
-  <button
-    type="button"
-    onClick={() => applyPayrollPeriod('this')}
-    className={`border-l border-slate-700 px-3 py-2 text-sm font-semibold transition ${
-      periodMode === 'this'
-        ? 'bg-cyan-600 text-white'
-        : 'text-slate-300 hover:bg-slate-800'
-    }`}
-  >
-    This Week
-  </button>
+            <button
+              type="button"
+              onClick={() => applyPayrollPeriod('this')}
+              className={`border-l border-slate-700 px-3 py-2 text-sm font-semibold transition ${
+                periodMode === 'this'
+                  ? 'bg-cyan-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              This Week
+            </button>
 
-  <button
-    type="button"
-    onClick={() => applyPayrollPeriod('custom')}
-    className={`border-l border-slate-700 px-3 py-2 text-sm font-semibold transition ${
-      periodMode === 'custom'
-        ? 'bg-cyan-600 text-white'
-        : 'text-slate-300 hover:bg-slate-800'
-    }`}
-  >
-    Custom
-  </button>
-</div>
+            <button
+              type="button"
+              onClick={() => applyPayrollPeriod('custom')}
+              className={`border-l border-slate-700 px-3 py-2 text-sm font-semibold transition ${
+                periodMode === 'custom'
+                  ? 'bg-cyan-600 text-white'
+                  : 'text-slate-300 hover:bg-slate-800'
+              }`}
+            >
+              Custom
+            </button>
+          </div>
 
           <button
             onClick={handleOpenPrintModal}
@@ -1645,13 +1656,15 @@ export default function EmployeeDetailsPage() {
 
                         <div
                           className={`rounded-lg border px-2 py-2 text-center text-xs font-bold ${
-                            row.manual_time_in || row.manual_time_out
+                            row.manual_time_in || row.manual_time_out || row.manually_edited
                               ? 'border-amber-500/30 bg-amber-500/10 text-amber-300'
                               : 'border-slate-800 bg-[#07101d] text-slate-500'
                           }`}
                           title="Manual correction"
                         >
-                          {getManualEditLabel(row)}
+                          {row.manually_edited && !row.manual_time_in && !row.manual_time_out
+                            ? 'EDIT'
+                            : getManualEditLabel(row)}
                         </div>
 
                         <div className="flex gap-1">
