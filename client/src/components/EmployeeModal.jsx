@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase'
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
 
-
 function normalizeShiftType(value) {
   return String(value || 'day').toLowerCase() === 'night' ? 'night' : 'day'
 }
@@ -69,7 +68,15 @@ async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
   return data.publicUrl
 }
 
-export default function EmployeeModal({ open, onClose, onSave, form, setForm, saving, isEditing }) {
+export default function EmployeeModal({
+  open,
+  onClose,
+  onSave,
+  form,
+  setForm,
+  saving,
+  isEditing,
+}) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadError, setUploadError] = useState('')
 
@@ -175,23 +182,23 @@ export default function EmployeeModal({ open, onClose, onSave, form, setForm, sa
               <div className="mx-auto h-28 w-28 overflow-hidden rounded-2xl border border-slate-700 bg-[#07101d]">
                 {form.photo_url ? (
                   <img
-                key={form.photo_url}
-                src={form.photo_url}
-                alt="Employee"
-                className="h-full w-full object-cover"
-                onLoad={() => {
-                console.log('PHOTO LOADED:', form.photo_url)
-                }}
-                onError={() => {
-                console.error('PHOTO FAILED:', form.photo_url)
-              }}
-            />
-          ) : (
-                <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
-              No photo
-            </div>
-              )}
-            </div>
+                    key={form.photo_url}
+                    src={form.photo_url}
+                    alt="Employee"
+                    className="h-full w-full object-cover"
+                    onLoad={() => {
+                      console.log('PHOTO LOADED:', form.photo_url)
+                    }}
+                    onError={() => {
+                      console.error('PHOTO FAILED:', form.photo_url)
+                    }}
+                  />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center text-xs text-slate-500">
+                    No photo
+                  </div>
+                )}
+              </div>
 
               <div className="mt-3">
                 <label className="inline-flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20">
@@ -425,8 +432,6 @@ export default function EmployeeModal({ open, onClose, onSave, form, setForm, sa
                 </p>
               </div>
 
-
-
               <div>
                 <label className="mb-1 block text-xs text-slate-300">Downtime</label>
                 <select
@@ -478,7 +483,26 @@ export default function EmployeeModal({ open, onClose, onSave, form, setForm, sa
                 </select>
               </div>
 
-              <div className="md:col-span-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+              <div className="md:col-span-2">
+                <label className="flex items-center gap-2 text-sm text-slate-300">
+                  <input
+                    type="checkbox"
+                    checked={form.exclude_from_payroll_report === true}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        exclude_from_payroll_report: e.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 rounded border-slate-600 bg-[#08101c]"
+                  />
+                  Exclude from weekly payroll report
+                </label>
+
+                <p className="mt-0.5 pl-6 text-[11px] text-slate-500">
+                  Employee will not appear in Payroll PDF / CSV.
+                </p>
+              </div>
 
               <div className="md:col-span-2 mt-2 border-t border-slate-800 pt-3">
                 <h3 className="text-sm font-bold text-cyan-300">ZKT settings</h3>
