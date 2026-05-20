@@ -39,25 +39,29 @@ const stubTableStyle = {
   width: '100%',
   borderCollapse: 'collapse',
   fontSize: '10.5px',
+  lineHeight: 1.05,
 }
 
 const th = {
   border: '1px solid #222',
-  padding: '4px',
+  padding: '2px 4px',
   background: '#efefef',
   textAlign: 'left',
   fontWeight: 700,
+  lineHeight: 1.05,
 }
 
 const td = {
   border: '1px solid #222',
-  padding: '4px',
+  padding: '2px 4px',
+  lineHeight: 1.05,
 }
 
 const tdBold = {
   border: '1px solid #222',
-  padding: '4px',
+  padding: '2px 4px',
   fontWeight: 700,
+  lineHeight: 1.05,
 }
 
 function capitalizeFirst(value) {
@@ -537,12 +541,12 @@ function WeeklyTimeReport({ totals, periodStart }) {
   if (!weeklyRows.length) return null
 
   return (
-    <div style={{ marginTop: '8px' }}>
-      <div style={{ marginBottom: '5px', fontSize: '11px', fontWeight: 800 }}>
+    <div style={{ marginTop: '4px' }}>
+      <div style={{ marginBottom: '2px', fontSize: '11px', fontWeight: 800 }}>
         WEEKLY TIME REPORT
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px' }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', lineHeight: 1.05 }}>
         <thead>
           <tr>
             <th style={th}>DATE</th>
@@ -630,8 +634,8 @@ function PayrollStubCopy({
       className="payroll-stub-copy"
       style={{
         border: '1px solid #222',
-        padding: '8px 12px',
-        marginBottom: '8px',
+        padding: '5px 8px',
+        marginBottom: '5px',
         fontFamily: 'Arial, Helvetica, sans-serif',
         fontSize: '11px',
         color: 'black',
@@ -646,15 +650,15 @@ function PayrollStubCopy({
           justifyContent: 'space-between',
           alignItems: 'center',
           borderBottom: '1px solid #444',
-          paddingBottom: '6px',
-          marginBottom: '8px',
+          paddingBottom: '3px',
+          marginBottom: '5px',
         }}
       >
         <div style={{ fontWeight: 800, fontSize: '14px', letterSpacing: '0.4px' }}>
           {title}
         </div>
 
-        <div style={{ textAlign: 'right', fontSize: '11px', lineHeight: 1.35 }}>
+        <div style={{ textAlign: 'right', fontSize: '11px', lineHeight: 1.12 }}>
           <div>
             <strong>Check #:</strong> {checkNumberTop}
           </div>
@@ -668,8 +672,8 @@ function PayrollStubCopy({
         style={{
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
-          gap: '6px 20px',
-          marginBottom: '10px',
+          gap: '3px 14px',
+          marginBottom: '5px',
           fontSize: '11px',
         }}
       >
@@ -690,7 +694,7 @@ function PayrollStubCopy({
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
         <table style={stubTableStyle}>
           <thead>
             <tr>
@@ -789,14 +793,14 @@ export default function PayrollCheck({
 
         .print-report-sheet {
           background: white;
-          padding: 4mm;
+          padding: 3mm 4mm;
           box-sizing: border-box;
         }
 
         .print-tear-line {
           width: 100%;
           border-top: 2px dashed #555;
-          margin: 0 0 8px 0;
+          margin: 0 0 4px 0;
         }
 
         @page {
@@ -843,7 +847,7 @@ export default function PayrollCheck({
           .print-report-sheet {
             width: 215.9mm !important;
             margin: 0 !important;
-            padding: 4mm !important;
+            padding: 3mm 4mm !important;
             background: white !important;
             box-shadow: none !important;
           }
@@ -852,7 +856,7 @@ export default function PayrollCheck({
             display: block !important;
             width: 100% !important;
             border-top: 2px dashed #555 !important;
-            margin: 0 0 6mm 0 !important;
+            margin: 0 0 3mm 0 !important;
           }
 
           .no-print {
