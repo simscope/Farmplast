@@ -1,4 +1,5 @@
 import React from 'react'
+import micrFontUrl from '../../assets/fonts/MICRE13B.ttf'
 
 const CHECK_SIZE = {
   width: '215.9mm',
@@ -527,7 +528,6 @@ function CheckStockPrint({
         })}
       >
         {micrText}
-      </div>
     </div>
   )
 }
@@ -771,9 +771,16 @@ export default function PayrollCheck({
   showEmployerCopy = true,
 }) {
   return (
-    <div className="payroll-print-host">
-      <div className="print-payroll-sheet payroll-check-page bg-white">
+    <div className="print-payroll-sheet payroll-check-page bg-white">
       <style>{`
+        @font-face {
+          font-family: "MICR E13B";
+          src: url("${micrFontUrl}") format("truetype");
+          font-weight: 400;
+          font-style: normal;
+          font-display: swap;
+        }
+
         .print-payroll-sheet {
           width: 215.9mm;
           min-height: 279.4mm;
