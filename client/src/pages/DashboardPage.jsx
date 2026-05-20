@@ -32,6 +32,7 @@ import {
 } from '../utils/payrollMath'
 import PayrollCheck from '../components/payroll/PayrollCheck'
 import '../components/payroll/PayrollCheck.css'
+import micrFontUrl from '../assets/fonts/MICRE13B.ttf'
 
 const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const MAX_OPEN_SHIFT_MINUTES = 13 * 60
@@ -1568,9 +1569,23 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#020817] text-white">
       <style>{`
+        @font-face {
+          font-family: "MICR E13B";
+          src: url("${micrFontUrl}") format("truetype");
+          font-weight: 400;
+          font-style: normal;
+          font-display: swap;
+        }
+
         @media screen {
           .dashboard-selected-checks-print-root { display: none !important; }
         }
+
+        @page {
+          size: Letter;
+          margin: 0;
+        }
+
         @media print {
           html,
           body,
@@ -1578,8 +1593,13 @@ export default function DashboardPage() {
             margin: 0 !important;
             padding: 0 !important;
             width: 215.9mm !important;
-            min-height: 279.4mm !important;
+            min-width: 215.9mm !important;
+            max-width: 215.9mm !important;
+            height: auto !important;
             background: white !important;
+            overflow: visible !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
 
           .dashboard-screen {
@@ -1590,27 +1610,53 @@ export default function DashboardPage() {
             display: block !important;
             position: static !important;
             width: 215.9mm !important;
-            min-height: 279.4mm !important;
+            min-width: 215.9mm !important;
+            max-width: 215.9mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
             color: black !important;
+            overflow: visible !important;
           }
 
           .dashboard-selected-check-page {
             display: block !important;
+            position: relative !important;
             width: 215.9mm !important;
+            min-width: 215.9mm !important;
+            max-width: 215.9mm !important;
+            height: 279.4mm !important;
             min-height: 279.4mm !important;
+            max-height: 279.4mm !important;
             margin: 0 !important;
             padding: 0 !important;
-            page-break-after: always;
-            break-after: page;
+            overflow: hidden !important;
+            page-break-after: always !important;
+            break-after: page !important;
             background: white !important;
           }
 
           .dashboard-selected-check-page:last-child {
-            page-break-after: auto;
-            break-after: auto;
+            page-break-after: auto !important;
+            break-after: auto !important;
+          }
+
+          .dashboard-print-scale {
+            display: block !important;
+            width: 215.9mm !important;
+            min-width: 215.9mm !important;
+            transform: scale(0.94) !important;
+            transform-origin: top left !important;
+          }
+
+          .dashboard-print-scale * {
+            font-family: Arial, Helvetica, sans-serif;
+          }
+
+          .dashboard-print-scale .micr-text,
+          .dashboard-print-scale [class*="micr"],
+          .dashboard-print-scale [class*="MICR"] {
+            font-family: "MICR E13B", "OCR A Extended", "Courier New", monospace !important;
           }
         }
       `}</style>
@@ -1624,15 +1670,17 @@ export default function DashboardPage() {
 
           return (
             <div key={employee.id} className="dashboard-selected-check-page">
-              <PayrollCheck
-                employee={employee}
-                fullName={fullName}
-                totals={totals}
-                periodStart={selectedPrintWeek?.startText || ''}
-                periodEnd={selectedPrintWeek?.endText || ''}
-                checkNumber={checkNumber}
-                payDate={selectedPrintPayDate}
-              />
+              <div className="dashboard-print-scale">
+                <PayrollCheck
+                  employee={employee}
+                  fullName={fullName}
+                  totals={totals}
+                  periodStart={selectedPrintWeek?.startText || ''}
+                  periodEnd={selectedPrintWeek?.endText || ''}
+                  checkNumber={checkNumber}
+                  payDate={selectedPrintPayDate}
+                />
+              </div>
             </div>
           )
         })}
