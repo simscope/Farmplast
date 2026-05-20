@@ -26,6 +26,10 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 import EmployeeModal from '../components/EmployeeModal'
 import PayrollReport from '../components/PayrollReport'
+import {
+  calculatePayrollTotals,
+  normalizePayrollRow,
+} from '../utils/payrollMath'
 import PayrollCheck from '../components/payroll/PayrollCheck'
 import '../components/payroll/PayrollCheck.css'
 
@@ -1009,119 +1013,103 @@ export default function DashboardPage() {
   }
 
   function getEmployeePayroll(employee, week, logsByEmployeeAndDate, deductionsRows) {
-    const hourlyRate = getEmployeeHourlyRate(employee)
-
-    const days = week.days.map((day) => {
+    const normalizedRows = week.days.flatMap((day) => {
       const dayText = toLocalDateString(day)
       const dayLogs = logsByEmployeeAndDate.get(`${employee.id}__${dayText}`) || []
 
-      let totalHours = 0
-      let totalLunchHours = 0
-      let baseLabor = 0
+      return dayLogs.map((log) => normalizePayrollRow(log, employee))
+    })
 
-      const rows = dayLogs.map((log) => {
-        const hours = getRegularHours(log)
-        const lunchHours = getLunchHours(log)
-        const labor = employee.pay_type === 'hourly' ? hours * hourlyRate : getLogLaborAmount(log, employee)
+    const payrollTotals = calculatePayrollTotals(normalizedRows, employee)
+    const calculatedRows = payrollTotals.rows || normalizedRows
+    const employeeDeductions = findEmployeeDeductions(employee, deductionsRows)
 
-        totalHours += hours
-        totalLunchHours += lunchHours
-        baseLabor += labor
+    const rentNum = roundDollars(sumDeductions(employeeDeductions, ['rent']))
+    const electricNum = roundDollars(sumDeductions(employeeDeductions, ['electric', 'electricity']))
+    const waterNum = roundDollars(sumDeductions(employeeDeductions, ['water']))
+    const cleanNum = roundDollars(sumDeductions(employeeDeductions, ['clean', 'cleaning']))
+    const transportNum = roundDollars(sumDeductions(employeeDeductions, ['transport', 'transportation']))
+    const manualDeductions = roundDollars(rentNum + electricNum + waterNum + cleanNum + transportNum)
 
-        return {
-          inTime: getLogInTime(log),
-          outTime: getLogOutTime(log),
-          lunchHours,
-          regularHours: hours,
-          labor,
-          status: log.status || log.note || log.notes || '',
-        }
-      })
+    const employeeTaxNum = roundDollars(payrollTotals.employeeTaxNum || 0)
+    const totalDeductions = roundDollars(employeeTaxNum + manualDeductions)
+    const netPay = roundDollars(Number(payrollTotals.totalLabor || 0) - totalDeductions)
+
+    const rowsByDate = {}
+    calculatedRows.forEach((row) => {
+      if (row?.work_date) rowsByDate[row.work_date] = row
+    })
+
+    const days = week.days.map((day) => {
+      const dayText = toLocalDateString(day)
+      const rows = calculatedRows
+        .filter((row) => row?.work_date === dayText)
+        .map((row) => ({
+          inTime: row.time_in ? String(row.time_in).slice(0, 5) : '',
+          outTime: row.time_out ? String(row.time_out).slice(0, 5) : '',
+          lunchHours: Number(row.lunch_hours || 0),
+          downtimeHours: Number(row.downtime_hours || 0),
+          regularHours: Number(row.reg_hours || 0),
+          labor: Number(row.labor_amount || 0),
+          status: row.punch_error || row.auto_closed_reason || row.status || row.note || '',
+        }))
 
       return {
         date: day,
         dateText: dayText,
         rows,
-        totalRegularHours: totalHours,
-        totalLunchHours,
-        totalLabor: baseLabor,
+        totalRegularHours: rows.reduce((sum, row) => sum + Number(row.regularHours || 0), 0),
+        totalLunchHours: rows.reduce((sum, row) => sum + Number(row.lunchHours || 0), 0),
+        totalLabor: rows.reduce((sum, row) => sum + Number(row.labor || 0), 0),
       }
     })
 
-    const totalHours = days.reduce((sum, day) => sum + day.totalRegularHours, 0)
-
-    const overtimeEnabled = employee?.overtime_enabled === true
-
-    let regularHours = totalHours
-    let overtimeHours = 0
-    let regularLabor = 0
-    let overtimeLabor = 0
-
-    if (employee.pay_type === 'hourly') {
-      if (overtimeEnabled) {
-        regularHours = Math.min(totalHours, 40)
-        overtimeHours = Math.max(totalHours - 40, 0)
-        regularLabor = regularHours * hourlyRate
-        overtimeLabor = overtimeHours * hourlyRate * 1.5
-      } else {
-        regularHours = totalHours
-        overtimeHours = 0
-        regularLabor = regularHours * hourlyRate
-        overtimeLabor = 0
-      }
-    } else if (employee.pay_type === 'monthly') {
-      const monthly = Number(employee.monthly_salary || 0)
-      regularHours = 0
-      overtimeHours = 0
-      regularLabor = Number.isNaN(monthly) ? 0 : monthly / 4.333333
-      overtimeLabor = 0
-    } else if (employee.pay_type === 'one_time') {
-      const amount = Number(employee.monthly_salary || 0)
-      regularHours = 0
-      overtimeHours = 0
-      regularLabor = Number.isNaN(amount) ? 0 : amount
-      overtimeLabor = 0
-    } else {
-      regularLabor = days.reduce((sum, day) => sum + day.totalLabor, 0)
-      overtimeLabor = 0
+    const checkTotals = {
+      ...payrollTotals,
+      rows: calculatedRows,
+      filteredForView: calculatedRows,
+      rowsByDate,
+      taxableHours: payrollTotals.mainHours,
+      taxableLabor: payrollTotals.mainLabor,
+      rentNum,
+      electricNum,
+      waterNum,
+      cleanNum,
+      transportNum,
+      employeeDeductions: manualDeductions,
+      totalDeductions,
+      netPay,
     }
-
-    const grossPay = regularLabor + overtimeLabor
-    const mainTax = regularLabor * 0.153
-    const overtimeTax = overtimeLabor * 0.27
-    const employeeTaxAmount = roundDollars(mainTax + overtimeTax)
-
-    const employeeDeductions = findEmployeeDeductions(employee, deductionsRows)
-    const deductions = {
-      tax: employeeTaxAmount,
-      rent: roundDollars(sumDeductions(employeeDeductions, ['rent'])),
-      electric: roundDollars(sumDeductions(employeeDeductions, ['electric', 'electricity'])),
-      water: roundDollars(sumDeductions(employeeDeductions, ['water'])),
-      clean: roundDollars(sumDeductions(employeeDeductions, ['clean', 'cleaning'])),
-      transport: roundDollars(sumDeductions(employeeDeductions, ['transport', 'transportation'])),
-    }
-
-    const otherDeductions = deductions.rent + deductions.electric + deductions.water + deductions.clean + deductions.transport
-    const totalDeductions = deductions.tax + otherDeductions
-    const netPay = roundDollars(grossPay) - totalDeductions
 
     return {
       employee,
+      rows: calculatedRows,
+      rowsByDate,
+      totals: checkTotals,
+      checkTotals,
       days,
-      totalRegularHours: totalHours,
-      regularHours,
-      overtimeHours,
-      regularLabor: roundDollars(regularLabor),
-      overtimeLabor: roundDollars(overtimeLabor),
-      mainTax: roundDollars(mainTax),
-      overtimeTax: roundDollars(overtimeTax),
-      grossPay: roundDollars(grossPay),
-      deductions,
-      otherDeductions,
+      totalRegularHours: Number(payrollTotals.totalReg || 0),
+      regularHours: Number(payrollTotals.mainHours || 0),
+      overtimeHours: Number(payrollTotals.overtimeHours || 0),
+      regularLabor: roundDollars(payrollTotals.mainLabor || 0),
+      overtimeLabor: roundDollars(payrollTotals.overtimeLabor || 0),
+      mainTax: roundDollars(payrollTotals.mainTax || 0),
+      overtimeTax: roundDollars(payrollTotals.overtimeTax || 0),
+      grossPay: roundDollars(payrollTotals.totalLabor || 0),
+      deductions: {
+        tax: employeeTaxNum,
+        rent: rentNum,
+        electric: electricNum,
+        water: waterNum,
+        clean: cleanNum,
+        transport: transportNum,
+      },
+      otherDeductions: manualDeductions,
       totalDeductions,
       netPay,
     }
   }
+
 
   function buildPayrollRows(week, logs, deductionsRows) {
     const logsByEmployeeAndDate = new Map()
@@ -1456,21 +1444,28 @@ export default function DashboardPage() {
   }
 
   function mapPayrollRowToCheckTotals(item) {
+    if (item?.checkTotals) return item.checkTotals
+    if (item?.totals) return item.totals
+
     return {
       mainHours: item.regularHours,
       overtimeHours: item.overtimeHours,
       totalLabor: item.grossPay,
       mainLabor: item.regularLabor,
       overtimeLabor: item.overtimeLabor,
-      employeeTaxNum: item.deductions.tax,
-      rentNum: item.deductions.rent,
-      electricNum: item.deductions.electric,
-      waterNum: item.deductions.water,
-      cleanNum: item.deductions.clean,
-      transportNum: item.deductions.transport,
+      employeeTaxNum: item.deductions?.tax || 0,
+      rentNum: item.deductions?.rent || 0,
+      electricNum: item.deductions?.electric || 0,
+      waterNum: item.deductions?.water || 0,
+      cleanNum: item.deductions?.clean || 0,
+      transportNum: item.deductions?.transport || 0,
       netPay: item.netPay,
+      rows: item.rows || [],
+      filteredForView: item.rows || [],
+      rowsByDate: item.rowsByDate || {},
     }
   }
+
 
   function copyPrintStylesToWindow(printDocument) {
     Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).forEach((node) => {
@@ -1530,7 +1525,7 @@ export default function DashboardPage() {
               key={`${employee.id}-${checkNumber}`}
               employee={employee}
               fullName={getFullName(employee)}
-              totals={mapPayrollRowToCheckTotals(item)}
+              totals={item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)}
               periodStart={week.startText}
               periodEnd={week.endText}
               checkNumber={checkNumber}
@@ -1591,7 +1586,7 @@ export default function DashboardPage() {
 
       for (const item of payrollRows) {
         const employee = item.employee
-        const totals = mapPayrollRowToCheckTotals(item)
+        const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
         const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
 
         const payload = {
