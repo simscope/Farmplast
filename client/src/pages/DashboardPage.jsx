@@ -1590,7 +1590,6 @@ export default function DashboardPage() {
           html,
           body,
           #root {
-            width: 215.9mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
@@ -1606,35 +1605,16 @@ export default function DashboardPage() {
 
           .dashboard-selected-checks-print-root {
             display: block !important;
-            position: static !important;
             width: 215.9mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
             color: black !important;
           }
-
-          .dashboard-selected-check-page {
-            display: block !important;
-            width: 215.9mm !important;
-            height: 279.4mm !important;
-            min-height: 279.4mm !important;
-            margin: 0 !important;
-            padding: 0 !important;
-            overflow: hidden !important;
-            page-break-after: always !important;
-            break-after: page !important;
-            background: white !important;
-          }
-
-          .dashboard-selected-check-page:last-child {
-            page-break-after: auto !important;
-            break-after: auto !important;
-          }
         }
       `}</style>
 
-      <div className="dashboard-selected-checks-print-root">
+      <div className="dashboard-selected-checks-print-root payroll-print-host">
         {selectedPrintRows.map((item) => {
           const employee = item.employee
           const fullName = getFullName(employee)
@@ -1642,17 +1622,16 @@ export default function DashboardPage() {
           const checkNumber = item.print_check_number || employee?.last_check_number || 0
 
           return (
-            <div key={employee.id} className="dashboard-selected-check-page">
-              <PayrollCheck
-                employee={employee}
-                fullName={fullName}
-                totals={totals}
-                periodStart={selectedPrintWeek?.startText || ''}
-                periodEnd={selectedPrintWeek?.endText || ''}
-                checkNumber={checkNumber}
-                payDate={selectedPrintPayDate}
-              />
-            </div>
+            <PayrollCheck
+              key={employee.id}
+              employee={employee}
+              fullName={fullName}
+              totals={totals}
+              periodStart={selectedPrintWeek?.startText || ''}
+              periodEnd={selectedPrintWeek?.endText || ''}
+              checkNumber={checkNumber}
+              payDate={selectedPrintPayDate}
+            />
           )
         })}
       </div>
