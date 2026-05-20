@@ -32,7 +32,6 @@ import {
 } from '../utils/payrollMath'
 import PayrollCheck from '../components/payroll/PayrollCheck'
 import '../components/payroll/PayrollCheck.css'
-import micrFontUrl from '../assets/fonts/MICRE13B.ttf'
 
 const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const MAX_OPEN_SHIFT_MINUTES = 13 * 60
@@ -1569,40 +1568,27 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#020817] text-white">
       <style>{`
-        @font-face {
-          font-family: "MICR E13B";
-          src: url("${micrFontUrl}") format("truetype");
-          font-weight: 400;
-          font-style: normal;
-          font-display: swap;
-        }
-
         @media screen {
           .dashboard-selected-checks-print-root {
-            display: none !important;
+            display: none;
           }
         }
 
-        @page {
-          size: Letter;
-          margin: 0;
-        }
-
         @media print {
+          @page {
+            size: 215.9mm 279.4mm;
+            margin: 0;
+          }
+
           html,
           body,
           #root {
-            margin: 0 !important;
-            padding: 0 !important;
             width: 215.9mm !important;
             min-width: 215.9mm !important;
-            max-width: 215.9mm !important;
-            height: 279.4mm !important;
-            min-height: 279.4mm !important;
-            max-height: 279.4mm !important;
-            overflow: hidden !important;
+            margin: 0 !important;
+            padding: 0 !important;
             background: white !important;
-            color: black !important;
+            overflow: visible !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
           }
@@ -1613,58 +1599,33 @@ export default function DashboardPage() {
 
           .dashboard-selected-checks-print-root {
             display: block !important;
-            position: fixed !important;
-            left: 0 !important;
-            top: 0 !important;
+            position: static !important;
             width: 215.9mm !important;
-            height: 279.4mm !important;
+            min-width: 215.9mm !important;
             margin: 0 !important;
             padding: 0 !important;
-            overflow: hidden !important;
             background: white !important;
             color: black !important;
+            overflow: visible !important;
           }
 
           .dashboard-selected-check-page {
             display: block !important;
-            position: relative !important;
             width: 215.9mm !important;
+            min-width: 215.9mm !important;
             height: 279.4mm !important;
+            min-height: 279.4mm !important;
             margin: 0 !important;
             padding: 0 !important;
+            background: white !important;
             overflow: hidden !important;
             page-break-after: always !important;
             break-after: page !important;
-            background: white !important;
           }
 
           .dashboard-selected-check-page:last-child {
             page-break-after: auto !important;
             break-after: auto !important;
-          }
-
-          .dashboard-print-scale {
-            display: block !important;
-            width: 215.9mm !important;
-            height: 279.4mm !important;
-            overflow: visible !important;
-            transform: scale(0.86) !important;
-            transform-origin: top left !important;
-          }
-
-          .dashboard-print-scale * {
-            box-sizing: border-box !important;
-          }
-
-          .dashboard-print-scale .micr-text,
-          .dashboard-print-scale .micr-line,
-          .dashboard-print-scale [class*="micr"],
-          .dashboard-print-scale [class*="MICR"],
-          .dashboard-print-scale [class*="routing"],
-          .dashboard-print-scale [class*="account"] {
-            font-family: "MICR E13B", "OCR A Extended", "Courier New", monospace !important;
-            font-weight: 400 !important;
-            letter-spacing: 0.35mm !important;
           }
         }
       `}</style>
@@ -1678,17 +1639,15 @@ export default function DashboardPage() {
 
           return (
             <div key={employee.id} className="dashboard-selected-check-page">
-              <div className="dashboard-print-scale">
-                <PayrollCheck
-                  employee={employee}
-                  fullName={fullName}
-                  totals={totals}
-                  periodStart={selectedPrintWeek?.startText || ''}
-                  periodEnd={selectedPrintWeek?.endText || ''}
-                  checkNumber={checkNumber}
-                  payDate={selectedPrintPayDate}
-                />
-              </div>
+              <PayrollCheck
+                employee={employee}
+                fullName={fullName}
+                totals={totals}
+                periodStart={selectedPrintWeek?.startText || ''}
+                periodEnd={selectedPrintWeek?.endText || ''}
+                checkNumber={checkNumber}
+                payDate={selectedPrintPayDate}
+              />
             </div>
           )
         })}
