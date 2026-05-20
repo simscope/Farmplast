@@ -1,7 +1,7 @@
 @font-face {
   font-family: 'MICR E13B';
   src: url('/fonts/micr.ttf') format('truetype');
-  font-weight: 400;
+  font-weight: normal;
   font-style: normal;
   font-display: swap;
 }
@@ -45,7 +45,7 @@
 .print-tear-line {
   width: 100%;
   border-top: 2px dashed #555;
-  margin: 0 0 6mm 0;
+  margin: 0 0 2mm 0;
 }
 
 .payroll-check-stock {
@@ -67,12 +67,13 @@
 
 .payroll-stub-copy {
   border: 1px solid #222;
-  padding: 8px 12px;
-  margin-bottom: 8px;
+  padding: 5px 8px;
+  margin-bottom: 2px;
   background: white;
   color: black;
   font-family: Arial, Helvetica, sans-serif;
   font-size: 11px;
+  line-height: 1.05;
   page-break-inside: avoid;
 }
 
@@ -84,7 +85,7 @@
 
 .payroll-stub-copy th {
   border: 1px solid #222;
-  padding: 4px;
+  padding: 1px 3px;
   background: #efefef;
   text-align: left;
   font-weight: 700;
@@ -92,7 +93,7 @@
 
 .payroll-stub-copy td {
   border: 1px solid #222;
-  padding: 4px;
+  padding: 1px 3px;
 }
 
 .payroll-stub-copy .bold {
@@ -100,13 +101,13 @@
 }
 
 .payroll-time-report {
-  margin-top: 8px;
+  margin-top: 4px;
   font-size: 10px;
 }
 
 .payroll-time-report-title {
   font-weight: 800;
-  margin-bottom: 4px;
+  margin-bottom: 2px;
   letter-spacing: 0.2px;
 }
 
@@ -119,7 +120,8 @@
 .payroll-time-report th,
 .payroll-time-report td {
   border: 1px solid #222;
-  padding: 3px 4px;
+  padding: 1px 3px;
+  line-height: 1.05;
   text-align: left;
 }
 
@@ -153,14 +155,6 @@
     print-color-adjust: exact !important;
   }
 
-  body * {
-    visibility: hidden !important;
-  }
-
-  .payroll-print-host,
-  .payroll-print-host * {
-    visibility: visible !important;
-  }
 
   .payroll-print-host {
     position: absolute !important;
