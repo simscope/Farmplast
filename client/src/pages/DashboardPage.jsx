@@ -1178,10 +1178,22 @@ export default function DashboardPage() {
       const nowIso = new Date().toISOString()
       const today = nowIso.slice(0, 10)
 
-      for (const item of payrollRows) {
+      const { data: maxCheckRows, error: maxCheckError } = await supabase
+        .from('employees')
+        .select('last_check_number')
+        .not('last_check_number', 'is', null)
+        .order('last_check_number', { ascending: false })
+        .limit(1)
+
+      if (maxCheckError) throw maxCheckError
+
+      const startingCheckNumber = Number(maxCheckRows?.[0]?.last_check_number || 0)
+
+      for (let index = 0; index < payrollRows.length; index += 1) {
+        const item = payrollRows[index]
         const employee = item.employee
         const totals = item.checkTotals
-        const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
+        const nextCheckNumber = startingCheckNumber + index + 1
 
         const payload = {
           employee_id: employee.id,
@@ -1569,25 +1581,20 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#020817] text-white">
       <style>{`
         @media screen {
-          .dashboard-selected-checks-print-root {
-            display: none;
-          }
+          .dashboard-selected-checks-print-root { display: none; }
         }
 
         @media print {
-          @page {
-            size: 215.9mm 279.4mm;
-            margin: 0;
-          }
+          @page { size: 215.9mm 279.4mm; margin: 0; }
 
           html,
           body,
           #root {
             width: 215.9mm !important;
-            min-width: 215.9mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
+            color: black !important;
             overflow: visible !important;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
@@ -1601,26 +1608,23 @@ export default function DashboardPage() {
             display: block !important;
             position: static !important;
             width: 215.9mm !important;
-            min-width: 215.9mm !important;
             margin: 0 !important;
             padding: 0 !important;
             background: white !important;
             color: black !important;
-            overflow: visible !important;
           }
 
           .dashboard-selected-check-page {
             display: block !important;
             width: 215.9mm !important;
-            min-width: 215.9mm !important;
             height: 279.4mm !important;
             min-height: 279.4mm !important;
             margin: 0 !important;
             padding: 0 !important;
-            background: white !important;
             overflow: hidden !important;
             page-break-after: always !important;
             break-after: page !important;
+            background: white !important;
           }
 
           .dashboard-selected-check-page:last-child {
@@ -1630,7 +1634,7 @@ export default function DashboardPage() {
         }
       `}</style>
 
-      <div className="dashboard-selected-checks-print-root payroll-print-host">
+      <div className="dashboard-selected-checks-print-root">
         {selectedPrintRows.map((item) => {
           const employee = item.employee
           const fullName = getFullName(employee)
