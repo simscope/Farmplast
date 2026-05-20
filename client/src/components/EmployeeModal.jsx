@@ -478,6 +478,26 @@ export default function EmployeeModal({ open, onClose, onSave, form, setForm, sa
                 </select>
               </div>
 
+              <div className="md:col-span-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2">
+                <label className="flex items-center gap-2 text-sm font-semibold text-amber-200">
+                  <input
+                    type="checkbox"
+                    checked={form.exclude_from_payroll_report === true}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        exclude_from_payroll_report: e.target.checked,
+                      }))
+                    }
+                    className="h-4 w-4 accent-amber-400"
+                  />
+                  Exclude from weekly payroll report
+                </label>
+                <p className="mt-1 text-[11px] text-amber-100/70">
+                  If checked, this employee will not appear in Payroll PDF / CSV report.
+                </p>
+              </div>
+
               <div className="md:col-span-2 mt-2 border-t border-slate-800 pt-3">
                 <h3 className="text-sm font-bold text-cyan-300">ZKT settings</h3>
               </div>
