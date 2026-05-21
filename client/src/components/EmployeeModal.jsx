@@ -141,6 +141,8 @@ export default function EmployeeModal({
     )
   }, [companies, companySearch])
 
+  if (!open) return null
+
   async function loadCompanies() {
     try {
       setCompanyLoading(true)
@@ -356,27 +358,20 @@ export default function EmployeeModal({
 
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Employee number
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Employee number</label>
                 <input
                   type="number"
                   className={inputClass}
                   value={form.employee_number}
                   onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      employee_number: e.target.value,
-                    }))
+                    setForm((prev) => ({ ...prev, employee_number: e.target.value }))
                   }
                   placeholder="Employee number"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  First name
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">First name</label>
                 <input
                   className={inputClass}
                   value={form.first_name}
@@ -388,9 +383,7 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Last name
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Last name</label>
                 <input
                   className={inputClass}
                   value={form.last_name}
@@ -402,9 +395,7 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Phone
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Phone</label>
                 <input
                   className={inputClass}
                   value={form.phone}
@@ -416,9 +407,7 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Email
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Email</label>
                 <input
                   type="email"
                   className={inputClass}
@@ -431,9 +420,7 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Position
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Position</label>
                 <input
                   className={inputClass}
                   value={form.position}
@@ -445,9 +432,7 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Hire date
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Hire date</label>
                 <input
                   type="date"
                   className={inputClass}
@@ -459,9 +444,7 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Form Employer
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Form Employer</label>
                 <select
                   className={inputClass}
                   value={form.employer_form}
@@ -483,9 +466,7 @@ export default function EmployeeModal({
 
               {form.employer_form === 'Other' ? (
                 <div className="relative md:col-span-2">
-                  <label className="mb-1 block text-xs text-slate-300">
-                    Company
-                  </label>
+                  <label className="mb-1 block text-xs text-slate-300">Company</label>
 
                   <input
                     className={inputClass}
@@ -494,12 +475,7 @@ export default function EmployeeModal({
                     onChange={(e) => {
                       setCompanySearch(e.target.value)
                       setShowCompanyDropdown(true)
-
-                      setForm((prev) => ({
-                        ...prev,
-                        company_id: null,
-                        company_name: '',
-                      }))
+                      setForm((prev) => ({ ...prev, company_id: null, company_name: '' }))
                     }}
                     placeholder="Select or create company"
                   />
@@ -507,15 +483,11 @@ export default function EmployeeModal({
                   {showCompanyDropdown ? (
                     <div className="absolute z-50 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-slate-700 bg-[#0b1220] shadow-2xl">
                       {companyLoading ? (
-                        <div className="px-3 py-2 text-sm text-slate-400">
-                          Loading companies...
-                        </div>
+                        <div className="px-3 py-2 text-sm text-slate-400">Loading companies...</div>
                       ) : null}
 
                       {!companyLoading && filteredCompanies.length === 0 ? (
-                        <div className="px-3 py-2 text-sm text-slate-500">
-                          No companies found
-                        </div>
+                        <div className="px-3 py-2 text-sm text-slate-500">No companies found</div>
                       ) : null}
 
                       {filteredCompanies.map((company) => (
@@ -552,15 +524,11 @@ export default function EmployeeModal({
               ) : null}
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Payment type
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Payment type</label>
                 <select
                   className={inputClass}
                   value={form.pay_type}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, pay_type: e.target.value }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, pay_type: e.target.value }))}
                 >
                   <option value="hourly">Hourly</option>
                   <option value="monthly">Monthly fixed</option>
@@ -570,30 +538,21 @@ export default function EmployeeModal({
 
               {form.pay_type === 'hourly' ? (
                 <div>
-                  <label className="mb-1 block text-xs text-slate-300">
-                    Hourly rate
-                  </label>
+                  <label className="mb-1 block text-xs text-slate-300">Hourly rate</label>
                   <input
                     type="number"
                     step="0.01"
                     min="0"
                     className={inputClass}
                     value={form.hourly_rate}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        hourly_rate: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setForm((prev) => ({ ...prev, hourly_rate: e.target.value }))}
                     placeholder="0.00"
                   />
                 </div>
               ) : (
                 <div>
                   <label className="mb-1 block text-xs text-slate-300">
-                    {form.pay_type === 'monthly'
-                      ? 'Monthly salary'
-                      : 'One-time amount'}
+                    {form.pay_type === 'monthly' ? 'Monthly salary' : 'One-time amount'}
                   </label>
                   <input
                     type="number"
@@ -601,29 +560,19 @@ export default function EmployeeModal({
                     min="0"
                     className={inputClass}
                     value={form.monthly_salary}
-                    onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        monthly_salary: e.target.value,
-                      }))
-                    }
+                    onChange={(e) => setForm((prev) => ({ ...prev, monthly_salary: e.target.value }))}
                     placeholder="0.00"
                   />
                 </div>
               )}
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Overtime
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Overtime</label>
                 <select
                   className={inputClass}
                   value={form.overtime_enabled ? 'true' : 'false'}
                   onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      overtime_enabled: e.target.value === 'true',
-                    }))
+                    setForm((prev) => ({ ...prev, overtime_enabled: e.target.value === 'true' }))
                   }
                 >
                   <option value="false">No overtime</option>
@@ -635,17 +584,12 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Downtime
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Downtime</label>
                 <select
                   className={inputClass}
                   value={form.downtime_enabled === false ? 'false' : 'true'}
                   onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      downtime_enabled: e.target.value === 'true',
-                    }))
+                    setForm((prev) => ({ ...prev, downtime_enabled: e.target.value === 'true' }))
                   }
                 >
                   <option value="true">Downtime enabled</option>
@@ -657,15 +601,11 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Shift
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Shift</label>
                 <select
                   className={inputClass}
                   value={normalizeShiftType(form.shift_type)}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, shift_type: e.target.value }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, shift_type: e.target.value }))}
                 >
                   <option value="day">DAY 7 AM → 7 PM</option>
                   <option value="night">NIGHT 7 PM → 7 AM</option>
@@ -676,18 +616,11 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  Status
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">Status</label>
                 <select
                   className={inputClass}
                   value={form.active ? 'true' : 'false'}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      active: e.target.value === 'true',
-                    }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, active: e.target.value === 'true' }))}
                 >
                   <option value="true">Active</option>
                   <option value="false">Inactive</option>
@@ -700,10 +633,7 @@ export default function EmployeeModal({
                     type="checkbox"
                     checked={form.exclude_from_payroll_report === true}
                     onChange={(e) =>
-                      setForm((prev) => ({
-                        ...prev,
-                        exclude_from_payroll_report: e.target.checked,
-                      }))
+                      setForm((prev) => ({ ...prev, exclude_from_payroll_report: e.target.checked }))
                     }
                     className="h-4 w-4 rounded border-slate-600 bg-[#08101c]"
                   />
@@ -716,24 +646,15 @@ export default function EmployeeModal({
               </div>
 
               <div className="mt-2 border-t border-slate-800 pt-3 md:col-span-2">
-                <h3 className="text-sm font-bold text-cyan-300">
-                  ZKT settings
-                </h3>
+                <h3 className="text-sm font-bold text-cyan-300">ZKT settings</h3>
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  ZKT enabled
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">ZKT enabled</label>
                 <select
                   className={inputClass}
                   value={form.zkt_enabled ? 'true' : 'false'}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      zkt_enabled: e.target.value === 'true',
-                    }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, zkt_enabled: e.target.value === 'true' }))}
                 >
                   <option value="true">Yes - send to ZKT</option>
                   <option value="false">No</option>
@@ -741,82 +662,53 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  ZKT user ID
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">ZKT user ID</label>
                 <input
                   type="number"
                   className={inputClass}
                   value={form.zkt_user_id}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, zkt_user_id: e.target.value }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, zkt_user_id: e.target.value }))}
                   placeholder="Usually same as employee number"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  ZKT name
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">ZKT name</label>
                 <input
                   className={inputClass}
                   value={form.zkt_name}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, zkt_name: e.target.value }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, zkt_name: e.target.value }))}
                   placeholder="Max 24 chars"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  ZKT password
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">ZKT password</label>
                 <input
                   className={inputClass}
                   value={form.zkt_password}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      zkt_password: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, zkt_password: e.target.value }))}
                   placeholder="Optional"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  ZKT card number
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">ZKT card number</label>
                 <input
                   type="number"
                   className={inputClass}
                   value={form.zkt_card_number}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      zkt_card_number: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, zkt_card_number: e.target.value }))}
                   placeholder="Optional"
                 />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">
-                  ZKT privilege
-                </label>
+                <label className="mb-1 block text-xs text-slate-300">ZKT privilege</label>
                 <select
                   className={inputClass}
                   value={form.zkt_privilege}
-                  onChange={(e) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      zkt_privilege: e.target.value,
-                    }))
-                  }
+                  onChange={(e) => setForm((prev) => ({ ...prev, zkt_privilege: e.target.value }))}
                 >
                   <option value="0">0 - User</option>
                   <option value="14">14 - Admin</option>
