@@ -369,6 +369,7 @@ export default function DashboardPage() {
     hire_date: '',
     employer_form: 'W2',
     company_name: '',
+    company_id: null,
     photo_url: '',
     zkt_enabled: true,
     zkt_user_id: '',
@@ -482,7 +483,7 @@ export default function DashboardPage() {
       if (employeeIds.length > 0) {
         const { data: paymentMetaRows, error: paymentMetaError } = await supabase
           .from('employees')
-          .select('id, last_payment_date, last_payment_amount, last_check_number')
+          .select('id, company_id, last_payment_date, last_payment_amount, last_check_number')
           .in('id', employeeIds)
 
         if (paymentMetaError) throw paymentMetaError
@@ -517,6 +518,7 @@ export default function DashboardPage() {
 
         return {
           ...employee,
+          company_id: paymentMeta.company_id || null,
           last_payment_date: paymentMeta.last_payment_date || null,
           last_payment_amount: paymentMeta.last_payment_amount ?? null,
           last_check_number: paymentMeta.last_check_number ?? null,
@@ -689,6 +691,7 @@ export default function DashboardPage() {
       hire_date: employee.hire_date || '',
       employer_form: employee.employer_form || 'W2',
       company_name: employee.company_name || '',
+      company_id: employee.company_id || null,
       photo_url: employee.photo_url || '',
       zkt_enabled: employee.zkt_enabled ?? true,
       zkt_user_id: employee.zkt_user_id ?? employee.employee_number ?? '',
@@ -753,8 +756,11 @@ export default function DashboardPage() {
         exclude_from_payroll_report: form.exclude_from_payroll_report === true,
         hire_date: form.hire_date || null,
         employer_form: form.employer_form || null,
-        company_name:
-          form.employer_form === 'Other' ? form.company_name.trim() || null : null,
+        company_name: null,
+        company_id:
+          form.employer_form === 'Other'
+            ? form.company_id || null
+            : null,
         photo_url: form.photo_url || null,
 
         zkt_enabled: Boolean(form.zkt_enabled),
