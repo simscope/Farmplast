@@ -1713,85 +1713,151 @@ export default function DashboardPage() {
         throw new Error('Selected employees have no net pay for previous week')
       }
 
-      const groupedRows = []
-      const groupedCompanies = new Map()
+      const companyIds = Array.from(
+        new Set(
+          payrollRows
+            .filter((item) => item.employee?.employer_form === 'Other' && item.employee?.company_id)
+            .map((item) => item.employee.company_id)
+        )
+      )
 
-      for (const item of payrollRows) {
+      const companyNameById = new Map()
+
+      if (companyIds.length > 0) {
+        const { data: companyRows, error: companyError } = await supabase
+          .from('employee_companies')
+          .select('id, company_name')
+          .in('id', companyIds)
+
+        if (companyError) throw companyError
+
+        ;(companyRows || []).forEach((company) => {
+          companyNameById.set(company.id, company.company_name)
+        })
+      }
+
+      const individualRows = []
+      const companyGroups = new Map()
+
+      payrollRows.forEach((item) => {
         const employee = item.employee
-
-        const isCompanyGrouped =
+        const shouldGroupByCompany =
           employee?.employer_form === 'Other' &&
-          employee?.company_id
+          Boolean(employee?.company_id)
 
-        if (!isCompanyGrouped) {
-          groupedRows.push(item)
-          continue
+        if (!shouldGroupByCompany) {
+          individualRows.push(item)
+          return
         }
 
         const companyKey = String(employee.company_id)
+        const companyName =
+          companyNameById.get(employee.company_id) ||
+          employee.company_name ||
+          'Company'
 
-        if (!groupedCompanies.has(companyKey)) {
-          groupedCompanies.set(companyKey, {
-            companyName: employee.company_name || 'Company',
+        if (!companyGroups.has(companyKey)) {
+          companyGroups.set(companyKey, {
+            companyId: employee.company_id,
+            companyName,
             items: [],
           })
         }
 
-        groupedCompanies.get(companyKey).items.push(item)
+        companyGroups.get(companyKey).items.push(item)
+      })
+
+      function addTotals(target, source) {
+        target.mainHours += Number(source.mainHours || source.taxableHours || 0)
+        target.overtimeHours += Number(source.overtimeHours || 0)
+        target.totalLabor += Number(source.totalLabor || 0)
+        target.mainLabor += Number(source.mainLabor || source.taxableLabor || 0)
+        target.overtimeLabor += Number(source.overtimeLabor || 0)
+        target.employeeTaxNum += Number(source.employeeTaxNum || 0)
+        target.rentNum += Number(source.rentNum || 0)
+        target.electricNum += Number(source.electricNum || 0)
+        target.waterNum += Number(source.waterNum || 0)
+        target.cleanNum += Number(source.cleanNum || 0)
+        target.transportNum += Number(source.transportNum || 0)
+        target.employeeDeductions += Number(source.employeeDeductions || 0)
+        target.totalDeductions += Number(source.totalDeductions || 0)
+        target.netPay += Number(source.netPay || 0)
+
+        return target
       }
 
-      for (const [, group] of groupedCompanies.entries()) {
-        const sourceItem = group.items[0]
-
-        const totals = {
-          ...(sourceItem.checkTotals || sourceItem.totals || mapPayrollRowToCheckTotals(sourceItem)),
+      function makeEmptyTotals() {
+        return {
+          mainHours: 0,
+          taxableHours: 0,
+          overtimeHours: 0,
+          totalLabor: 0,
+          mainLabor: 0,
+          taxableLabor: 0,
+          overtimeLabor: 0,
+          employeeTaxNum: 0,
+          rentNum: 0,
+          electricNum: 0,
+          waterNum: 0,
+          cleanNum: 0,
+          transportNum: 0,
+          employeeDeductions: 0,
+          totalDeductions: 0,
+          netPay: 0,
+          rows: [],
+          filteredForView: [],
+          rowsByDate: {},
         }
+      }
 
-        totals.mainHours = 0
-        totals.overtimeHours = 0
-        totals.totalLabor = 0
-        totals.mainLabor = 0
-        totals.overtimeLabor = 0
-        totals.employeeTaxNum = 0
-        totals.rentNum = 0
-        totals.electricNum = 0
-        totals.waterNum = 0
-        totals.cleanNum = 0
-        totals.transportNum = 0
-        totals.netPay = 0
+      const rowsToPrint = [...individualRows]
 
-        for (const row of group.items) {
-          const rowTotals = row.checkTotals || row.totals || mapPayrollRowToCheckTotals(row)
-
-          totals.mainHours += Number(rowTotals.mainHours || rowTotals.taxableHours || 0)
-          totals.overtimeHours += Number(rowTotals.overtimeHours || 0)
-          totals.totalLabor += Number(rowTotals.totalLabor || 0)
-          totals.mainLabor += Number(rowTotals.mainLabor || rowTotals.taxableLabor || 0)
-          totals.overtimeLabor += Number(rowTotals.overtimeLabor || 0)
-          totals.employeeTaxNum += Number(rowTotals.employeeTaxNum || 0)
-          totals.rentNum += Number(rowTotals.rentNum || 0)
-          totals.electricNum += Number(rowTotals.electricNum || 0)
-          totals.waterNum += Number(rowTotals.waterNum || 0)
-          totals.cleanNum += Number(rowTotals.cleanNum || 0)
-          totals.transportNum += Number(rowTotals.transportNum || 0)
-          totals.netPay += Number(rowTotals.netPay || 0)
-        }
-
-        groupedRows.push({
-          ...sourceItem,
-          employee: {
-            ...sourceItem.employee,
+      companyGroups.forEach((group) => {
+        if (group.items.length === 1) {
+          const onlyItem = group.items[0]
+          onlyItem.fullName = group.companyName
+          onlyItem.employee = {
+            ...onlyItem.employee,
             first_name: group.companyName,
             last_name: '',
+          }
+          onlyItem.grouped_company = true
+          onlyItem.grouped_items = group.items
+          rowsToPrint.push(onlyItem)
+          return
+        }
+
+        const firstItem = group.items[0]
+        const groupedTotals = makeEmptyTotals()
+
+        group.items.forEach((item) => {
+          const itemTotals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
+          addTotals(groupedTotals, itemTotals)
+          groupedTotals.rows.push(...(itemTotals.rows || []))
+          groupedTotals.filteredForView.push(...(itemTotals.filteredForView || itemTotals.rows || []))
+        })
+
+        groupedTotals.taxableHours = groupedTotals.mainHours
+        groupedTotals.taxableLabor = groupedTotals.mainLabor
+
+        const groupedItem = {
+          ...firstItem,
+          employee: {
+            ...firstItem.employee,
+            first_name: group.companyName,
+            last_name: '',
+            employee_number: '',
           },
           fullName: group.companyName,
           grouped_company: true,
           grouped_items: group.items,
-          checkTotals: totals,
-          totals,
-          netPay: totals.netPay,
-        })
-      }
+          checkTotals: groupedTotals,
+          totals: groupedTotals,
+          netPay: groupedTotals.netPay,
+        }
+
+        rowsToPrint.push(groupedItem)
+      })
 
       const nowIso = new Date().toISOString()
       const today = nowIso.slice(0, 10)
@@ -1809,34 +1875,96 @@ export default function DashboardPage() {
         ...(lastCheckRows || []).map((row) => Number(row.check_number || 0))
       )
 
-      for (const item of groupedRows) {
+      for (const item of rowsToPrint) {
         const employee = item.employee
         const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
 
         globalLastCheckNumber += 1
         const nextCheckNumber = globalLastCheckNumber
 
-        const sourceEmployees = item.grouped_company
-          ? item.grouped_items.map((x) => x.employee)
-          : [employee]
+        const checkPayload = {
+          check_number: nextCheckNumber,
+          employee_id: item.grouped_company
+            ? item.grouped_items[0].employee.id
+            : employee.id,
+          pay_period_start: week.startText,
+          pay_period_end: week.endText,
+          regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
+          overtime_hours: Number(totals.overtimeHours || 0),
+          regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
+          overtime_labor: Number(totals.overtimeLabor || 0),
+          gross_pay: Number(totals.totalLabor || 0),
+          employee_tax: Number(totals.employeeTaxNum || 0),
+          rent: Number(totals.rentNum || 0),
+          electric: Number(totals.electricNum || 0),
+          water: Number(totals.waterNum || 0),
+          clean: Number(totals.cleanNum || 0),
+          transport: Number(totals.transportNum || 0),
+          net_pay: Number(totals.netPay || 0),
+          status: 'printed',
+          printed_at: nowIso,
+          printed_confirmed_at: nowIso,
+        }
 
-        for (const sourceEmployee of sourceEmployees) {
+        const { error: checkInsertError } = await supabase
+          .from('payroll_checks')
+          .insert(checkPayload)
+
+        if (checkInsertError) throw checkInsertError
+
+        const sourceItems = item.grouped_company ? item.grouped_items : [item]
+
+        for (const sourceItem of sourceItems) {
+          const sourceEmployee = sourceItem.employee
+          const sourceTotals =
+            sourceItem.checkTotals ||
+            sourceItem.totals ||
+            mapPayrollRowToCheckTotals(sourceItem)
+
+          const paymentPayload = {
+            employee_id: sourceEmployee.id,
+            period_start: week.startText,
+            period_end: week.endText,
+            total_labor: Number(sourceTotals.totalLabor || 0),
+            employee_tax: Number(sourceTotals.employeeTaxNum || 0),
+            rent: Number(sourceTotals.rentNum || 0),
+            electric: Number(sourceTotals.electricNum || 0),
+            water: Number(sourceTotals.waterNum || 0),
+            clean: Number(sourceTotals.cleanNum || 0),
+            transport: Number(sourceTotals.transportNum || 0),
+            net_pay: Number(sourceTotals.netPay || 0),
+            paid_at: nowIso,
+          }
+
+          const { error: paymentError } = await supabase
+            .from('employee_payments')
+            .insert(paymentPayload)
+
+          if (paymentError) throw paymentError
+
           const { error: employeeUpdateError } = await supabase
             .from('employees')
             .update({
               last_payment_date: today,
-              last_payment_amount: Number(totals.netPay || 0),
+              last_payment_amount: Number(sourceTotals.netPay || 0),
               last_check_number: nextCheckNumber,
             })
             .eq('id', sourceEmployee.id)
 
           if (employeeUpdateError) throw employeeUpdateError
+
+          sourceEmployee.last_payment_date = today
+          sourceEmployee.last_payment_amount = Number(sourceTotals.netPay || 0)
+          sourceEmployee.last_check_number = nextCheckNumber
         }
 
         item.print_check_number = nextCheckNumber
+        employee.last_payment_date = today
+        employee.last_payment_amount = Number(totals.netPay || 0)
+        employee.last_check_number = nextCheckNumber
       }
 
-      openSelectedChecksPrintWindow(week, groupedRows)
+      openSelectedChecksPrintWindow(week, rowsToPrint)
 
       setSelectedCheckIds([])
       await loadEmployees()
