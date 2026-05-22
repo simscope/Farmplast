@@ -493,28 +493,6 @@ export default function DashboardPage() {
         })
       }
 
-      const companyIds = Array.from(
-        new Set(
-          Array.from(employeePaymentMetaById.values())
-            .map((row) => row.company_id)
-            .filter(Boolean)
-        )
-      )
-      const companyById = new Map()
-
-      if (companyIds.length > 0) {
-        const { data: companyRows, error: companyError } = await supabase
-          .from('employee_companies')
-          .select('id, company_name')
-          .in('id', companyIds)
-
-        if (companyError) throw companyError
-
-        ;(companyRows || []).forEach((row) => {
-          companyById.set(row.id, row)
-        })
-      }
-
       const punchErrorsByEmployee = new Map()
 
       ;(workLogs || []).forEach((log) => {
@@ -541,10 +519,6 @@ export default function DashboardPage() {
         return {
           ...employee,
           company_id: paymentMeta.company_id || null,
-          company_display_name:
-            paymentMeta.company_id && companyById.get(paymentMeta.company_id)
-              ? companyById.get(paymentMeta.company_id).company_name
-              : employee.company_name || '',
           last_payment_date: paymentMeta.last_payment_date || null,
           last_payment_amount: paymentMeta.last_payment_amount ?? null,
           last_check_number: paymentMeta.last_check_number ?? null,
@@ -1507,177 +1481,6 @@ export default function DashboardPage() {
   }
 
 
-  function getCompanyPaymentName(employee) {
-    return (
-      employee?.company_display_name ||
-      employee?.company_name ||
-      employee?.company?.company_name ||
-      employee?.company?.name ||
-      'Company payment'
-    )
-  }
-
-  function isCompanyPaymentEmployee(employee) {
-    return employee?.employer_form === 'Other' && Boolean(employee?.company_id)
-  }
-
-  function sumPayrollTotals(items) {
-    const result = {
-      mainHours: 0,
-      taxableHours: 0,
-      overtimeHours: 0,
-      totalReg: 0,
-      totalLunch: 0,
-      totalDowntime: 0,
-      totalLabor: 0,
-      mainLabor: 0,
-      taxableLabor: 0,
-      overtimeLabor: 0,
-      mainTax: 0,
-      overtimeTax: 0,
-      employeeTaxNum: 0,
-      rentNum: 0,
-      electricNum: 0,
-      waterNum: 0,
-      cleanNum: 0,
-      transportNum: 0,
-      employeeDeductions: 0,
-      totalDeductions: 0,
-      netPay: 0,
-      rows: [],
-      filteredForView: [],
-      rowsByDate: {},
-    }
-
-    items.forEach((item) => {
-      const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-
-      result.mainHours += Number(totals.mainHours || item.regularHours || 0)
-      result.taxableHours += Number(totals.taxableHours || totals.mainHours || item.regularHours || 0)
-      result.overtimeHours += Number(totals.overtimeHours || item.overtimeHours || 0)
-      result.totalReg += Number(totals.totalReg || item.totalRegularHours || 0)
-      result.totalLunch += Number(totals.totalLunch || 0)
-      result.totalDowntime += Number(totals.totalDowntime || 0)
-      result.totalLabor += Number(totals.totalLabor || item.grossPay || 0)
-      result.mainLabor += Number(totals.mainLabor || item.regularLabor || 0)
-      result.taxableLabor += Number(totals.taxableLabor || totals.mainLabor || item.regularLabor || 0)
-      result.overtimeLabor += Number(totals.overtimeLabor || item.overtimeLabor || 0)
-      result.mainTax += Number(totals.mainTax || item.mainTax || 0)
-      result.overtimeTax += Number(totals.overtimeTax || item.overtimeTax || 0)
-      result.employeeTaxNum += Number(totals.employeeTaxNum || item.deductions?.tax || 0)
-      result.rentNum += Number(totals.rentNum || item.deductions?.rent || 0)
-      result.electricNum += Number(totals.electricNum || item.deductions?.electric || 0)
-      result.waterNum += Number(totals.waterNum || item.deductions?.water || 0)
-      result.cleanNum += Number(totals.cleanNum || item.deductions?.clean || 0)
-      result.transportNum += Number(totals.transportNum || item.deductions?.transport || 0)
-      result.employeeDeductions += Number(totals.employeeDeductions || item.otherDeductions || 0)
-      result.totalDeductions += Number(totals.totalDeductions || item.totalDeductions || 0)
-      result.netPay += Number(totals.netPay || item.netPay || 0)
-
-      result.rows.push(...(totals.rows || item.rows || []))
-      result.filteredForView.push(...(totals.filteredForView || item.rows || []))
-
-      Object.entries(totals.rowsByDate || item.rowsByDate || {}).forEach(([date, row]) => {
-        result.rowsByDate[date] = row
-      })
-    })
-
-    return result
-  }
-
-  function buildCompanyPayrollGroups(payrollRows) {
-    const groups = new Map()
-    const result = []
-
-    payrollRows.forEach((item) => {
-      const employee = item.employee
-
-      if (!isCompanyPaymentEmployee(employee)) {
-        result.push(item)
-        return
-      }
-
-      const key = employee.company_id
-      const current = groups.get(key) || {
-        companyId: key,
-        companyName: getCompanyPaymentName(employee),
-        items: [],
-      }
-
-      current.items.push(item)
-      groups.set(key, current)
-    })
-
-    groups.forEach((group) => {
-      if (group.items.length === 1) {
-        result.push(group.items[0])
-        return
-      }
-
-      const firstItem = group.items[0]
-      const firstEmployee = firstItem.employee
-      const totals = sumPayrollTotals(group.items)
-
-      result.push({
-        isCompanyPayment: true,
-        companyId: group.companyId,
-        companyName: group.companyName,
-        members: group.items,
-        employee: {
-          ...firstEmployee,
-          id: `company-${group.companyId}`,
-          first_name: group.companyName,
-          last_name: '',
-          employee_number: '',
-          company_id: group.companyId,
-          company_name: group.companyName,
-          company_display_name: group.companyName,
-          is_company_payment: true,
-        },
-        rows: totals.rows,
-        rowsByDate: totals.rowsByDate,
-        totals,
-        checkTotals: totals,
-        days: firstItem.days || [],
-        totalRegularHours: totals.totalReg,
-        regularHours: totals.mainHours,
-        overtimeHours: totals.overtimeHours,
-        regularLabor: roundDollars(totals.mainLabor),
-        overtimeLabor: roundDollars(totals.overtimeLabor),
-        mainTax: roundDollars(totals.mainTax),
-        overtimeTax: roundDollars(totals.overtimeTax),
-        grossPay: roundDollars(totals.totalLabor),
-        deductions: {
-          tax: roundDollars(totals.employeeTaxNum),
-          rent: roundDollars(totals.rentNum),
-          electric: roundDollars(totals.electricNum),
-          water: roundDollars(totals.waterNum),
-          clean: roundDollars(totals.cleanNum),
-          transport: roundDollars(totals.transportNum),
-        },
-        otherDeductions: roundDollars(totals.employeeDeductions),
-        totalDeductions: roundDollars(totals.totalDeductions),
-        netPay: roundDollars(totals.netPay),
-      })
-    })
-
-    return result
-  }
-
-  function getPayrollCheckEmployeeId(item) {
-    if (item?.isCompanyPayment) {
-      return item.members?.[0]?.employee?.id || null
-    }
-
-    return item?.employee?.id || null
-  }
-
-  function getPayrollCheckDisplayName(item) {
-    if (item?.isCompanyPayment) return item.companyName || getCompanyPaymentName(item.employee)
-    return getFullName(item.employee)
-  }
-
-
   function copyPrintStylesToWindow(printDocument) {
     Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).forEach((node) => {
       try {
@@ -1735,7 +1538,7 @@ export default function DashboardPage() {
             <PayrollCheck
               key={`${employee.id}-${checkNumber}`}
               employee={employee}
-              fullName={getPayrollCheckDisplayName(item)}
+              fullName={getFullName(employee)}
               totals={item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)}
               periodStart={week.startText}
               periodEnd={week.endText}
@@ -1771,123 +1574,6 @@ export default function DashboardPage() {
     })
   }
 
-  async function handlePrintSingleCheck(employee) {
-    try {
-      setReportLoading(true)
-      setReportError('')
-      setError('')
-
-      if (!employee?.id) {
-        throw new Error('Employee not found for check printing')
-      }
-
-      const { week, logs } = await loadPreviousWeekWorkLogs()
-      const deductionsRows = await tryLoadPayrollDeductions(week)
-      const payrollRows = buildPayrollRows(week, logs, deductionsRows, { includeExcluded: true })
-        .filter((item) => item.employee.id === employee.id)
-        .filter((item) => Number(item.netPay || 0) > 0)
-
-      if (payrollRows.length === 0) {
-        throw new Error('This employee has no net pay for previous week')
-      }
-
-      const item = payrollRows[0]
-      const itemEmployee = item.employee
-      const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-      const nowIso = new Date().toISOString()
-      const today = nowIso.slice(0, 10)
-
-      const { data: lastCheckRows, error: lastCheckError } = await supabase
-        .from('payroll_checks')
-        .select('check_number')
-        .order('check_number', { ascending: false })
-        .limit(1)
-
-      if (lastCheckError) throw lastCheckError
-
-      const lastCheckNumber = Math.max(
-        0,
-        ...(lastCheckRows || []).map((row) => Number(row.check_number || 0))
-      )
-      const nextCheckNumber = lastCheckNumber + 1
-
-      const paymentPayload = {
-        employee_id: itemEmployee.id,
-        period_start: week.startText,
-        period_end: week.endText,
-        total_labor: Number(totals.totalLabor || 0),
-        employee_tax: Number(totals.employeeTaxNum || 0),
-        rent: Number(totals.rentNum || 0),
-        electric: Number(totals.electricNum || 0),
-        water: Number(totals.waterNum || 0),
-        clean: Number(totals.cleanNum || 0),
-        transport: Number(totals.transportNum || 0),
-        net_pay: Number(totals.netPay || 0),
-        paid_at: nowIso,
-      }
-
-      const checkPayload = {
-        check_number: nextCheckNumber,
-        employee_id: itemEmployee.id,
-        pay_period_start: week.startText,
-        pay_period_end: week.endText,
-        regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
-        overtime_hours: Number(totals.overtimeHours || 0),
-        regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
-        overtime_labor: Number(totals.overtimeLabor || 0),
-        gross_pay: Number(totals.totalLabor || 0),
-        employee_tax: Number(totals.employeeTaxNum || 0),
-        rent: Number(totals.rentNum || 0),
-        electric: Number(totals.electricNum || 0),
-        water: Number(totals.waterNum || 0),
-        clean: Number(totals.cleanNum || 0),
-        transport: Number(totals.transportNum || 0),
-        net_pay: Number(totals.netPay || 0),
-        status: 'printed',
-        printed_at: nowIso,
-        printed_confirmed_at: nowIso,
-      }
-
-      const { error: checkInsertError } = await supabase
-        .from('payroll_checks')
-        .insert(checkPayload)
-
-      if (checkInsertError) throw checkInsertError
-
-      const { error: paymentError } = await supabase
-        .from('employee_payments')
-        .insert(paymentPayload)
-
-      if (paymentError) throw paymentError
-
-      const { error: employeeUpdateError } = await supabase
-        .from('employees')
-        .update({
-          last_payment_date: today,
-          last_payment_amount: Number(totals.netPay || 0),
-          last_check_number: nextCheckNumber,
-        })
-        .eq('id', itemEmployee.id)
-
-      if (employeeUpdateError) throw employeeUpdateError
-
-      item.print_check_number = nextCheckNumber
-      itemEmployee.last_payment_date = today
-      itemEmployee.last_payment_amount = Number(totals.netPay || 0)
-      itemEmployee.last_check_number = nextCheckNumber
-
-      openSelectedChecksPrintWindow(week, [item])
-      await loadEmployees()
-    } catch (err) {
-      console.error('handlePrintSingleCheck error:', err)
-      const message = err.message || 'Failed to print check'
-      setReportError(message)
-      setError(message)
-    } finally {
-      setReportLoading(false)
-    }
-  }
-
   async function handlePrintSelectedChecks() {
     try {
       setReportLoading(true)
@@ -1901,11 +1587,9 @@ export default function DashboardPage() {
       const selectedIdSet = new Set(selectedCheckIds)
       const { week, logs } = await loadPreviousWeekWorkLogs()
       const deductionsRows = await tryLoadPayrollDeductions(week)
-      const selectedPayrollRows = buildPayrollRows(week, logs, deductionsRows, { includeExcluded: true })
+      const payrollRows = buildPayrollRows(week, logs, deductionsRows, { includeExcluded: true })
         .filter((item) => selectedIdSet.has(item.employee.id))
         .filter((item) => Number(item.netPay || 0) > 0)
-
-      const payrollRows = buildCompanyPayrollGroups(selectedPayrollRows)
 
       if (payrollRows.length === 0) {
         throw new Error('Selected employees have no net pay for previous week')
@@ -1914,41 +1598,16 @@ export default function DashboardPage() {
       const nowIso = new Date().toISOString()
       const today = nowIso.slice(0, 10)
 
-      const { data: lastCheckRows, error: lastCheckError } = await supabase
-        .from('payroll_checks')
-        .select('check_number')
-        .order('check_number', { ascending: false })
-        .limit(1)
-
-      if (lastCheckError) throw lastCheckError
-
-      let globalLastCheckNumber = Math.max(
-        0,
-        ...(lastCheckRows || []).map((row) => Number(row.check_number || 0))
-      )
-
       for (const item of payrollRows) {
         const employee = item.employee
         const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-        const checkEmployeeId = getPayrollCheckEmployeeId(item)
+        const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
 
-        if (!checkEmployeeId) {
-          throw new Error('Employee ID not found for check')
-        }
-
-        globalLastCheckNumber += 1
-        const nextCheckNumber = globalLastCheckNumber
-
-        const checkPayload = {
-          check_number: nextCheckNumber,
-          employee_id: checkEmployeeId,
-          pay_period_start: week.startText,
-          pay_period_end: week.endText,
-          regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
-          overtime_hours: Number(totals.overtimeHours || 0),
-          regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
-          overtime_labor: Number(totals.overtimeLabor || 0),
-          gross_pay: Number(totals.totalLabor || 0),
+        const payload = {
+          employee_id: employee.id,
+          period_start: week.startText,
+          period_end: week.endText,
+          total_labor: Number(totals.totalLabor || 0),
           employee_tax: Number(totals.employeeTaxNum || 0),
           rent: Number(totals.rentNum || 0),
           electric: Number(totals.electricNum || 0),
@@ -1956,62 +1615,25 @@ export default function DashboardPage() {
           clean: Number(totals.cleanNum || 0),
           transport: Number(totals.transportNum || 0),
           net_pay: Number(totals.netPay || 0),
-          status: 'printed',
-          printed_at: nowIso,
-          printed_confirmed_at: nowIso,
+          paid_at: nowIso,
         }
 
-        const { error: checkInsertError } = await supabase
-          .from('payroll_checks')
-          .insert(checkPayload)
+        const { error: paymentError } = await supabase
+          .from('employee_payments')
+          .insert(payload)
 
-        if (checkInsertError) throw checkInsertError
+        if (paymentError) throw paymentError
 
-        const paymentItems = item.isCompanyPayment ? item.members || [] : [item]
+        const { error: employeeUpdateError } = await supabase
+          .from('employees')
+          .update({
+            last_payment_date: today,
+            last_payment_amount: Number(totals.netPay || 0),
+            last_check_number: nextCheckNumber,
+          })
+          .eq('id', employee.id)
 
-        for (const paymentItem of paymentItems) {
-          const paymentEmployee = paymentItem.employee
-          const paymentTotals =
-            paymentItem.checkTotals ||
-            paymentItem.totals ||
-            mapPayrollRowToCheckTotals(paymentItem)
-
-          const paymentPayload = {
-            employee_id: paymentEmployee.id,
-            period_start: week.startText,
-            period_end: week.endText,
-            total_labor: Number(paymentTotals.totalLabor || 0),
-            employee_tax: Number(paymentTotals.employeeTaxNum || 0),
-            rent: Number(paymentTotals.rentNum || 0),
-            electric: Number(paymentTotals.electricNum || 0),
-            water: Number(paymentTotals.waterNum || 0),
-            clean: Number(paymentTotals.cleanNum || 0),
-            transport: Number(paymentTotals.transportNum || 0),
-            net_pay: Number(paymentTotals.netPay || 0),
-            paid_at: nowIso,
-          }
-
-          const { error: paymentError } = await supabase
-            .from('employee_payments')
-            .insert(paymentPayload)
-
-          if (paymentError) throw paymentError
-
-          const { error: employeeUpdateError } = await supabase
-            .from('employees')
-            .update({
-              last_payment_date: today,
-              last_payment_amount: Number(paymentTotals.netPay || 0),
-              last_check_number: nextCheckNumber,
-            })
-            .eq('id', paymentEmployee.id)
-
-          if (employeeUpdateError) throw employeeUpdateError
-
-          paymentEmployee.last_payment_date = today
-          paymentEmployee.last_payment_amount = Number(paymentTotals.netPay || 0)
-          paymentEmployee.last_check_number = nextCheckNumber
-        }
+        if (employeeUpdateError) throw employeeUpdateError
 
         item.print_check_number = nextCheckNumber
         employee.last_payment_date = today
@@ -2060,10 +1682,6 @@ export default function DashboardPage() {
   }
 
   function getFullName(employee) {
-    if (employee?.is_company_payment) {
-      return getCompanyPaymentName(employee)
-    }
-
     return [employee.first_name, employee.last_name].filter(Boolean).join(' ') || '—'
   }
 
@@ -2339,7 +1957,6 @@ export default function DashboardPage() {
       offSite: employees.filter((e) => getPresenceKind(e) === 'off_site').length,
       absent: employees.filter((e) => getPresenceKind(e) === 'absent').length,
       openShift: employees.filter((e) => getPresenceKind(e) === 'open_shift').length,
-      punchErrors: employees.filter((e) => getPunchErrorItems(e).length > 0).length,
       zktVerified: employees.filter((e) =>
         ['synced', 'verified', 'already_exists'].includes(e.zkt_sync_status)
       ).length,
@@ -2670,18 +2287,6 @@ export default function DashboardPage() {
                           >
                             <Trash2 size={13} />
                           </button>
-
-                          <div className="ml-4">
-                            <button
-                              type="button"
-                              onClick={() => handlePrintSingleCheck(employee)}
-                              disabled={reportLoading}
-                              className="inline-flex items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-1.5 text-cyan-300 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                              title="Print this check"
-                            >
-                              <Printer size={13} />
-                            </button>
-                          </div>
                         </div>
 
                         <div className="flex items-center gap-2">
