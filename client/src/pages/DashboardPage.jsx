@@ -1574,123 +1574,6 @@ export default function DashboardPage() {
     })
   }
 
-  async function handlePrintSingleCheck(employee) {
-    try {
-      setReportLoading(true)
-      setReportError('')
-      setError('')
-
-      if (!employee?.id) {
-        throw new Error('Employee not found for check printing')
-      }
-
-      const { week, logs } = await loadPreviousWeekWorkLogs()
-      const deductionsRows = await tryLoadPayrollDeductions(week)
-      const payrollRows = buildPayrollRows(week, logs, deductionsRows, { includeExcluded: true })
-        .filter((item) => item.employee.id === employee.id)
-        .filter((item) => Number(item.netPay || 0) > 0)
-
-      if (payrollRows.length === 0) {
-        throw new Error('This employee has no net pay for previous week')
-      }
-
-      const item = payrollRows[0]
-      const itemEmployee = item.employee
-      const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-      const nowIso = new Date().toISOString()
-      const today = nowIso.slice(0, 10)
-
-      const { data: lastCheckRows, error: lastCheckError } = await supabase
-        .from('payroll_checks')
-        .select('check_number')
-        .order('check_number', { ascending: false })
-        .limit(1)
-
-      if (lastCheckError) throw lastCheckError
-
-      const lastCheckNumber = Math.max(
-        0,
-        ...(lastCheckRows || []).map((row) => Number(row.check_number || 0))
-      )
-      const nextCheckNumber = lastCheckNumber + 1
-
-      const paymentPayload = {
-        employee_id: itemEmployee.id,
-        period_start: week.startText,
-        period_end: week.endText,
-        total_labor: Number(totals.totalLabor || 0),
-        employee_tax: Number(totals.employeeTaxNum || 0),
-        rent: Number(totals.rentNum || 0),
-        electric: Number(totals.electricNum || 0),
-        water: Number(totals.waterNum || 0),
-        clean: Number(totals.cleanNum || 0),
-        transport: Number(totals.transportNum || 0),
-        net_pay: Number(totals.netPay || 0),
-        paid_at: nowIso,
-      }
-
-      const checkPayload = {
-        check_number: nextCheckNumber,
-        employee_id: itemEmployee.id,
-        pay_period_start: week.startText,
-        pay_period_end: week.endText,
-        regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
-        overtime_hours: Number(totals.overtimeHours || 0),
-        regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
-        overtime_labor: Number(totals.overtimeLabor || 0),
-        gross_pay: Number(totals.totalLabor || 0),
-        employee_tax: Number(totals.employeeTaxNum || 0),
-        rent: Number(totals.rentNum || 0),
-        electric: Number(totals.electricNum || 0),
-        water: Number(totals.waterNum || 0),
-        clean: Number(totals.cleanNum || 0),
-        transport: Number(totals.transportNum || 0),
-        net_pay: Number(totals.netPay || 0),
-        status: 'printed',
-        printed_at: nowIso,
-        printed_confirmed_at: nowIso,
-      }
-
-      const { error: checkInsertError } = await supabase
-        .from('payroll_checks')
-        .insert(checkPayload)
-
-      if (checkInsertError) throw checkInsertError
-
-      const { error: paymentError } = await supabase
-        .from('employee_payments')
-        .insert(paymentPayload)
-
-      if (paymentError) throw paymentError
-
-      const { error: employeeUpdateError } = await supabase
-        .from('employees')
-        .update({
-          last_payment_date: today,
-          last_payment_amount: Number(totals.netPay || 0),
-          last_check_number: nextCheckNumber,
-        })
-        .eq('id', itemEmployee.id)
-
-      if (employeeUpdateError) throw employeeUpdateError
-
-      item.print_check_number = nextCheckNumber
-      itemEmployee.last_payment_date = today
-      itemEmployee.last_payment_amount = Number(totals.netPay || 0)
-      itemEmployee.last_check_number = nextCheckNumber
-
-      openSelectedChecksPrintWindow(week, [item])
-      await loadEmployees()
-    } catch (err) {
-      console.error('handlePrintSingleCheck error:', err)
-      const message = err.message || 'Failed to print check'
-      setReportError(message)
-      setError(message)
-    } finally {
-      setReportLoading(false)
-    }
-  }
-
 
   function mergeCompanyPayrollRows(payrollRows, companyLookup = new Map()) {
     const output = []
@@ -1731,6 +1614,7 @@ export default function DashboardPage() {
       const firstItem = group.items[0]
       const firstEmployee = firstItem.employee || {}
       const baseTotals = firstItem.checkTotals || firstItem.totals || mapPayrollRowToCheckTotals(firstItem)
+
       const combinedTotals = {
         ...baseTotals,
         mainHours: 0,
@@ -1845,6 +1729,188 @@ export default function DashboardPage() {
     return output
   }
 
+  async function loadCompanyLookupForPayrollRows(payrollRows) {
+    const companyIds = Array.from(
+      new Set(
+        payrollRows
+          .map((item) => item.employee?.company_id)
+          .filter(Boolean)
+          .map(String)
+      )
+    )
+
+    const companyLookup = new Map()
+
+    if (companyIds.length === 0) {
+      return companyLookup
+    }
+
+    const { data, error } = await supabase
+      .from('employee_companies')
+      .select('id, company_name')
+      .in('id', companyIds)
+
+    if (error) throw error
+
+    ;(data || []).forEach((company) => {
+      companyLookup.set(String(company.id), company.company_name)
+    })
+
+    return companyLookup
+  }
+
+  async function savePrintedPayrollRows(week, printRows) {
+    const nowIso = new Date().toISOString()
+    const today = nowIso.slice(0, 10)
+
+    const { data: lastCheckRows, error: lastCheckError } = await supabase
+      .from('payroll_checks')
+      .select('check_number')
+      .order('check_number', { ascending: false })
+      .limit(1)
+
+    if (lastCheckError) throw lastCheckError
+
+    let globalLastCheckNumber = Math.max(
+      0,
+      ...(lastCheckRows || []).map((row) => Number(row.check_number || 0))
+    )
+
+    for (const item of printRows) {
+      const employee = item.employee
+      const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
+
+      globalLastCheckNumber += 1
+      const nextCheckNumber = globalLastCheckNumber
+
+      const sourceItems = item.grouped_company ? item.grouped_items : [item]
+      const checkEmployeeId = item.grouped_company
+        ? sourceItems[0]?.employee?.id
+        : employee.id
+
+      const checkPayload = {
+        check_number: nextCheckNumber,
+        employee_id: checkEmployeeId,
+        pay_period_start: week.startText,
+        pay_period_end: week.endText,
+        regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
+        overtime_hours: Number(totals.overtimeHours || 0),
+        regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
+        overtime_labor: Number(totals.overtimeLabor || 0),
+        gross_pay: Number(totals.totalLabor || 0),
+        employee_tax: Number(totals.employeeTaxNum || 0),
+        rent: Number(totals.rentNum || 0),
+        electric: Number(totals.electricNum || 0),
+        water: Number(totals.waterNum || 0),
+        clean: Number(totals.cleanNum || 0),
+        transport: Number(totals.transportNum || 0),
+        net_pay: Number(totals.netPay || 0),
+        status: 'printed',
+        printed_at: nowIso,
+        printed_confirmed_at: nowIso,
+      }
+
+      const { error: checkInsertError } = await supabase
+        .from('payroll_checks')
+        .insert(checkPayload)
+
+      if (checkInsertError) throw checkInsertError
+
+      for (const sourceItem of sourceItems) {
+        const sourceEmployee = sourceItem.employee
+        const sourceTotals =
+          sourceItem.checkTotals ||
+          sourceItem.totals ||
+          mapPayrollRowToCheckTotals(sourceItem)
+
+        const paymentPayload = {
+          employee_id: sourceEmployee.id,
+          period_start: week.startText,
+          period_end: week.endText,
+          total_labor: Number(sourceTotals.totalLabor || 0),
+          employee_tax: Number(sourceTotals.employeeTaxNum || 0),
+          rent: Number(sourceTotals.rentNum || 0),
+          electric: Number(sourceTotals.electricNum || 0),
+          water: Number(sourceTotals.waterNum || 0),
+          clean: Number(sourceTotals.cleanNum || 0),
+          transport: Number(sourceTotals.transportNum || 0),
+          net_pay: Number(sourceTotals.netPay || 0),
+          paid_at: nowIso,
+        }
+
+        const { error: paymentError } = await supabase
+          .from('employee_payments')
+          .insert(paymentPayload)
+
+        if (paymentError) throw paymentError
+
+        const { error: employeeUpdateError } = await supabase
+          .from('employees')
+          .update({
+            last_payment_date: today,
+            last_payment_amount: Number(sourceTotals.netPay || 0),
+            last_check_number: nextCheckNumber,
+          })
+          .eq('id', sourceEmployee.id)
+
+        if (employeeUpdateError) throw employeeUpdateError
+      }
+
+      item.print_check_number = nextCheckNumber
+      employee.last_payment_date = today
+      employee.last_payment_amount = Number(totals.netPay || 0)
+      employee.last_check_number = nextCheckNumber
+    }
+  }
+
+  async function handlePrintSingleCheck(employee) {
+    try {
+      setReportLoading(true)
+      setReportError('')
+      setError('')
+
+      if (!employee?.id) {
+        throw new Error('Employee not found for check printing')
+      }
+
+      const { week, logs } = await loadPreviousWeekWorkLogs()
+      const deductionsRows = await tryLoadPayrollDeductions(week)
+      const allPayrollRows = buildPayrollRows(week, logs, deductionsRows, { includeExcluded: true })
+        .filter((item) => Number(item.netPay || 0) > 0)
+
+      let rowsToPrint = []
+
+      if (employee.employer_form === 'Other' && employee.company_id) {
+        rowsToPrint = allPayrollRows.filter(
+          (item) =>
+            item.employee.employer_form === 'Other' &&
+            item.employee.company_id &&
+            String(item.employee.company_id) === String(employee.company_id)
+        )
+      } else {
+        rowsToPrint = allPayrollRows.filter((item) => item.employee.id === employee.id)
+      }
+
+      if (rowsToPrint.length === 0) {
+        throw new Error('This employee has no net pay for previous week')
+      }
+
+      const companyLookup = await loadCompanyLookupForPayrollRows(rowsToPrint)
+      const printRows = mergeCompanyPayrollRows(rowsToPrint, companyLookup)
+
+      await savePrintedPayrollRows(week, printRows)
+      openSelectedChecksPrintWindow(week, printRows)
+      await loadEmployees()
+    } catch (err) {
+      console.error('handlePrintSingleCheck error:', err)
+      const message = err.message || 'Failed to print check'
+      setReportError(message)
+      setError(message)
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
   async function handlePrintSelectedChecks() {
     try {
       setReportLoading(true)
@@ -1866,135 +1932,11 @@ export default function DashboardPage() {
         throw new Error('Selected employees have no net pay for previous week')
       }
 
-      const companyIds = Array.from(
-        new Set(
-          payrollRows
-            .map((item) => item.employee?.company_id)
-            .filter(Boolean)
-            .map(String)
-        )
-      )
+      const companyLookup = await loadCompanyLookupForPayrollRows(payrollRows)
+      const printRows = mergeCompanyPayrollRows(payrollRows, companyLookup)
 
-      const companyLookup = new Map()
-
-      if (companyIds.length > 0) {
-        const { data: companiesData, error: companiesError } = await supabase
-          .from('employee_companies')
-          .select('id, company_name')
-          .in('id', companyIds)
-
-        if (companiesError) throw companiesError
-
-        ;(companiesData || []).forEach((company) => {
-          companyLookup.set(String(company.id), company.company_name)
-        })
-      }
-
-      const groupedRows = mergeCompanyPayrollRows(payrollRows, companyLookup)
-
-      const nowIso = new Date().toISOString()
-      const today = nowIso.slice(0, 10)
-
-      const { data: lastCheckRows, error: lastCheckError } = await supabase
-        .from('payroll_checks')
-        .select('check_number')
-        .order('check_number', { ascending: false })
-        .limit(1)
-
-      if (lastCheckError) throw lastCheckError
-
-      let globalLastCheckNumber = Math.max(
-        0,
-        ...(lastCheckRows || []).map((row) => Number(row.check_number || 0))
-      )
-
-      for (const item of groupedRows) {
-        const employee = item.employee
-        const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-
-        globalLastCheckNumber += 1
-        const nextCheckNumber = globalLastCheckNumber
-
-        const sourceItems = item.grouped_company ? item.grouped_items : [item]
-        const paymentRows = item.grouped_company ? item.grouped_items : [item]
-
-        const checkEmployeeId =
-          item.grouped_company
-            ? sourceItems[0]?.employee?.id
-            : employee.id
-
-        const checkPayload = {
-          check_number: nextCheckNumber,
-          employee_id: checkEmployeeId,
-          pay_period_start: week.startText,
-          pay_period_end: week.endText,
-          regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
-          overtime_hours: Number(totals.overtimeHours || 0),
-          regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
-          overtime_labor: Number(totals.overtimeLabor || 0),
-          gross_pay: Number(totals.totalLabor || 0),
-          employee_tax: Number(totals.employeeTaxNum || 0),
-          rent: Number(totals.rentNum || 0),
-          electric: Number(totals.electricNum || 0),
-          water: Number(totals.waterNum || 0),
-          clean: Number(totals.cleanNum || 0),
-          transport: Number(totals.transportNum || 0),
-          net_pay: Number(totals.netPay || 0),
-          status: 'printed',
-          printed_at: nowIso,
-          printed_confirmed_at: nowIso,
-        }
-
-        const { error: checkInsertError } = await supabase
-          .from('payroll_checks')
-          .insert(checkPayload)
-
-        if (checkInsertError) throw checkInsertError
-
-        for (const sourceItem of paymentRows) {
-          const sourceEmployee = sourceItem.employee
-          const sourceTotals = sourceItem.checkTotals || sourceItem.totals || mapPayrollRowToCheckTotals(sourceItem)
-
-          const paymentPayload = {
-            employee_id: sourceEmployee.id,
-            period_start: week.startText,
-            period_end: week.endText,
-            total_labor: Number(sourceTotals.totalLabor || 0),
-            employee_tax: Number(sourceTotals.employeeTaxNum || 0),
-            rent: Number(sourceTotals.rentNum || 0),
-            electric: Number(sourceTotals.electricNum || 0),
-            water: Number(sourceTotals.waterNum || 0),
-            clean: Number(sourceTotals.cleanNum || 0),
-            transport: Number(sourceTotals.transportNum || 0),
-            net_pay: Number(sourceTotals.netPay || 0),
-            paid_at: nowIso,
-          }
-
-          const { error: paymentError } = await supabase
-            .from('employee_payments')
-            .insert(paymentPayload)
-
-          if (paymentError) throw paymentError
-
-          const { error: employeeUpdateError } = await supabase
-            .from('employees')
-            .update({
-              last_payment_date: today,
-              last_payment_amount: Number(sourceTotals.netPay || 0),
-              last_check_number: nextCheckNumber,
-            })
-            .eq('id', sourceEmployee.id)
-
-          if (employeeUpdateError) throw employeeUpdateError
-        }
-
-        item.print_check_number = nextCheckNumber
-        employee.last_payment_date = today
-        employee.last_payment_amount = Number(totals.netPay || 0)
-        employee.last_check_number = nextCheckNumber
-      }
-
-      openSelectedChecksPrintWindow(week, groupedRows)
+      await savePrintedPayrollRows(week, printRows)
+      openSelectedChecksPrintWindow(week, printRows)
 
       setSelectedCheckIds([])
       await loadEmployees()
