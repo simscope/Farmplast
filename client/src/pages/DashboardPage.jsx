@@ -481,11 +481,10 @@ export default function DashboardPage() {
       const employeePaymentMetaById = new Map()
 
       if (employeeIds.length > 0) {
-        const { data: checkRows, error: checkRowsError } = await supabase
-  .from('payroll_checks')
-  .select('check_number')
-  .order('check_number', { ascending: false })
-  .limit(1)
+        const { data: paymentMetaRows, error: paymentMetaError } = await supabase
+          .from('employees')
+          .select('id, company_id, last_payment_date, last_payment_amount, last_check_number')
+          .in('id', employeeIds)
 
         if (paymentMetaError) throw paymentMetaError
 
@@ -1599,12 +1598,27 @@ export default function DashboardPage() {
       const nowIso = new Date().toISOString()
       const today = nowIso.slice(0, 10)
 
+      const { data: lastCheckRows, error: lastCheckError } = await supabase
+        .from('payroll_checks')
+        .select('check_number')
+        .order('check_number', { ascending: false })
+        .limit(1)
+
+      if (lastCheckError) throw lastCheckError
+
+      let globalLastCheckNumber = Math.max(
+        0,
+        ...(lastCheckRows || []).map((row) => Number(row.check_number || 0))
+      )
+
       for (const item of payrollRows) {
         const employee = item.employee
         const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-        const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
 
-        const payload = {
+        globalLastCheckNumber += 1
+        const nextCheckNumber = globalLastCheckNumber
+
+        const paymentPayload = {
           employee_id: employee.id,
           period_start: week.startText,
           period_end: week.endText,
@@ -1619,9 +1633,37 @@ export default function DashboardPage() {
           paid_at: nowIso,
         }
 
+        const checkPayload = {
+          check_number: nextCheckNumber,
+          employee_id: employee.id,
+          pay_period_start: week.startText,
+          pay_period_end: week.endText,
+          regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
+          overtime_hours: Number(totals.overtimeHours || 0),
+          regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
+          overtime_labor: Number(totals.overtimeLabor || 0),
+          gross_pay: Number(totals.totalLabor || 0),
+          employee_tax: Number(totals.employeeTaxNum || 0),
+          rent: Number(totals.rentNum || 0),
+          electric: Number(totals.electricNum || 0),
+          water: Number(totals.waterNum || 0),
+          clean: Number(totals.cleanNum || 0),
+          transport: Number(totals.transportNum || 0),
+          net_pay: Number(totals.netPay || 0),
+          status: 'printed',
+          printed_at: nowIso,
+          printed_confirmed_at: nowIso,
+        }
+
+        const { error: checkInsertError } = await supabase
+          .from('payroll_checks')
+          .insert(checkPayload)
+
+        if (checkInsertError) throw checkInsertError
+
         const { error: paymentError } = await supabase
           .from('employee_payments')
-          .insert(payload)
+          .insert(paymentPayload)
 
         if (paymentError) throw paymentError
 
@@ -1958,6 +2000,7 @@ export default function DashboardPage() {
       offSite: employees.filter((e) => getPresenceKind(e) === 'off_site').length,
       absent: employees.filter((e) => getPresenceKind(e) === 'absent').length,
       openShift: employees.filter((e) => getPresenceKind(e) === 'open_shift').length,
+      punchErrors: employees.filter((e) => getPunchErrorItems(e).length > 0).length,
       zktVerified: employees.filter((e) =>
         ['synced', 'verified', 'already_exists'].includes(e.zkt_sync_status)
       ).length,
