@@ -915,20 +915,21 @@ export default function PayrollCheck({
         ) : null}
 
         {showEmployerCopy ? (
-          <>
-            <div className="print-tear-line" />
-            <PayrollStubCopy
-              title="EMPLOYER COPY"
-              employee={employee}
-              fullName={fullName}
-              periodStart={periodStart}
-              periodEnd={periodEnd}
-              totals={totals}
-              checkNumber={checkNumber}
-              payDate={payDate}
-            />
-          </>
-        ) : null}
+  <div style={{ marginTop: '10mm' }}>
+    <div className="print-tear-line" />
+
+    <PayrollStubCopy
+      title="EMPLOYER COPY"
+      employee={employee}
+      fullName={fullName}
+      periodStart={periodStart}
+      periodEnd={periodEnd}
+      totals={totals}
+      checkNumber={checkNumber}
+      payDate={payDate}
+    />
+  </div>
+) : null}
       </div>
     </div>
   )
