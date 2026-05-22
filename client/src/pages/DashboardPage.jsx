@@ -481,10 +481,11 @@ export default function DashboardPage() {
       const employeePaymentMetaById = new Map()
 
       if (employeeIds.length > 0) {
-        const { data: paymentMetaRows, error: paymentMetaError } = await supabase
-          .from('employees')
-          .select('id, company_id, last_payment_date, last_payment_amount, last_check_number')
-          .in('id', employeeIds)
+        const { data: checkRows, error: checkRowsError } = await supabase
+  .from('payroll_checks')
+  .select('check_number')
+  .order('check_number', { ascending: false })
+  .limit(1)
 
         if (paymentMetaError) throw paymentMetaError
 
