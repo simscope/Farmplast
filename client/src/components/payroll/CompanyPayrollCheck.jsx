@@ -808,7 +808,7 @@ export default function CompanyPayrollCheck({
         ) : null}
 
         {showEmployerCopy ? (
-          <div style={{ marginTop: '30mm' }}>
+          <div style={{ marginTop: '50mm' }}>
             <div className="print-tear-line" />
 
             <CompanyStubCopy
