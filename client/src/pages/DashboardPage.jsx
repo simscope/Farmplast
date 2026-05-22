@@ -1574,6 +1574,123 @@ export default function DashboardPage() {
     })
   }
 
+  async function handlePrintSingleCheck(employee) {
+    try {
+      setReportLoading(true)
+      setReportError('')
+      setError('')
+
+      if (!employee?.id) {
+        throw new Error('Employee not found for check printing')
+      }
+
+      const { week, logs } = await loadPreviousWeekWorkLogs()
+      const deductionsRows = await tryLoadPayrollDeductions(week)
+      const payrollRows = buildPayrollRows(week, logs, deductionsRows, { includeExcluded: true })
+        .filter((item) => item.employee.id === employee.id)
+        .filter((item) => Number(item.netPay || 0) > 0)
+
+      if (payrollRows.length === 0) {
+        throw new Error('This employee has no net pay for previous week')
+      }
+
+      const item = payrollRows[0]
+      const itemEmployee = item.employee
+      const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
+      const nowIso = new Date().toISOString()
+      const today = nowIso.slice(0, 10)
+
+      const { data: lastCheckRows, error: lastCheckError } = await supabase
+        .from('payroll_checks')
+        .select('check_number')
+        .order('check_number', { ascending: false })
+        .limit(1)
+
+      if (lastCheckError) throw lastCheckError
+
+      const lastCheckNumber = Math.max(
+        0,
+        ...(lastCheckRows || []).map((row) => Number(row.check_number || 0))
+      )
+      const nextCheckNumber = lastCheckNumber + 1
+
+      const paymentPayload = {
+        employee_id: itemEmployee.id,
+        period_start: week.startText,
+        period_end: week.endText,
+        total_labor: Number(totals.totalLabor || 0),
+        employee_tax: Number(totals.employeeTaxNum || 0),
+        rent: Number(totals.rentNum || 0),
+        electric: Number(totals.electricNum || 0),
+        water: Number(totals.waterNum || 0),
+        clean: Number(totals.cleanNum || 0),
+        transport: Number(totals.transportNum || 0),
+        net_pay: Number(totals.netPay || 0),
+        paid_at: nowIso,
+      }
+
+      const checkPayload = {
+        check_number: nextCheckNumber,
+        employee_id: itemEmployee.id,
+        pay_period_start: week.startText,
+        pay_period_end: week.endText,
+        regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
+        overtime_hours: Number(totals.overtimeHours || 0),
+        regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
+        overtime_labor: Number(totals.overtimeLabor || 0),
+        gross_pay: Number(totals.totalLabor || 0),
+        employee_tax: Number(totals.employeeTaxNum || 0),
+        rent: Number(totals.rentNum || 0),
+        electric: Number(totals.electricNum || 0),
+        water: Number(totals.waterNum || 0),
+        clean: Number(totals.cleanNum || 0),
+        transport: Number(totals.transportNum || 0),
+        net_pay: Number(totals.netPay || 0),
+        status: 'printed',
+        printed_at: nowIso,
+        printed_confirmed_at: nowIso,
+      }
+
+      const { error: checkInsertError } = await supabase
+        .from('payroll_checks')
+        .insert(checkPayload)
+
+      if (checkInsertError) throw checkInsertError
+
+      const { error: paymentError } = await supabase
+        .from('employee_payments')
+        .insert(paymentPayload)
+
+      if (paymentError) throw paymentError
+
+      const { error: employeeUpdateError } = await supabase
+        .from('employees')
+        .update({
+          last_payment_date: today,
+          last_payment_amount: Number(totals.netPay || 0),
+          last_check_number: nextCheckNumber,
+        })
+        .eq('id', itemEmployee.id)
+
+      if (employeeUpdateError) throw employeeUpdateError
+
+      item.print_check_number = nextCheckNumber
+      itemEmployee.last_payment_date = today
+      itemEmployee.last_payment_amount = Number(totals.netPay || 0)
+      itemEmployee.last_check_number = nextCheckNumber
+
+      openSelectedChecksPrintWindow(week, [item])
+      await loadEmployees()
+    } catch (err) {
+      console.error('handlePrintSingleCheck error:', err)
+      const message = err.message || 'Failed to print check'
+      setReportError(message)
+      setError(message)
+    } finally {
+      setReportLoading(false)
+    }
+  }
+
   async function handlePrintSelectedChecks() {
     try {
       setReportLoading(true)
@@ -1598,12 +1715,27 @@ export default function DashboardPage() {
       const nowIso = new Date().toISOString()
       const today = nowIso.slice(0, 10)
 
+      const { data: lastCheckRows, error: lastCheckError } = await supabase
+        .from('payroll_checks')
+        .select('check_number')
+        .order('check_number', { ascending: false })
+        .limit(1)
+
+      if (lastCheckError) throw lastCheckError
+
+      let globalLastCheckNumber = Math.max(
+        0,
+        ...(lastCheckRows || []).map((row) => Number(row.check_number || 0))
+      )
+
       for (const item of payrollRows) {
         const employee = item.employee
         const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-        const nextCheckNumber = Number(employee?.last_check_number || 0) + 1
 
-        const payload = {
+        globalLastCheckNumber += 1
+        const nextCheckNumber = globalLastCheckNumber
+
+        const paymentPayload = {
           employee_id: employee.id,
           period_start: week.startText,
           period_end: week.endText,
@@ -1618,9 +1750,37 @@ export default function DashboardPage() {
           paid_at: nowIso,
         }
 
+        const checkPayload = {
+          check_number: nextCheckNumber,
+          employee_id: employee.id,
+          pay_period_start: week.startText,
+          pay_period_end: week.endText,
+          regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
+          overtime_hours: Number(totals.overtimeHours || 0),
+          regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
+          overtime_labor: Number(totals.overtimeLabor || 0),
+          gross_pay: Number(totals.totalLabor || 0),
+          employee_tax: Number(totals.employeeTaxNum || 0),
+          rent: Number(totals.rentNum || 0),
+          electric: Number(totals.electricNum || 0),
+          water: Number(totals.waterNum || 0),
+          clean: Number(totals.cleanNum || 0),
+          transport: Number(totals.transportNum || 0),
+          net_pay: Number(totals.netPay || 0),
+          status: 'printed',
+          printed_at: nowIso,
+          printed_confirmed_at: nowIso,
+        }
+
+        const { error: checkInsertError } = await supabase
+          .from('payroll_checks')
+          .insert(checkPayload)
+
+        if (checkInsertError) throw checkInsertError
+
         const { error: paymentError } = await supabase
           .from('employee_payments')
-          .insert(payload)
+          .insert(paymentPayload)
 
         if (paymentError) throw paymentError
 
@@ -1957,6 +2117,7 @@ export default function DashboardPage() {
       offSite: employees.filter((e) => getPresenceKind(e) === 'off_site').length,
       absent: employees.filter((e) => getPresenceKind(e) === 'absent').length,
       openShift: employees.filter((e) => getPresenceKind(e) === 'open_shift').length,
+      punchErrors: employees.filter((e) => getPunchErrorItems(e).length > 0).length,
       zktVerified: employees.filter((e) =>
         ['synced', 'verified', 'already_exists'].includes(e.zkt_sync_status)
       ).length,
@@ -2287,6 +2448,18 @@ export default function DashboardPage() {
                           >
                             <Trash2 size={13} />
                           </button>
+
+                          <div className="ml-4">
+                            <button
+                              type="button"
+                              onClick={() => handlePrintSingleCheck(employee)}
+                              disabled={reportLoading}
+                              className="inline-flex items-center justify-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-2 py-1.5 text-cyan-300 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                              title="Print this check"
+                            >
+                              <Printer size={13} />
+                            </button>
+                          </div>
                         </div>
 
                         <div className="flex items-center gap-2">
