@@ -1042,7 +1042,10 @@ export default function DashboardPage() {
     const transportNum = roundDollars(sumDeductions(employeeDeductions, ['transport', 'transportation']))
     const manualDeductions = roundDollars(rentNum + electricNum + waterNum + cleanNum + transportNum)
 
-    const employeeTaxNum = roundDollars(payrollTotals.employeeTaxNum || 0)
+    const isOther = employee?.employer_form === 'Other'
+    const employeeTaxNum = isOther ? 0 : roundDollars(payrollTotals.employeeTaxNum || 0)
+    const mainTaxNum = isOther ? 0 : roundDollars(payrollTotals.mainTax || 0)
+    const overtimeTaxNum = isOther ? 0 : roundDollars(payrollTotals.overtimeTax || 0)
     const totalDeductions = roundDollars(employeeTaxNum + manualDeductions)
     const netPay = roundDollars(Number(payrollTotals.totalLabor || 0) - totalDeductions)
 
@@ -1077,6 +1080,9 @@ export default function DashboardPage() {
 
     const checkTotals = {
       ...payrollTotals,
+      employeeTaxNum,
+      mainTax: mainTaxNum,
+      overtimeTax: overtimeTaxNum,
       rows: calculatedRows,
       filteredForView: calculatedRows,
       rowsByDate,
@@ -1104,8 +1110,8 @@ export default function DashboardPage() {
       overtimeHours: Number(payrollTotals.overtimeHours || 0),
       regularLabor: roundDollars(payrollTotals.mainLabor || 0),
       overtimeLabor: roundDollars(payrollTotals.overtimeLabor || 0),
-      mainTax: roundDollars(payrollTotals.mainTax || 0),
-      overtimeTax: roundDollars(payrollTotals.overtimeTax || 0),
+      mainTax: mainTaxNum,
+      overtimeTax: overtimeTaxNum,
       grossPay: roundDollars(payrollTotals.totalLabor || 0),
       deductions: {
         tax: employeeTaxNum,
@@ -1762,58 +1768,59 @@ export default function DashboardPage() {
     const nowIso = new Date().toISOString()
     const today = nowIso.slice(0, 10)
 
-    const { data: lastCheckRows, error: lastCheckError } = await supabase
-      .from('payroll_checks')
-      .select('check_number')
-      .order('check_number', { ascending: false })
-      .limit(1)
-
-    if (lastCheckError) throw lastCheckError
-
-    let globalLastCheckNumber = Math.max(
-      0,
-      ...(lastCheckRows || []).map((row) => Number(row.check_number || 0))
-    )
-
     for (const item of printRows) {
       const employee = item.employee
       const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-
-      globalLastCheckNumber += 1
-      const nextCheckNumber = globalLastCheckNumber
 
       const sourceItems = item.grouped_company ? item.grouped_items : [item]
       const checkEmployeeId = item.grouped_company
         ? sourceItems[0]?.employee?.id
         : employee.id
 
-      const checkPayload = {
-        check_number: nextCheckNumber,
-        employee_id: checkEmployeeId,
-        pay_period_start: week.startText,
-        pay_period_end: week.endText,
-        regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
-        overtime_hours: Number(totals.overtimeHours || 0),
-        regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
-        overtime_labor: Number(totals.overtimeLabor || 0),
-        gross_pay: Number(totals.totalLabor || 0),
-        employee_tax: Number(totals.employeeTaxNum || 0),
-        rent: Number(totals.rentNum || 0),
-        electric: Number(totals.electricNum || 0),
-        water: Number(totals.waterNum || 0),
-        clean: Number(totals.cleanNum || 0),
-        transport: Number(totals.transportNum || 0),
-        net_pay: Number(totals.netPay || 0),
-        status: 'printed',
-        printed_at: nowIso,
-        printed_confirmed_at: nowIso,
+      if (!checkEmployeeId) {
+        throw new Error('Employee not found for payroll check')
       }
 
-      const { error: checkInsertError } = await supabase
-        .from('payroll_checks')
-        .insert(checkPayload)
+      const { data: createdCheck, error: createCheckError } = await supabase.rpc(
+        'create_payroll_check',
+        {
+          p_employee_id: checkEmployeeId,
+          p_pay_period_start: week.startText,
+          p_pay_period_end: week.endText,
+          p_regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
+          p_overtime_hours: Number(totals.overtimeHours || 0),
+          p_regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
+          p_overtime_labor: Number(totals.overtimeLabor || 0),
+          p_gross_pay: Number(totals.totalLabor || 0),
+          p_employee_tax: Number(totals.employeeTaxNum || 0),
+          p_rent: Number(totals.rentNum || 0),
+          p_electric: Number(totals.electricNum || 0),
+          p_water: Number(totals.waterNum || 0),
+          p_clean: Number(totals.cleanNum || 0),
+          p_transport: Number(totals.transportNum || 0),
+          p_net_pay: Number(totals.netPay || 0),
+        }
+      )
 
-      if (checkInsertError) throw checkInsertError
+      if (createCheckError) throw createCheckError
+      if (!createdCheck?.id) throw new Error('Check record was not created')
+      if (!createdCheck?.check_number) throw new Error('Check number was not created')
+
+      const nextCheckNumber = createdCheck.check_number
+
+      const { data: printedCheck, error: printedError } = await supabase.rpc(
+        'mark_payroll_check_printed',
+        {
+          p_check_id: createdCheck.id,
+        }
+      )
+
+      if (printedError) throw printedError
+
+      const confirmedAt =
+        printedCheck?.printed_confirmed_at ||
+        printedCheck?.printed_at ||
+        nowIso
 
       for (const sourceItem of sourceItems) {
         const sourceEmployee = sourceItem.employee
@@ -1834,7 +1841,7 @@ export default function DashboardPage() {
           clean: Number(sourceTotals.cleanNum || 0),
           transport: Number(sourceTotals.transportNum || 0),
           net_pay: Number(sourceTotals.netPay || 0),
-          paid_at: nowIso,
+          paid_at: confirmedAt,
         }
 
         const { error: paymentError } = await supabase
