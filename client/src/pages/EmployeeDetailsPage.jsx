@@ -1001,18 +1001,6 @@ export default function EmployeeDetailsPage() {
     )
 
     const payrollTotals = calculatePayrollTotals(recalculated, employee)
-    const isOtherEmployer =
-      String(employee?.employer_form || '').trim().toLowerCase() === 'other'
-
-    const payrollEmployeeTaxNum = isOtherEmployer
-      ? 0
-      : Number(payrollTotals.employeeTaxNum || 0)
-    const payrollMainTax = isOtherEmployer
-      ? 0
-      : Number(payrollTotals.mainTax || 0)
-    const payrollOvertimeTax = isOtherEmployer
-      ? 0
-      : Number(payrollTotals.overtimeTax || 0)
 
     const weeksCount = getWeeksInSelectedPeriod(periodStart, periodEnd)
 
@@ -1026,8 +1014,17 @@ export default function EmployeeDetailsPage() {
       rentNum + electricNum + waterNum + cleanNum + transportNum
     )
 
+    const isOther = employee?.employer_form === 'Other'
+
+    const employeeTaxNum = isOther
+      ? 0
+      : Number(payrollTotals.employeeTaxNum || 0)
+
+    const mainTax = isOther ? 0 : Number(payrollTotals.mainTax || 0)
+    const overtimeTax = isOther ? 0 : Number(payrollTotals.overtimeTax || 0)
+
     const totalDeductions = roundDollar(
-      payrollEmployeeTaxNum + employeeDeductions
+      employeeTaxNum + employeeDeductions
     )
 
     const netPay = roundDollar(
@@ -1040,9 +1037,9 @@ export default function EmployeeDetailsPage() {
       ),
       weeksCount,
       ...payrollTotals,
-      employeeTaxNum: payrollEmployeeTaxNum,
-      mainTax: payrollMainTax,
-      overtimeTax: payrollOvertimeTax,
+      employeeTaxNum,
+      mainTax,
+      overtimeTax,
       taxableHours: payrollTotals.mainHours,
       taxableLabor: payrollTotals.mainLabor,
       rentNum,
@@ -1715,9 +1712,7 @@ export default function EmployeeDetailsPage() {
                   <div>
                     <h2 className="text-xl font-bold text-white">Work log</h2>
                     <p className="text-sm text-slate-400">
-                      Max 12h/day, rounded to nearest 15 min. Lunch and downtime are deducted. {employee?.employer_form === 'Other'
-                        ? 'Employee tax is not calculated for Other.'
-                        : 'Employee tax is calculated automatically: main labor 15.3%, overtime labor 27%.'}
+                      Max 12h/day, rounded to nearest 15 min. Lunch and downtime are deducted. Employee tax is calculated automatically: main labor 15.3%, overtime labor 27%.
                     </p>
                   </div>
                 </div>
