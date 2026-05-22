@@ -31,6 +31,7 @@ import {
   normalizePayrollRow,
 } from '../utils/payrollMath'
 import PayrollCheck from '../components/payroll/PayrollCheck'
+import CompanyPayrollCheck from '../components/payroll/CompanyPayrollCheck'
 import '../components/payroll/PayrollCheck.css'
 
 const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
@@ -1534,12 +1535,29 @@ export default function DashboardPage() {
           const employee = item.employee
           const checkNumber = item.print_check_number || employee?.last_check_number || 0
 
+          const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
+
+          if (item.grouped_company) {
+            return (
+              <CompanyPayrollCheck
+                key={`${employee.id}-${checkNumber}`}
+                companyName={item.fullName || getFullName(employee)}
+                groupedItems={item.grouped_items || []}
+                totals={totals}
+                periodStart={week.startText}
+                periodEnd={week.endText}
+                checkNumber={checkNumber}
+                payDate={payDate}
+              />
+            )
+          }
+
           return (
             <PayrollCheck
               key={`${employee.id}-${checkNumber}`}
               employee={employee}
               fullName={item.fullName || getFullName(employee)}
-              totals={item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)}
+              totals={totals}
               periodStart={week.startText}
               periodEnd={week.endText}
               checkNumber={checkNumber}
@@ -1638,14 +1656,6 @@ export default function DashboardPage() {
         rowsByDate: {},
       }
 
-      const combinedDays = (firstItem.days || []).map((day) => ({
-        ...day,
-        rows: [],
-        totalRegularHours: 0,
-        totalLunchHours: 0,
-        totalLabor: 0,
-      }))
-
       for (const item of group.items) {
         const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
 
@@ -1672,15 +1682,6 @@ export default function DashboardPage() {
         Object.entries(totals.rowsByDate || item.rowsByDate || {}).forEach(([dateKey, row]) => {
           combinedTotals.rowsByDate[dateKey] = row
         })
-
-        ;(item.days || []).forEach((day, index) => {
-          if (!combinedDays[index]) return
-
-          combinedDays[index].rows.push(...(day.rows || []))
-          combinedDays[index].totalRegularHours += Number(day.totalRegularHours || 0)
-          combinedDays[index].totalLunchHours += Number(day.totalLunchHours || 0)
-          combinedDays[index].totalLabor += Number(day.totalLabor || 0)
-        })
       }
 
       const groupedEmployee = {
@@ -1699,12 +1700,10 @@ export default function DashboardPage() {
         fullName: group.companyName,
         grouped_company: true,
         grouped_items: group.items,
-        days: combinedDays,
         rows: combinedTotals.rows,
         rowsByDate: combinedTotals.rowsByDate,
         totals: combinedTotals,
         checkTotals: combinedTotals,
-        totalRegularHours: group.items.reduce((sum, item) => sum + Number(item.totalRegularHours || 0), 0),
         regularHours: combinedTotals.mainHours,
         overtimeHours: combinedTotals.overtimeHours,
         regularLabor: roundDollars(combinedTotals.mainLabor),
