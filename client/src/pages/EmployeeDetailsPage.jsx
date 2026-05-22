@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { flushSync } from 'react-dom'
+import { createRoot } from 'react-dom/client'
 import {
   ArrowLeft,
   CalendarDays,
@@ -259,6 +260,109 @@ function getPayrollWeekRange(type = 'last', baseDate = new Date()) {
     start: toLocalDateString(start),
     end: toLocalDateString(end),
   }
+}
+
+
+function copyPrintStylesToWindow(printDocument) {
+  Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).forEach((node) => {
+    try {
+      printDocument.head.appendChild(node.cloneNode(true))
+    } catch (err) {
+      console.warn('Could not copy print style node:', err)
+    }
+  })
+
+  const style = printDocument.createElement('style')
+  style.textContent = `
+    @page { size: 215.9mm 279.4mm; margin: 0; }
+    * { box-sizing: border-box; }
+    html,
+    body {
+      width: 215.9mm;
+      min-width: 215.9mm;
+      max-width: 215.9mm;
+      height: 279.4mm;
+      min-height: 279.4mm;
+      max-height: 279.4mm;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      background: white !important;
+      color: black !important;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    #print-root {
+      width: 215.9mm;
+      min-width: 215.9mm;
+      max-width: 215.9mm;
+      height: 279.4mm;
+      min-height: 279.4mm;
+      max-height: 279.4mm;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden !important;
+      background: white !important;
+    }
+    #print-root > * {
+      margin: 0 !important;
+      transform: none !important;
+      zoom: 1 !important;
+    }
+    .no-print { display: none !important; }
+  `
+  printDocument.head.appendChild(style)
+}
+
+function openPayrollCheckPrintWindow({
+  employee,
+  fullName,
+  totals,
+  periodStart,
+  periodEnd,
+  checkNumber,
+  payDate,
+}) {
+  const printWindow = window.open('', '_blank')
+
+  if (!printWindow) {
+    throw new Error('Popup blocked. Allow popups for this site and click Print again.')
+  }
+
+  printWindow.document.open()
+  printWindow.document.write(`<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Payroll check #${checkNumber || ''}</title>
+</head>
+<body>
+  <div id="print-root"></div>
+</body>
+</html>`)
+  printWindow.document.close()
+
+  copyPrintStylesToWindow(printWindow.document)
+
+  const rootElement = printWindow.document.getElementById('print-root')
+  const root = createRoot(rootElement)
+
+  root.render(
+    <PayrollCheck
+      employee={employee}
+      fullName={fullName}
+      totals={totals}
+      periodStart={periodStart}
+      periodEnd={periodEnd}
+      checkNumber={checkNumber}
+      payDate={payDate}
+    />
+  )
+
+  setTimeout(() => {
+    printWindow.focus()
+    printWindow.print()
+  }, 500)
 }
 
 function PrintPreviewModal({
@@ -1111,7 +1215,15 @@ export default function EmployeeDetailsPage() {
         })
       })
 
-      window.print()
+      openPayrollCheckPrintWindow({
+        employee,
+        fullName,
+        totals,
+        periodStart,
+        periodEnd,
+        checkNumber: printCheckNumber,
+        payDate: String(confirmedAt).slice(0, 10),
+      })
     } catch (err) {
       console.error('handleSaveAndPrint error:', err)
       setError(err.message || 'Failed to print check')
