@@ -39,6 +39,30 @@ import '../components/payroll/PayrollCheck.css'
 const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
 const MAX_OPEN_SHIFT_MINUTES = 13 * 60
 const RECENT_OUT_MINUTES = 15 * 60
+const EMPLOYEE_SORT_STORAGE_KEY = 'dashboardEmployeeSort'
+
+const defaultEmployeeSort = {
+  field: 'number',
+  direction: 'desc',
+}
+
+function loadStoredEmployeeSort() {
+  if (typeof window === 'undefined') return defaultEmployeeSort
+
+  try {
+    const stored = window.localStorage.getItem(EMPLOYEE_SORT_STORAGE_KEY)
+    if (!stored) return defaultEmployeeSort
+
+    const parsed = JSON.parse(stored)
+    const field = parsed?.field === 'name' ? 'name' : 'number'
+    const direction = parsed?.direction === 'asc' ? 'asc' : 'desc'
+
+    return { field, direction }
+  } catch (err) {
+    console.warn('Could not load employee sort preference:', err)
+    return defaultEmployeeSort
+  }
+}
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
@@ -387,10 +411,7 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
-  const [employeeSort, setEmployeeSort] = useState({
-    field: 'number',
-    direction: 'desc',
-  })
+  const [employeeSort, setEmployeeSort] = useState(loadStoredEmployeeSort)
   const [zkLoading, setZkLoading] = useState(false)
   const [zkStatus, setZkStatus] = useState('')
   const [activeCommandId, setActiveCommandId] = useState(null)
@@ -401,6 +422,17 @@ export default function DashboardPage() {
   const [selectedCheckIds, setSelectedCheckIds] = useState([])
 
   const isEditing = Boolean(form.id)
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        EMPLOYEE_SORT_STORAGE_KEY,
+        JSON.stringify(employeeSort)
+      )
+    } catch (err) {
+      console.warn('Could not save employee sort preference:', err)
+    }
+  }, [employeeSort])
 
   useEffect(() => {
     loadEmployees()
