@@ -341,7 +341,7 @@ function downloadTextFile(fileName, content, type = 'text/html;charset=utf-8') {
 }
 
 export default function DashboardPage() {
-  const { role, signOut } = useAuth()
+  const { signOut } = useAuth()
 
   const emptyForm = {
     id: null,
@@ -2335,15 +2335,13 @@ export default function DashboardPage() {
                 Add employee
               </button>
 
-              {role === 'admin' ? (
-                <Link
-                  to="/admin/backup"
-                  className="inline-flex items-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-300 transition hover:bg-sky-500/20"
-                >
-                  <DatabaseBackup size={15} />
-                  Database Backup
-                </Link>
-              ) : null}
+              <Link
+                to="/admin/backup"
+                className="inline-flex items-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-300 transition hover:bg-sky-500/20"
+              >
+                <DatabaseBackup size={15} />
+                Database Backup
+              </Link>
 
               <button
                 onClick={handleLogout}
