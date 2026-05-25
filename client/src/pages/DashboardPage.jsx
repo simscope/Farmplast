@@ -1131,12 +1131,9 @@ export default function DashboardPage() {
   function buildPayrollRows(week, logs, deductionsRows, options = {}) {
     const logsByEmployeeAndDate = new Map()
     const includeExcluded = options.includeExcluded === true
-    const onlyExcluded = options.onlyExcluded === true
-    const sourceEmployees = onlyExcluded
-      ? employees.filter((employee) => employee.exclude_from_payroll_report === true)
-      : includeExcluded
-        ? employees
-        : employees.filter((employee) => employee.exclude_from_payroll_report !== true)
+    const sourceEmployees = includeExcluded
+      ? employees
+      : employees.filter((employee) => employee.exclude_from_payroll_report !== true)
 
     logs.forEach((log) => {
       const employeeId = getLogEmployeeId(log)
@@ -1167,10 +1164,8 @@ export default function DashboardPage() {
       .join('')
   }
 
-  function buildPayrollReportHtml(week, logs, deductionsRows, options = {}) {
-    const payrollRows = buildPayrollRows(week, logs, deductionsRows, options)
-    const reportTitle = options.onlyExcluded ? 'Excluded Weekly Payroll' : 'Weekly Payroll'
-    const reportBrand = options.onlyExcluded ? 'Excluded Payroll Report' : 'Payroll Report'
+  function buildPayrollReportHtml(week, logs, deductionsRows) {
+    const payrollRows = buildPayrollRows(week, logs, deductionsRows)
 
     const grandGross = payrollRows.reduce((sum, item) => sum + item.grossPay, 0)
     const grandRegularLabor = payrollRows.reduce((sum, item) => sum + item.regularLabor, 0)
@@ -1219,7 +1214,7 @@ export default function DashboardPage() {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>${reportBrand} ${week.startText} - ${week.endText}</title>
+  <title>Payroll Report ${week.startText} - ${week.endText}</title>
   <style>
     @page { size: Letter landscape; margin: 6mm; }
     * { box-sizing: border-box; }
@@ -1313,8 +1308,8 @@ export default function DashboardPage() {
   <div class="invoice-shell">
     <div class="top">
       <div>
-        <div class="brand">${escapeHtml(reportBrand)}</div>
-        <h1>${escapeHtml(reportTitle)}</h1>
+        <div class="brand">Payroll Report</div>
+        <h1>Weekly Payroll</h1>
         <div class="period">Previous week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
         <div class="rules">If Overtime is enabled: first 40h/week at regular rate, hours over 40h at 1.5x. If No OT: all hours stay regular. Main tax 15.3%, OT tax 27%. All money rounded to whole dollars.</div>
       </div>
@@ -1360,7 +1355,7 @@ export default function DashboardPage() {
       <tbody>${summaryRows || '<tr><td colspan="21">No employees found</td></tr>'}</tbody>
     </table>
 
-    <div class="footer-note">${escapeHtml(reportBrand)} generated from employees and employee_work_logs. Employee tax amount = main labor tax + overtime labor tax. Rent/electric/water/clean/transport stay as manual deductions when available.</div>
+    <div class="footer-note">Report generated from employees and employee_work_logs. Employee tax amount = main labor tax + overtime labor tax. Rent/electric/water/clean/transport stay as manual deductions when available.</div>
   </div>
 </body>
 </html>`
@@ -1462,44 +1457,6 @@ export default function DashboardPage() {
     } catch (err) {
       console.error('handlePayrollPdfReport error:', err)
       const message = err.message || 'Failed to build payroll PDF report'
-      setReportError(message)
-      setError(message)
-    } finally {
-      setReportLoading(false)
-    }
-  }
-
-
-  async function handleExcludedPayrollPdfReport() {
-    try {
-      setReportLoading(true)
-      setReportError('')
-      setError('')
-
-      const { week, logs } = await loadPreviousWeekWorkLogs()
-      const deductionsRows = await tryLoadPayrollDeductions(week)
-      const html = buildPayrollReportHtml(week, logs, deductionsRows, { onlyExcluded: true })
-
-      const printWindow = window.open('', '_blank')
-      if (!printWindow) {
-        throw new Error('Popup blocked. Allow popups for this site and click Excluded Payroll PDF again.')
-      }
-
-      printWindow.document.open()
-      printWindow.document.write(html)
-      printWindow.document.close()
-      printWindow.focus()
-
-      setTimeout(() => {
-        try {
-          printWindow.print()
-        } catch (printError) {
-          console.warn('Auto print failed:', printError)
-        }
-      }, 500)
-    } catch (err) {
-      console.error('handleExcludedPayrollPdfReport error:', err)
-      const message = err.message || 'Failed to build excluded payroll PDF report'
       setReportError(message)
       setError(message)
     } finally {
@@ -2335,26 +2292,6 @@ export default function DashboardPage() {
               >
                 <RefreshCw size={15} />
                 Refresh
-              </button>
-
-
-              <button
-                onClick={handlePayrollPdfReport}
-                disabled={reportLoading}
-                className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-              >
-                {reportLoading ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
-                Payroll PDF
-              </button>
-
-              <button
-                onClick={handleExcludedPayrollPdfReport}
-                disabled={reportLoading}
-                className="inline-flex items-center gap-2 rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-sm font-medium text-orange-300 transition hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                title="Only employees checked as Exclude from weekly payroll report"
-              >
-                {reportLoading ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
-                Excluded Payroll PDF
               </button>
 
               <button
