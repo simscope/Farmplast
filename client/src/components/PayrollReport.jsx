@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { FileText, FileSpreadsheet } from 'lucide-react'
+import { FileText } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import {
   calculatePayrollTotals,
@@ -145,7 +145,11 @@ function getNetPay(totals) {
   )
 }
 
-function buildPayrollReportHtml(week, payrollRows) {
+function buildPayrollReportHtml(week, payrollRows, options = {}) {
+  const isExcludedReport = options.excludedOnly === true
+  const reportBrand = isExcludedReport ? 'Excluded Payroll Report' : 'Payroll Report'
+  const reportTitle = isExcludedReport ? 'Excluded Weekly Payroll' : 'Weekly Payroll'
+
   const grandHours = payrollRows.reduce(
     (sum, item) => sum + Number(item.totals.totalReg || 0),
     0
@@ -254,7 +258,7 @@ function buildPayrollReportHtml(week, payrollRows) {
 <html>
 <head>
   <meta charset="utf-8" />
-  <title>Payroll Report ${week.startText} - ${week.endText}</title>
+  <title>${escapeHtml(reportBrand)} ${week.startText} - ${week.endText}</title>
   <style>
     @page { size: Letter landscape; margin: 6mm; }
     * { box-sizing: border-box; }
@@ -408,8 +412,8 @@ function buildPayrollReportHtml(week, payrollRows) {
   <div>
     <div class="top">
       <div>
-        <div class="brand">Payroll Report</div>
-        <h1>Weekly Payroll</h1>
+        <div class="brand">${escapeHtml(reportBrand)}</div>
+        <h1>${escapeHtml(reportTitle)}</h1>
         <div class="period">Previous week: ${escapeHtml(
           week.startText
         )} - ${escapeHtml(week.endText)}</div>
@@ -483,7 +487,7 @@ function buildPayrollReportHtml(week, payrollRows) {
       <tbody>${bodyRows || '<tr><td colspan="19">No employees found</td></tr>'}</tbody>
     </table>
 
-    <div class="footer-note">Report generated from employee_work_logs.</div>
+    <div class="footer-note">${isExcludedReport ? 'Excluded payroll report generated only for workers marked as excluded from the main payroll report.' : 'Report generated from employee_work_logs.'}</div>
   </div>
 </body>
 </html>`
@@ -569,6 +573,9 @@ export default function PayrollReport({ employees = [] }) {
   const reportEmployees = safeEmployees.filter(
     (employee) => employee?.exclude_from_payroll_report !== true
   )
+  const excludedReportEmployees = safeEmployees.filter(
+    (employee) => employee?.exclude_from_payroll_report === true
+  )
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -592,10 +599,10 @@ export default function PayrollReport({ employees = [] }) {
     }
   }
 
-  function buildRows(week, logs) {
+  function buildRows(week, logs, sourceEmployees = reportEmployees) {
     const safeLogs = Array.isArray(logs) ? logs : []
 
-    return reportEmployees.map((employee) => {
+    return sourceEmployees.map((employee) => {
       const employeeLogs = safeLogs.filter(
         (log) => String(log.employee_id) === String(employee.id)
       )
@@ -658,23 +665,36 @@ export default function PayrollReport({ employees = [] }) {
     }
   }
 
-  async function handlePayrollCsvReport() {
+  async function handleExcludedPayrollPdfReport() {
     try {
       setLoading(true)
       setError('')
 
       const { week, logs } = await loadPreviousWeekWorkLogs()
-      const payrollRows = buildRows(week, logs)
-      const csv = buildPayrollCsv(week, payrollRows)
+      const payrollRows = buildRows(week, logs, excludedReportEmployees)
+      const html = buildPayrollReportHtml(week, payrollRows, { excludedOnly: true })
 
-      downloadTextFile(
-        `payroll-report-${week.startText}-${week.endText}.csv`,
-        csv,
-        'text/csv;charset=utf-8'
-      )
+      const printWindow = window.open('', '_blank')
+
+      if (!printWindow) {
+        throw new Error('Popup blocked. Allow popups and click Excluded Payroll PDF again.')
+      }
+
+      printWindow.document.open()
+      printWindow.document.write(html)
+      printWindow.document.close()
+      printWindow.focus()
+
+      setTimeout(() => {
+        try {
+          printWindow.print()
+        } catch (printError) {
+          console.warn('Auto print failed:', printError)
+        }
+      }, 500)
     } catch (err) {
-      console.error('handlePayrollCsvReport error:', err)
-      setError(err.message || 'Failed to build payroll CSV report')
+      console.error('handleExcludedPayrollPdfReport error:', err)
+      setError(err.message || 'Failed to build excluded payroll PDF report')
     } finally {
       setLoading(false)
     }
@@ -703,12 +723,12 @@ export default function PayrollReport({ employees = [] }) {
 
           <button
             type="button"
-            onClick={handlePayrollCsvReport}
+            onClick={handleExcludedPayrollPdfReport}
             disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20 disabled:opacity-60"
+            className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-60"
           >
-            <FileSpreadsheet size={16} />
-            Payroll CSV
+            <FileText size={16} />
+            Excluded Payroll PDF
           </button>
         </div>
       </div>
