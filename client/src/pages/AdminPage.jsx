@@ -1,6 +1,6 @@
 import React from 'react'
 import { supabase } from '../lib/supabase'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 export default function AdminPage() {
   const navigate = useNavigate()
@@ -41,6 +41,23 @@ export default function AdminPage() {
           <li>Users / Roles</li>
           <li>Settings</li>
         </ul>
+
+        <Link
+          to="/admin/backup"
+          style={{
+            display: 'inline-block',
+            marginTop: '16px',
+            marginRight: '10px',
+            padding: '10px 16px',
+            borderRadius: '10px',
+            background: '#0891b2',
+            color: '#fff',
+            fontWeight: 700,
+            textDecoration: 'none',
+          }}
+        >
+          Database Backup
+        </Link>
 
         <button
           onClick={handleLogout}
