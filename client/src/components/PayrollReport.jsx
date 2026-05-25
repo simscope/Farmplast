@@ -50,6 +50,50 @@ function getPreviousWeekRange() {
   }
 }
 
+function getWeekRangeFromStartText(startText) {
+  const start = new Date(`${startText}T00:00:00`)
+
+  if (Number.isNaN(start.getTime())) {
+    return getPreviousWeekRange()
+  }
+
+  start.setHours(0, 0, 0, 0)
+
+  const end = new Date(start)
+  end.setDate(start.getDate() + 6)
+  end.setHours(23, 59, 59, 999)
+
+  const days = Array.from({ length: 7 }, (_, index) => {
+    const day = new Date(start)
+    day.setDate(start.getDate() + index)
+    return day
+  })
+
+  return {
+    start,
+    end,
+    startText: toLocalDateString(start),
+    endText: toLocalDateString(end),
+    days,
+  }
+}
+
+function getPayrollWeekOptions(count = 12) {
+  const previousWeek = getPreviousWeekRange()
+
+  return Array.from({ length: count }, (_, index) => {
+    const start = new Date(previousWeek.start)
+    start.setDate(previousWeek.start.getDate() - index * 7)
+
+    const week = getWeekRangeFromStartText(toLocalDateString(start))
+
+    return {
+      value: week.startText,
+      label: `${formatReportDate(week.start)} - ${formatReportDate(week.end)}`,
+    }
+  })
+}
+
 function formatReportDate(date) {
   return date.toLocaleDateString('en-US', {
     weekday: 'short',
@@ -83,11 +127,6 @@ function formatMoney(value) {
   return `$${roundDollars(value).toLocaleString('en-US')}`
 }
 
-function csvCell(value) {
-  const text = String(value ?? '')
-  return `"${text.replace(/"/g, '""')}"`
-}
-
 function getFullName(employee) {
   return [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || '—'
 }
@@ -100,21 +139,6 @@ function getPayLabel(employee) {
 
 function getOvertimeLabel(employee) {
   return employee?.overtime_enabled === true ? 'With OT' : 'No OT'
-}
-
-function downloadTextFile(fileName, content, type = 'text/html;charset=utf-8') {
-  const blob = new Blob([content], { type })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-
-  link.href = url
-  link.download = fileName
-
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-
-  URL.revokeObjectURL(url)
 }
 
 function buildDayCell(row) {
@@ -414,7 +438,7 @@ function buildPayrollReportHtml(week, payrollRows, options = {}) {
       <div>
         <div class="brand">${escapeHtml(reportBrand)}</div>
         <h1>${escapeHtml(reportTitle)}</h1>
-        <div class="period">Previous week: ${escapeHtml(
+        <div class="period">Week: ${escapeHtml(
           week.startText
         )} - ${escapeHtml(week.endText)}</div>
         <div class="rules">Uses the same shared payroll calculation as employee payroll card. REG = Time Out - Time In - Lunch - DT. Net Pay = Gross - Employee Tax.</div>
@@ -493,81 +517,6 @@ function buildPayrollReportHtml(week, payrollRows, options = {}) {
 </html>`
 }
 
-function buildPayrollCsv(week, payrollRows) {
-  const lines = []
-
-  lines.push(
-    [
-      'Report No',
-      'Employee No',
-      'Employee Name',
-      'Overtime Mode',
-      'Total Hours',
-      'Main Hours',
-      'Overtime Hours',
-      'Main Labor',
-      'Overtime Labor',
-      'Gross Pay',
-      'Main Tax 15.3%',
-      'Overtime Tax 27%',
-      'Employee Tax Amount',
-      'Net Pay',
-      'Mon',
-      'Tue',
-      'Wed',
-      'Thu',
-      'Fri',
-      'Sat',
-      'Sun',
-    ]
-      .map(csvCell)
-      .join(',')
-  )
-
-  payrollRows.forEach((item, index) => {
-    const employee = item.employee
-    const reportNumber = index + 1
-    const netPay = getNetPay(item.totals)
-
-    const dayValues = week.days.map((day) => {
-      const dateText = toLocalDateString(day)
-      const row = item.rowsByDate[dateText]
-
-      if (!row) return ''
-
-      return `${row.time_in || '—'}-${row.time_out || '—'} ${formatHours(
-        row.reg_hours
-      )}h L:${formatHours(row.lunch_hours)} DT:${formatHours(
-        row.downtime_hours
-      )}`
-    })
-
-    lines.push(
-      [
-        reportNumber,
-        employee.employee_number ?? '',
-        getFullName(employee),
-        getOvertimeLabel(employee),
-        formatHours(item.totals.totalReg),
-        formatHours(item.totals.mainHours),
-        formatHours(item.totals.overtimeHours),
-        roundDollars(item.totals.mainLabor),
-        roundDollars(item.totals.overtimeLabor),
-        roundDollars(item.totals.totalLabor),
-        roundDollars(item.totals.mainTax),
-        roundDollars(item.totals.overtimeTax),
-        roundDollars(item.totals.employeeTaxNum),
-        roundDollars(netPay),
-        ...dayValues,
-      ]
-        .map(csvCell)
-        .join(',')
-    )
-  })
-
-  return `Payroll Report,${week.startText} to ${week.endText}\n${lines.join('\n')}`
-}
-
 export default function PayrollReport({ employees = [] }) {
   const safeEmployees = Array.isArray(employees) ? employees : []
   const reportEmployees = safeEmployees.filter(
@@ -576,12 +525,15 @@ export default function PayrollReport({ employees = [] }) {
   const excludedReportEmployees = safeEmployees.filter(
     (employee) => employee?.exclude_from_payroll_report === true
   )
+  const weekOptions = getPayrollWeekOptions()
+  const defaultWeekStart = weekOptions[0]?.value || getPreviousWeekRange().startText
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [selectedWeekStart, setSelectedWeekStart] = useState(defaultWeekStart)
 
-  async function loadPreviousWeekWorkLogs() {
-    const week = getPreviousWeekRange()
+  async function loadWeekWorkLogs(weekStartText = selectedWeekStart) {
+    const week = getWeekRangeFromStartText(weekStartText)
 
     const { data, error: logsError } = await supabase
       .from('employee_work_logs')
@@ -635,7 +587,7 @@ export default function PayrollReport({ employees = [] }) {
       setLoading(true)
       setError('')
 
-      const { week, logs } = await loadPreviousWeekWorkLogs()
+      const { week, logs } = await loadWeekWorkLogs()
       const payrollRows = buildRows(week, logs)
       const html = buildPayrollReportHtml(week, payrollRows)
 
@@ -670,7 +622,7 @@ export default function PayrollReport({ employees = [] }) {
       setLoading(true)
       setError('')
 
-      const { week, logs } = await loadPreviousWeekWorkLogs()
+      const { week, logs } = await loadWeekWorkLogs()
       const payrollRows = buildRows(week, logs, excludedReportEmployees)
       const html = buildPayrollReportHtml(week, payrollRows, { excludedOnly: true })
 
@@ -710,7 +662,21 @@ export default function PayrollReport({ employees = [] }) {
           </p>
         </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={selectedWeekStart}
+            onChange={(event) => setSelectedWeekStart(event.target.value)}
+            disabled={loading}
+            className="rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60"
+            title="Payroll week"
+          >
+            {weekOptions.map((week) => (
+              <option key={week.value} value={week.value}>
+                {week.label}
+              </option>
+            ))}
+          </select>
+
           <button
             type="button"
             onClick={handlePayrollPdfReport}
