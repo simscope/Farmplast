@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
-import { Link } from 'react-router-dom'
 import {
   LayoutDashboard,
   LogOut,
@@ -10,7 +9,7 @@ import {
   Loader2,
   CalendarDays,
   ShieldCheck,
-  DatabaseBackup,
+  FileText,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -22,6 +21,11 @@ import {
   calculatePayrollTotals,
   normalizePayrollRow,
 } from '../utils/payrollMath'
+import {
+  createFarmplastBackup,
+  downloadJson,
+  getBackupFileName,
+} from '../utils/backupExport'
 import PayrollCheck from '../components/payroll/PayrollCheck'
 import CompanyPayrollCheck from '../components/payroll/CompanyPayrollCheck'
 import '../components/payroll/PayrollCheck.css'
@@ -383,6 +387,8 @@ export default function DashboardPage() {
   const [form, setForm] = useState(emptyForm)
   const [reportLoading, setReportLoading] = useState(false)
   const [reportError, setReportError] = useState('')
+  const [backupLoading, setBackupLoading] = useState(false)
+  const [backupStatus, setBackupStatus] = useState('')
   const [selectedCheckIds, setSelectedCheckIds] = useState([])
   const {
     employeeSort,
@@ -2001,6 +2007,42 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleDownloadBackup() {
+    try {
+      setBackupLoading(true)
+      setBackupStatus('Creating backup...')
+      setError('')
+
+      const backup = await createFarmplastBackup({
+        onProgress: (tableName, progress) => {
+          if (progress.status === 'running') {
+            setBackupStatus(`Backing up ${tableName}...`)
+          }
+
+          if (progress.status === 'done') {
+            setBackupStatus(`Backed up ${tableName}: ${progress.count || 0}`)
+          }
+        },
+      })
+
+      const fileName = getBackupFileName()
+      downloadJson(fileName, backup)
+
+      setBackupStatus(
+        backup.summary.warnings.length > 0
+          ? `Backup downloaded with warnings: ${fileName}`
+          : `Backup downloaded: ${fileName}`
+      )
+    } catch (err) {
+      console.error('handleDownloadBackup error:', err)
+      const message = err.message || 'Failed to create backup'
+      setBackupStatus(`Backup error: ${message}`)
+      setError(message)
+    } finally {
+      setBackupLoading(false)
+    }
+  }
+
   async function handleLogout() {
     await signOut()
   }
@@ -2335,13 +2377,15 @@ export default function DashboardPage() {
                 Add employee
               </button>
 
-              <Link
-                to="/admin/backup"
-                className="inline-flex items-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-300 transition hover:bg-sky-500/20"
+              <button
+                type="button"
+                onClick={handleDownloadBackup}
+                disabled={backupLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-300 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                <DatabaseBackup size={15} />
-                Database Backup
-              </Link>
+                {backupLoading ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
+                {backupLoading ? 'Backup...' : 'Database Backup'}
+              </button>
 
               <button
                 onClick={handleLogout}
@@ -2369,6 +2413,20 @@ export default function DashboardPage() {
                   ID: {activeCommandId}
                 </span>
               ) : null}
+            </div>
+          ) : null}
+
+          {backupStatus ? (
+            <div
+              className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
+                backupStatus.startsWith('Backup error:')
+                  ? 'border-red-500/30 bg-red-500/10 text-red-300'
+                  : backupStatus.includes('downloaded')
+                    ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                    : 'border-sky-500/20 bg-sky-500/10 text-sky-200'
+              }`}
+            >
+              {backupStatus}
             </div>
           ) : null}
         </div>
