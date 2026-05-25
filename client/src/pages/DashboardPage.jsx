@@ -8,6 +8,9 @@ import {
   Pencil,
   Trash2,
   RefreshCw,
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
   Hash,
   User,
   Phone,
@@ -384,6 +387,10 @@ export default function DashboardPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [search, setSearch] = useState('')
+  const [employeeSort, setEmployeeSort] = useState({
+    field: 'number',
+    direction: 'desc',
+  })
   const [zkLoading, setZkLoading] = useState(false)
   const [zkStatus, setZkStatus] = useState('')
   const [activeCommandId, setActiveCommandId] = useState(null)
@@ -2242,11 +2249,32 @@ export default function DashboardPage() {
     return 'border border-amber-500/40 bg-amber-500/15 text-amber-300'
   }
 
+  function handleEmployeeSort(field) {
+    setEmployeeSort((current) => {
+      if (current.field === field) {
+        return {
+          field,
+          direction: current.direction === 'asc' ? 'desc' : 'asc',
+        }
+      }
+
+      return {
+        field,
+        direction: field === 'name' ? 'asc' : 'desc',
+      }
+    })
+  }
+
+  function getEmployeeSortIcon(field) {
+    if (employeeSort.field !== field) return <ArrowUpDown size={12} />
+    return employeeSort.direction === 'asc'
+      ? <ArrowUp size={12} />
+      : <ArrowDown size={12} />
+  }
+
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return employees
-
-    return employees.filter((employee) => {
+    const visibleEmployees = !q ? employees : employees.filter((employee) => {
       const fullName = [employee.first_name, employee.last_name]
         .filter(Boolean)
         .join(' ')
@@ -2266,7 +2294,28 @@ export default function DashboardPage() {
         (employee.is_on_site ? 'on site на работе present' : 'off site не на работе absent').includes(q)
       )
     })
-  }, [employees, search])
+
+    return [...visibleEmployees].sort((a, b) => {
+      const direction = employeeSort.direction === 'asc' ? 1 : -1
+
+      if (employeeSort.field === 'name') {
+        const nameA = getFullName(a).toLowerCase()
+        const nameB = getFullName(b).toLowerCase()
+        return nameA.localeCompare(nameB, undefined, { numeric: true }) * direction
+      }
+
+      const numberA = Number(a.employee_number)
+      const numberB = Number(b.employee_number)
+      const safeNumberA = Number.isFinite(numberA) ? numberA : Number.NEGATIVE_INFINITY
+      const safeNumberB = Number.isFinite(numberB) ? numberB : Number.NEGATIVE_INFINITY
+
+      if (safeNumberA !== safeNumberB) {
+        return (safeNumberA - safeNumberB) * direction
+      }
+
+      return getFullName(a).localeCompare(getFullName(b), undefined, { numeric: true })
+    })
+  }, [employees, search, employeeSort])
 
   const counts = useMemo(() => {
     return {
@@ -2440,8 +2489,24 @@ export default function DashboardPage() {
               <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
                 <div className="min-w-[1870px]">
                   <div className="grid grid-cols-[70px_230px_150px_170px_110px_100px_180px_110px_120px_110px_360px_160px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
-                    <div>No.</div>
-                    <div>Name</div>
+                    <button
+                      type="button"
+                      onClick={() => handleEmployeeSort('number')}
+                      className="inline-flex items-center gap-1 text-left uppercase tracking-wide text-slate-300 transition hover:text-cyan-300"
+                      title="Sort by employee number"
+                    >
+                      No.
+                      {getEmployeeSortIcon('number')}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleEmployeeSort('name')}
+                      className="inline-flex items-center gap-1 text-left uppercase tracking-wide text-slate-300 transition hover:text-cyan-300"
+                      title="Sort by name"
+                    >
+                      Name
+                      {getEmployeeSortIcon('name')}
+                    </button>
                     <div>Presence ({counts.presenceOnline})</div>
                     <div>Last punch</div>
                     <div>Direction</div>
