@@ -10,7 +10,6 @@ import DashboardPage from './pages/DashboardPage'
 import MonitoringPage from './pages/MonitoringPage'
 import MonitoringNJPage from './pages/MonitoringNJPage'
 import MonitoringPAPage from './pages/MonitoringPAPage'
-import AdminPage from './pages/AdminPage'
 import EmployeesPage from './pages/EmployeesPage'
 import EmployeeDetailsPage from './pages/EmployeeDetailsPage'
 import Chiller1HMIPage from './pages/Chiller1HMIPage'
@@ -49,15 +48,6 @@ export default function App() {
           element={
             <ProtectedRoute>
               <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
-
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute roles={['admin']}>
-              <AdminPage />
             </ProtectedRoute>
           }
         />

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Link } from 'react-router-dom'
 import {
   LayoutDashboard,
   LogOut,
@@ -9,6 +10,7 @@ import {
   Loader2,
   CalendarDays,
   ShieldCheck,
+  DatabaseBackup,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -339,7 +341,7 @@ function downloadTextFile(fileName, content, type = 'text/html;charset=utf-8') {
 }
 
 export default function DashboardPage() {
-  const { signOut } = useAuth()
+  const { role, signOut } = useAuth()
 
   const emptyForm = {
     id: null,
@@ -2332,6 +2334,16 @@ export default function DashboardPage() {
                 <Plus size={15} />
                 Add employee
               </button>
+
+              {role === 'admin' ? (
+                <Link
+                  to="/admin/backup"
+                  className="inline-flex items-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-300 transition hover:bg-sky-500/20"
+                >
+                  <DatabaseBackup size={15} />
+                  Database Backup
+                </Link>
+              ) : null}
 
               <button
                 onClick={handleLogout}
