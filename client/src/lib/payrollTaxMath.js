@@ -360,6 +360,11 @@ export function calculatePaystubDetails({
   periodStart,
   periodEnd,
   priorYtdGross = 0,
+  priorYtdEmployeeTaxes = 0,
+  priorYtdDeductions = 0,
+  priorYtdDeductionBreakdown = {},
+  priorYtdReimbursements = 0,
+  priorYtdNetPay = 0,
 } = {}) {
   const employeeWithTaxProfile = {
     ...(employee || {}),
@@ -494,26 +499,48 @@ export function calculatePaystubDetails({
   const netPay = moneyRound(
     grossPay - totalEmployeeTaxes - totalDeductions + totalReimbursements
   )
+  const regularRate = numberOrZero(employeeWithTaxProfile.hourly_rate)
+  const overtimeRate =
+    employeeWithTaxProfile?.pay_type === 'hourly' &&
+    employeeWithTaxProfile?.overtime_enabled === true
+      ? moneyRound(regularRate * 1.5)
+      : 0
+  const ytdEmployeeTaxes = moneyRound(priorYtdEmployeeTaxes + totalEmployeeTaxes)
+  const ytdDeductions = moneyRound(priorYtdDeductions + totalDeductions)
+  const ytdReimbursements = moneyRound(priorYtdReimbursements + totalReimbursements)
+  const ytdNetPay = moneyRound(priorYtdNetPay + netPay)
 
   return {
     rows: normalizedRows,
     grossPay,
     mainHours: round2(payrollTotals.mainHours),
     overtimeHours: round2(payrollTotals.overtimeHours),
+    regularRate,
+    overtimeRate,
     mainLabor,
     overtimeLabor,
+    ytdGrossPay: ytdGrossAfter,
     employeeTaxes,
     totalEmployeeTaxes,
+    ytdEmployeeTaxes,
     deductions: {
       rent: moneyRound(deductions.rent),
       electric: moneyRound(deductions.electric),
       water: moneyRound(deductions.water),
       clean: moneyRound(deductions.clean),
       transport: moneyRound(deductions.transport),
+      ytdRent: moneyRound(numberOrZero(priorYtdDeductionBreakdown.rent) + numberOrZero(deductions.rent)),
+      ytdElectric: moneyRound(numberOrZero(priorYtdDeductionBreakdown.electric) + numberOrZero(deductions.electric)),
+      ytdWater: moneyRound(numberOrZero(priorYtdDeductionBreakdown.water) + numberOrZero(deductions.water)),
+      ytdClean: moneyRound(numberOrZero(priorYtdDeductionBreakdown.clean) + numberOrZero(deductions.clean)),
+      ytdTransport: moneyRound(numberOrZero(priorYtdDeductionBreakdown.transport) + numberOrZero(deductions.transport)),
       total: totalDeductions,
+      ytdTotal: ytdDeductions,
     },
     reimbursements: totalReimbursements,
+    ytdReimbursements,
     netPay,
+    ytdNetPay,
     taxMeta: {
       year: 2026,
       payPeriod,
