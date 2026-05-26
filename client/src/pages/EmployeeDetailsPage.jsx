@@ -31,6 +31,7 @@ import {
   getShiftLetter,
   getWeeksInSelectedPeriod,
 } from '../utils/payrollMath'
+import { calculatePaystubDetails } from '../lib/payrollTaxMath'
 import PayrollCheck from '../components/payroll/PayrollCheck'
 import '../components/payroll/PayrollCheck.css'
 
@@ -434,6 +435,7 @@ export default function EmployeeDetailsPage() {
   const defaultPayrollPeriod = getPayrollWeekRange('last')
 
   const [employee, setEmployee] = useState(null)
+  const [taxProfile, setTaxProfile] = useState(null)
   const [logs, setLogs] = useState([])
   const [payments, setPayments] = useState([])
   const [paymentsOpen, setPaymentsOpen] = useState(false)
@@ -550,6 +552,19 @@ export default function EmployeeDetailsPage() {
       }
 
       setEmployee(employeeData)
+
+      const { data: taxProfileData, error: taxProfileError } = await supabase
+        .from('employee_tax_profiles')
+        .select('*')
+        .eq('employee_id', id)
+        .maybeSingle()
+
+      if (taxProfileError) {
+        console.warn('employee_tax_profiles load skipped:', taxProfileError)
+        setTaxProfile(null)
+      } else {
+        setTaxProfile(taxProfileData || null)
+      }
 
       const { data: logsData, error: logsError } = await supabase
         .from('employee_work_logs')
@@ -997,22 +1012,63 @@ export default function EmployeeDetailsPage() {
       rentNum + electricNum + waterNum + cleanNum + transportNum
     )
 
-    const isOther = employee?.employer_form === 'Other'
+    const yearStart = periodStart ? `${String(periodStart).slice(0, 4)}-01-01` : ''
+    const priorYtdPayments = payments.filter((row) => {
+      const rowPeriodStart = String(row.period_start || '')
+      return rowPeriodStart && yearStart && rowPeriodStart >= yearStart && rowPeriodStart < periodStart
+    })
 
-    const employeeTaxNum = isOther
-      ? 0
-      : Number(payrollTotals.employeeTaxNum || 0)
+    const priorYtdGross = priorYtdPayments.reduce(
+      (sum, row) => sum + Number(row.total_labor || 0),
+      0
+    )
+    const priorYtdEmployeeTaxes = priorYtdPayments.reduce(
+      (sum, row) => sum + Number(row.employee_tax || 0),
+      0
+    )
+    const priorYtdDeductions = priorYtdPayments.reduce(
+      (sum, row) =>
+        sum +
+        Number(row.rent || 0) +
+        Number(row.electric || 0) +
+        Number(row.water || 0) +
+        Number(row.clean || 0) +
+        Number(row.transport || 0),
+      0
+    )
+    const priorYtdNetPay = priorYtdPayments.reduce(
+      (sum, row) => sum + Number(row.net_pay || 0),
+      0
+    )
 
-    const mainTax = isOther ? 0 : Number(payrollTotals.mainTax || 0)
-    const overtimeTax = isOther ? 0 : Number(payrollTotals.overtimeTax || 0)
+    const payrollTaxTotals = calculatePaystubDetails({
+      employee,
+      taxProfile,
+      logs: recalculated,
+      deductions: {
+        rent: rentNum,
+        electric: electricNum,
+        water: waterNum,
+        clean: cleanNum,
+        transport: transportNum,
+      },
+      periodStart,
+      periodEnd,
+      priorYtdGross,
+      priorYtdEmployeeTaxes,
+      priorYtdDeductions,
+      priorYtdNetPay,
+    })
+
+    const employeeTaxNum = Number(payrollTaxTotals.totalEmployeeTaxes || 0)
+    const mainTax = 0
+    const overtimeTax = 0
 
     const totalDeductions = roundDollar(
       employeeTaxNum + employeeDeductions
     )
 
-    const netPay = roundDollar(
-      Number(payrollTotals.totalLabor || 0) - totalDeductions
-    )
+    const netPay = roundDollar(Number(payrollTaxTotals.netPay || 0))
 
     return {
       filteredForView: recalculated.sort((a, b) =>
@@ -1023,6 +1079,8 @@ export default function EmployeeDetailsPage() {
       employeeTaxNum,
       mainTax,
       overtimeTax,
+      employeeTaxes: payrollTaxTotals.employeeTaxes || [],
+      ytdEmployeeTaxes: payrollTaxTotals.ytdEmployeeTaxes || employeeTaxNum,
       taxableHours: payrollTotals.mainHours,
       taxableLabor: payrollTotals.mainLabor,
       rentNum,
@@ -1034,7 +1092,7 @@ export default function EmployeeDetailsPage() {
       totalDeductions,
       netPay,
     }
-  }, [filteredLogs, employee, rent, electric, water, clean, transport, periodStart, periodEnd])
+  }, [filteredLogs, employee, taxProfile, rent, electric, water, clean, transport, periodStart, periodEnd, payments])
 
   useEffect(() => {
     setEmployeeTax(String(totals.employeeTaxNum || 0))
@@ -1703,7 +1761,7 @@ export default function EmployeeDetailsPage() {
                   <div>
                     <h2 className="text-xl font-bold text-white">Work log</h2>
                     <p className="text-sm text-slate-400">
-                      Max 12h/day, rounded to nearest 15 min. Lunch and downtime are deducted. Employee tax is calculated automatically: main labor 15.3%, overtime labor 27%.
+                      Max 12h/day, rounded to nearest 15 min. Lunch and downtime are deducted. Employee tax is calculated from the employee W-4 / NJ-W4 profile.
                     </p>
                   </div>
                 </div>
@@ -1988,28 +2046,22 @@ export default function EmployeeDetailsPage() {
 
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
                 <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-                  <div className="text-xs text-slate-400">Main labor tax 15.3%</div>
+                  <div className="text-xs text-slate-400">Employee payroll taxes</div>
                   <div className="mt-1 text-xl font-bold text-yellow-200">
-                    {money(totals.mainTax)}
+                    {money(totals.employeeTaxNum)}
                   </div>
                   <div className="mt-1 text-[11px] text-slate-500">
-                    Main labor: {money(totals.mainLabor)}
-                    {employee?.pay_type === 'hourly'
-                      ? ` / ${totals.mainHours.toFixed(2)} h up to 40 h/week`
-                      : ''}
+                    Federal, FICA, and NJ employee withholding
                   </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
-                  <div className="text-xs text-slate-400">Overtime tax 27%</div>
+                  <div className="text-xs text-slate-400">YTD employee taxes</div>
                   <div className="mt-1 text-xl font-bold text-orange-300">
-                    {money(totals.overtimeTax)}
+                    {money(totals.ytdEmployeeTaxes)}
                   </div>
                   <div className="mt-1 text-[11px] text-slate-500">
-                    Overtime labor: {money(totals.overtimeLabor)}
-                    {employee?.pay_type === 'hourly'
-                      ? ` / ${totals.overtimeHours.toFixed(2)} h × 1.5 rate`
-                      : ''}
+                    Current period tax: {money(totals.employeeTaxNum)}
                   </div>
                 </div>
 

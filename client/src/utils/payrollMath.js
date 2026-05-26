@@ -243,19 +243,9 @@ export function calculatePayrollTotals(input = [], employeeArg = {}) {
     totalLabor = mainLabor
   }
 
-  const is1099 = String(employee?.employer_form || '')
-    .trim()
-    .toUpperCase() === '1099'
-
-  const mainTax = is1099
-    ? 0
-    : roundDollar(mainLabor * 0.153)
-
-  const overtimeTax = is1099
-    ? 0
-    : roundDollar(overtimeLabor * 0.27)
-
-  const employeeTaxNum = roundDollar(mainTax + overtimeTax)
+  const mainTax = 0
+  const overtimeTax = 0
+  const employeeTaxNum = 0
 
   const rentNum = roundDollar(rent)
   const electricNum = roundDollar(electric)

@@ -5,6 +5,7 @@ import {
   calculatePayrollTotals,
   normalizePayrollRow,
 } from '../utils/payrollMath'
+import { calculatePaystubDetails } from '../lib/payrollTaxMath'
 
 const cardClass =
   'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
@@ -163,10 +164,7 @@ function buildDayCell(row) {
 }
 
 function getNetPay(totals) {
-  return roundDollars(
-    Number(totals.totalLabor || 0) -
-      Number(totals.employeeTaxNum || 0)
-  )
+  return roundDollars(totals.netPay ?? Number(totals.totalLabor || 0) - Number(totals.employeeTaxNum || 0))
 }
 
 function buildPayrollReportHtml(week, payrollRows, options = {}) {
@@ -502,8 +500,8 @@ function buildPayrollReportHtml(week, payrollRows, options = {}) {
           <th>Main $</th>
           <th>OT $</th>
           <th>Gross</th>
-          <th>15.3%</th>
-          <th>OT 27%</th>
+          <th>Federal tax</th>
+          <th>Other emp tax</th>
           <th>Emp Tax</th>
           <th>Net Pay</th>
         </tr>
@@ -564,10 +562,33 @@ export default function PayrollReport({ employees = [] }) {
       )
 
       const totals = calculatePayrollTotals(normalizedRows, employee)
+      const taxTotals = calculatePaystubDetails({
+        employee,
+        taxProfile: employee.tax_profile,
+        logs: totals.rows || normalizedRows,
+        periodStart: week.startText,
+        periodEnd: week.endText,
+      })
+      const reportTotals = {
+        ...totals,
+        employeeTaxNum: taxTotals.totalEmployeeTaxes,
+        mainTax:
+          (taxTotals.employeeTaxes || []).find((tax) => tax.key === 'federalIncomeTax')
+            ?.amount || 0,
+        overtimeTax:
+          Number(taxTotals.totalEmployeeTaxes || 0) -
+          Number(
+            (taxTotals.employeeTaxes || []).find((tax) => tax.key === 'federalIncomeTax')
+              ?.amount || 0
+          ),
+        totalDeductions: taxTotals.totalEmployeeTaxes,
+        netPay: taxTotals.netPay,
+        employeeTaxes: taxTotals.employeeTaxes || [],
+      }
 
       const rowsByDate = {}
 
-      ;(totals.rows || normalizedRows).forEach((row) => {
+      ;(reportTotals.rows || normalizedRows).forEach((row) => {
         if (row.work_date) {
           rowsByDate[row.work_date] = row
         }
@@ -575,9 +596,9 @@ export default function PayrollReport({ employees = [] }) {
 
       return {
         employee,
-        rows: totals.rows || normalizedRows,
+        rows: reportTotals.rows || normalizedRows,
         rowsByDate,
-        totals,
+        totals: reportTotals,
       }
     })
   }

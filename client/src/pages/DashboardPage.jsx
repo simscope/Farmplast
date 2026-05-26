@@ -21,6 +21,7 @@ import {
   calculatePayrollTotals,
   normalizePayrollRow,
 } from '../utils/payrollMath'
+import { calculatePaystubDetails } from '../lib/payrollTaxMath'
 import {
   createFarmplastBackup,
   downloadJson,
@@ -1127,12 +1128,27 @@ export default function DashboardPage() {
     const transportNum = roundDollars(sumDeductions(employeeDeductions, ['transport', 'transportation']))
     const manualDeductions = roundDollars(rentNum + electricNum + waterNum + cleanNum + transportNum)
 
-    const isOther = employee?.employer_form === 'Other'
-    const employeeTaxNum = isOther ? 0 : roundDollars(payrollTotals.employeeTaxNum || 0)
-    const mainTaxNum = isOther ? 0 : roundDollars(payrollTotals.mainTax || 0)
-    const overtimeTaxNum = isOther ? 0 : roundDollars(payrollTotals.overtimeTax || 0)
+    const taxTotals = calculatePaystubDetails({
+      employee,
+      taxProfile: employee.tax_profile,
+      logs: calculatedRows,
+      deductions: {
+        rent: rentNum,
+        electric: electricNum,
+        water: waterNum,
+        clean: cleanNum,
+        transport: transportNum,
+      },
+      periodStart: week.startText,
+      periodEnd: week.endText,
+    })
+    const employeeTaxNum = roundDollars(taxTotals.totalEmployeeTaxes || 0)
+    const mainTaxNum = roundDollars(
+      (taxTotals.employeeTaxes || []).find((tax) => tax.key === 'federalIncomeTax')?.amount || 0
+    )
+    const overtimeTaxNum = roundDollars(employeeTaxNum - mainTaxNum)
     const totalDeductions = roundDollars(employeeTaxNum + manualDeductions)
-    const netPay = roundDollars(Number(payrollTotals.totalLabor || 0) - totalDeductions)
+    const netPay = roundDollars(Number(taxTotals.netPay || 0))
 
     const rowsByDate = {}
     calculatedRows.forEach((row) => {
@@ -1168,6 +1184,7 @@ export default function DashboardPage() {
       employeeTaxNum,
       mainTax: mainTaxNum,
       overtimeTax: overtimeTaxNum,
+      employeeTaxes: taxTotals.employeeTaxes || [],
       rows: calculatedRows,
       filteredForView: calculatedRows,
       rowsByDate,
@@ -1402,7 +1419,7 @@ export default function DashboardPage() {
         <div class="brand">${escapeHtml(reportBrand)}</div>
         <h1>${escapeHtml(reportTitle)}</h1>
         <div class="period">Previous week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
-        <div class="rules">If Overtime is enabled: first 40h/week at regular rate, hours over 40h at 1.5x. If No OT: all hours stay regular. Main tax 15.3%, OT tax 27%. All money rounded to whole dollars.</div>
+        <div class="rules">If Overtime is enabled: first 40h/week at regular rate, hours over 40h at 1.5x. Employee tax uses the W-4/NJ-W4 payroll tax profile. All money rounded to whole dollars.</div>
       </div>
       <div class="top-actions">
         <div class="invoice-box">
@@ -1436,8 +1453,8 @@ export default function DashboardPage() {
           <th>Main $</th>
           <th>OT $</th>
           <th>Gross</th>
-          <th>15.3%</th>
-          <th>OT 27%</th>
+          <th>Federal tax</th>
+          <th>Other emp tax</th>
           <th>Emp Tax</th>
           <th>Deduct.</th>
           <th>Net Pay</th>
@@ -1446,7 +1463,7 @@ export default function DashboardPage() {
       <tbody>${summaryRows || '<tr><td colspan="21">No employees found</td></tr>'}</tbody>
     </table>
 
-    <div class="footer-note">${isExcludedReport ? 'Excluded payroll report generated only for employees marked as excluded from the main payroll report.' : 'Report generated from employees and employee_work_logs.'} Employee tax amount = main labor tax + overtime labor tax. Rent/electric/water/clean/transport stay as manual deductions when available.</div>
+    <div class="footer-note">${isExcludedReport ? 'Excluded payroll report generated only for employees marked as excluded from the main payroll report.' : 'Report generated from employees and employee_work_logs.'} Employee tax uses the W-4/NJ-W4 payroll tax profile. Rent/electric/water/clean/transport stay as manual deductions when available.</div>
   </div>
 </body>
 </html>`
@@ -1471,8 +1488,8 @@ export default function DashboardPage() {
       'Main Labor',
       'Overtime Labor',
       'Gross Pay',
-      'Main Tax 15.3%',
-      'Overtime Tax 27%',
+      'Federal Tax',
+      'Other Employee Tax',
       'Employee Tax Amount',
       'Other Deductions',
       'Total Deductions',
