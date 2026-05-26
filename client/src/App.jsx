@@ -12,6 +12,7 @@ import MonitoringNJPage from './pages/MonitoringNJPage'
 import MonitoringPAPage from './pages/MonitoringPAPage'
 import EmployeesPage from './pages/EmployeesPage'
 import EmployeeDetailsPage from './pages/EmployeeDetailsPage'
+import EmployeePayStubPage from './pages/EmployeePayStubPage'
 import Chiller1HMIPage from './pages/Chiller1HMIPage'
 import Chiller2HMIPage from './pages/Chiller2HMIPage'
 import Chiller3HMIPage from './pages/Chiller3HMIPage'
@@ -66,6 +67,15 @@ export default function App() {
           element={
             <ProtectedRoute roles={['admin']}>
               <EmployeesPage />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/employees/:employeeId/paystub"
+          element={
+            <ProtectedRoute>
+              <EmployeePayStubPage />
             </ProtectedRoute>
           }
         />

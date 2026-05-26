@@ -59,11 +59,6 @@ function money(value) {
   return `$${num.toLocaleString('en-US', { maximumFractionDigits: 0 })}`
 }
 
-function moneyRaw(value) {
-  const num = Number(value || 0)
-  return `$${num.toFixed(2)}`
-}
-
 function formatDate(value) {
   if (!value) return '—'
 
@@ -198,18 +193,6 @@ function rowHasWorkData(row) {
     rowHasAnyTime(row) ||
     Number(row?.reg_hours || 0) > 0 ||
     Number(row?.labor_amount || 0) > 0
-  )
-}
-
-function isRealSavedWorkLogRow(row) {
-  const rowId = String(row?.id || '')
-
-  return (
-    row &&
-    row.id &&
-    !rowId.startsWith('new-') &&
-    !rowId.startsWith('empty-') &&
-    row?.is_deleted !== true
   )
 }
 
@@ -1367,6 +1350,14 @@ export default function EmployeeDetailsPage() {
             <Printer size={16} />
             Pay & Print
           </button>
+
+          <Link
+            to={`/employees/${id}/paystub?periodStart=${periodStart}&periodEnd=${periodEnd}`}
+            className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-semibold text-emerald-300 transition hover:bg-emerald-500/20"
+          >
+            <BadgeDollarSign size={16} />
+            Pay Stub
+          </Link>
         </div>
 
         {loading ? (
