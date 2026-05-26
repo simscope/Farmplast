@@ -2014,8 +2014,6 @@ export default function DashboardPage() {
           setForm={setForm}
           saving={saving}
           isEditing={isEditing}
-          onPrint={handlePrintSingleCheck}
-          printing={reportLoading}
         />
       </div>
     </div>
