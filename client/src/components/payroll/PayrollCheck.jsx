@@ -253,6 +253,23 @@ function stubMoney(value) {
   return `$${Math.round(Number(value || 0)).toLocaleString('en-US')}`
 }
 
+function stubMoneyCents(value) {
+  return `$${Number(value || 0).toLocaleString('en-US', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`
+}
+
+function taxLineLabel(tax) {
+  const taxableWages = Number(tax?.taxableWages || 0)
+
+  if (taxableWages > 0) {
+    return `${tax.label} (${stubMoneyCents(taxableWages)} taxable)`
+  }
+
+  return tax?.label || ''
+}
+
 function getPayeeName(employee, fullName) {
   if (employee?.employer_form === 'Other' && employee?.company_name) {
     return employee.company_name
@@ -539,12 +556,21 @@ function WeeklyTimeReport({ totals, periodStart }) {
   if (!weeklyRows.length) return null
 
   return (
-    <div style={{ marginTop: '4px' }}>
+    <div>
       <div style={{ marginBottom: '2px', fontSize: '11px', fontWeight: 800, lineHeight: 1.05 }}>
         WEEKLY TIME REPORT
       </div>
 
-      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '10px', lineHeight: 1.05 }}>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', lineHeight: 1.02 }}>
+        <colgroup>
+          <col style={{ width: '20%' }} />
+          <col style={{ width: '12%' }} />
+          <col style={{ width: '17%' }} />
+          <col style={{ width: '17%' }} />
+          {showLunch ? <col style={{ width: '12%' }} /> : null}
+          {showDowntime ? <col style={{ width: '14%' }} /> : null}
+          <col style={{ width: '8%' }} />
+        </colgroup>
         <thead>
           <tr>
             <th style={th}>DATE</th>
@@ -595,6 +621,51 @@ function WeeklyTimeReport({ totals, periodStart }) {
             {showLunch ? <td style={tdBold}></td> : null}
             {showDowntime ? <td style={tdBold}></td> : null}
             <td style={tdBold}>{totalReg.toFixed(2)}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function EmployeeTaxBreakdown({ totals }) {
+  const employeeTaxes = Array.isArray(totals?.employeeTaxes)
+    ? totals.employeeTaxes.filter((tax) => Number(tax?.amount || 0) !== 0)
+    : []
+
+  if (!employeeTaxes.length) return null
+
+  return (
+    <div>
+      <div style={{ marginBottom: '2px', fontSize: '11px', fontWeight: 800, lineHeight: 1.05 }}>
+        EMPLOYEE TAXES
+      </div>
+
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '9px', lineHeight: 1.02 }}>
+        <thead>
+          <tr>
+            <th style={th}>TAX</th>
+            <th style={{ ...th, width: '24%', textAlign: 'right' }}>AMOUNT</th>
+          </tr>
+        </thead>
+
+        <tbody>
+          {employeeTaxes.map((tax) => (
+            <tr key={tax.key || tax.label}>
+              <td style={td}>{taxLineLabel(tax)}</td>
+              <td style={{ ...td, textAlign: 'right', whiteSpace: 'nowrap' }}>
+                {stubMoneyCents(tax.amount)}
+              </td>
+            </tr>
+          ))}
+
+          <tr>
+            <td style={tdBold}>TOTAL EMPLOYEE TAXES</td>
+            <td style={{ ...tdBold, textAlign: 'right', whiteSpace: 'nowrap' }}>
+              {stubMoneyCents(
+                employeeTaxes.reduce((sum, tax) => sum + Number(tax.amount || 0), 0)
+              )}
+            </td>
           </tr>
         </tbody>
       </table>
@@ -751,7 +822,20 @@ function PayrollStubCopy({
         </table>
       </div>
 
-      <WeeklyTimeReport totals={totals} periodStart={periodStart} />
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: Array.isArray(totals?.employeeTaxes) && totals.employeeTaxes.length
+            ? '0.98fr 1.02fr'
+            : '1fr',
+          gap: '6px',
+          marginTop: '4px',
+          alignItems: 'start',
+        }}
+      >
+        <WeeklyTimeReport totals={totals} periodStart={periodStart} />
+        <EmployeeTaxBreakdown totals={totals} />
+      </div>
     </div>
   )
 }
