@@ -1178,28 +1178,33 @@ export default function DashboardPage() {
 
     for (const item of payrollRows) {
       const employee = item.employee || {}
-      const companyId = employee.company_id
+      const companyId = employee.company_id ? String(employee.company_id) : ''
+      const companyName = String(
+        employee.company_name ||
+          employee.company_display_name ||
+          ''
+      ).trim()
       const isCompanyEmployee =
         employee.employer_form === 'Other' &&
-        companyId
+        (companyId || companyName)
 
       if (!isCompanyEmployee) {
         output.push(item)
         continue
       }
 
-      const key = String(companyId)
+      const key = companyId || `name:${companyName.toLowerCase()}`
 
       if (!companyGroups.has(key)) {
-        const companyName =
-          companyLookup.get(key) ||
-          employee.company_name ||
-          employee.company_display_name ||
+        const displayName =
+          (companyId ? companyLookup.get(companyId) : '') ||
+          companyName ||
           getFullName(employee)
 
         companyGroups.set(key, {
-          companyId: key,
-          companyName,
+          companyId,
+          companyKey: key,
+          companyName: displayName,
           items: [],
         })
       }
@@ -1265,11 +1270,11 @@ export default function DashboardPage() {
 
       const groupedEmployee = {
         ...firstEmployee,
-        id: `company-${group.companyId}`,
+        id: `company-${group.companyKey}`,
         first_name: group.companyName,
         last_name: '',
         employee_number: '',
-        company_id: group.companyId,
+        company_id: group.companyId || null,
         company_name: group.companyName,
       }
 
