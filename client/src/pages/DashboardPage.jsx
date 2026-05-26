@@ -12,7 +12,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { useAuth } from '../context/AuthContext'
+import { useAuth } from '../context/useAuth'
 import EmployeeModal from '../components/EmployeeModal'
 import PayrollReport from '../components/PayrollReport'
 import WorkersList from '../components/workers/WorkersList'
@@ -56,40 +56,6 @@ function formatCommandResult(result) {
   if (result.error) parts.push(`Error: ${result.error}`)
 
   return parts.length ? parts.join(' · ') : JSON.stringify(result)
-}
-
-function getZktBadge(employee) {
-  const status = employee.zkt_sync_status || 'not_synced'
-
-  const map = {
-    synced: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-    verified: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-    already_exists: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
-    deleted_from_zkt: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
-    missing_on_zkt: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
-    skipped: 'bg-slate-500/15 text-slate-300 border-slate-500/30',
-    error: 'bg-red-500/15 text-red-300 border-red-500/30',
-    not_synced: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-  }
-
-  return map[status] || map.not_synced
-}
-
-function getZktLabel(employee) {
-  const status = employee.zkt_sync_status || 'not_synced'
-
-  const map = {
-    synced: 'Synced',
-    verified: 'Verified',
-    already_exists: 'Exists',
-    deleted_from_zkt: 'Deleted',
-    missing_on_zkt: 'Missing',
-    skipped: 'Skipped',
-    error: 'Error',
-    not_synced: 'Not synced',
-  }
-
-  return map[status] || status
 }
 
 function pad2(value) {
@@ -160,24 +126,6 @@ function formatReportDate(date) {
     month: '2-digit',
     day: '2-digit',
     year: 'numeric',
-  })
-}
-
-function formatCheckDate(value) {
-  if (!value) return ''
-
-  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    const [year, month, day] = value.split('-')
-    return `${month}/${day}/${year}`
-  }
-
-  const date = value instanceof Date ? value : new Date(value)
-  if (Number.isNaN(date.getTime())) return String(value || '')
-
-  return date.toLocaleDateString('en-US', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
   })
 }
 
@@ -261,88 +209,6 @@ function getLogDate(log) {
   if (Number.isNaN(date.getTime())) return String(rawDate).slice(0, 10)
 
   return toLocalDateString(date)
-}
-
-function getLogHours(log) {
-  const value =
-    log.total_hours ??
-    log.worked_hours ??
-    log.net_hours ??
-    log.hours ??
-    log.duration_hours ??
-    log.total_work_hours ??
-    log.paid_hours ??
-    null
-
-  if (value === null || value === undefined || value === '') return ''
-
-  const number = Number(value)
-  if (Number.isNaN(number)) return String(value)
-
-  return number.toFixed(2).replace(/\.00$/, '')
-}
-
-function getLogInTime(log) {
-  return formatTimeValue(
-    log.clock_in ||
-      log.check_in ||
-      log.in_time ||
-      log.start_time ||
-      log.first_in ||
-      log.time_in
-  )
-}
-
-function getLogOutTime(log) {
-  return formatTimeValue(
-    log.clock_out ||
-      log.check_out ||
-      log.out_time ||
-      log.end_time ||
-      log.last_out ||
-      log.time_out
-  )
-}
-
-function buildDayReportText(dayLogs) {
-  if (!dayLogs.length) return 'No data'
-
-  return dayLogs
-    .map((log) => {
-      const inTime = getLogInTime(log)
-      const outTime = getLogOutTime(log)
-      const hours = getLogHours(log)
-      const status = log.status || log.note || log.notes || ''
-
-      const parts = []
-      if (inTime || outTime) parts.push(`${inTime || '—'} - ${outTime || '—'}`)
-      if (hours) parts.push(`${hours} h`)
-      if (status) parts.push(status)
-
-      return parts.length ? parts.join(' · ') : 'Record found'
-    })
-    .join('<br/>')
-}
-
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;')
-}
-
-function downloadTextFile(fileName, content, type = 'text/html;charset=utf-8') {
-  const blob = new Blob([content], { type })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement('a')
-  link.href = url
-  link.download = fileName
-  document.body.appendChild(link)
-  link.click()
-  link.remove()
-  URL.revokeObjectURL(url)
 }
 
 const defaultTaxProfile = {
@@ -921,22 +787,6 @@ export default function DashboardPage() {
     }
   }
 
-  async function toggleActive(employee) {
-    try {
-      setError('')
-      const { error } = await supabase
-        .from('employees')
-        .update({ active: !employee.active })
-        .eq('id', employee.id)
-
-      if (error) throw error
-      await loadEmployees()
-    } catch (err) {
-      console.error('toggleActive error:', err)
-      setError(err.message || 'Failed to update status')
-    }
-  }
-
   async function loadPreviousWeekWorkLogs() {
     const week = getPreviousWeekRange()
 
@@ -1009,80 +859,10 @@ export default function DashboardPage() {
     return fallback
   }
 
-  function getLunchHours(log) {
-    return getNumberFromObject(log, [
-      'lunch_hours',
-      'lunch',
-      'lunch_deducted',
-      'lunch_deduction',
-      'break_hours',
-    ])
-  }
-
-  function getRegularHours(log) {
-    const explicit = getNumberFromObject(log, [
-      'regular_hours',
-      'reg_hours',
-      'reg',
-      'paid_hours',
-      'net_hours',
-      'total_hours',
-      'worked_hours',
-      'hours',
-    ], null)
-
-    if (explicit !== null) return Math.min(Math.max(explicit, 0), 12)
-
-    const inRaw = log.clock_in || log.check_in || log.in_time || log.start_time || log.first_in || log.time_in
-    const outRaw = log.clock_out || log.check_out || log.out_time || log.end_time || log.last_out || log.time_out
-
-    if (!inRaw || !outRaw) return 0
-
-    const inDate = new Date(inRaw)
-    const outDate = new Date(outRaw)
-
-    if (Number.isNaN(inDate.getTime()) || Number.isNaN(outDate.getTime())) return 0
-
-    const grossHours = Math.max((outDate.getTime() - inDate.getTime()) / 3600000, 0)
-    const lunchHours = getLunchHours(log)
-    return Math.min(Math.max(grossHours - lunchHours, 0), 12)
-  }
-
-  function getEmployeeHourlyRate(employee) {
-    const rate = Number(employee.hourly_rate || 0)
-    return Number.isNaN(rate) ? 0 : rate
-  }
-
-  function getLogLaborAmount(log, employee) {
-    const explicit = getNumberFromObject(log, [
-      'labor',
-      'labor_amount',
-      'gross_pay',
-      'pay_amount',
-      'amount',
-    ], null)
-
-    if (explicit !== null) return explicit
-    return getRegularHours(log) * getEmployeeHourlyRate(employee)
-  }
-
   function roundDollars(value) {
     const number = Number(value || 0)
     if (!Number.isFinite(number)) return 0
     return Math.round(number)
-  }
-
-  function formatMoney(value) {
-    return `$${roundDollars(value).toLocaleString('en-US')}`
-  }
-
-  function formatCsvMoney(value) {
-    return String(roundDollars(value))
-  }
-
-  function formatHours(value) {
-    const number = Number(value || 0)
-    return number.toFixed(2).replace(/\.00$/, '')
   }
 
   function findEmployeeDeductions(employee, deductionsRows) {
@@ -1255,321 +1035,6 @@ export default function DashboardPage() {
     return sourceEmployees.map((employee) =>
       getEmployeePayroll(employee, week, logsByEmployeeAndDate, deductionsRows)
     )
-  }
-
-  function buildDayCompactHtml(day) {
-    if (!day.rows.length) return '<span class="muted">—</span>'
-
-    return day.rows
-      .map((row) => {
-        const time = `${escapeHtml(row.inTime || '—')}-${escapeHtml(row.outTime || '—')}`
-        const lunch = Number(row.lunchHours || 0) > 0 ? ` L:${formatHours(row.lunchHours)}` : ''
-        return `<div>${time}<br/><b>${formatHours(row.regularHours)}h</b>${lunch}</div>`
-      })
-      .join('')
-  }
-
-  function buildPayrollReportHtml(week, logs, deductionsRows, options = {}) {
-    const payrollRows = buildPayrollRows(week, logs, deductionsRows, options)
-    const isExcludedReport = options.excludedOnly === true
-    const reportBrand = isExcludedReport ? 'Excluded Payroll Report' : 'Payroll Report'
-    const reportTitle = isExcludedReport ? 'Excluded Weekly Payroll' : 'Weekly Payroll'
-
-    const grandGross = payrollRows.reduce((sum, item) => sum + item.grossPay, 0)
-    const grandRegularLabor = payrollRows.reduce((sum, item) => sum + item.regularLabor, 0)
-    const grandOvertimeLabor = payrollRows.reduce((sum, item) => sum + item.overtimeLabor, 0)
-    const grandTax = payrollRows.reduce((sum, item) => sum + item.deductions.tax, 0)
-    const grandOtherDeductions = payrollRows.reduce((sum, item) => sum + item.otherDeductions, 0)
-    const grandDeductions = payrollRows.reduce((sum, item) => sum + item.totalDeductions, 0)
-    const grandNet = payrollRows.reduce((sum, item) => sum + item.netPay, 0)
-    const grandHours = payrollRows.reduce((sum, item) => sum + item.totalRegularHours, 0)
-    const grandOvertimeHours = payrollRows.reduce((sum, item) => sum + item.overtimeHours, 0)
-    const generatedAt = new Date().toLocaleString('en-US')
-
-    const dayHeaders = week.days
-      .map((day) => `<th class="day-col">${escapeHtml(formatReportDate(day)).replace(', 202', '<br/>202')}</th>`)
-      .join('')
-
-    const summaryRows = payrollRows
-      .map((item, index) => {
-        const employee = item.employee
-        const dayCells = item.days
-          .map((day) => `<td class="day-cell">${buildDayCompactHtml(day)}</td>`)
-          .join('')
-
-        return `<tr>
-          <td class="num tiny">${index + 1}</td>
-          <td class="emp-cell">
-            <b>${escapeHtml(getFullName(employee))}</b>
-            <div class="muted">#${escapeHtml(employee.employee_number ?? '')} · ${escapeHtml(getPayLabel(employee))} · ${escapeHtml(getOvertimeLabel(employee))}</div>
-          </td>
-          ${dayCells}
-          <td class="num">${formatHours(item.totalRegularHours)}</td>
-          <td class="num strong">${formatHours(item.overtimeHours)}</td>
-          <td class="num">${formatMoney(item.regularLabor)}</td>
-          <td class="num">${formatMoney(item.overtimeLabor)}</td>
-          <td class="num strong">${formatMoney(item.grossPay)}</td>
-          <td class="num">${formatMoney(item.mainTax)}</td>
-          <td class="num">${formatMoney(item.overtimeTax)}</td>
-          <td class="num strong tax-cell">${formatMoney(item.deductions.tax)}</td>
-          <td class="num">${formatMoney(item.otherDeductions)}</td>
-          <td class="num strong total-net">${formatMoney(item.netPay)}</td>
-        </tr>`
-      })
-      .join('')
-
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(reportBrand)} ${week.startText} - ${week.endText}</title>
-  <style>
-    @page { size: Letter landscape; margin: 6mm; }
-    * { box-sizing: border-box; }
-    body {
-      margin: 0;
-      padding: 8px;
-      color: #0f172a;
-      background: #ffffff;
-      font-family: Arial, Helvetica, sans-serif;
-      font-size: 9px;
-    }
-    .invoice-shell { width: 100%; margin: 0 auto; }
-    .top {
-      display: grid;
-      grid-template-columns: 1fr auto;
-      gap: 12px;
-      margin-bottom: 8px;
-      border-bottom: 3px solid #0ea5e9;
-      padding-bottom: 8px;
-    }
-    .brand { font-size: 10px; font-weight: 900; color: #0369a1; letter-spacing: .08em; text-transform: uppercase; }
-    h1 { margin: 2px 0 4px; font-size: 22px; line-height: 1; color: #0f172a; }
-    .period { font-size: 11px; font-weight: 800; }
-    .muted { color: #64748b; font-size: 8px; line-height: 1.2; }
-    .rules { margin-top: 3px; color: #334155; font-size: 8px; }
-    .top-actions { display: flex; align-items: start; gap: 8px; }
-    .invoice-box {
-      min-width: 250px;
-      border: 1px solid #cbd5e1;
-      border-radius: 8px;
-      overflow: hidden;
-    }
-    .invoice-box-row {
-      display: flex;
-      justify-content: space-between;
-      gap: 8px;
-      padding: 4px 7px;
-      border-bottom: 1px solid #e2e8f0;
-    }
-    .invoice-box-row:last-child { border-bottom: 0; }
-    .invoice-box-label { color: #64748b; }
-    .invoice-box-value { font-weight: 900; text-align: right; }
-    .summary {
-      display: grid;
-      grid-template-columns: repeat(7, 1fr);
-      gap: 5px;
-      margin: 7px 0;
-    }
-    .summary-card {
-      border: 1px solid #bae6fd;
-      border-radius: 7px;
-      padding: 6px;
-      background: #f0f9ff;
-      min-height: 38px;
-    }
-    .summary-card span { display: block; color: #0369a1; font-weight: 800; font-size: 7px; text-transform: uppercase; }
-    .summary-card b { display: block; font-size: 13px; margin-top: 2px; color: #0f172a; }
-    table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-    th, td { border: 1px solid #cbd5e1; padding: 3px 4px; vertical-align: top; }
-    th { background: #0369a1; color: white; text-align: left; font-size: 7px; text-transform: uppercase; line-height: 1.1; }
-    td { font-size: 8px; line-height: 1.15; }
-    .tiny { width: 24px; }
-    .emp-cell { width: 130px; }
-    .day-col { width: 66px; }
-    .day-cell { min-height: 34px; color: #0f172a; }
-    .num { text-align: right; white-space: nowrap; }
-    .strong { font-weight: 900; }
-    .tax-cell { background: #fff7ed; color: #9a3412; }
-    .total-net { background: #dcfce7; color: #166534; }
-    .footer-note { margin-top: 6px; color: #64748b; font-size: 8px; }
-    .no-print {
-      border: 0;
-      border-radius: 7px;
-      background: #0ea5e9;
-      color: white;
-      padding: 7px 10px;
-      font-size: 10px;
-      font-weight: 900;
-      cursor: pointer;
-    }
-    @media print {
-      body { padding: 0; font-size: 8px; }
-      .no-print { display: none !important; }
-      .summary-card { padding: 4px; }
-      th, td { padding: 2px 3px; }
-      h1 { font-size: 18px; }
-    }
-  </style>
-</head>
-<body>
-  <div class="invoice-shell">
-    <div class="top">
-      <div>
-        <div class="brand">${escapeHtml(reportBrand)}</div>
-        <h1>${escapeHtml(reportTitle)}</h1>
-        <div class="period">Previous week: ${escapeHtml(week.startText)} - ${escapeHtml(week.endText)}</div>
-        <div class="rules">If Overtime is enabled: first 40h/week at regular rate, hours over 40h at 1.5x. Employee tax uses the W-4/NJ-W4 payroll tax profile. All money rounded to whole dollars.</div>
-      </div>
-      <div class="top-actions">
-        <div class="invoice-box">
-          <div class="invoice-box-row"><span class="invoice-box-label">Generated</span><span class="invoice-box-value">${escapeHtml(generatedAt)}</span></div>
-          <div class="invoice-box-row"><span class="invoice-box-label">Workers</span><span class="invoice-box-value">${payrollRows.length}</span></div>
-          <div class="invoice-box-row"><span class="invoice-box-label">Total tax</span><span class="invoice-box-value">${formatMoney(grandTax)}</span></div>
-          <div class="invoice-box-row"><span class="invoice-box-label">Net payroll</span><span class="invoice-box-value">${formatMoney(grandNet)}</span></div>
-        </div>
-        <button class="no-print" onclick="window.print()">Print / Save PDF</button>
-      </div>
-    </div>
-
-    <div class="summary">
-      <div class="summary-card"><span>Workers</span><b>${payrollRows.length}</b></div>
-      <div class="summary-card"><span>Total hours</span><b>${formatHours(grandHours)}</b></div>
-      <div class="summary-card"><span>OT hours</span><b>${formatHours(grandOvertimeHours)}</b></div>
-      <div class="summary-card"><span>Main labor</span><b>${formatMoney(grandRegularLabor)}</b></div>
-      <div class="summary-card"><span>OT labor</span><b>${formatMoney(grandOvertimeLabor)}</b></div>
-      <div class="summary-card"><span>Employee tax</span><b>${formatMoney(grandTax)}</b></div>
-      <div class="summary-card"><span>Net payroll</span><b>${formatMoney(grandNet)}</b><div class="muted">Other deductions: ${formatMoney(grandOtherDeductions)}</div></div>
-    </div>
-
-    <table>
-      <thead>
-        <tr>
-          <th class="tiny">#</th>
-          <th class="emp-cell">Employee</th>
-          ${dayHeaders}
-          <th>Total h</th>
-          <th>OT h</th>
-          <th>Main $</th>
-          <th>OT $</th>
-          <th>Gross</th>
-          <th>Federal tax</th>
-          <th>Other emp tax</th>
-          <th>Emp Tax</th>
-          <th>Deduct.</th>
-          <th>Net Pay</th>
-        </tr>
-      </thead>
-      <tbody>${summaryRows || '<tr><td colspan="21">No employees found</td></tr>'}</tbody>
-    </table>
-
-    <div class="footer-note">${isExcludedReport ? 'Excluded payroll report generated only for employees marked as excluded from the main payroll report.' : 'Report generated from employees and employee_work_logs.'} Employee tax uses the W-4/NJ-W4 payroll tax profile. Rent/electric/water/clean/transport stay as manual deductions when available.</div>
-  </div>
-</body>
-</html>`
-  }
-
-  function csvCell(value) {
-    const text = String(value ?? '')
-    return `"${text.replace(/"/g, '""')}"`
-  }
-
-  function buildPayrollCsv(week, logs, deductionsRows) {
-    const payrollRows = buildPayrollRows(week, logs, deductionsRows)
-    const lines = []
-
-    lines.push([
-      'Employee No',
-      'Employee Name',
-      'Overtime Mode',
-      'Total Hours',
-      'Main Hours Up To 40',
-      'Overtime Hours',
-      'Main Labor',
-      'Overtime Labor',
-      'Gross Pay',
-      'Federal Tax',
-      'Other Employee Tax',
-      'Employee Tax Amount',
-      'Other Deductions',
-      'Total Deductions',
-      'Net Pay',
-      'Mon',
-      'Tue',
-      'Wed',
-      'Thu',
-      'Fri',
-      'Sat',
-      'Sun',
-    ].map(csvCell).join(','))
-
-    payrollRows.forEach((item) => {
-      const employee = item.employee
-      const dayValues = item.days.map((day) => {
-        if (!day.rows.length) return ''
-        return day.rows
-          .map((row) => `${row.inTime || '—'}-${row.outTime || '—'} ${formatHours(row.regularHours)}h L:${formatHours(row.lunchHours)}`)
-          .join(' | ')
-      })
-
-      lines.push([
-        employee.employee_number ?? '',
-        getFullName(employee),
-        getOvertimeLabel(employee),
-        formatHours(item.totalRegularHours),
-        formatHours(item.regularHours),
-        formatHours(item.overtimeHours),
-        formatCsvMoney(item.regularLabor),
-        formatCsvMoney(item.overtimeLabor),
-        formatCsvMoney(item.grossPay),
-        formatCsvMoney(item.mainTax),
-        formatCsvMoney(item.overtimeTax),
-        formatCsvMoney(item.deductions.tax),
-        formatCsvMoney(item.otherDeductions),
-        formatCsvMoney(item.totalDeductions),
-        formatCsvMoney(item.netPay),
-        ...dayValues,
-      ].map(csvCell).join(','))
-    })
-
-    return `Payroll Report,${week.startText} to ${week.endText}\nAll money rounded to whole dollars\n${lines.join('\n')}`
-  }
-
-  async function handlePayrollPdfReport() {
-    try {
-      setReportLoading(true)
-      setReportError('')
-      setError('')
-
-      const { week, logs } = await loadPreviousWeekWorkLogs()
-      const deductionsRows = await tryLoadPayrollDeductions(week)
-      const html = buildPayrollReportHtml(week, logs, deductionsRows)
-
-      const printWindow = window.open('', '_blank')
-      if (!printWindow) {
-        throw new Error('Popup blocked. Allow popups for this site and click Payroll PDF again.')
-      }
-
-      printWindow.document.open()
-      printWindow.document.write(html)
-      printWindow.document.close()
-      printWindow.focus()
-
-      setTimeout(() => {
-        try {
-          printWindow.print()
-        } catch (printError) {
-          console.warn('Auto print failed:', printError)
-        }
-      }, 500)
-    } catch (err) {
-      console.error('handlePayrollPdfReport error:', err)
-      const message = err.message || 'Failed to build payroll PDF report'
-      setReportError(message)
-      setError(message)
-    } finally {
-      setReportLoading(false)
-    }
   }
 
   function mapPayrollRowToCheckTotals(item) {
@@ -2064,43 +1529,6 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleExcludedPayrollPdfReport() {
-    try {
-      setReportLoading(true)
-      setReportError('')
-      setError('')
-
-      const { week, logs } = await loadPreviousWeekWorkLogs()
-      const deductionsRows = await tryLoadPayrollDeductions(week)
-      const html = buildPayrollReportHtml(week, logs, deductionsRows, { excludedOnly: true })
-
-      const printWindow = window.open('', '_blank')
-      if (!printWindow) {
-        throw new Error('Popup blocked. Allow popups for this site and click Excluded Payroll PDF again.')
-      }
-
-      printWindow.document.open()
-      printWindow.document.write(html)
-      printWindow.document.close()
-      printWindow.focus()
-
-      setTimeout(() => {
-        try {
-          printWindow.print()
-        } catch (printError) {
-          console.warn('Auto print failed:', printError)
-        }
-      }, 500)
-    } catch (err) {
-      console.error('handleExcludedPayrollPdfReport error:', err)
-      const message = err.message || 'Failed to build excluded payroll PDF report'
-      setReportError(message)
-      setError(message)
-    } finally {
-      setReportLoading(false)
-    }
-  }
-
   async function handleDownloadBackup() {
     try {
       setBackupLoading(true)
@@ -2165,10 +1593,6 @@ export default function DashboardPage() {
     return employee?.overtime_enabled
       ? 'bg-amber-500/15 text-amber-300 border-amber-500/30'
       : 'bg-slate-500/15 text-slate-300 border-slate-600/40'
-  }
-
-  function getTodayText() {
-    return toLocalDateString(new Date())
   }
 
   function normalizeDateText(value) {

@@ -66,12 +66,10 @@ export default function LoginPage() {
         return
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password,
       })
-
-      console.log('LOGIN RESULT:', { data, error })
 
       if (error) {
         setErrorText(error.message || 'Login failed')

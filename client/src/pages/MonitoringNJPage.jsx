@@ -227,7 +227,6 @@ function DashboardChillerCard({
   row,
   rawRows,
   isMobile,
-  badgeLabel,
   onClick,
 }) {
   const online = !!row?.is_online

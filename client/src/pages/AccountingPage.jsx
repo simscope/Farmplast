@@ -49,7 +49,7 @@ export default function AccountingPage() {
     amount: '',
   })
 
-  const [receipt, setReceipt] = useState({
+  const [receipt, setReceipt] = useState(() => ({
     company: 'Farmplast',
     receiptNo: `R-${Date.now()}`,
     date: new Date().toISOString().slice(0, 10),
@@ -57,7 +57,7 @@ export default function AccountingPage() {
     description: '',
     amount: '',
     paymentMethod: 'cash',
-  })
+  }))
 
   function handleAddEntry(e) {
     e.preventDefault()

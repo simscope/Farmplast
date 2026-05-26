@@ -18,8 +18,6 @@ const card =
   'rounded-2xl border border-slate-800 bg-slate-900/80 shadow-xl'
 const smallCard =
   'rounded-2xl border border-slate-800 bg-slate-900/70 p-4'
-const muted = 'text-slate-400'
-const title = 'text-lg font-semibold text-white'
 const label = 'text-xs uppercase tracking-wide text-slate-400'
 const value = 'text-2xl font-bold text-white'
 const subValue = 'text-sm text-slate-400'
@@ -108,7 +106,9 @@ function getChillerData(pointMap, prefix) {
   }
 }
 
-function MetricCard({ icon: Icon, labelText, valueText, unitText, hint }) {
+function MetricCard({ icon, labelText, valueText, unitText, hint }) {
+  const MetricIcon = icon
+
   return (
     <div className={smallCard}>
       <div className="flex items-start justify-between gap-3">
@@ -121,7 +121,7 @@ function MetricCard({ icon: Icon, labelText, valueText, unitText, hint }) {
           {hint ? <div className="mt-2 text-xs text-slate-400">{hint}</div> : null}
         </div>
         <div className="rounded-xl bg-slate-800 p-2 text-slate-300">
-          <Icon size={18} />
+          <MetricIcon size={18} />
         </div>
       </div>
     </div>
