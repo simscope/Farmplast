@@ -107,6 +107,7 @@ export default function EmployeePayStubPage() {
   const [employee, setEmployee] = useState(null)
   const [logs, setLogs] = useState([])
   const [deductions, setDeductions] = useState({})
+  const [priorYtdGross, setPriorYtdGross] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -158,9 +159,25 @@ export default function EmployeePayStubPage() {
 
         if (deductionError) throw deductionError
 
+        const yearStart = `${String(periodStart).slice(0, 4)}-01-01`
+        const { data: ytdPaymentsData, error: ytdPaymentsError } = await supabase
+          .from('employee_payments')
+          .select('total_labor,paid_at,period_start')
+          .eq('employee_id', employeeId)
+          .gte('period_start', yearStart)
+          .lt('period_start', periodStart)
+
+        if (ytdPaymentsError) throw ytdPaymentsError
+
+        const ytdGross = (ytdPaymentsData || []).reduce(
+          (sum, row) => sum + Number(row.total_labor || 0),
+          0
+        )
+
         setEmployee(employeeData)
         setLogs(logsData || [])
         setDeductions(deductionData || {})
+        setPriorYtdGross(ytdGross)
       } catch (err) {
         console.error('loadPaystub error:', err)
         setError(err.message || 'Failed to load paystub')
@@ -180,8 +197,9 @@ export default function EmployeePayStubPage() {
         deductions,
         periodStart,
         periodEnd,
+        priorYtdGross,
       }),
-    [deductions, employee, logs, periodEnd, periodStart]
+    [deductions, employee, logs, periodEnd, periodStart, priorYtdGross]
   )
 
   const employeeName = getEmployeeName(employee)
@@ -220,7 +238,7 @@ export default function EmployeePayStubPage() {
                   <div>
                     <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
                       <ReceiptText size={14} />
-                      Test paystub
+                      2026 payroll tax calculation
                     </div>
                     <h1 className="text-3xl font-semibold tracking-normal text-slate-950">
                       Paystub details
@@ -253,7 +271,15 @@ export default function EmployeePayStubPage() {
                 tone="deduction"
               >
                 {paystub.employeeTaxes.map((tax) => (
-                  <DetailRow key={tax.key} label={tax.label} value={tax.amount} />
+                  <DetailRow
+                    key={tax.key}
+                    label={
+                      tax.taxableWages !== undefined
+                        ? `${tax.label} (${money(tax.taxableWages)} taxable)`
+                        : tax.label
+                    }
+                    value={tax.amount}
+                  />
                 ))}
               </PaystubSection>
 
@@ -299,6 +325,22 @@ export default function EmployeePayStubPage() {
                       {money(paystub.netPay)}
                     </span>
                   </div>
+                </div>
+              </div>
+
+              <div className={`${shell} mt-4 p-5`}>
+                <div className="text-sm font-semibold text-slate-950">Tax setup</div>
+                <div className="mt-3 space-y-2 text-xs leading-5 text-slate-600">
+                  <div>Tax year: {paystub.taxMeta.year}</div>
+                  <div>Pay frequency: {paystub.taxMeta.payPeriod}</div>
+                  <div>Federal W-4: {paystub.taxMeta.federalFilingStatus}, no credits or extra withholding unless employee fields exist</div>
+                  <div>NJ-W4: Rate {paystub.taxMeta.njRateCode}, {paystub.taxMeta.njAllowances} allowances</div>
+                  <div>YTD gross before this check: {money(paystub.taxMeta.ytdGrossBefore)}</div>
+                  {paystub.taxMeta.isTaxExempt ? (
+                    <div className="rounded-md bg-amber-50 px-3 py-2 text-amber-800">
+                      Employee form is marked 1099/Other, so employee payroll taxes are not withheld.
+                    </div>
+                  ) : null}
                 </div>
               </div>
             </aside>
