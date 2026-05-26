@@ -280,16 +280,17 @@ function calculateFederalIncomeTax({
 }) {
   if (isTaxExempt) return 0
 
+  const safeEmployee = employee || {}
   const periodsPerYear = PAY_PERIODS_PER_YEAR[payPeriod] || 52
-  const filingStatus = getFederalFilingStatus(employee)
+  const filingStatus = getFederalFilingStatus(safeEmployee)
   const rows =
     FEDERAL_2026_PERCENTAGE_TABLES[payPeriod]?.[filingStatus] ||
     FEDERAL_2026_PERCENTAGE_TABLES.weekly.single
 
-  const otherIncome = numberOrZero(employee.federal_w4_step4a)
-  const deductions = numberOrZero(employee.federal_w4_step4b)
-  const credits = numberOrZero(employee.federal_w4_step3)
-  const additional = numberOrZero(employee.federal_w4_step4c)
+  const otherIncome = numberOrZero(safeEmployee.federal_w4_step4a)
+  const deductions = numberOrZero(safeEmployee.federal_w4_step4b)
+  const credits = numberOrZero(safeEmployee.federal_w4_step3)
+  const additional = numberOrZero(safeEmployee.federal_w4_step4c)
   const adjustedWage = Math.max(0, grossPay + otherIncome / periodsPerYear - deductions / periodsPerYear)
   const tentative = applyPercentageTable(adjustedWage, rows)
   const afterCredits = Math.max(0, tentative - credits / periodsPerYear)
@@ -309,12 +310,13 @@ function calculateNewJerseyIncomeTax({
   payPeriod,
   isTaxExempt,
 }) {
-  if (isTaxExempt || employee?.nj_exempt === true) return 0
+  const safeEmployee = employee || {}
+  if (isTaxExempt || safeEmployee.nj_exempt === true) return 0
 
   const periodsPerYear = PAY_PERIODS_PER_YEAR[payPeriod] || 52
-  const rateCode = getNjRateCode(employee)
-  const allowances = Math.max(0, numberOrZero(employee.nj_allowances))
-  const additional = numberOrZero(employee.nj_additional_withholding)
+  const rateCode = getNjRateCode(safeEmployee)
+  const allowances = Math.max(0, numberOrZero(safeEmployee.nj_allowances))
+  const additional = numberOrZero(safeEmployee.nj_additional_withholding)
   const allowanceValue = NJ_ALLOWANCE_BY_PERIOD[payPeriod] || NJ_ALLOWANCE_BY_PERIOD.weekly
   const periodTaxableWages = Math.max(0, grossPay - allowances * allowanceValue)
   const annualTaxableWages = periodTaxableWages * periodsPerYear
@@ -512,7 +514,7 @@ export function calculatePaystubDetails({
       periodsPerYear: PAY_PERIODS_PER_YEAR[payPeriod] || 52,
       federalFilingStatus: getFederalFilingStatus(employee),
       njRateCode: getNjRateCode(employee),
-      njAllowances: Math.max(0, numberOrZero(employee.nj_allowances)),
+      njAllowances: Math.max(0, numberOrZero((employee || {}).nj_allowances)),
       ytdGrossBefore,
       ytdGrossAfter,
       isTaxExempt,
