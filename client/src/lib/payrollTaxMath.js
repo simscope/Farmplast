@@ -229,10 +229,11 @@ function inferPayPeriod(periodStart, periodEnd) {
 }
 
 function getFederalFilingStatus(employee = {}) {
+  const safeEmployee = employee || {}
   const raw = String(
-    employee.federal_filing_status ||
-      employee.w4_filing_status ||
-      employee.filing_status ||
+    safeEmployee.federal_filing_status ||
+      safeEmployee.w4_filing_status ||
+      safeEmployee.filing_status ||
       ''
   )
     .trim()
@@ -244,13 +245,14 @@ function getFederalFilingStatus(employee = {}) {
 }
 
 function getNjRateCode(employee = {}) {
-  const raw = String(employee.nj_withholding_rate || employee.nj_rate || '')
+  const safeEmployee = employee || {}
+  const raw = String(safeEmployee.nj_withholding_rate || safeEmployee.nj_rate || '')
     .trim()
     .toUpperCase()
 
   if (raw === 'B') return 'B'
 
-  const status = String(employee.nj_filing_status || employee.filing_status || '')
+  const status = String(safeEmployee.nj_filing_status || safeEmployee.filing_status || '')
     .trim()
     .toLowerCase()
 
