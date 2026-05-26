@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { X, Upload, Loader2, Trash2, FileText } from 'lucide-react'
+import { X, Upload, Loader2, Trash2, FileText, Printer } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const inputClass =
@@ -76,6 +76,8 @@ export default function EmployeeModal({
   setForm,
   saving,
   isEditing,
+  onPrint,
+  printing,
 }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -291,6 +293,22 @@ export default function EmployeeModal({
           </div>
 
           <div className="flex items-center gap-2">
+            {isEditing && onPrint ? (
+              <button
+                onClick={() => onPrint(form)}
+                type="button"
+                disabled={saving || uploadingPhoto || printing}
+                className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {printing ? (
+                  <Loader2 size={16} className="animate-spin" />
+                ) : (
+                  <Printer size={16} />
+                )}
+                Print
+              </button>
+            ) : null}
+
             <button
               onClick={() => setW4Open((prev) => !prev)}
               type="button"

@@ -1082,7 +1082,7 @@ export default function DashboardPage() {
     printDocument.head.appendChild(style)
   }
 
-  function openSelectedChecksPrintWindow(week, payrollRows) {
+  function createPayrollPrintWindow() {
     const printWindow = window.open('', '_blank')
 
     if (!printWindow) {
@@ -1097,14 +1097,20 @@ export default function DashboardPage() {
   <title>Selected payroll checks</title>
 </head>
 <body>
-  <div id="print-root"></div>
+  <div id="print-root" style="font-family: Arial, sans-serif; padding: 20px;">Preparing payroll checks...</div>
 </body>
 </html>`)
     printWindow.document.close()
 
-    copyPrintStylesToWindow(printWindow.document)
+    return printWindow
+  }
 
-    const rootElement = printWindow.document.getElementById('print-root')
+  function openSelectedChecksPrintWindow(week, payrollRows, printWindow = null) {
+    const targetWindow = printWindow || createPayrollPrintWindow()
+
+    copyPrintStylesToWindow(targetWindow.document)
+
+    const rootElement = targetWindow.document.getElementById('print-root')
     const root = createRoot(rootElement)
     const payDate = toLocalDateString(new Date())
 
@@ -1148,8 +1154,8 @@ export default function DashboardPage() {
     )
 
     setTimeout(() => {
-      printWindow.focus()
-      printWindow.print()
+      targetWindow.focus()
+      targetWindow.print()
     }, 500)
   }
 
@@ -1457,6 +1463,7 @@ export default function DashboardPage() {
         throw new Error('Employee not found for check printing')
       }
 
+      const printWindow = createPayrollPrintWindow()
       const { week, logs } = await loadPreviousWeekWorkLogs()
       const deductionsRows = await tryLoadPayrollDeductions(week)
       const allPayrollRows = buildPayrollRows(week, logs, deductionsRows, { includeExcluded: true })
@@ -1483,7 +1490,7 @@ export default function DashboardPage() {
       const printRows = mergeCompanyPayrollRows(rowsToPrint, companyLookup)
 
       await savePrintedPayrollRows(week, printRows)
-      openSelectedChecksPrintWindow(week, printRows)
+      openSelectedChecksPrintWindow(week, printRows, printWindow)
       await loadEmployees()
     } catch (err) {
       console.error('handlePrintSingleCheck error:', err)
@@ -1505,6 +1512,7 @@ export default function DashboardPage() {
         throw new Error('Select at least one employee for check printing')
       }
 
+      const printWindow = createPayrollPrintWindow()
       const selectedIdSet = new Set(selectedCheckIds)
       const { week, logs } = await loadPreviousWeekWorkLogs()
       const deductionsRows = await tryLoadPayrollDeductions(week)
@@ -1520,7 +1528,7 @@ export default function DashboardPage() {
       const printRows = mergeCompanyPayrollRows(payrollRows, companyLookup)
 
       await savePrintedPayrollRows(week, printRows)
-      openSelectedChecksPrintWindow(week, printRows)
+      openSelectedChecksPrintWindow(week, printRows, printWindow)
 
       setSelectedCheckIds([])
       await loadEmployees()
@@ -2006,6 +2014,8 @@ export default function DashboardPage() {
           setForm={setForm}
           saving={saving}
           isEditing={isEditing}
+          onPrint={handlePrintSingleCheck}
+          printing={reportLoading}
         />
       </div>
     </div>
