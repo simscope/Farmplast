@@ -344,6 +344,47 @@ function downloadTextFile(fileName, content, type = 'text/html;charset=utf-8') {
   URL.revokeObjectURL(url)
 }
 
+const defaultTaxProfile = {
+  federal_filing_status: 'single',
+  federal_w4_step3: '0',
+  federal_w4_step4a: '0',
+  federal_w4_step4b: '0',
+  federal_w4_step4c: '0',
+  nj_withholding_rate: 'A',
+  nj_allowances: '0',
+  nj_additional_withholding: '0',
+  nj_exempt: false,
+}
+
+function normalizeTaxProfile(profile = {}) {
+  return {
+    federal_filing_status: profile.federal_filing_status || 'single',
+    federal_w4_step3: String(profile.federal_w4_step3 ?? '0'),
+    federal_w4_step4a: String(profile.federal_w4_step4a ?? '0'),
+    federal_w4_step4b: String(profile.federal_w4_step4b ?? '0'),
+    federal_w4_step4c: String(profile.federal_w4_step4c ?? '0'),
+    nj_withholding_rate: profile.nj_withholding_rate || 'A',
+    nj_allowances: String(profile.nj_allowances ?? '0'),
+    nj_additional_withholding: String(profile.nj_additional_withholding ?? '0'),
+    nj_exempt: profile.nj_exempt === true,
+  }
+}
+
+function buildTaxProfilePayload(form, employeeId) {
+  return {
+    employee_id: employeeId,
+    federal_filing_status: form.federal_filing_status || 'single',
+    federal_w4_step3: Number(form.federal_w4_step3 || 0),
+    federal_w4_step4a: Number(form.federal_w4_step4a || 0),
+    federal_w4_step4b: Number(form.federal_w4_step4b || 0),
+    federal_w4_step4c: Number(form.federal_w4_step4c || 0),
+    nj_withholding_rate: form.nj_withholding_rate || 'A',
+    nj_allowances: Number(form.nj_allowances || 0),
+    nj_additional_withholding: Number(form.nj_additional_withholding || 0),
+    nj_exempt: form.nj_exempt === true,
+  }
+}
+
 export default function DashboardPage() {
   const { signOut } = useAuth()
 
@@ -374,6 +415,7 @@ export default function DashboardPage() {
     zkt_password: '',
     zkt_card_number: '',
     zkt_privilege: '0',
+    ...defaultTaxProfile,
   }
 
   const [employees, setEmployees] = useState([])
@@ -488,6 +530,7 @@ export default function DashboardPage() {
 
       const employeeIds = (data || []).map((employee) => employee.id).filter(Boolean)
       const employeePaymentMetaById = new Map()
+      const taxProfileByEmployeeId = new Map()
 
       if (employeeIds.length > 0) {
         const { data: paymentMetaRows, error: paymentMetaError } = await supabase
@@ -500,6 +543,19 @@ export default function DashboardPage() {
         ;(paymentMetaRows || []).forEach((row) => {
           employeePaymentMetaById.set(row.id, row)
         })
+
+        const { data: taxProfileRows, error: taxProfileError } = await supabase
+          .from('employee_tax_profiles')
+          .select('*')
+          .in('employee_id', employeeIds)
+
+        if (taxProfileError) {
+          console.warn('employee_tax_profiles load skipped:', taxProfileError)
+        } else {
+          ;(taxProfileRows || []).forEach((row) => {
+            taxProfileByEmployeeId.set(row.employee_id, row)
+          })
+        }
       }
 
       const punchErrorsByEmployee = new Map()
@@ -531,6 +587,7 @@ export default function DashboardPage() {
           last_payment_date: paymentMeta.last_payment_date || null,
           last_payment_amount: paymentMeta.last_payment_amount ?? null,
           last_check_number: paymentMeta.last_check_number ?? null,
+          tax_profile: normalizeTaxProfile(taxProfileByEmployeeId.get(employee.id)),
           punch_errors_week: punchErrorsByEmployee.get(employee.id) || [],
           punch_errors_week_start: week.startText,
           punch_errors_week_end: week.endText,
@@ -708,6 +765,7 @@ export default function DashboardPage() {
       zkt_password: employee.zkt_password || '',
       zkt_card_number: employee.zkt_card_number ?? '',
       zkt_privilege: employee.zkt_privilege ?? '0',
+      ...normalizeTaxProfile(employee.tax_profile),
     })
     setModalOpen(true)
   }
@@ -782,12 +840,31 @@ export default function DashboardPage() {
           form.zkt_privilege !== '' ? Number(form.zkt_privilege) : 0,
       }
 
+      let savedEmployeeId = form.id
+
       if (form.id) {
         const { error } = await supabase.from('employees').update(payload).eq('id', form.id)
         if (error) throw error
       } else {
-        const { error } = await supabase.from('employees').insert(payload)
+        const { data, error } = await supabase
+          .from('employees')
+          .insert(payload)
+          .select('id')
+          .single()
         if (error) throw error
+        savedEmployeeId = data?.id
+      }
+
+      if (savedEmployeeId) {
+        const { error: taxProfileError } = await supabase
+          .from('employee_tax_profiles')
+          .upsert(buildTaxProfilePayload(form, savedEmployeeId), {
+            onConflict: 'employee_id',
+          })
+
+        if (taxProfileError) {
+          console.warn('employee_tax_profiles save skipped:', taxProfileError)
+        }
       }
 
       await rebuildZktWorkLogs()

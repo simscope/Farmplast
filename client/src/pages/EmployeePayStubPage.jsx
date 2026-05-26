@@ -105,6 +105,7 @@ export default function EmployeePayStubPage() {
   const defaultPeriod = getDefaultPaystubPeriod()
 
   const [employee, setEmployee] = useState(null)
+  const [taxProfile, setTaxProfile] = useState(null)
   const [logs, setLogs] = useState([])
   const [deductions, setDeductions] = useState({})
   const [priorYtdGross, setPriorYtdGross] = useState(0)
@@ -159,6 +160,16 @@ export default function EmployeePayStubPage() {
 
         if (deductionError) throw deductionError
 
+        const { data: taxProfileData, error: taxProfileError } = await supabase
+          .from('employee_tax_profiles')
+          .select('*')
+          .eq('employee_id', employeeId)
+          .maybeSingle()
+
+        if (taxProfileError) {
+          console.warn('employee_tax_profiles load skipped:', taxProfileError)
+        }
+
         const yearStart = `${String(periodStart).slice(0, 4)}-01-01`
         const { data: ytdPaymentsData, error: ytdPaymentsError } = await supabase
           .from('employee_payments')
@@ -175,6 +186,7 @@ export default function EmployeePayStubPage() {
         )
 
         setEmployee(employeeData)
+        setTaxProfile(taxProfileData || null)
         setLogs(logsData || [])
         setDeductions(deductionData || {})
         setPriorYtdGross(ytdGross)
@@ -193,13 +205,14 @@ export default function EmployeePayStubPage() {
     () =>
       calculatePaystubDetails({
         employee,
+        taxProfile,
         logs,
         deductions,
         periodStart,
         periodEnd,
         priorYtdGross,
       }),
-    [deductions, employee, logs, periodEnd, periodStart, priorYtdGross]
+    [deductions, employee, logs, periodEnd, periodStart, priorYtdGross, taxProfile]
   )
 
   const employeeName = getEmployeeName(employee)

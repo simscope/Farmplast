@@ -353,6 +353,7 @@ export function getDefaultPaystubPeriod(baseDate = new Date()) {
 
 export function calculatePaystubDetails({
   employee = {},
+  taxProfile = {},
   logs = [],
   deductions = {},
   reimbursements = 0,
@@ -360,6 +361,11 @@ export function calculatePaystubDetails({
   periodEnd,
   priorYtdGross = 0,
 } = {}) {
+  const employeeWithTaxProfile = {
+    ...(employee || {}),
+    ...(taxProfile || {}),
+  }
+
   const filteredLogs = logs.filter((row) => {
     if (!row.work_date) return true
     if (periodStart && row.work_date < periodStart) return false
@@ -368,28 +374,28 @@ export function calculatePaystubDetails({
   })
 
   const normalizedRows = filteredLogs
-    .map((row) => normalizePayrollRow(row, employee))
+    .map((row) => normalizePayrollRow(row, employeeWithTaxProfile))
     .sort((a, b) => String(a.work_date || '').localeCompare(String(b.work_date || '')))
 
-  const payrollTotals = calculatePayrollTotals(normalizedRows, employee)
+  const payrollTotals = calculatePayrollTotals(normalizedRows, employeeWithTaxProfile)
   const weeksCount = getWeeksInSelectedPeriod(periodStart, periodEnd)
-  const employerForm = String(employee?.employer_form || '').trim().toUpperCase()
+  const employerForm = String(employeeWithTaxProfile?.employer_form || '').trim().toUpperCase()
   const isTaxExempt = employerForm === 'OTHER' || employerForm === '1099'
 
   let grossPay = numberOrZero(payrollTotals.totalLabor)
 
-  if (employee?.pay_type === 'monthly') {
-    grossPay = moneyRound((numberOrZero(employee?.monthly_salary) / 4) * weeksCount)
+  if (employeeWithTaxProfile?.pay_type === 'monthly') {
+    grossPay = moneyRound((numberOrZero(employeeWithTaxProfile?.monthly_salary) / 4) * weeksCount)
   }
 
-  if (employee?.pay_type === 'one_time') {
-    grossPay = moneyRound(employee?.monthly_salary)
+  if (employeeWithTaxProfile?.pay_type === 'one_time') {
+    grossPay = moneyRound(employeeWithTaxProfile?.monthly_salary)
   }
 
   const mainLabor =
-    employee?.pay_type === 'hourly' ? moneyRound(payrollTotals.mainLabor) : grossPay
+    employeeWithTaxProfile?.pay_type === 'hourly' ? moneyRound(payrollTotals.mainLabor) : grossPay
   const overtimeLabor =
-    employee?.pay_type === 'hourly' ? moneyRound(payrollTotals.overtimeLabor) : 0
+    employeeWithTaxProfile?.pay_type === 'hourly' ? moneyRound(payrollTotals.overtimeLabor) : 0
   const payPeriod = inferPayPeriod(periodStart, periodEnd)
   const ytdGrossBefore = moneyRound(priorYtdGross)
   const ytdGrossAfter = moneyRound(ytdGrossBefore + grossPay)
@@ -412,7 +418,7 @@ export function calculatePaystubDetails({
 
   const federalIncomeTax = calculateFederalIncomeTax({
     grossPay,
-    employee,
+    employee: employeeWithTaxProfile,
     payPeriod,
     isTaxExempt,
   })
@@ -423,7 +429,7 @@ export function calculatePaystubDetails({
   )
   const njStateIncomeTax = calculateNewJerseyIncomeTax({
     grossPay,
-    employee,
+    employee: employeeWithTaxProfile,
     payPeriod,
     isTaxExempt,
   })
@@ -512,9 +518,9 @@ export function calculatePaystubDetails({
       year: 2026,
       payPeriod,
       periodsPerYear: PAY_PERIODS_PER_YEAR[payPeriod] || 52,
-      federalFilingStatus: getFederalFilingStatus(employee),
-      njRateCode: getNjRateCode(employee),
-      njAllowances: Math.max(0, numberOrZero((employee || {}).nj_allowances)),
+      federalFilingStatus: getFederalFilingStatus(employeeWithTaxProfile),
+      njRateCode: getNjRateCode(employeeWithTaxProfile),
+      njAllowances: Math.max(0, numberOrZero(employeeWithTaxProfile.nj_allowances)),
       ytdGrossBefore,
       ytdGrossAfter,
       isTaxExempt,

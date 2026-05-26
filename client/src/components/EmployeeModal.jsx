@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { X, Upload, Loader2, Trash2 } from 'lucide-react'
+import { X, Upload, Loader2, Trash2, FileText } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 
 const inputClass =
@@ -79,6 +79,7 @@ export default function EmployeeModal({
 }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadError, setUploadError] = useState('')
+  const [w4Open, setW4Open] = useState(false)
 
   const [companies, setCompanies] = useState([])
   const [companySearch, setCompanySearch] = useState('')
@@ -90,6 +91,7 @@ export default function EmployeeModal({
       setUploadingPhoto(false)
       setUploadError('')
       setShowCompanyDropdown(false)
+      setW4Open(false)
     }
   }, [open])
 
@@ -288,13 +290,28 @@ export default function EmployeeModal({
             </p>
           </div>
 
-          <button
-            onClick={onClose}
-            type="button"
-            className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 transition hover:border-red-500 hover:text-white"
-          >
-            <X size={18} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setW4Open((prev) => !prev)}
+              type="button"
+              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                w4Open
+                  ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                  : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-emerald-500 hover:text-white'
+              }`}
+            >
+              <FileText size={16} />
+              W4
+            </button>
+
+            <button
+              onClick={onClose}
+              type="button"
+              className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 transition hover:border-red-500 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+          </div>
         </div>
 
         <form onSubmit={onSave} className="space-y-4 px-4 py-4 pb-10">
@@ -644,6 +661,148 @@ export default function EmployeeModal({
                   Employee will not appear in Payroll PDF / CSV.
                 </p>
               </div>
+
+              {w4Open ? (
+                <div className="md:col-span-2">
+                  <div className="mt-2 border-t border-slate-800 pt-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-emerald-300">W-4 / NJ-W4 tax setup</h3>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Defaults are Single, no credits, no extra withholding, NJ Rate A, 0 allowances.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 grid gap-3 md:grid-cols-2">
+                      <div>
+                        <label className="mb-1 block text-xs text-slate-300">Federal filing status</label>
+                        <select
+                          className={inputClass}
+                          value={form.federal_filing_status || 'single'}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, federal_filing_status: e.target.value }))
+                          }
+                        >
+                          <option value="single">Single / Married filing separately</option>
+                          <option value="married">Married filing jointly</option>
+                          <option value="headOfHousehold">Head of household</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs text-slate-300">W-4 Step 3 credits</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className={inputClass}
+                          value={form.federal_w4_step3 ?? '0'}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, federal_w4_step3: e.target.value }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs text-slate-300">W-4 Step 4(a) other income</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className={inputClass}
+                          value={form.federal_w4_step4a ?? '0'}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, federal_w4_step4a: e.target.value }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs text-slate-300">W-4 Step 4(b) deductions</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className={inputClass}
+                          value={form.federal_w4_step4b ?? '0'}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, federal_w4_step4b: e.target.value }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs text-slate-300">W-4 Step 4(c) extra withholding</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className={inputClass}
+                          value={form.federal_w4_step4c ?? '0'}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, federal_w4_step4c: e.target.value }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs text-slate-300">NJ-W4 rate</label>
+                        <select
+                          className={inputClass}
+                          value={form.nj_withholding_rate || 'A'}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, nj_withholding_rate: e.target.value }))
+                          }
+                        >
+                          <option value="A">Rate A</option>
+                          <option value="B">Rate B</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs text-slate-300">NJ allowances</label>
+                        <input
+                          type="number"
+                          step="1"
+                          min="0"
+                          className={inputClass}
+                          value={form.nj_allowances ?? '0'}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, nj_allowances: e.target.value }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <label className="mb-1 block text-xs text-slate-300">NJ additional withholding</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className={inputClass}
+                          value={form.nj_additional_withholding ?? '0'}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, nj_additional_withholding: e.target.value }))
+                          }
+                        />
+                      </div>
+
+                      <label className="flex items-center gap-2 text-sm text-slate-300 md:col-span-2">
+                        <input
+                          type="checkbox"
+                          checked={form.nj_exempt === true}
+                          onChange={(e) =>
+                            setForm((prev) => ({ ...prev, nj_exempt: e.target.checked }))
+                          }
+                          className="h-4 w-4 rounded border-slate-600 bg-[#08101c]"
+                        />
+                        NJ exempt from state income tax withholding
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
 
               <div className="mt-2 border-t border-slate-800 pt-3 md:col-span-2">
                 <h3 className="text-sm font-bold text-cyan-300">ZKT settings</h3>
