@@ -7,7 +7,7 @@ function findPoint(asset, matcher) {
   return asset?.points?.find((p) => matcher(String(p.point_code || '').toUpperCase()))
 }
 
-function getNumeric(point, fallback = 0) {
+function getNumeric(point, fallback = null) {
   const n = Number(point?.value_number)
   return Number.isFinite(n) ? n : fallback
 }
@@ -20,6 +20,26 @@ function getBoolean(point, fallback = null) {
     if (v === 'false') return false
   }
   return fallback
+}
+
+function formatNumber(value, digits = 1) {
+  return Number.isFinite(value) ? value.toFixed(digits) : '—'
+}
+
+function getLevelColor(levelPercent) {
+  if (levelPercent === null) return '#475569'
+  if (levelPercent < 10) return '#ef4444'
+  if (levelPercent < 20) return '#f59e0b'
+  if (levelPercent < 40) return '#eab308'
+  return '#22c55e'
+}
+
+function getLevelStatus(levelPercent) {
+  if (levelPercent === null) return 'NO DATA'
+  if (levelPercent < 10) return 'ALARM LOW'
+  if (levelPercent < 20) return 'LOW LEVEL'
+  if (levelPercent < 40) return 'WATCH LEVEL'
+  return 'NORMAL'
 }
 
 export default function BarrelIllustration({ asset, isMobile }) {
@@ -56,26 +76,19 @@ export default function BarrelIllustration({ asset, isMobile }) {
       code.includes('TEMP_C')
   )
 
-  const levelPercent = Math.max(0, Math.min(100, getNumeric(percentPoint, 0)))
-  const distanceM = getNumeric(distancePoint, 0)
-  const tempC = getNumeric(tempPoint, 0)
+  const rawLevelPercent = getNumeric(percentPoint)
+  const levelPercent = Number.isFinite(rawLevelPercent)
+    ? Math.max(0, Math.min(100, rawLevelPercent))
+    : null
+  const distanceM = getNumeric(distancePoint)
+  const tempC = getNumeric(tempPoint)
 
   const explicitOnline = getBoolean(onlinePoint, null)
   const online = explicitOnline ?? derivedStatus.online
 
-  const fillColor =
-    levelPercent < 10 ? '#ef4444' : levelPercent < 20 ? '#f59e0b' : levelPercent < 40 ? '#eab308' : '#22c55e'
-
-  const fillHeight = Math.max(8, (levelPercent / 100) * 240)
-
-  const statusText =
-    levelPercent < 10
-      ? 'ALARM LOW'
-      : levelPercent < 20
-        ? 'LOW LEVEL'
-        : levelPercent < 40
-          ? 'WATCH LEVEL'
-          : 'NORMAL'
+  const fillColor = getLevelColor(levelPercent)
+  const fillHeight = levelPercent === null ? 0 : Math.max(8, (levelPercent / 100) * 240)
+  const statusText = getLevelStatus(levelPercent)
 
   const metaText = online ? 'LIVE DATA' : 'OFFLINE / NO FRESH DATA'
 
@@ -219,7 +232,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
               fontSize="40"
               fontWeight="900"
             >
-              {levelPercent.toFixed(1)}%
+              {formatNumber(levelPercent)}{levelPercent === null ? '' : '%'}
             </text>
 
             <text
@@ -241,7 +254,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
               fontSize="13"
               fontWeight="700"
             >
-              T {tempC.toFixed(1)} °C
+              T {formatNumber(tempC)} °C
             </text>
 
             <text
@@ -252,7 +265,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
               fontSize="13"
               fontWeight="700"
             >
-              D {distanceM.toFixed(2)} m
+              D {formatNumber(distanceM, 2)} m
             </text>
           </svg>
         </div>
@@ -279,7 +292,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
             </div>
 
             <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900 }}>
-              {levelPercent.toFixed(1)}%
+              {formatNumber(levelPercent)}{levelPercent === null ? '' : '%'}
             </div>
           </div>
 
@@ -304,7 +317,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
             </div>
 
             <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900 }}>
-              {tempC.toFixed(1)} °C
+              {formatNumber(tempC)} °C
             </div>
           </div>
 
@@ -329,7 +342,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
             </div>
 
             <div style={{ marginTop: 8, fontSize: 30, fontWeight: 900 }}>
-              {distanceM.toFixed(2)} m
+              {formatNumber(distanceM, 2)} m
             </div>
           </div>
 

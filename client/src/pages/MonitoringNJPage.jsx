@@ -46,6 +46,20 @@ function chillerCodeSort(a, b) {
   return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
 }
 
+const NJ_BARREL_SLOTS = [
+  { code: 'BARREL-NJ-01', name: 'Material Barrel 1' },
+  { code: 'BARREL-NJ-02', name: 'Material Barrel 2' },
+]
+
+function createEmptyBarrelAsset(slot) {
+  return {
+    asset_code: slot.code,
+    asset_name: slot.name,
+    asset_type: 'barrel',
+    points: [],
+  }
+}
+
 function fmtNumber(value, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
   return Number(value).toFixed(digits)
@@ -585,6 +599,16 @@ export default function MonitoringNJPage() {
       .sort(barrelSort)
   }, [njAssets])
 
+  const barrelSlots = useMemo(() => {
+    return NJ_BARREL_SLOTS.map((slot) => {
+      const asset = barrels.find(
+        (barrel) => String(barrel.asset_code || '').toUpperCase() === slot.code
+      )
+
+      return asset || createEmptyBarrelAsset(slot)
+    })
+  }, [barrels])
+
   const selectedAsset = useMemo(() => {
     if (!oldChillers.length) return null
     return oldChillers.find((asset) => asset.asset_code === selectedAssetCode) || oldChillers[0]
@@ -656,32 +680,22 @@ export default function MonitoringNJPage() {
   }, [oldChillers, ch2Dashboard, ch3Dashboard, rawRowsCh2, rawRowsCh3])
 
   const summary = useMemo(() => {
-    const ch2Online = ch2Dashboard?.is_online ? 1 : 0
-    const ch3Online = ch3Dashboard?.is_online ? 1 : 0
+    const chillerOnline = chillersInOrder.reduce((count, item) => {
+      if (item.kind === 'ch2') return count + (ch2Dashboard?.is_online ? 1 : 0)
+      if (item.kind === 'ch3') return count + (ch3Dashboard?.is_online ? 1 : 0)
+      return count + (getAssetStatus(item.asset).online ? 1 : 0)
+    }, 0)
 
-    const oldWithoutSpecialCount = njAssets.filter((asset) => {
-      const code = String(asset.asset_code || '').toUpperCase()
-      return code !== 'CH-NJ-02' && code !== 'CH-NJ-03'
-    }).length
+    const barrelOnline = barrelSlots.filter((asset) => getAssetStatus(asset).online).length
 
-    const total =
-      oldWithoutSpecialCount +
-      (ch2Dashboard || rawRowsCh2.length ? 1 : 0) +
-      (ch3Dashboard || rawRowsCh3.length ? 1 : 0) +
-      barrels.length
-
-    const online =
-      njAssets.filter((asset) => {
-        const code = String(asset.asset_code || '').toUpperCase()
-        return code !== 'CH-NJ-02' && code !== 'CH-NJ-03' && getAssetStatus(asset).online
-      }).length +
-      ch2Online +
-      ch3Online
+    const total = chillersInOrder.length + barrelSlots.length
+    const online = chillerOnline + barrelOnline
 
     const offline = Math.max(total - online, 0)
 
-    const compressorsOnOld = njAssets
-      .flatMap((asset) => asset.points)
+    const compressorsOnOld = chillersInOrder
+      .filter((item) => item.kind === 'old')
+      .flatMap((item) => item.asset?.points || [])
       .filter((point) => {
         const group = String(point.point_group || '').toUpperCase()
         const code = String(point.point_code || '').toUpperCase()
@@ -714,7 +728,7 @@ export default function MonitoringNJPage() {
       .flatMap((asset) => asset.points)
       .find((point) => {
         const code = String(point.point_code || '').toUpperCase()
-        return code === 'BARREL1_LEVEL_PERCENT'
+        return code === 'BARREL1_LEVEL_PERCENT' || code === 'BARREL-NJ-01_LEVEL_PERCENT'
       })
 
     return {
@@ -727,7 +741,7 @@ export default function MonitoringNJPage() {
           ? null
           : Number(barrelLevelPoint.value_number),
     }
-  }, [njAssets, barrels, ch2Dashboard, ch3Dashboard, rawRowsCh2, rawRowsCh3])
+  }, [barrels, barrelSlots, chillersInOrder, ch2Dashboard, ch3Dashboard])
 
   const pagePadding = isMobile ? 12 : 16
   const mainGridColumns = isDesktop ? '1.3fr 0.9fr' : '1fr'
@@ -972,37 +986,13 @@ export default function MonitoringNJPage() {
             </div>
 
             <div style={{ display: 'grid', gap: 18 }}>
-              {barrels[0] ? (
-                <BarrelIllustration asset={barrels[0]} isMobile={isMobile} />
-              ) : (
-                <div style={statCardStyle(isMobile)}>No barrel 1 telemetry yet.</div>
-              )}
-
-              {barrels[1] ? (
-                <BarrelIllustration asset={barrels[1]} isMobile={isMobile} />
-              ) : (
-                <div style={statCardStyle(isMobile)}>
-                  <div
-                    style={{
-                      color: '#67e8f9',
-                      fontSize: 13,
-                      fontWeight: 900,
-                      letterSpacing: 1,
-                      marginBottom: 8,
-                    }}
-                  >
-                    BARREL-NJ-02
-                  </div>
-
-                  <div style={{ fontSize: 22, fontWeight: 900, marginBottom: 6 }}>
-                    Material Barrel 2
-                  </div>
-
-                  <div style={{ color: '#94a3b8', fontSize: 14 }}>
-                    Second barrel is not in telemetry yet.
-                  </div>
-                </div>
-              )}
+              {barrelSlots.map((barrel) => (
+                <BarrelIllustration
+                  key={barrel.asset_code}
+                  asset={barrel}
+                  isMobile={isMobile}
+                />
+              ))}
             </div>
           </div>
         )}
