@@ -1,94 +1,104 @@
-import React from 'react'
+import React, { Suspense, lazy } from 'react'
 import { Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 
 import ProtectedRoute from './components/ProtectedRoute'
 
-import HomePage from './pages/HomePage'
-import LoginPage from './pages/LoginPage'
-import DashboardPage from './pages/DashboardPage'
-import MonitoringPage from './pages/MonitoringPage'
-import MonitoringNJPage from './pages/MonitoringNJPage'
-import MonitoringPAPage from './pages/MonitoringPAPage'
-import EmployeesPage from './pages/EmployeesPage'
-import EmployeeDetailsPage from './pages/EmployeeDetailsPage'
-import EmployeePayStubPage from './pages/EmployeePayStubPage'
-import Chiller1HMIPage from './pages/Chiller1HMIPage'
-import Chiller2HMIPage from './pages/Chiller2HMIPage'
-import Chiller3HMIPage from './pages/Chiller3HMIPage'
-import BackupPage from './pages/BackupPage'
+const HomePage = lazy(() => import('./pages/HomePage'))
+const LoginPage = lazy(() => import('./pages/LoginPage'))
+const DashboardPage = lazy(() => import('./pages/DashboardPage'))
+const MonitoringPage = lazy(() => import('./pages/MonitoringPage'))
+const MonitoringNJPage = lazy(() => import('./pages/MonitoringNJPage'))
+const MonitoringPAPage = lazy(() => import('./pages/MonitoringPAPage'))
+const EmployeesPage = lazy(() => import('./pages/EmployeesPage'))
+const EmployeeDetailsPage = lazy(() => import('./pages/EmployeeDetailsPage'))
+const EmployeePayStubPage = lazy(() => import('./pages/EmployeePayStubPage'))
+const Chiller1HMIPage = lazy(() => import('./pages/Chiller1HMIPage'))
+const Chiller2HMIPage = lazy(() => import('./pages/Chiller2HMIPage'))
+const Chiller3HMIPage = lazy(() => import('./pages/Chiller3HMIPage'))
+const BackupPage = lazy(() => import('./pages/BackupPage'))
+
+function PageFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#020817] px-4 text-sm font-semibold text-slate-300">
+      Loading...
+    </div>
+  )
+}
 
 export default function App() {
   return (
     <AuthProvider>
-      <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<LoginPage />} />
+      <Suspense fallback={<PageFallback />}>
+        <Routes>
+          <Route path="/" element={<HomePage />} />
+          <Route path="/login" element={<LoginPage />} />
 
-        <Route path="/monitoring" element={<MonitoringPage />} />
-        <Route path="/monitoring/nj" element={<MonitoringNJPage />} />
-        <Route path="/monitoring/pa" element={<MonitoringPAPage />} />
+          <Route path="/monitoring" element={<MonitoringPage />} />
+          <Route path="/monitoring/nj" element={<MonitoringNJPage />} />
+          <Route path="/monitoring/pa" element={<MonitoringPAPage />} />
 
-        <Route
-          path="/monitoring/nj/chiller-1"
-          element={<Chiller1HMIPage />}
-        />
+          <Route
+            path="/monitoring/nj/chiller-1"
+            element={<Chiller1HMIPage />}
+          />
 
-        <Route
-          path="/monitoring/nj/chiller-2"
-          element={<Chiller2HMIPage />}
-        />
+          <Route
+            path="/monitoring/nj/chiller-2"
+            element={<Chiller2HMIPage />}
+          />
 
-        <Route
-          path="/monitoring/nj/chiller-3"
-          element={<Chiller3HMIPage />}
-        />
+          <Route
+            path="/monitoring/nj/chiller-3"
+            element={<Chiller3HMIPage />}
+          />
 
-        <Route
-          path="/dashboard"
-          element={
-            <ProtectedRoute>
-              <DashboardPage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <DashboardPage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/admin/backup"
-          element={
-            <ProtectedRoute roles={['admin']}>
-              <BackupPage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/admin/backup"
+            element={
+              <ProtectedRoute roles={['admin']}>
+                <BackupPage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/employees"
-          element={
-            <ProtectedRoute roles={['admin']}>
-              <EmployeesPage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/employees"
+            element={
+              <ProtectedRoute roles={['admin']}>
+                <EmployeesPage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/employees/:employeeId/paystub"
-          element={
-            <ProtectedRoute>
-              <EmployeePayStubPage />
-            </ProtectedRoute>
-          }
-        />
+          <Route
+            path="/employees/:employeeId/paystub"
+            element={
+              <ProtectedRoute>
+                <EmployeePayStubPage />
+              </ProtectedRoute>
+            }
+          />
 
-        <Route
-          path="/employees/:id"
-          element={
-            <ProtectedRoute>
-              <EmployeeDetailsPage />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
+          <Route
+            path="/employees/:id"
+            element={
+              <ProtectedRoute>
+                <EmployeeDetailsPage />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Suspense>
     </AuthProvider>
   )
 }
