@@ -16,6 +16,7 @@ import {
   Hash,
   CheckCircle2,
   BadgeDollarSign,
+  FileText,
   RefreshCw,
   History,
   ChevronDown,
@@ -205,11 +206,52 @@ function getDeductionNumber(value) {
   return Number.isFinite(num) ? num : 0
 }
 
+const defaultTaxProfile = {
+  federal_filing_status: 'single',
+  federal_w4_step3: '0',
+  federal_w4_step4a: '0',
+  federal_w4_step4b: '0',
+  federal_w4_step4c: '0',
+  nj_withholding_rate: 'A',
+  nj_allowances: '0',
+  nj_additional_withholding: '0',
+  nj_exempt: false,
+}
+
+function normalizeTaxProfile(profile = {}) {
+  return {
+    federal_filing_status: profile.federal_filing_status || 'single',
+    federal_w4_step3: String(profile.federal_w4_step3 ?? '0'),
+    federal_w4_step4a: String(profile.federal_w4_step4a ?? '0'),
+    federal_w4_step4b: String(profile.federal_w4_step4b ?? '0'),
+    federal_w4_step4c: String(profile.federal_w4_step4c ?? '0'),
+    nj_withholding_rate: profile.nj_withholding_rate || 'A',
+    nj_allowances: String(profile.nj_allowances ?? '0'),
+    nj_additional_withholding: String(profile.nj_additional_withholding ?? '0'),
+    nj_exempt: profile.nj_exempt === true,
+  }
+}
+
+function buildTaxProfilePayload(form, employeeId) {
+  return {
+    employee_id: employeeId,
+    federal_filing_status: form.federal_filing_status || 'single',
+    federal_w4_step3: Number(form.federal_w4_step3 || 0),
+    federal_w4_step4a: Number(form.federal_w4_step4a || 0),
+    federal_w4_step4b: Number(form.federal_w4_step4b || 0),
+    federal_w4_step4c: Number(form.federal_w4_step4c || 0),
+    nj_withholding_rate: form.nj_withholding_rate || 'A',
+    nj_allowances: Number(form.nj_allowances || 0),
+    nj_additional_withholding: Number(form.nj_additional_withholding || 0),
+    nj_exempt: form.nj_exempt === true,
+  }
+}
+
 function normalizeShiftType(value) {
   return value === 'night' ? 'night' : 'day'
 }
 
-function buildEmployeeEditForm(employee = {}) {
+function buildEmployeeEditForm(employee = {}, profile = {}) {
   return {
     employee_number: employee.employee_number ?? '',
     first_name: employee.first_name || '',
@@ -235,6 +277,8 @@ function buildEmployeeEditForm(employee = {}) {
     zkt_password: employee.zkt_password || '',
     zkt_card_number: employee.zkt_card_number ?? '',
     zkt_privilege: employee.zkt_privilege ?? '0',
+    ...defaultTaxProfile,
+    ...normalizeTaxProfile(profile),
   }
 }
 
@@ -482,6 +526,7 @@ export default function EmployeeDetailsPage() {
   const [printPayDate, setPrintPayDate] = useState(toLocalDateString(new Date()))
   const [editEmployeeOpen, setEditEmployeeOpen] = useState(false)
   const [editEmployeeForm, setEditEmployeeForm] = useState(() => buildEmployeeEditForm())
+  const [editEmployeeW4Open, setEditEmployeeW4Open] = useState(false)
   const [savingEmployee, setSavingEmployee] = useState(false)
 
   const [loading, setLoading] = useState(true)
@@ -669,7 +714,8 @@ export default function EmployeeDetailsPage() {
   function openEditEmployeeModal() {
     setError('')
     setSuccess('')
-    setEditEmployeeForm(buildEmployeeEditForm(employee || {}))
+    setEditEmployeeForm(buildEmployeeEditForm(employee || {}, taxProfile || {}))
+    setEditEmployeeW4Open(false)
     setEditEmployeeOpen(true)
   }
 
@@ -770,7 +816,19 @@ export default function EmployeeDetailsPage() {
 
       if (updateError) throw updateError
 
+      const taxPayload = buildTaxProfilePayload(editEmployeeForm, employee.id)
+      const { data: savedTaxProfile, error: taxProfileError } = await supabase
+        .from('employee_tax_profiles')
+        .upsert(taxPayload, {
+          onConflict: 'employee_id',
+        })
+        .select('*')
+        .single()
+
+      if (taxProfileError) throw taxProfileError
+
       setEmployee((prev) => ({ ...(prev || {}), ...(data || payload) }))
+      setTaxProfile(savedTaxProfile || taxPayload)
       setEditEmployeeOpen(false)
       setSuccess('Employee details saved')
     } catch (err) {
@@ -2563,6 +2621,151 @@ export default function EmployeeDetailsPage() {
                       <option value="false">No downtime / always 0</option>
                     </select>
                   </div>
+                </div>
+
+                <div className="border-t border-slate-800 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditEmployeeW4Open((prev) => !prev)}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                      editEmployeeW4Open
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                        : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-emerald-500 hover:text-white'
+                    }`}
+                  >
+                    <FileText size={16} />
+                    W4
+                    {editEmployeeW4Open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  </button>
+
+                  {editEmployeeW4Open ? (
+                    <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-emerald-300">W-4 / NJ-W4 tax setup</h3>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Defaults are Single, no credits, no extra withholding, NJ Rate A, 0 allowances.
+                        </p>
+                      </div>
+
+                      <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">Federal filing status</label>
+                          <select
+                            value={editEmployeeForm.federal_filing_status || 'single'}
+                            onChange={(e) => updateEditEmployeeForm('federal_filing_status', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          >
+                            <option value="single">Single / Married filing separately</option>
+                            <option value="married">Married filing jointly</option>
+                            <option value="headOfHousehold">Head of household</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">W-4 Step 3 credits</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editEmployeeForm.federal_w4_step3 ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('federal_w4_step3', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">W-4 Step 4(a) other income</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editEmployeeForm.federal_w4_step4a ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('federal_w4_step4a', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">W-4 Step 4(b) deductions</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editEmployeeForm.federal_w4_step4b ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('federal_w4_step4b', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">W-4 Step 4(c) extra withholding</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editEmployeeForm.federal_w4_step4c ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('federal_w4_step4c', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">NJ-W4 rate</label>
+                          <select
+                            value={editEmployeeForm.nj_withholding_rate || 'A'}
+                            onChange={(e) => updateEditEmployeeForm('nj_withholding_rate', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          >
+                            <option value="A">Rate A</option>
+                            <option value="B">Rate B</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">NJ allowances</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={editEmployeeForm.nj_allowances ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('nj_allowances', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">NJ additional withholding</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editEmployeeForm.nj_additional_withholding ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('nj_additional_withholding', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <label className="flex items-center gap-2 text-sm text-slate-300 md:col-span-2 lg:col-span-3">
+                          <input
+                            type="checkbox"
+                            checked={editEmployeeForm.nj_exempt === true}
+                            onChange={(e) => updateEditEmployeeForm('nj_exempt', e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-600 bg-[#08101c]"
+                            disabled={savingEmployee}
+                          />
+                          NJ exempt from state income tax withholding
+                        </label>
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="border-t border-slate-800 pt-4">
