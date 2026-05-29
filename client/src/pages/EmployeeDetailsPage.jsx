@@ -7,17 +7,21 @@ import {
   CalendarDays,
   Clock3,
   DollarSign,
+  Edit3,
   Plus,
   Printer,
+  Save,
   Trash2,
   Wallet,
   Hash,
   CheckCircle2,
   BadgeDollarSign,
+  FileText,
   RefreshCw,
   History,
   ChevronDown,
   ChevronUp,
+  Loader2,
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -200,6 +204,82 @@ function rowHasWorkData(row) {
 function getDeductionNumber(value) {
   const num = Number(value || 0)
   return Number.isFinite(num) ? num : 0
+}
+
+const defaultTaxProfile = {
+  federal_filing_status: 'single',
+  federal_w4_step3: '0',
+  federal_w4_step4a: '0',
+  federal_w4_step4b: '0',
+  federal_w4_step4c: '0',
+  nj_withholding_rate: 'A',
+  nj_allowances: '0',
+  nj_additional_withholding: '0',
+  nj_exempt: false,
+}
+
+function normalizeTaxProfile(profile = {}) {
+  return {
+    federal_filing_status: profile.federal_filing_status || 'single',
+    federal_w4_step3: String(profile.federal_w4_step3 ?? '0'),
+    federal_w4_step4a: String(profile.federal_w4_step4a ?? '0'),
+    federal_w4_step4b: String(profile.federal_w4_step4b ?? '0'),
+    federal_w4_step4c: String(profile.federal_w4_step4c ?? '0'),
+    nj_withholding_rate: profile.nj_withholding_rate || 'A',
+    nj_allowances: String(profile.nj_allowances ?? '0'),
+    nj_additional_withholding: String(profile.nj_additional_withholding ?? '0'),
+    nj_exempt: profile.nj_exempt === true,
+  }
+}
+
+function buildTaxProfilePayload(form, employeeId) {
+  return {
+    employee_id: employeeId,
+    federal_filing_status: form.federal_filing_status || 'single',
+    federal_w4_step3: Number(form.federal_w4_step3 || 0),
+    federal_w4_step4a: Number(form.federal_w4_step4a || 0),
+    federal_w4_step4b: Number(form.federal_w4_step4b || 0),
+    federal_w4_step4c: Number(form.federal_w4_step4c || 0),
+    nj_withholding_rate: form.nj_withholding_rate || 'A',
+    nj_allowances: Number(form.nj_allowances || 0),
+    nj_additional_withholding: Number(form.nj_additional_withholding || 0),
+    nj_exempt: form.nj_exempt === true,
+  }
+}
+
+function normalizeShiftType(value) {
+  return value === 'night' ? 'night' : 'day'
+}
+
+function buildEmployeeEditForm(employee = {}, profile = {}) {
+  return {
+    employee_number: employee.employee_number ?? '',
+    first_name: employee.first_name || '',
+    last_name: employee.last_name || '',
+    phone: employee.phone || '',
+    email: employee.email || '',
+    position: employee.position || 'worker',
+    pay_type: employee.pay_type || 'hourly',
+    hourly_rate: employee.hourly_rate ?? '',
+    monthly_salary: employee.monthly_salary ?? '',
+    overtime_enabled: employee.overtime_enabled === true,
+    downtime_enabled: employee.downtime_enabled !== false,
+    shift_type: normalizeShiftType(employee.shift_type),
+    active: employee.active !== false,
+    exclude_from_payroll_report: employee.exclude_from_payroll_report === true,
+    hire_date: employee.hire_date || '',
+    employer_form: employee.employer_form || 'W2',
+    company_id: employee.company_id || null,
+    company_name: employee.company_name || '',
+    zkt_enabled: employee.zkt_enabled !== false,
+    zkt_user_id: employee.zkt_user_id ?? employee.employee_number ?? '',
+    zkt_name: employee.zkt_name || '',
+    zkt_password: employee.zkt_password || '',
+    zkt_card_number: employee.zkt_card_number ?? '',
+    zkt_privilege: employee.zkt_privilege ?? '0',
+    ...defaultTaxProfile,
+    ...normalizeTaxProfile(profile),
+  }
 }
 
 function buildEmptyRow(downtimeEnabled = true) {
@@ -444,6 +524,10 @@ export default function EmployeeDetailsPage() {
   const [printCheckNumber, setPrintCheckNumber] = useState(null)
   const [printCheckStatus, setPrintCheckStatus] = useState(null)
   const [printPayDate, setPrintPayDate] = useState(toLocalDateString(new Date()))
+  const [editEmployeeOpen, setEditEmployeeOpen] = useState(false)
+  const [editEmployeeForm, setEditEmployeeForm] = useState(() => buildEmployeeEditForm())
+  const [editEmployeeW4Open, setEditEmployeeW4Open] = useState(false)
+  const [savingEmployee, setSavingEmployee] = useState(false)
 
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -466,6 +550,9 @@ export default function EmployeeDetailsPage() {
   const [water, setWater] = useState('0')
   const [clean, setClean] = useState('0')
   const [transport, setTransport] = useState('0')
+
+  const employeeEditInput =
+    'w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500 disabled:cursor-not-allowed disabled:opacity-60'
 
   useEffect(() => {
     loadPage()
@@ -622,6 +709,134 @@ export default function EmployeeDetailsPage() {
     const range = getPayrollWeekRange(mode)
     setPeriodStart(range.start)
     setPeriodEnd(range.end)
+  }
+
+  function openEditEmployeeModal() {
+    setError('')
+    setSuccess('')
+    setEditEmployeeForm(buildEmployeeEditForm(employee || {}, taxProfile || {}))
+    setEditEmployeeW4Open(false)
+    setEditEmployeeOpen(true)
+  }
+
+  function closeEditEmployeeModal() {
+    if (savingEmployee) return
+    setEditEmployeeOpen(false)
+  }
+
+  function updateEditEmployeeForm(field, value) {
+    setEditEmployeeForm((prev) => ({ ...prev, [field]: value }))
+  }
+
+  async function handleSaveEmployeeDetails(event) {
+    event.preventDefault()
+
+    if (!employee?.id) return
+
+    if (editEmployeeForm.employee_number === '' || Number.isNaN(Number(editEmployeeForm.employee_number))) {
+      setError('Employee number is required')
+      return
+    }
+
+    if (!String(editEmployeeForm.first_name || '').trim()) {
+      setError('First name is required')
+      return
+    }
+
+    if (editEmployeeForm.zkt_enabled && editEmployeeForm.zkt_user_id === '') {
+      setError('ZKT user ID is required when ZKT is enabled')
+      return
+    }
+
+    try {
+      setSavingEmployee(true)
+      setError('')
+      setSuccess('')
+
+      const firstName = String(editEmployeeForm.first_name || '').trim()
+      const lastName = String(editEmployeeForm.last_name || '').trim()
+      const fullEmployeeName = `${firstName} ${lastName}`.trim()
+      const payType = editEmployeeForm.pay_type || 'hourly'
+
+      const payload = {
+        employee_number: Number(editEmployeeForm.employee_number),
+        first_name: firstName,
+        last_name: lastName || null,
+        phone: String(editEmployeeForm.phone || '').trim() || null,
+        email: String(editEmployeeForm.email || '').trim() || null,
+        position: String(editEmployeeForm.position || '').trim() || 'worker',
+        pay_type: payType,
+        hourly_rate:
+          payType === 'hourly' && editEmployeeForm.hourly_rate !== ''
+            ? Number(editEmployeeForm.hourly_rate)
+            : null,
+        monthly_salary:
+          (payType === 'monthly' || payType === 'one_time') &&
+          editEmployeeForm.monthly_salary !== ''
+            ? Number(editEmployeeForm.monthly_salary)
+            : null,
+        overtime_enabled: editEmployeeForm.overtime_enabled === true,
+        downtime_enabled: editEmployeeForm.downtime_enabled !== false,
+        shift_type: normalizeShiftType(editEmployeeForm.shift_type),
+        active: editEmployeeForm.active !== false,
+        exclude_from_payroll_report: editEmployeeForm.exclude_from_payroll_report === true,
+        hire_date: editEmployeeForm.hire_date || null,
+        employer_form: editEmployeeForm.employer_form || null,
+        company_id:
+          editEmployeeForm.employer_form === 'Other'
+            ? editEmployeeForm.company_id || null
+            : null,
+        company_name:
+          editEmployeeForm.employer_form === 'Other'
+            ? String(editEmployeeForm.company_name || '').trim() || null
+            : null,
+        zkt_enabled: editEmployeeForm.zkt_enabled !== false,
+        zkt_user_id:
+          editEmployeeForm.zkt_user_id !== ''
+            ? Number(editEmployeeForm.zkt_user_id)
+            : Number(editEmployeeForm.employee_number),
+        zkt_name: String(editEmployeeForm.zkt_name || '').trim() || fullEmployeeName.slice(0, 24),
+        zkt_password: String(editEmployeeForm.zkt_password || '').trim() || null,
+        zkt_card_number:
+          editEmployeeForm.zkt_card_number !== ''
+            ? Number(editEmployeeForm.zkt_card_number)
+            : null,
+        zkt_privilege:
+          editEmployeeForm.zkt_privilege !== ''
+            ? Number(editEmployeeForm.zkt_privilege)
+            : 0,
+      }
+
+      const { data, error: updateError } = await supabase
+        .from('employees')
+        .update(payload)
+        .eq('id', employee.id)
+        .select('*')
+        .single()
+
+      if (updateError) throw updateError
+
+      const taxPayload = buildTaxProfilePayload(editEmployeeForm, employee.id)
+      const { data: savedTaxProfile, error: taxProfileError } = await supabase
+        .from('employee_tax_profiles')
+        .upsert(taxPayload, {
+          onConflict: 'employee_id',
+        })
+        .select('*')
+        .single()
+
+      if (taxProfileError) throw taxProfileError
+
+      setEmployee((prev) => ({ ...(prev || {}), ...(data || payload) }))
+      setTaxProfile(savedTaxProfile || taxPayload)
+      setEditEmployeeOpen(false)
+      setSuccess('Employee details saved')
+    } catch (err) {
+      console.error('handleSaveEmployeeDetails error:', err)
+      setError(err.message || 'Failed to save employee details')
+    } finally {
+      setSavingEmployee(false)
+    }
   }
 
   function updatePeriodDateInput(field, displayValue) {
@@ -1517,7 +1732,17 @@ export default function EmployeeDetailsPage() {
                   </div>
 
                   <div>
-                    <h1 className="text-2xl font-bold text-white">{fullName}</h1>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h1 className="text-2xl font-bold text-white">{fullName}</h1>
+                      <button
+                        type="button"
+                        onClick={openEditEmployeeModal}
+                        className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20"
+                      >
+                        <Edit3 size={15} />
+                        Edit
+                      </button>
+                    </div>
                     <p className="mt-1 text-sm text-slate-400">
                       Payroll card. Default period is last week, Monday → Sunday.
                     </p>
@@ -2190,6 +2415,440 @@ export default function EmployeeDetailsPage() {
             </div>
           </div>
         )}
+
+        {editEmployeeOpen ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-3 py-4 backdrop-blur-sm no-print">
+            <div className="max-h-[95vh] w-full max-w-5xl overflow-y-auto rounded-2xl border border-slate-700 bg-[#07111f] shadow-2xl">
+              <div className="flex items-center justify-between border-b border-slate-800 px-4 py-3">
+                <div>
+                  <h2 className="text-lg font-bold text-white">Edit employee</h2>
+                  <p className="mt-0.5 text-xs text-slate-400">
+                    Update worker information without leaving payroll details.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeEditEmployeeModal}
+                  disabled={savingEmployee}
+                  className="rounded-lg border border-slate-700 bg-slate-900 p-2 text-slate-300 transition hover:border-red-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSaveEmployeeDetails} className="space-y-4 px-4 py-4 pb-6">
+                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Employee number</label>
+                    <input
+                      type="number"
+                      value={editEmployeeForm.employee_number}
+                      onChange={(e) => updateEditEmployeeForm('employee_number', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">First name</label>
+                    <input
+                      value={editEmployeeForm.first_name}
+                      onChange={(e) => updateEditEmployeeForm('first_name', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Last name</label>
+                    <input
+                      value={editEmployeeForm.last_name}
+                      onChange={(e) => updateEditEmployeeForm('last_name', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Phone</label>
+                    <input
+                      value={editEmployeeForm.phone}
+                      onChange={(e) => updateEditEmployeeForm('phone', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Email</label>
+                    <input
+                      type="email"
+                      value={editEmployeeForm.email}
+                      onChange={(e) => updateEditEmployeeForm('email', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Position</label>
+                    <input
+                      value={editEmployeeForm.position}
+                      onChange={(e) => updateEditEmployeeForm('position', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Hire date</label>
+                    <input
+                      type="date"
+                      value={editEmployeeForm.hire_date}
+                      onChange={(e) => updateEditEmployeeForm('hire_date', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    />
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Pay type</label>
+                    <select
+                      value={editEmployeeForm.pay_type}
+                      onChange={(e) => updateEditEmployeeForm('pay_type', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    >
+                      <option value="hourly">Hourly</option>
+                      <option value="monthly">Monthly fixed</option>
+                      <option value="one_time">One-time</option>
+                    </select>
+                  </div>
+
+                  {editEmployeeForm.pay_type === 'hourly' ? (
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-300">Hourly rate</label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editEmployeeForm.hourly_rate}
+                        onChange={(e) => updateEditEmployeeForm('hourly_rate', e.target.value)}
+                        className={employeeEditInput}
+                        disabled={savingEmployee}
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-300">
+                        {editEmployeeForm.pay_type === 'monthly' ? 'Monthly salary' : 'One-time amount'}
+                      </label>
+                      <input
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={editEmployeeForm.monthly_salary}
+                        onChange={(e) => updateEditEmployeeForm('monthly_salary', e.target.value)}
+                        className={employeeEditInput}
+                        disabled={savingEmployee}
+                      />
+                    </div>
+                  )}
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Employer form</label>
+                    <select
+                      value={editEmployeeForm.employer_form}
+                      onChange={(e) => updateEditEmployeeForm('employer_form', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    >
+                      <option value="W2">W2</option>
+                      <option value="1099">1099</option>
+                      <option value="Cash">Cash</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+
+                  {editEmployeeForm.employer_form === 'Other' ? (
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-300">Company name</label>
+                      <input
+                        value={editEmployeeForm.company_name}
+                        onChange={(e) => updateEditEmployeeForm('company_name', e.target.value)}
+                        className={employeeEditInput}
+                        disabled={savingEmployee}
+                      />
+                    </div>
+                  ) : null}
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Shift</label>
+                    <select
+                      value={normalizeShiftType(editEmployeeForm.shift_type)}
+                      onChange={(e) => updateEditEmployeeForm('shift_type', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    >
+                      <option value="day">DAY 7 AM to 7 PM</option>
+                      <option value="night">NIGHT 7 PM to 7 AM</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Overtime</label>
+                    <select
+                      value={editEmployeeForm.overtime_enabled ? 'true' : 'false'}
+                      onChange={(e) => updateEditEmployeeForm('overtime_enabled', e.target.value === 'true')}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    >
+                      <option value="false">No overtime</option>
+                      <option value="true">With overtime</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Downtime</label>
+                    <select
+                      value={editEmployeeForm.downtime_enabled ? 'true' : 'false'}
+                      onChange={(e) => updateEditEmployeeForm('downtime_enabled', e.target.value === 'true')}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    >
+                      <option value="true">Downtime enabled</option>
+                      <option value="false">No downtime / always 0</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-800 pt-4">
+                  <button
+                    type="button"
+                    onClick={() => setEditEmployeeW4Open((prev) => !prev)}
+                    className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-semibold transition ${
+                      editEmployeeW4Open
+                        ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                        : 'border-slate-700 bg-slate-900 text-slate-300 hover:border-emerald-500 hover:text-white'
+                    }`}
+                  >
+                    <FileText size={16} />
+                    W4
+                    {editEmployeeW4Open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
+                  </button>
+
+                  {editEmployeeW4Open ? (
+                    <div className="mt-3 rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3">
+                      <div>
+                        <h3 className="text-sm font-bold text-emerald-300">W-4 / NJ-W4 tax setup</h3>
+                        <p className="mt-1 text-[11px] text-slate-500">
+                          Defaults are Single, no credits, no extra withholding, NJ Rate A, 0 allowances.
+                        </p>
+                      </div>
+
+                      <div className="mt-3 grid gap-3 md:grid-cols-2 lg:grid-cols-3">
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">Federal filing status</label>
+                          <select
+                            value={editEmployeeForm.federal_filing_status || 'single'}
+                            onChange={(e) => updateEditEmployeeForm('federal_filing_status', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          >
+                            <option value="single">Single / Married filing separately</option>
+                            <option value="married">Married filing jointly</option>
+                            <option value="headOfHousehold">Head of household</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">W-4 Step 3 credits</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editEmployeeForm.federal_w4_step3 ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('federal_w4_step3', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">W-4 Step 4(a) other income</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editEmployeeForm.federal_w4_step4a ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('federal_w4_step4a', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">W-4 Step 4(b) deductions</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editEmployeeForm.federal_w4_step4b ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('federal_w4_step4b', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">W-4 Step 4(c) extra withholding</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editEmployeeForm.federal_w4_step4c ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('federal_w4_step4c', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">NJ-W4 rate</label>
+                          <select
+                            value={editEmployeeForm.nj_withholding_rate || 'A'}
+                            onChange={(e) => updateEditEmployeeForm('nj_withholding_rate', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          >
+                            <option value="A">Rate A</option>
+                            <option value="B">Rate B</option>
+                          </select>
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">NJ allowances</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={editEmployeeForm.nj_allowances ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('nj_allowances', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <div>
+                          <label className="mb-1 block text-xs text-slate-300">NJ additional withholding</label>
+                          <input
+                            type="number"
+                            min="0"
+                            step="0.01"
+                            value={editEmployeeForm.nj_additional_withholding ?? '0'}
+                            onChange={(e) => updateEditEmployeeForm('nj_additional_withholding', e.target.value)}
+                            className={employeeEditInput}
+                            disabled={savingEmployee}
+                          />
+                        </div>
+
+                        <label className="flex items-center gap-2 text-sm text-slate-300 md:col-span-2 lg:col-span-3">
+                          <input
+                            type="checkbox"
+                            checked={editEmployeeForm.nj_exempt === true}
+                            onChange={(e) => updateEditEmployeeForm('nj_exempt', e.target.checked)}
+                            className="h-4 w-4 rounded border-slate-600 bg-[#08101c]"
+                            disabled={savingEmployee}
+                          />
+                          NJ exempt from state income tax withholding
+                        </label>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+
+                <div className="border-t border-slate-800 pt-4">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-white">
+                    <Hash size={15} />
+                    ZKT settings
+                  </div>
+
+                  <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-300">ZKT enabled</label>
+                      <select
+                        value={editEmployeeForm.zkt_enabled ? 'true' : 'false'}
+                        onChange={(e) => updateEditEmployeeForm('zkt_enabled', e.target.value === 'true')}
+                        className={employeeEditInput}
+                        disabled={savingEmployee}
+                      >
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-300">ZKT user ID</label>
+                      <input
+                        type="number"
+                        value={editEmployeeForm.zkt_user_id}
+                        onChange={(e) => updateEditEmployeeForm('zkt_user_id', e.target.value)}
+                        className={employeeEditInput}
+                        disabled={savingEmployee}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-300">ZKT name</label>
+                      <input
+                        value={editEmployeeForm.zkt_name}
+                        onChange={(e) => updateEditEmployeeForm('zkt_name', e.target.value)}
+                        className={employeeEditInput}
+                        disabled={savingEmployee}
+                      />
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs text-slate-300">Card number</label>
+                      <input
+                        type="number"
+                        value={editEmployeeForm.zkt_card_number}
+                        onChange={(e) => updateEditEmployeeForm('zkt_card_number', e.target.value)}
+                        className={employeeEditInput}
+                        disabled={savingEmployee}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap justify-end gap-2 border-t border-slate-800 pt-4">
+                  <button
+                    type="button"
+                    onClick={closeEditEmployeeModal}
+                    disabled={savingEmployee}
+                    className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-slate-300 transition hover:border-slate-500 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={savingEmployee}
+                    className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {savingEmployee ? (
+                      <Loader2 size={16} className="animate-spin" />
+                    ) : (
+                      <Save size={16} />
+                    )}
+                    {savingEmployee ? 'Saving...' : 'Save changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        ) : null}
 
         <PrintPreviewModal
           open={printModalOpen}
