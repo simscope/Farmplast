@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { flushSync } from 'react-dom'
 import { createRoot } from 'react-dom/client'
@@ -455,6 +455,10 @@ export default function EmployeeDetailsPage() {
   const [periodMode, setPeriodMode] = useState('last')
   const [periodStart, setPeriodStart] = useState(defaultPayrollPeriod.start)
   const [periodEnd, setPeriodEnd] = useState(defaultPayrollPeriod.end)
+  const [periodStartDisplay, setPeriodStartDisplay] = useState(formatDateInputUS(defaultPayrollPeriod.start))
+  const [periodEndDisplay, setPeriodEndDisplay] = useState(formatDateInputUS(defaultPayrollPeriod.end))
+  const periodStartPickerRef = useRef(null)
+  const periodEndPickerRef = useRef(null)
 
   const [employeeTax, setEmployeeTax] = useState('0')
   const [rent, setRent] = useState('0')
@@ -470,6 +474,14 @@ export default function EmployeeDetailsPage() {
   useEffect(() => {
     loadDeductionsForPeriod()
   }, [id, periodStart, periodEnd])
+
+  useEffect(() => {
+    setPeriodStartDisplay(formatDateInputUS(periodStart))
+  }, [periodStart])
+
+  useEffect(() => {
+    setPeriodEndDisplay(formatDateInputUS(periodEnd))
+  }, [periodEnd])
 
   async function loadDeductionsForPeriod() {
     try {
@@ -610,6 +622,65 @@ export default function EmployeeDetailsPage() {
     const range = getPayrollWeekRange(mode)
     setPeriodStart(range.start)
     setPeriodEnd(range.end)
+  }
+
+  function updatePeriodDateInput(field, displayValue) {
+    const parsedDate = parseUSDateInput(displayValue)
+
+    setPeriodMode('custom')
+
+    if (field === 'start') {
+      setPeriodStartDisplay(displayValue)
+      if (parsedDate) setPeriodStart(parsedDate)
+      return
+    }
+
+    setPeriodEndDisplay(displayValue)
+    if (parsedDate) setPeriodEnd(parsedDate)
+  }
+
+  function finishPeriodDateInput(field) {
+    const displayValue = field === 'start' ? periodStartDisplay : periodEndDisplay
+    const currentValue = field === 'start' ? periodStart : periodEnd
+    const setDisplayValue = field === 'start' ? setPeriodStartDisplay : setPeriodEndDisplay
+    const parsedDate = parseUSDateInput(displayValue)
+
+    if (parsedDate) {
+      if (field === 'start') setPeriodStart(parsedDate)
+      else setPeriodEnd(parsedDate)
+      setDisplayValue(formatDateInputUS(parsedDate))
+      return
+    }
+
+    setDisplayValue(formatDateInputUS(currentValue))
+  }
+
+  function updatePeriodDateFromPicker(field, value) {
+    if (!value) return
+
+    setPeriodMode('custom')
+
+    if (field === 'start') {
+      setPeriodStart(value)
+      setPeriodStartDisplay(formatDateInputUS(value))
+      return
+    }
+
+    setPeriodEnd(value)
+    setPeriodEndDisplay(formatDateInputUS(value))
+  }
+
+  function openPeriodDatePicker(ref) {
+    const picker = ref.current
+    if (!picker) return
+
+    if (typeof picker.showPicker === 'function') {
+      picker.showPicker()
+      return
+    }
+
+    picker.focus()
+    picker.click()
   }
 
   function addRow() {
@@ -1529,34 +1600,68 @@ export default function EmployeeDetailsPage() {
               <div className="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-8">
                 <div>
                   <label className="mb-1 block text-xs text-slate-300">Period start</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="MM/DD/YYYY"
-                    value={formatDateInputUS(periodStart)}
-                    onFocus={() => setPeriodMode('custom')}
-                    onChange={(e) => {
-                      const parsedDate = parseUSDateInput(e.target.value)
-                      if (parsedDate) setPeriodStart(parsedDate)
-                    }}
-                    className={darkInput}
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="MM/DD/YYYY"
+                      value={periodStartDisplay}
+                      onFocus={() => setPeriodMode('custom')}
+                      onChange={(e) => updatePeriodDateInput('start', e.target.value)}
+                      onBlur={() => finishPeriodDateInput('start')}
+                      className={`${darkInput} pr-10`}
+                    />
+                    <input
+                      ref={periodStartPickerRef}
+                      type="date"
+                      value={periodStart || ''}
+                      onChange={(e) => updatePeriodDateFromPicker('start', e.target.value)}
+                      className="sr-only"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => openPeriodDatePicker(periodStartPickerRef)}
+                      className="absolute inset-y-1 right-1 inline-flex w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-800 hover:text-cyan-300"
+                      aria-label="Choose period start date"
+                    >
+                      <CalendarDays size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 <div>
                   <label className="mb-1 block text-xs text-slate-300">Period end</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="MM/DD/YYYY"
-                    value={formatDateInputUS(periodEnd)}
-                    onFocus={() => setPeriodMode('custom')}
-                    onChange={(e) => {
-                      const parsedDate = parseUSDateInput(e.target.value)
-                      if (parsedDate) setPeriodEnd(parsedDate)
-                    }}
-                    className={darkInput}
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      inputMode="numeric"
+                      placeholder="MM/DD/YYYY"
+                      value={periodEndDisplay}
+                      onFocus={() => setPeriodMode('custom')}
+                      onChange={(e) => updatePeriodDateInput('end', e.target.value)}
+                      onBlur={() => finishPeriodDateInput('end')}
+                      className={`${darkInput} pr-10`}
+                    />
+                    <input
+                      ref={periodEndPickerRef}
+                      type="date"
+                      value={periodEnd || ''}
+                      onChange={(e) => updatePeriodDateFromPicker('end', e.target.value)}
+                      className="sr-only"
+                      tabIndex={-1}
+                      aria-hidden="true"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => openPeriodDatePicker(periodEndPickerRef)}
+                      className="absolute inset-y-1 right-1 inline-flex w-8 items-center justify-center rounded-md text-slate-400 transition hover:bg-slate-800 hover:text-cyan-300"
+                      aria-label="Choose period end date"
+                    >
+                      <CalendarDays size={16} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
