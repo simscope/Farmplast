@@ -70,6 +70,16 @@ function fmtNumber(value, digits = 1) {
   return Number(value).toFixed(digits)
 }
 
+function getBarrelLevel(asset) {
+  const point = asset?.points?.find((p) => {
+    const code = String(p.point_code || '').toUpperCase()
+    return code.includes('LEVEL_PERCENT') || code.includes('PERCENT')
+  })
+
+  const value = Number(point?.value_number)
+  return Number.isFinite(value) ? value : null
+}
+
 function getDashboardSetpoint(row, rawRows = []) {
   const rawRow = Array.isArray(rawRows)
     ? rawRows.find((r) => Number(r?.raw_register) === 40023)
@@ -734,24 +744,14 @@ export default function MonitoringNJPage() {
       (ch3Dashboard?.comp_2b_enabled ? 1 : 0) +
       (ch3Dashboard?.comp_2c_enabled ? 1 : 0)
 
-    const barrelLevelPoint = barrels
-      .flatMap((asset) => asset.points)
-      .find((point) => {
-        const code = String(point.point_code || '').toUpperCase()
-        return code === 'BARREL1_LEVEL_PERCENT' || code === 'BARREL-NJ-01_LEVEL_PERCENT'
-      })
-
     return {
       total,
       online,
       offline,
       compressorsOn: compressorsOnOld + compressorsOnCh2 + compressorsOnCh3,
-      barrelLevel:
-        barrelLevelPoint?.value_number === null || barrelLevelPoint?.value_number === undefined
-          ? null
-          : Number(barrelLevelPoint.value_number),
+      barrelLevels: barrelSlots.map((asset) => getBarrelLevel(asset)),
     }
-  }, [barrels, barrelSlots, chillersInOrder, ch2Dashboard, ch3Dashboard])
+  }, [barrelSlots, chillersInOrder, ch2Dashboard, ch3Dashboard])
 
   const pagePadding = isMobile ? 12 : 16
   const mainGridColumns = isDesktop ? '1.3fr 0.9fr' : '1fr'
@@ -759,7 +759,7 @@ export default function MonitoringNJPage() {
     ? 'repeat(2, minmax(0, 1fr))'
     : isTablet
       ? 'repeat(3, minmax(0, 1fr))'
-      : 'repeat(5, minmax(120px, 1fr))'
+      : 'repeat(6, minmax(120px, 1fr))'
 
   function handleChillerSelect(asset) {
     const code = String(asset?.asset_code || '').toUpperCase()
@@ -848,7 +848,7 @@ export default function MonitoringNJPage() {
               display: 'grid',
               gridTemplateColumns: summaryColumns,
               gap: 10,
-              width: isDesktop ? 'min(100%, 820px)' : '100%',
+              width: isDesktop ? 'min(100%, 980px)' : '100%',
               minWidth: 0,
             }}
           >
@@ -902,7 +902,7 @@ export default function MonitoringNJPage() {
             </div>
 
             <div style={statCardStyle(isMobile)}>
-              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>BARREL</div>
+              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>BARREL 1</div>
               <div
                 style={{
                   marginTop: 4,
@@ -911,9 +911,25 @@ export default function MonitoringNJPage() {
                   color: '#facc15',
                 }}
               >
-                {summary.barrelLevel === null || Number.isNaN(summary.barrelLevel)
-                  ? '—'
-                  : `${summary.barrelLevel.toFixed(0)}%`}
+                {!Number.isFinite(summary.barrelLevels[0])
+                  ? '--'
+                  : `${summary.barrelLevels[0].toFixed(0)}%`}
+              </div>
+            </div>
+
+            <div style={statCardStyle(isMobile)}>
+              <div style={{ color: '#64748b', fontSize: 11, fontWeight: 900 }}>BARREL 2</div>
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: isMobile ? 24 : 30,
+                  fontWeight: 900,
+                  color: '#facc15',
+                }}
+              >
+                {!Number.isFinite(summary.barrelLevels[1])
+                  ? '--'
+                  : `${summary.barrelLevels[1].toFixed(0)}%`}
               </div>
             </div>
           </div>
