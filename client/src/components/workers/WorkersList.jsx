@@ -109,8 +109,8 @@ export default function WorkersList({
           </div>
         ) : (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
-            <div className="min-w-[1870px]">
-              <div className="grid grid-cols-[70px_230px_150px_170px_110px_100px_180px_110px_120px_110px_360px_160px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+            <div className="min-w-[1900px]">
+              <div className="grid grid-cols-[70px_30px_230px_150px_170px_110px_100px_180px_110px_120px_110px_360px_160px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                 <button
                   type="button"
                   onClick={() => handleEmployeeSort('number')}
@@ -120,6 +120,13 @@ export default function WorkersList({
                   No.
                   <SortIcon field="number" employeeSort={employeeSort} />
                 </button>
+                <div
+                  className="flex items-center justify-center"
+                  title="Excluded from payroll report"
+                  aria-label="Excluded from payroll report"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-rose-400/70" />
+                </div>
                 <button
                   type="button"
                   onClick={() => handleEmployeeSort('name')}
@@ -157,10 +164,22 @@ export default function WorkersList({
                 filteredEmployees.map((employee) => (
                   <div
                     key={employee.id}
-                    className="grid grid-cols-[70px_230px_150px_170px_110px_100px_180px_110px_120px_110px_360px_160px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
+                    className="grid grid-cols-[70px_30px_230px_150px_170px_110px_100px_180px_110px_120px_110px_360px_160px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
                   >
                     <div className="font-semibold text-cyan-300">
                       {employee.employee_number ?? 'вЂ”'}
+                    </div>
+
+                    <div className="flex items-center justify-center">
+                      {employee.exclude_from_payroll_report ? (
+                        <span
+                          className="h-2 w-2 rounded-full bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.75)]"
+                          title="Excluded from payroll report"
+                          aria-label="Excluded from payroll report"
+                        />
+                      ) : (
+                        <span className="h-2 w-2" aria-hidden="true" />
+                      )}
                     </div>
 
                     <div className="flex min-w-0 items-center gap-2 font-semibold text-white">
@@ -359,6 +378,13 @@ export default function WorkersList({
                     <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-white">
                       <User size={14} />
                       {getFullName(employee)}
+                      {employee.exclude_from_payroll_report ? (
+                        <span
+                          className="h-2 w-2 shrink-0 rounded-full bg-rose-400 shadow-[0_0_10px_rgba(251,113,133,0.75)]"
+                          title="Excluded from payroll report"
+                          aria-label="Excluded from payroll report"
+                        />
+                      ) : null}
                     </div>
                     <div className="mt-1 text-xs text-slate-400">
                       {employee.position || 'worker'} В· {getShiftLabel(employee)} В· {getPunchErrorLabel(employee)} В· {getPayLabel(employee)} В· {getOvertimeLabel(employee)}
