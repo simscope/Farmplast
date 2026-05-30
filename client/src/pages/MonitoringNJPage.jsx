@@ -51,6 +51,11 @@ const NJ_BARREL_SLOTS = [
   { code: 'BARREL-NJ-02', name: 'Material Barrel 2' },
 ]
 
+const NJ_BARREL_DATA_SWAP = {
+  'BARREL-NJ-01': 'BARREL-NJ-02',
+  'BARREL-NJ-02': 'BARREL-NJ-01',
+}
+
 function createEmptyBarrelAsset(slot) {
   return {
     asset_code: slot.code,
@@ -601,11 +606,16 @@ export default function MonitoringNJPage() {
 
   const barrelSlots = useMemo(() => {
     return NJ_BARREL_SLOTS.map((slot) => {
-      const asset = barrels.find(
-        (barrel) => String(barrel.asset_code || '').toUpperCase() === slot.code
+      const dataCode = NJ_BARREL_DATA_SWAP[slot.code] || slot.code
+      const dataAsset = barrels.find(
+        (barrel) => String(barrel.asset_code || '').toUpperCase() === dataCode
       )
 
-      return asset || createEmptyBarrelAsset(slot)
+      return {
+        ...(dataAsset || createEmptyBarrelAsset(slot)),
+        asset_code: slot.code,
+        asset_name: slot.name,
+      }
     })
   }, [barrels])
 
