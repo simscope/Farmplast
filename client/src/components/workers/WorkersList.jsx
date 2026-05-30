@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowDown,
@@ -10,6 +11,8 @@ import {
   Trash2,
   User,
 } from 'lucide-react'
+
+const LAST_ACCESSED_EMPLOYEE_KEY = 'farmplast:last-accessed-employee-id'
 
 function SortIcon({ field, employeeSort }) {
   if (employeeSort.field !== field) return <ArrowUpDown size={12} />
@@ -59,6 +62,25 @@ export default function WorkersList({
   toggleSelectedCheck,
   zkLoading,
 }) {
+  const [lastAccessedEmployeeId, setLastAccessedEmployeeId] = useState(() => {
+    if (typeof window === 'undefined') return ''
+    return window.localStorage.getItem(LAST_ACCESSED_EMPLOYEE_KEY) || ''
+  })
+
+  function rememberEmployeeAccess(employee) {
+    const id = String(employee?.id || '')
+    if (!id) return
+    setLastAccessedEmployeeId(id)
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(LAST_ACCESSED_EMPLOYEE_KEY, id)
+    }
+  }
+
+  function handleEditEmployee(employee) {
+    rememberEmployeeAccess(employee)
+    openEditModal(employee)
+  }
+
   return (
     <div className={cardClass}>
       <div className="flex flex-col gap-3 border-b border-slate-800 p-3 lg:flex-row lg:items-center lg:justify-between">
@@ -160,10 +182,17 @@ export default function WorkersList({
                   No employees found
                 </div>
               ) : (
-                filteredEmployees.map((employee) => (
+                filteredEmployees.map((employee) => {
+                  const isLastAccessed = String(employee.id) === lastAccessedEmployeeId
+
+                  return (
                   <div
                     key={employee.id}
-                    className="grid grid-cols-[70px_30px_230px_90px_150px_170px_110px_100px_180px_110px_120px_270px_160px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
+                    className={`grid grid-cols-[70px_30px_230px_90px_150px_170px_110px_100px_180px_110px_120px_270px_160px] items-center border-t border-slate-800 px-3 py-2 text-xs text-slate-200 ${
+                      isLastAccessed
+                        ? 'bg-cyan-500/10 ring-1 ring-inset ring-cyan-400/50'
+                        : 'bg-[#08101c]'
+                    }`}
                   >
                     <div className="font-semibold text-cyan-300">
                       {employee.employee_number ?? 'вЂ”'}
@@ -183,7 +212,7 @@ export default function WorkersList({
 
                     <button
                       type="button"
-                      onClick={() => openEditModal(employee)}
+                      onClick={() => handleEditEmployee(employee)}
                       className="flex min-w-0 items-center gap-2 rounded-lg text-left font-semibold text-white transition hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
                       title="Edit employee"
                     >
@@ -210,6 +239,7 @@ export default function WorkersList({
                     <div>
                       <Link
                         to={`/employees/${employee.id}`}
+                        onClick={() => rememberEmployeeAccess(employee)}
                         className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-600/10 px-2 py-1.5 text-cyan-300 transition hover:bg-cyan-600/20"
                       >
                         <ExternalLink size={13} />
@@ -341,19 +371,30 @@ export default function WorkersList({
                       </div>
                     </div>
                   </div>
-                ))
+                  )
+                })
               )}
             </div>
           </div>
         )}
 
         <div className="space-y-3 lg:hidden">
-          {filteredEmployees.map((employee) => (
-            <div key={employee.id} className="rounded-xl border border-slate-800 bg-[#08101c] p-3">
+          {filteredEmployees.map((employee) => {
+            const isLastAccessed = String(employee.id) === lastAccessedEmployeeId
+
+            return (
+            <div
+              key={employee.id}
+              className={`rounded-xl border p-3 ${
+                isLastAccessed
+                  ? 'border-cyan-400/50 bg-cyan-500/10 ring-1 ring-cyan-400/40'
+                  : 'border-slate-800 bg-[#08101c]'
+              }`}
+            >
               <div className="flex items-start justify-between gap-3">
                 <button
                   type="button"
-                  onClick={() => openEditModal(employee)}
+                  onClick={() => handleEditEmployee(employee)}
                   className="flex min-w-0 gap-3 rounded-xl text-left transition hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
                   title="Edit employee"
                 >
@@ -456,6 +497,7 @@ export default function WorkersList({
               <div className="mt-3 flex flex-wrap gap-2">
                 <Link
                   to={`/employees/${employee.id}`}
+                  onClick={() => rememberEmployeeAccess(employee)}
                   className="rounded-lg border border-cyan-500/30 bg-cyan-600/10 px-3 py-2 text-xs font-semibold text-cyan-300"
                 >
                   Open
@@ -503,7 +545,8 @@ export default function WorkersList({
                 </button>
               </div>
             </div>
-          ))}
+            )
+          })}
         </div>
       </div>
     </div>
