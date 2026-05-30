@@ -6,7 +6,6 @@ import {
   ExternalLink,
   Hash,
   Loader2,
-  Pencil,
   Printer,
   Trash2,
   User,
@@ -73,7 +72,7 @@ export default function WorkersList({
         <div className="flex flex-col gap-2 sm:flex-row">
           <input
             type="text"
-            placeholder="Search by number, ZKT ID, name, presence..."
+            placeholder="Search by number, name, presence..."
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             className="w-full min-w-[320px] rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none focus:border-cyan-500"
@@ -109,8 +108,8 @@ export default function WorkersList({
           </div>
         ) : (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
-            <div className="min-w-[1900px]">
-              <div className="grid grid-cols-[70px_30px_230px_150px_170px_110px_100px_180px_110px_120px_110px_360px_160px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+            <div className="min-w-[1800px]">
+              <div className="grid grid-cols-[70px_30px_230px_90px_150px_170px_110px_100px_180px_110px_120px_270px_160px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                 <button
                   type="button"
                   onClick={() => handleEmployeeSort('number')}
@@ -136,6 +135,7 @@ export default function WorkersList({
                   Name
                   <SortIcon field="name" employeeSort={employeeSort} />
                 </button>
+                <div>Open</div>
                 <div>Presence ({counts.presenceOnline})</div>
                 <div>Last punch</div>
                 <div>Direction</div>
@@ -143,7 +143,6 @@ export default function WorkersList({
                 <div>Punch error</div>
                 <div>Payment</div>
                 <div>Overtime</div>
-                <div>ZKT ID</div>
                 <div>Actions</div>
                 <div className="flex items-center gap-2">
                   <input
@@ -164,7 +163,7 @@ export default function WorkersList({
                 filteredEmployees.map((employee) => (
                   <div
                     key={employee.id}
-                    className="grid grid-cols-[70px_30px_230px_150px_170px_110px_100px_180px_110px_120px_110px_360px_160px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
+                    className="grid grid-cols-[70px_30px_230px_90px_150px_170px_110px_100px_180px_110px_120px_270px_160px] items-center border-t border-slate-800 bg-[#08101c] px-3 py-2 text-xs text-slate-200"
                   >
                     <div className="font-semibold text-cyan-300">
                       {employee.employee_number ?? 'вЂ”'}
@@ -182,7 +181,12 @@ export default function WorkersList({
                       )}
                     </div>
 
-                    <div className="flex min-w-0 items-center gap-2 font-semibold text-white">
+                    <button
+                      type="button"
+                      onClick={() => openEditModal(employee)}
+                      className="flex min-w-0 items-center gap-2 rounded-lg text-left font-semibold text-white transition hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
+                      title="Edit employee"
+                    >
                       <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-[#07101d]">
                         {employee.photo_url ? (
                           <img
@@ -201,6 +205,16 @@ export default function WorkersList({
                           </div>
                         ) : null}
                       </div>
+                    </button>
+
+                    <div>
+                      <Link
+                        to={`/employees/${employee.id}`}
+                        className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-600/10 px-2 py-1.5 text-cyan-300 transition hover:bg-cyan-600/20"
+                      >
+                        <ExternalLink size={13} />
+                        Open
+                      </Link>
                     </div>
 
                     <div>
@@ -251,28 +265,7 @@ export default function WorkersList({
                         {getOvertimeLabel(employee)}
                       </span>
                     </div>
-
-                    <div className="font-semibold text-blue-300">
-                      {employee.zkt_user_id ?? employee.employee_number ?? 'вЂ”'}
-                    </div>
-
                     <div className="flex flex-wrap gap-1.5">
-                      <Link
-                        to={`/employees/${employee.id}`}
-                        className="inline-flex items-center gap-1 rounded-lg border border-cyan-500/30 bg-cyan-600/10 px-2 py-1.5 text-cyan-300 transition hover:bg-cyan-600/20"
-                      >
-                        <ExternalLink size={13} />
-                        Open
-                      </Link>
-
-                      <button
-                        onClick={() => openEditModal(employee)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-white transition hover:border-cyan-500"
-                      >
-                        <Pencil size={13} />
-                        Edit
-                      </button>
-
                       <div className="group relative">
                         <button
                           type="button"
@@ -358,7 +351,12 @@ export default function WorkersList({
           {filteredEmployees.map((employee) => (
             <div key={employee.id} className="rounded-xl border border-slate-800 bg-[#08101c] p-3">
               <div className="flex items-start justify-between gap-3">
-                <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => openEditModal(employee)}
+                  className="flex min-w-0 gap-3 rounded-xl text-left transition hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
+                  title="Edit employee"
+                >
                   <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-700 bg-[#07101d]">
                     {employee.photo_url ? (
                       <img
@@ -372,8 +370,7 @@ export default function WorkersList({
                   <div className="min-w-0">
                     <div className="flex items-center gap-2 text-xs text-cyan-300">
                       <Hash size={13} />
-                      {employee.employee_number ?? 'вЂ”'} В· ZKT:{' '}
-                      {employee.zkt_user_id ?? employee.employee_number ?? 'вЂ”'}
+                      {employee.employee_number ?? '--'}
                     </div>
                     <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-white">
                       <User size={14} />
@@ -390,7 +387,7 @@ export default function WorkersList({
                       {employee.position || 'worker'} В· {getShiftLabel(employee)} В· {getPunchErrorLabel(employee)} В· {getPayLabel(employee)} В· {getOvertimeLabel(employee)}
                     </div>
                   </div>
-                </div>
+                </button>
 
                 <span
                   className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold uppercase ${getPresenceBadgeClass(employee)}`}
@@ -463,12 +460,6 @@ export default function WorkersList({
                 >
                   Open
                 </Link>
-                <button
-                  onClick={() => openEditModal(employee)}
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-white"
-                >
-                  Edit
-                </button>
                 <div className="group relative">
                   <button
                     type="button"
