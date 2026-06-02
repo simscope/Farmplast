@@ -986,7 +986,7 @@ export default function PayrollCheck({
           <>
             <div className="print-tear-line" />
             <PayrollStubCopy
-              title="EMPLOYEE COPY"
+              title="FARMPLAST LLC. EMPLOYEE COPY"
               employee={employee}
               fullName={fullName}
               periodStart={periodStart}
@@ -1003,7 +1003,7 @@ export default function PayrollCheck({
     <div className="print-tear-line" />
 
     <PayrollStubCopy
-      title="EMPLOYER COPY"
+      title="FARMPLAST LLC. EMPLOYER COPY"
       employee={employee}
       fullName={fullName}
       periodStart={periodStart}
