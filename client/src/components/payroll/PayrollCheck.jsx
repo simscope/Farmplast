@@ -315,7 +315,7 @@ function CheckStockPrint({
   const memoText =
     periodStart && periodEnd ? `${formatDate(periodStart)} - ${formatDate(periodEnd)}` : ''
 
-  const micrText = `C${checkNumberMicr}C A031201360A 443187254C`
+  const micrText = `C${checkNumberMicr}C A031201360A 4431871254C`
 
   const posStyle = (name, extra = {}) => {
     const pos = CHECK_COORDS[name]
