@@ -21,6 +21,7 @@ import {
   calculatePayrollTotals,
   normalizePayrollRow,
 } from '../utils/payrollMath'
+import { saveEmployeePayment } from '../utils/paymentHistory'
 import { calculatePaystubDetails } from '../lib/payrollTaxMath'
 import {
   createFarmplastBackup,
@@ -1428,11 +1429,7 @@ export default function DashboardPage() {
           paid_at: confirmedAt,
         }
 
-        const { error: paymentError } = await supabase
-          .from('employee_payments')
-          .insert(paymentPayload)
-
-        if (paymentError) throw paymentError
+        await saveEmployeePayment(supabase, paymentPayload)
 
         const { error: employeeUpdateError } = await supabase
           .from('employees')

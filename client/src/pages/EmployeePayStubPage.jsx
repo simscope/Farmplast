@@ -14,6 +14,7 @@ import {
   calculatePaystubDetails,
   getDefaultPaystubPeriod,
 } from '../lib/payrollTaxMath'
+import { normalizePaymentHistory } from '../utils/paymentHistory'
 
 const shell =
   'rounded-lg border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]'
@@ -237,22 +238,23 @@ export default function EmployeePayStubPage() {
         const yearStart = `${String(periodStart).slice(0, 4)}-01-01`
         const { data: ytdPaymentsData, error: ytdPaymentsError } = await supabase
           .from('employee_payments')
-          .select('total_labor,employee_tax,rent,electric,water,clean,transport,net_pay,paid_at,period_start')
+          .select('employee_id,period_start,period_end,total_labor,employee_tax,rent,electric,water,clean,transport,net_pay,paid_at,created_at')
           .eq('employee_id', employeeId)
           .gte('period_start', yearStart)
           .lt('period_start', periodStart)
 
         if (ytdPaymentsError) throw ytdPaymentsError
+        const ytdPayments = normalizePaymentHistory(ytdPaymentsData)
 
-        const ytdGross = (ytdPaymentsData || []).reduce(
+        const ytdGross = ytdPayments.reduce(
           (sum, row) => sum + Number(row.total_labor || 0),
           0
         )
-        const ytdEmployeeTaxes = (ytdPaymentsData || []).reduce(
+        const ytdEmployeeTaxes = ytdPayments.reduce(
           (sum, row) => sum + Number(row.employee_tax || 0),
           0
         )
-        const ytdDeductions = (ytdPaymentsData || []).reduce(
+        const ytdDeductions = ytdPayments.reduce(
           (sum, row) =>
             sum +
             Number(row.rent || 0) +
@@ -262,7 +264,7 @@ export default function EmployeePayStubPage() {
             Number(row.transport || 0),
           0
         )
-        const ytdDeductionBreakdown = (ytdPaymentsData || []).reduce(
+        const ytdDeductionBreakdown = ytdPayments.reduce(
           (acc, row) => ({
             rent: acc.rent + Number(row.rent || 0),
             electric: acc.electric + Number(row.electric || 0),
@@ -278,7 +280,7 @@ export default function EmployeePayStubPage() {
             transport: 0,
           }
         )
-        const ytdNetPay = (ytdPaymentsData || []).reduce(
+        const ytdNetPay = ytdPayments.reduce(
           (sum, row) => sum + Number(row.net_pay || 0),
           0
         )

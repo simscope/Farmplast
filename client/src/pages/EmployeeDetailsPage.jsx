@@ -35,6 +35,10 @@ import {
   getShiftLetter,
   getWeeksInSelectedPeriod,
 } from '../utils/payrollMath'
+import {
+  normalizePaymentHistory,
+  saveEmployeePayment,
+} from '../utils/paymentHistory'
 import { calculatePaystubDetails } from '../lib/payrollTaxMath'
 import PayrollCheck from '../components/payroll/PayrollCheck'
 import '../components/payroll/PayrollCheck.css'
@@ -619,7 +623,7 @@ export default function EmployeeDetailsPage() {
         .order('created_at', { ascending: false, nullsFirst: false })
 
       if (paymentsError) throw paymentsError
-      setPayments(paymentsData || [])
+      setPayments(normalizePaymentHistory(paymentsData))
     } catch (err) {
       console.error('loadPaymentsOnly error:', err)
       setError(err.message || 'Failed to load payment history')
@@ -691,7 +695,7 @@ export default function EmployeeDetailsPage() {
         console.error('employee_payments load error:', paymentsError)
         setPayments([])
       } else {
-        setPayments(paymentsData || [])
+        setPayments(normalizePaymentHistory(paymentsData))
       }
     } catch (err) {
       console.error('loadPage error:', err)
@@ -1534,11 +1538,7 @@ export default function EmployeeDetailsPage() {
         paid_at: confirmedAt,
       }
 
-      const { error: paymentError } = await supabase
-        .from('employee_payments')
-        .insert(payload)
-
-      if (paymentError) throw paymentError
+      await saveEmployeePayment(supabase, payload)
 
       flushSync(() => {
         setPrintCheckStatus('printed')
