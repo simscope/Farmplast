@@ -1326,6 +1326,22 @@ export default function EmployeeDetailsPage() {
         Number(row.transport || 0),
       0
     )
+    const priorYtdDeductionBreakdown = priorYtdPayments.reduce(
+      (acc, row) => ({
+        rent: acc.rent + Number(row.rent || 0),
+        electric: acc.electric + Number(row.electric || 0),
+        water: acc.water + Number(row.water || 0),
+        clean: acc.clean + Number(row.clean || 0),
+        transport: acc.transport + Number(row.transport || 0),
+      }),
+      {
+        rent: 0,
+        electric: 0,
+        water: 0,
+        clean: 0,
+        transport: 0,
+      }
+    )
     const priorYtdNetPay = priorYtdPayments.reduce(
       (sum, row) => sum + Number(row.net_pay || 0),
       0
@@ -1347,6 +1363,7 @@ export default function EmployeeDetailsPage() {
       priorYtdGross,
       priorYtdEmployeeTaxes,
       priorYtdDeductions,
+      priorYtdDeductionBreakdown,
       priorYtdNetPay,
     })
 
@@ -1371,6 +1388,7 @@ export default function EmployeeDetailsPage() {
       overtimeTax,
       employeeTaxes: payrollTaxTotals.employeeTaxes || [],
       ytdEmployeeTaxes: payrollTaxTotals.ytdEmployeeTaxes || employeeTaxNum,
+      ytdNetPay: payrollTaxTotals.ytdNetPay || netPay,
       taxableHours: payrollTotals.mainHours,
       taxableLabor: payrollTotals.mainLabor,
       rentNum,
@@ -1378,6 +1396,11 @@ export default function EmployeeDetailsPage() {
       waterNum,
       cleanNum,
       transportNum,
+      ytdRent: payrollTaxTotals.deductions?.ytdRent || rentNum,
+      ytdElectric: payrollTaxTotals.deductions?.ytdElectric || electricNum,
+      ytdWater: payrollTaxTotals.deductions?.ytdWater || waterNum,
+      ytdClean: payrollTaxTotals.deductions?.ytdClean || cleanNum,
+      ytdTransport: payrollTaxTotals.deductions?.ytdTransport || transportNum,
       employeeDeductions,
       totalDeductions,
       netPay,

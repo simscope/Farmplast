@@ -690,12 +690,12 @@ function PayrollStubCopy({
   const checkNumberTop = String(rawCheckNumber)
 
   const deductionRows = [
-    { label: 'Employee Tax', value: totals?.employeeTaxNum },
-    { label: 'Rent', value: totals?.rentNum },
-    { label: 'Electric', value: totals?.electricNum },
-    { label: 'Water', value: totals?.waterNum },
-    { label: 'Clean', value: totals?.cleanNum },
-    { label: 'Transport', value: totals?.transportNum },
+    { label: 'Employee Tax', value: totals?.employeeTaxNum, ytdValue: totals?.ytdEmployeeTaxes },
+    { label: 'Rent', value: totals?.rentNum, ytdValue: totals?.ytdRent },
+    { label: 'Electric', value: totals?.electricNum, ytdValue: totals?.ytdElectric },
+    { label: 'Water', value: totals?.waterNum, ytdValue: totals?.ytdWater },
+    { label: 'Clean', value: totals?.cleanNum, ytdValue: totals?.ytdClean },
+    { label: 'Transport', value: totals?.transportNum, ytdValue: totals?.ytdTransport },
   ].filter((row) => Number(row.value || 0) !== 0)
 
   return (
@@ -803,6 +803,7 @@ function PayrollStubCopy({
             <tr>
               <th style={th}>DEDUCTIONS</th>
               <th style={th}>AMOUNT</th>
+              <th style={th}>YEAR TO DATE</th>
             </tr>
           </thead>
 
@@ -811,12 +812,16 @@ function PayrollStubCopy({
               <tr key={row.label}>
                 <td style={td}>{row.label}</td>
                 <td style={td}>{stubMoney(row.value)}</td>
+                <td style={td}>{row.ytdValue === undefined ? '' : stubMoney(row.ytdValue)}</td>
               </tr>
             ))}
 
             <tr>
               <td style={tdBold}>Net Pay</td>
               <td style={tdBold}>{stubMoney(totals?.netPay)}</td>
+              <td style={tdBold}>
+                {totals?.ytdNetPay === undefined ? '' : stubMoney(totals.ytdNetPay)}
+              </td>
             </tr>
           </tbody>
         </table>
