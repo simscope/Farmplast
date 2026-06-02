@@ -21,6 +21,10 @@ import {
   calculatePayrollTotals,
   normalizePayrollRow,
 } from '../utils/payrollMath'
+import {
+  normalizePaymentHistory,
+  saveEmployeePayment,
+} from '../utils/paymentHistory'
 import { calculatePaystubDetails } from '../lib/payrollTaxMath'
 import {
   createFarmplastBackup,
@@ -848,6 +852,23 @@ export default function DashboardPage() {
     return []
   }
 
+  async function loadPriorPayrollPayments(week) {
+    const yearStart = week?.startText ? `${String(week.startText).slice(0, 4)}-01-01` : ''
+
+    if (!yearStart || !week?.startText) return []
+
+    const { data, error } = await supabase
+      .from('employee_payments')
+      .select('employee_id,period_start,period_end,total_labor,employee_tax,rent,electric,water,clean,transport,net_pay,paid_at,created_at')
+      .gte('period_start', yearStart)
+      .lt('period_start', week.startText)
+      .limit(10000)
+
+    if (error) throw error
+
+    return normalizePaymentHistory(data)
+  }
+
   function getNumberFromObject(object, keys, fallback = 0) {
     for (const key of keys) {
       const value = object?.[key]
@@ -889,7 +910,7 @@ export default function DashboardPage() {
     return (rows || []).reduce((sum, row) => sum + getNumberFromObject(row, keys), 0)
   }
 
-  function getEmployeePayroll(employee, week, logsByEmployeeAndDate, deductionsRows) {
+  function getEmployeePayroll(employee, week, logsByEmployeeAndDate, deductionsRows, priorPayments) {
     const normalizedRows = week.days.flatMap((day) => {
       const dayText = toLocalDateString(day)
       const dayLogs = logsByEmployeeAndDate.get(`${employee.id}__${dayText}`) || []
@@ -907,6 +928,41 @@ export default function DashboardPage() {
     const cleanNum = roundDollars(sumDeductions(employeeDeductions, ['clean', 'cleaning']))
     const transportNum = roundDollars(sumDeductions(employeeDeductions, ['transport', 'transportation']))
     const manualDeductions = roundDollars(rentNum + electricNum + waterNum + cleanNum + transportNum)
+    const employeePriorPayments = (priorPayments || []).filter(
+      (row) => String(row.employee_id || '') === String(employee.id || '')
+    )
+    const priorYtdGross = employeePriorPayments.reduce(
+      (sum, row) => sum + Number(row.total_labor || 0),
+      0
+    )
+    const priorYtdEmployeeTaxes = employeePriorPayments.reduce(
+      (sum, row) => sum + Number(row.employee_tax || 0),
+      0
+    )
+    const priorYtdDeductionBreakdown = employeePriorPayments.reduce(
+      (acc, row) => ({
+        rent: acc.rent + Number(row.rent || 0),
+        electric: acc.electric + Number(row.electric || 0),
+        water: acc.water + Number(row.water || 0),
+        clean: acc.clean + Number(row.clean || 0),
+        transport: acc.transport + Number(row.transport || 0),
+      }),
+      {
+        rent: 0,
+        electric: 0,
+        water: 0,
+        clean: 0,
+        transport: 0,
+      }
+    )
+    const priorYtdDeductions = Object.values(priorYtdDeductionBreakdown).reduce(
+      (sum, value) => sum + Number(value || 0),
+      0
+    )
+    const priorYtdNetPay = employeePriorPayments.reduce(
+      (sum, row) => sum + Number(row.net_pay || 0),
+      0
+    )
 
     const taxTotals = calculatePaystubDetails({
       employee,
@@ -921,6 +977,11 @@ export default function DashboardPage() {
       },
       periodStart: week.startText,
       periodEnd: week.endText,
+      priorYtdGross,
+      priorYtdEmployeeTaxes,
+      priorYtdDeductions,
+      priorYtdDeductionBreakdown,
+      priorYtdNetPay,
     })
     const employeeTaxNum = roundDollars(taxTotals.totalEmployeeTaxes || 0)
     const mainTaxNum = roundDollars(
@@ -962,6 +1023,7 @@ export default function DashboardPage() {
     const checkTotals = {
       ...payrollTotals,
       employeeTaxNum,
+      ytdEmployeeTaxes: taxTotals.ytdEmployeeTaxes || employeeTaxNum,
       mainTax: mainTaxNum,
       overtimeTax: overtimeTaxNum,
       employeeTaxes: taxTotals.employeeTaxes || [],
@@ -975,9 +1037,15 @@ export default function DashboardPage() {
       waterNum,
       cleanNum,
       transportNum,
+      ytdRent: taxTotals.deductions?.ytdRent || rentNum,
+      ytdElectric: taxTotals.deductions?.ytdElectric || electricNum,
+      ytdWater: taxTotals.deductions?.ytdWater || waterNum,
+      ytdClean: taxTotals.deductions?.ytdClean || cleanNum,
+      ytdTransport: taxTotals.deductions?.ytdTransport || transportNum,
       employeeDeductions: manualDeductions,
       totalDeductions,
       netPay,
+      ytdNetPay: taxTotals.ytdNetPay || netPay,
     }
 
     return {
@@ -1033,7 +1101,13 @@ export default function DashboardPage() {
     })
 
     return sourceEmployees.map((employee) =>
-      getEmployeePayroll(employee, week, logsByEmployeeAndDate, deductionsRows)
+      getEmployeePayroll(
+        employee,
+        week,
+        logsByEmployeeAndDate,
+        deductionsRows,
+        options.priorPayments || []
+      )
     )
   }
 
@@ -1238,9 +1312,16 @@ export default function DashboardPage() {
         waterNum: 0,
         cleanNum: 0,
         transportNum: 0,
+        ytdEmployeeTaxes: 0,
+        ytdRent: 0,
+        ytdElectric: 0,
+        ytdWater: 0,
+        ytdClean: 0,
+        ytdTransport: 0,
         employeeDeductions: 0,
         totalDeductions: 0,
         netPay: 0,
+        ytdNetPay: 0,
         rows: [],
         filteredForView: [],
         rowsByDate: {},
@@ -1262,9 +1343,16 @@ export default function DashboardPage() {
         combinedTotals.waterNum += Number(totals.waterNum || 0)
         combinedTotals.cleanNum += Number(totals.cleanNum || 0)
         combinedTotals.transportNum += Number(totals.transportNum || 0)
+        combinedTotals.ytdEmployeeTaxes += Number(totals.ytdEmployeeTaxes || totals.employeeTaxNum || 0)
+        combinedTotals.ytdRent += Number(totals.ytdRent || totals.rentNum || 0)
+        combinedTotals.ytdElectric += Number(totals.ytdElectric || totals.electricNum || 0)
+        combinedTotals.ytdWater += Number(totals.ytdWater || totals.waterNum || 0)
+        combinedTotals.ytdClean += Number(totals.ytdClean || totals.cleanNum || 0)
+        combinedTotals.ytdTransport += Number(totals.ytdTransport || totals.transportNum || 0)
         combinedTotals.employeeDeductions += Number(totals.employeeDeductions || 0)
         combinedTotals.totalDeductions += Number(totals.totalDeductions || 0)
         combinedTotals.netPay += Number(totals.netPay || 0)
+        combinedTotals.ytdNetPay += Number(totals.ytdNetPay || totals.netPay || 0)
 
         combinedTotals.rows.push(...(totals.rows || item.rows || []))
         combinedTotals.filteredForView.push(...(totals.filteredForView || item.rows || []))
@@ -1428,11 +1516,7 @@ export default function DashboardPage() {
           paid_at: confirmedAt,
         }
 
-        const { error: paymentError } = await supabase
-          .from('employee_payments')
-          .insert(paymentPayload)
-
-        if (paymentError) throw paymentError
+        await saveEmployeePayment(supabase, paymentPayload)
 
         const { error: employeeUpdateError } = await supabase
           .from('employees')
@@ -1466,7 +1550,11 @@ export default function DashboardPage() {
       const printWindow = createPayrollPrintWindow()
       const { week, logs } = await loadPreviousWeekWorkLogs()
       const deductionsRows = await tryLoadPayrollDeductions(week)
-      const allPayrollRows = buildPayrollRows(week, logs, deductionsRows, { includeExcluded: true })
+      const priorPayments = await loadPriorPayrollPayments(week)
+      const allPayrollRows = buildPayrollRows(week, logs, deductionsRows, {
+        includeExcluded: true,
+        priorPayments,
+      })
         .filter((item) => Number(item.netPay || 0) > 0)
 
       let rowsToPrint = []
@@ -1516,7 +1604,11 @@ export default function DashboardPage() {
       const selectedIdSet = new Set(selectedCheckIds)
       const { week, logs } = await loadPreviousWeekWorkLogs()
       const deductionsRows = await tryLoadPayrollDeductions(week)
-      const payrollRows = buildPayrollRows(week, logs, deductionsRows, { includeExcluded: true })
+      const priorPayments = await loadPriorPayrollPayments(week)
+      const payrollRows = buildPayrollRows(week, logs, deductionsRows, {
+        includeExcluded: true,
+        priorPayments,
+      })
         .filter((item) => selectedIdSet.has(item.employee.id))
         .filter((item) => Number(item.netPay || 0) > 0)
 
