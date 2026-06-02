@@ -240,7 +240,7 @@ function CheckStockPrint({
   const memoText =
     periodStart && periodEnd ? `${formatDate(periodStart)} - ${formatDate(periodEnd)}` : ''
 
-  const micrText = `C${checkNumberMicr}C A031201360A 443187254C`
+  const micrText = `C${checkNumberMicr}C A031201360A 4431871254C`
 
   const posStyle = (name, extra = {}) => {
     const pos = CHECK_COORDS[name]
@@ -795,7 +795,7 @@ export default function CompanyPayrollCheck({
           <>
             <div className="print-tear-line" />
             <CompanyStubCopy
-              title="EMPLOYEE COPY"
+              title="FARMPLAST LLC. EMPLOYEE COPY"
               companyName={companyName}
               groupedItems={groupedItems}
               periodStart={periodStart}
@@ -812,7 +812,7 @@ export default function CompanyPayrollCheck({
             <div className="print-tear-line" />
 
             <CompanyStubCopy
-              title="EMPLOYER COPY"
+              title="FARMPLAST LLC. EMPLOYER COPY"
               companyName={companyName}
               groupedItems={groupedItems}
               periodStart={periodStart}
