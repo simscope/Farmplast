@@ -124,6 +124,11 @@ function roundDollars(value) {
   return Math.round(number)
 }
 
+function getNumber(value) {
+  const number = Number(value || 0)
+  return Number.isFinite(number) ? number : 0
+}
+
 function formatMoney(value) {
   return `$${roundDollars(value).toLocaleString('en-US')}`
 }
@@ -202,6 +207,11 @@ function buildPayrollReportHtml(week, payrollRows, options = {}) {
     0
   )
 
+  const grandDeductions = payrollRows.reduce(
+    (sum, item) => sum + Number(item.totals.employeeDeductions || 0),
+    0
+  )
+
   const grandNetPay = payrollRows.reduce(
     (sum, item) => sum + getNetPay(item.totals),
     0
@@ -271,6 +281,7 @@ function buildPayrollReportHtml(week, payrollRows, options = {}) {
         <td class="num strong tax-cell">${formatMoney(
           item.totals.employeeTaxNum
         )}</td>
+        <td class="num">${formatMoney(item.totals.employeeDeductions)}</td>
         <td class="num strong net-cell">${formatMoney(netPay)}</td>
       </tr>`
     })
@@ -352,7 +363,7 @@ function buildPayrollReportHtml(week, payrollRows, options = {}) {
     }
     .summary {
       display: grid;
-      grid-template-columns: repeat(8, 1fr);
+      grid-template-columns: repeat(9, 1fr);
       gap: 5px;
       margin: 7px 0;
     }
@@ -456,6 +467,9 @@ function buildPayrollReportHtml(week, payrollRows, options = {}) {
           <div class="invoice-box-row"><span class="invoice-box-label">Tax</span><span class="invoice-box-value">${formatMoney(
             grandTax
           )}</span></div>
+          <div class="invoice-box-row"><span class="invoice-box-label">Deductions</span><span class="invoice-box-value">${formatMoney(
+            grandDeductions
+          )}</span></div>
           <div class="invoice-box-row"><span class="invoice-box-label">Net Pay</span><span class="invoice-box-value">${formatMoney(
             grandNetPay
           )}</span></div>
@@ -484,6 +498,9 @@ function buildPayrollReportHtml(week, payrollRows, options = {}) {
       <div class="summary-card"><span>Employee tax</span><b>${formatMoney(
         grandTax
       )}</b></div>
+      <div class="summary-card"><span>Deductions</span><b>${formatMoney(
+        grandDeductions
+      )}</b></div>
       <div class="summary-card"><span>Net Pay</span><b>${formatMoney(
         grandNetPay
       )}</b></div>
@@ -503,6 +520,7 @@ function buildPayrollReportHtml(week, payrollRows, options = {}) {
           <th>Federal tax</th>
           <th>Other emp tax</th>
           <th>Emp Tax</th>
+          <th>Deductions</th>
           <th>Net Pay</th>
         </tr>
       </thead>
@@ -549,8 +567,102 @@ export default function PayrollReport({ employees = [] }) {
     }
   }
 
-  function buildRows(week, logs, sourceEmployees = reportEmployees) {
+  async function loadPayrollSupportData(week, sourceEmployees = reportEmployees) {
+    const employeeIds = sourceEmployees
+      .map((employee) => employee?.id)
+      .filter(Boolean)
+
+    const deductionsByEmployeeId = new Map()
+    const paymentsByEmployeeId = new Map()
+
+    if (employeeIds.length === 0) {
+      return {
+        deductionsByEmployeeId,
+        paymentsByEmployeeId,
+      }
+    }
+
+    const { data: deductionsRows, error: deductionsError } = await supabase
+      .from('employee_payroll_deductions')
+      .select('employee_id,rent,electric,water,clean,transport')
+      .in('employee_id', employeeIds)
+      .eq('period_start', week.startText)
+      .eq('period_end', week.endText)
+
+    if (deductionsError) throw deductionsError
+
+    ;(deductionsRows || []).forEach((row) => {
+      deductionsByEmployeeId.set(String(row.employee_id), {
+        rent: getNumber(row.rent),
+        electric: getNumber(row.electric),
+        water: getNumber(row.water),
+        clean: getNumber(row.clean),
+        transport: getNumber(row.transport),
+      })
+    })
+
+    const { data: paymentsRows, error: paymentsError } = await supabase
+      .from('employee_payments')
+      .select('*')
+      .in('employee_id', employeeIds)
+      .order('paid_at', { ascending: false, nullsFirst: false })
+      .order('created_at', { ascending: false, nullsFirst: false })
+
+    if (paymentsError) throw paymentsError
+
+    ;(paymentsRows || []).forEach((row) => {
+      const key = String(row.employee_id || '')
+      if (!key) return
+
+      const current = paymentsByEmployeeId.get(key) || []
+      current.push(row)
+      paymentsByEmployeeId.set(key, current)
+    })
+
+    return {
+      deductionsByEmployeeId,
+      paymentsByEmployeeId,
+    }
+  }
+
+  function getPriorYtdPaymentTotals(employee, week, paymentsByEmployeeId) {
+    const employeePayments = paymentsByEmployeeId.get(String(employee.id)) || []
+    const yearStart = week.startText ? `${String(week.startText).slice(0, 4)}-01-01` : ''
+    const priorYtdPayments = employeePayments.filter((row) => {
+      const rowPeriodStart = String(row.period_start || '')
+      return rowPeriodStart && yearStart && rowPeriodStart >= yearStart && rowPeriodStart < week.startText
+    })
+
+    return {
+      priorYtdGross: priorYtdPayments.reduce(
+        (sum, row) => sum + getNumber(row.total_labor),
+        0
+      ),
+      priorYtdEmployeeTaxes: priorYtdPayments.reduce(
+        (sum, row) => sum + getNumber(row.employee_tax),
+        0
+      ),
+      priorYtdDeductions: priorYtdPayments.reduce(
+        (sum, row) =>
+          sum +
+          getNumber(row.rent) +
+          getNumber(row.electric) +
+          getNumber(row.water) +
+          getNumber(row.clean) +
+          getNumber(row.transport),
+        0
+      ),
+      priorYtdNetPay: priorYtdPayments.reduce(
+        (sum, row) => sum + getNumber(row.net_pay),
+        0
+      ),
+    }
+  }
+
+  function buildRows(week, logs, sourceEmployees = reportEmployees, supportData = {}) {
     const safeLogs = Array.isArray(logs) ? logs : []
+    const deductionsByEmployeeId = supportData.deductionsByEmployeeId || new Map()
+    const paymentsByEmployeeId = supportData.paymentsByEmployeeId || new Map()
 
     return sourceEmployees.map((employee) => {
       const employeeLogs = safeLogs.filter(
@@ -562,12 +674,26 @@ export default function PayrollReport({ employees = [] }) {
       )
 
       const totals = calculatePayrollTotals(normalizedRows, employee)
+      const deductions = deductionsByEmployeeId.get(String(employee.id)) || {
+        rent: 0,
+        electric: 0,
+        water: 0,
+        clean: 0,
+        transport: 0,
+      }
+      const priorYtdTotals = getPriorYtdPaymentTotals(
+        employee,
+        week,
+        paymentsByEmployeeId
+      )
       const taxTotals = calculatePaystubDetails({
         employee,
         taxProfile: employee.tax_profile,
         logs: totals.rows || normalizedRows,
+        deductions,
         periodStart: week.startText,
         periodEnd: week.endText,
+        ...priorYtdTotals,
       })
       const reportTotals = {
         ...totals,
@@ -581,7 +707,15 @@ export default function PayrollReport({ employees = [] }) {
             (taxTotals.employeeTaxes || []).find((tax) => tax.key === 'federalIncomeTax')
               ?.amount || 0
           ),
-        totalDeductions: taxTotals.totalEmployeeTaxes,
+        rentNum: taxTotals.deductions?.rent || 0,
+        electricNum: taxTotals.deductions?.electric || 0,
+        waterNum: taxTotals.deductions?.water || 0,
+        cleanNum: taxTotals.deductions?.clean || 0,
+        transportNum: taxTotals.deductions?.transport || 0,
+        employeeDeductions: taxTotals.deductions?.total || 0,
+        totalDeductions:
+          Number(taxTotals.totalEmployeeTaxes || 0) +
+          Number(taxTotals.deductions?.total || 0),
         netPay: taxTotals.netPay,
         employeeTaxes: taxTotals.employeeTaxes || [],
       }
@@ -609,7 +743,8 @@ export default function PayrollReport({ employees = [] }) {
       setError('')
 
       const { week, logs } = await loadWeekWorkLogs()
-      const payrollRows = buildRows(week, logs)
+      const supportData = await loadPayrollSupportData(week, reportEmployees)
+      const payrollRows = buildRows(week, logs, reportEmployees, supportData)
       const html = buildPayrollReportHtml(week, payrollRows)
 
       const printWindow = window.open('', '_blank')
@@ -644,7 +779,8 @@ export default function PayrollReport({ employees = [] }) {
       setError('')
 
       const { week, logs } = await loadWeekWorkLogs()
-      const payrollRows = buildRows(week, logs, excludedReportEmployees)
+      const supportData = await loadPayrollSupportData(week, excludedReportEmployees)
+      const payrollRows = buildRows(week, logs, excludedReportEmployees, supportData)
       const html = buildPayrollReportHtml(week, payrollRows, { excludedOnly: true })
 
       const printWindow = window.open('', '_blank')
