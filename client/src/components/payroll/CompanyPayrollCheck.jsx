@@ -211,6 +211,7 @@ function CheckStockPrint({
   periodEnd,
   checkNumber,
   payDate,
+  checkAmount,
   payerName = 'FARMPLAST LLC',
   payerAddress1 = '125 EAST HALSEY ROAD',
   payerAddress2 = 'PARSIPPANY, NJ 07054',
@@ -225,7 +226,7 @@ function CheckStockPrint({
         dateObj.getFullYear()
       ).slice(-2)}`
 
-  const amount = Number(totals?.netPay || totals?.totalLabor || 0)
+  const amount = Number(checkAmount ?? totals?.netPay ?? totals?.totalLabor ?? 0)
   const dollars = Math.floor(amount)
   const cents = Math.round((amount - dollars) * 100)
 
@@ -481,7 +482,12 @@ function CompanyStubCopy({
   totals,
   checkNumber,
   payDate,
+  checkAmount,
 }) {
+  const displayTotals = {
+    ...(totals || {}),
+    netPay: checkAmount ?? totals?.netPay,
+  }
   const payDateText = payDate ? formatDate(payDate) : new Date().toLocaleDateString('en-US')
   const rawCheckNumber = Number(checkNumber || 0)
   const checkNumberTop = String(rawCheckNumber)
@@ -490,12 +496,12 @@ function CompanyStubCopy({
   const totalHours = companyRows.reduce((sum, row) => sum + Number(row.hours || 0), 0)
 
   const deductionRows = [
-    { label: 'Employee Tax', value: totals?.employeeTaxNum },
-    { label: 'Rent', value: totals?.rentNum },
-    { label: 'Electric', value: totals?.electricNum },
-    { label: 'Water', value: totals?.waterNum },
-    { label: 'Clean', value: totals?.cleanNum },
-    { label: 'Transport', value: totals?.transportNum },
+    { label: 'Employee Tax', value: displayTotals?.employeeTaxNum },
+    { label: 'Rent', value: displayTotals?.rentNum },
+    { label: 'Electric', value: displayTotals?.electricNum },
+    { label: 'Water', value: displayTotals?.waterNum },
+    { label: 'Clean', value: displayTotals?.cleanNum },
+    { label: 'Transport', value: displayTotals?.transportNum },
   ].filter((row) => Number(row.value || 0) !== 0)
 
   return (
@@ -640,7 +646,7 @@ function CompanyStubCopy({
 
               <tr>
                 <td style={tdBold}>Net Pay</td>
-                <td style={tdBold}>{stubMoney(totals?.netPay || totals?.totalLabor)}</td>
+                <td style={tdBold}>{stubMoney(displayTotals?.netPay || displayTotals?.totalLabor)}</td>
               </tr>
             </tbody>
           </table>
@@ -658,6 +664,7 @@ export default function CompanyPayrollCheck({
   periodEnd,
   checkNumber,
   payDate,
+  checkAmount,
   payerName = 'FARMPLAST LLC',
   payerAddress1 = '125 EAST HALSEY ROAD',
   payerAddress2 = 'PARSIPPANY, NJ 07054',
@@ -711,9 +718,7 @@ export default function CompanyPayrollCheck({
         }
 
         .print-tear-line {
-          width: 100%;
-          border-top: 2px dashed #555;
-          margin: 0 0 2mm 0;
+          display: none;
         }
 
         @page {
@@ -763,10 +768,7 @@ export default function CompanyPayrollCheck({
           }
 
           .print-tear-line {
-            display: block !important;
-            width: 100% !important;
-            border-top: 2px dashed #555 !important;
-            margin: 0 0 2mm 0 !important;
+            display: none !important;
           }
 
           .no-print {
@@ -784,6 +786,7 @@ export default function CompanyPayrollCheck({
           periodEnd={periodEnd}
           checkNumber={checkNumber}
           payDate={payDate}
+          checkAmount={checkAmount}
           payerName={payerName}
           payerAddress1={payerAddress1}
           payerAddress2={payerAddress2}
@@ -793,7 +796,6 @@ export default function CompanyPayrollCheck({
       <div className="print-report-sheet">
         {showEmployeeCopy ? (
           <>
-            <div className="print-tear-line" />
             <CompanyStubCopy
               title="FARMPLAST LLC. EMPLOYEE COPY"
               companyName={companyName}
@@ -803,14 +805,13 @@ export default function CompanyPayrollCheck({
               totals={totals}
               checkNumber={checkNumber}
               payDate={payDate}
+              checkAmount={checkAmount}
             />
           </>
         ) : null}
 
         {showEmployerCopy ? (
           <div style={{ marginTop: '50mm' }}>
-            <div className="print-tear-line" />
-
             <CompanyStubCopy
               title="FARMPLAST LLC. EMPLOYER COPY"
               companyName={companyName}
@@ -820,6 +821,7 @@ export default function CompanyPayrollCheck({
               totals={totals}
               checkNumber={checkNumber}
               payDate={payDate}
+              checkAmount={checkAmount}
             />
           </div>
         ) : null}

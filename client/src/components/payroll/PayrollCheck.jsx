@@ -26,10 +26,10 @@ const CHECK_COORDS = {
 
   bank: { x: 20, y: 53 },
 
-  forLabel: { x: 14, y: 70 },
-  memoText: { x: 28, y: 69 },
-  memoLine: { x: 22, y: 73, w: 75 },
-  memoLine2: { x: 120, y: 73, w: 80 },
+  forLabel: { x: 14, y: 67 },
+  memoText: { x: 28, y: 66 },
+  memoLine: { x: 22, y: 70, w: 75 },
+  memoLine2: { x: 120, y: 70, w: 80 },
 
   micr: { x: 34, y: 80 },
 
@@ -286,6 +286,7 @@ function CheckStockPrint({
   periodEnd,
   checkNumber,
   payDate,
+  checkAmount,
   companyName = 'FARMPLAST LLC',
   companyAddress1 = '125 EAST HALSEY ROAD',
   companyAddress2 = 'PARSIPPANY, NJ 07054',
@@ -300,7 +301,7 @@ function CheckStockPrint({
         dateObj.getFullYear()
       ).slice(-2)}`
 
-  const amount = Number(totals?.netPay || 0)
+  const amount = Number(checkAmount ?? totals?.netPay ?? 0)
   const dollars = Math.floor(amount)
   const cents = Math.round((amount - dollars) * 100)
 
@@ -682,20 +683,25 @@ function PayrollStubCopy({
   totals,
   checkNumber,
   payDate,
+  checkAmount,
 }) {
   const payeeName = getPayeeName(employee, fullName)
+  const displayTotals = {
+    ...(totals || {}),
+    netPay: checkAmount ?? totals?.netPay,
+  }
 
   const payDateText = payDate ? formatDate(payDate) : new Date().toLocaleDateString('en-US')
   const rawCheckNumber = Number(checkNumber || employee?.last_check_number || 0)
   const checkNumberTop = String(rawCheckNumber)
 
   const deductionRows = [
-    { label: 'Employee Tax', value: totals?.employeeTaxNum, ytdValue: totals?.ytdEmployeeTaxes },
-    { label: 'Rent', value: totals?.rentNum, ytdValue: totals?.ytdRent },
-    { label: 'Electric', value: totals?.electricNum, ytdValue: totals?.ytdElectric },
-    { label: 'Water', value: totals?.waterNum, ytdValue: totals?.ytdWater },
-    { label: 'Clean', value: totals?.cleanNum, ytdValue: totals?.ytdClean },
-    { label: 'Transport', value: totals?.transportNum, ytdValue: totals?.ytdTransport },
+    { label: 'Employee Tax', value: displayTotals?.employeeTaxNum, ytdValue: displayTotals?.ytdEmployeeTaxes },
+    { label: 'Rent', value: displayTotals?.rentNum, ytdValue: displayTotals?.ytdRent },
+    { label: 'Electric', value: displayTotals?.electricNum, ytdValue: displayTotals?.ytdElectric },
+    { label: 'Water', value: displayTotals?.waterNum, ytdValue: displayTotals?.ytdWater },
+    { label: 'Clean', value: displayTotals?.cleanNum, ytdValue: displayTotals?.ytdClean },
+    { label: 'Transport', value: displayTotals?.transportNum, ytdValue: displayTotals?.ytdTransport },
   ].filter((row) => Number(row.value || 0) !== 0)
 
   return (
@@ -778,22 +784,22 @@ function PayrollStubCopy({
           <tbody>
             <tr>
               <td style={td}>Regular Pay</td>
-              <td style={td}>{Number(totals?.mainHours || 0).toFixed(2)}</td>
-              <td style={td}>{stubMoney(totals?.mainLabor)}</td>
+              <td style={td}>{Number(displayTotals?.mainHours || 0).toFixed(2)}</td>
+              <td style={td}>{stubMoney(displayTotals?.mainLabor)}</td>
             </tr>
 
-            {Number(totals?.overtimeHours || 0) > 0 || Number(totals?.overtimeLabor || 0) > 0 ? (
+            {Number(displayTotals?.overtimeHours || 0) > 0 || Number(displayTotals?.overtimeLabor || 0) > 0 ? (
               <tr>
                 <td style={td}>Overtime Pay</td>
-                <td style={td}>{Number(totals?.overtimeHours || 0).toFixed(2)}</td>
-                <td style={td}>{stubMoney(totals?.overtimeLabor)}</td>
+                <td style={td}>{Number(displayTotals?.overtimeHours || 0).toFixed(2)}</td>
+                <td style={td}>{stubMoney(displayTotals?.overtimeLabor)}</td>
               </tr>
             ) : null}
 
             <tr>
               <td style={tdBold}>Gross Pay</td>
               <td style={tdBold}></td>
-              <td style={tdBold}>{stubMoney(totals?.totalLabor)}</td>
+              <td style={tdBold}>{stubMoney(displayTotals?.totalLabor)}</td>
             </tr>
           </tbody>
         </table>
@@ -818,9 +824,9 @@ function PayrollStubCopy({
 
             <tr>
               <td style={tdBold}>Net Pay</td>
-              <td style={tdBold}>{stubMoney(totals?.netPay)}</td>
+              <td style={tdBold}>{stubMoney(displayTotals?.netPay)}</td>
               <td style={tdBold}>
-                {totals?.ytdNetPay === undefined ? '' : stubMoney(totals.ytdNetPay)}
+                {displayTotals?.ytdNetPay === undefined ? '' : stubMoney(displayTotals.ytdNetPay)}
               </td>
             </tr>
           </tbody>
@@ -830,7 +836,7 @@ function PayrollStubCopy({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: Array.isArray(totals?.employeeTaxes) && totals.employeeTaxes.length
+          gridTemplateColumns: Array.isArray(displayTotals?.employeeTaxes) && displayTotals.employeeTaxes.length
             ? '0.98fr 1.02fr'
             : '1fr',
           gap: '6px',
@@ -838,8 +844,8 @@ function PayrollStubCopy({
           alignItems: 'start',
         }}
       >
-        <WeeklyTimeReport totals={totals} periodStart={periodStart} />
-        <EmployeeTaxBreakdown totals={totals} />
+        <WeeklyTimeReport totals={displayTotals} periodStart={periodStart} />
+        <EmployeeTaxBreakdown totals={displayTotals} />
       </div>
     </div>
   )
@@ -853,6 +859,7 @@ export default function PayrollCheck({
   periodEnd,
   checkNumber,
   payDate,
+  checkAmount,
   companyName = 'FARMPLAST LLC',
   companyAddress1 = '125 EAST HALSEY ROAD',
   companyAddress2 = 'PARSIPPANY, NJ 07054',
@@ -906,9 +913,7 @@ export default function PayrollCheck({
         }
 
         .print-tear-line {
-          width: 100%;
-          border-top: 2px dashed #555;
-          margin: 0 0 2mm 0;
+          display: none;
         }
 
         @page {
@@ -958,10 +963,7 @@ export default function PayrollCheck({
           }
 
           .print-tear-line {
-            display: block !important;
-            width: 100% !important;
-            border-top: 2px dashed #555 !important;
-            margin: 0 0 2mm 0 !important;
+            display: none !important;
           }
 
           .no-print {
@@ -980,6 +982,7 @@ export default function PayrollCheck({
           periodEnd={periodEnd}
           checkNumber={checkNumber}
           payDate={payDate}
+          checkAmount={checkAmount}
           companyName={companyName}
           companyAddress1={companyAddress1}
           companyAddress2={companyAddress2}
@@ -989,7 +992,6 @@ export default function PayrollCheck({
       <div className="print-report-sheet">
         {showEmployeeCopy ? (
           <>
-            <div className="print-tear-line" />
             <PayrollStubCopy
               title="FARMPLAST LLC. EMPLOYEE COPY"
               employee={employee}
@@ -999,14 +1001,13 @@ export default function PayrollCheck({
               totals={totals}
               checkNumber={checkNumber}
               payDate={payDate}
+              checkAmount={checkAmount}
             />
           </>
         ) : null}
 
         {showEmployerCopy ? (
-  <div style={{ marginTop: '10mm' }}>
-    <div className="print-tear-line" />
-
+  <div style={{ marginTop: '16mm' }}>
     <PayrollStubCopy
       title="FARMPLAST LLC. EMPLOYER COPY"
       employee={employee}
@@ -1016,6 +1017,7 @@ export default function PayrollCheck({
       totals={totals}
       checkNumber={checkNumber}
       payDate={payDate}
+      checkAmount={checkAmount}
     />
   </div>
 ) : null}

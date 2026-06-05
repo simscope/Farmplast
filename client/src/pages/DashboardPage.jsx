@@ -10,6 +10,8 @@ import {
   CalendarDays,
   ShieldCheck,
   FileText,
+  Printer,
+  X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/useAuth'
@@ -68,6 +70,162 @@ function pad2(value) {
 
 function toLocalDateString(date) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
+}
+
+function getPrintRowKey(item) {
+  const employeeId = item?.employee?.id || item?.fullName || 'employee'
+  const checkNumber = item?.print_check_number || item?.employee?.last_check_number || 'check'
+  return `${employeeId}-${checkNumber}`
+}
+
+function mapPayrollRowToCheckTotals(item) {
+  if (item?.checkTotals) return item.checkTotals
+  if (item?.totals) return item.totals
+
+  return {
+    mainHours: item.regularHours,
+    overtimeHours: item.overtimeHours,
+    totalLabor: item.grossPay,
+    mainLabor: item.regularLabor,
+    overtimeLabor: item.overtimeLabor,
+    employeeTaxNum: item.deductions?.tax || 0,
+    rentNum: item.deductions?.rent || 0,
+    electricNum: item.deductions?.electric || 0,
+    waterNum: item.deductions?.water || 0,
+    cleanNum: item.deductions?.clean || 0,
+    transportNum: item.deductions?.transport || 0,
+    netPay: item.netPay,
+    rows: item.rows || [],
+    filteredForView: item.rows || [],
+    rowsByDate: item.rowsByDate || {},
+  }
+}
+
+function PayrollPrintDocument({ rows, week, defaultPayDate, getFullName }) {
+  const [edits, setEdits] = useState(() => {
+    const initial = {}
+
+    rows.forEach((item) => {
+      const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
+      initial[getPrintRowKey(item)] = {
+        payDate: defaultPayDate,
+        amount: String(Number(totals?.netPay || totals?.totalLabor || item?.netPay || 0).toFixed(2)),
+      }
+    })
+
+    return initial
+  })
+
+  function updateEdit(rowKey, field, value) {
+    setEdits((prev) => ({
+      ...prev,
+      [rowKey]: {
+        ...(prev[rowKey] || {}),
+        [field]: value,
+      },
+    }))
+  }
+
+  return (
+    <div className="dashboard-selected-checks-print">
+      <div className="no-print sticky top-0 z-10 border-b border-slate-700 bg-[#07111f] px-4 py-3 text-white shadow">
+        <div className="mx-auto flex max-w-[215.9mm] items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-bold">Payroll checks</div>
+            <div className="text-xs text-slate-400">{rows.length} ready to print</div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => window.print()}
+              className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500"
+            >
+              <Printer size={16} />
+              Print
+            </button>
+
+            <button
+              type="button"
+              onClick={() => window.close()}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:border-red-500"
+            >
+              <X size={16} />
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {rows.map((item) => {
+        const employee = item.employee
+        const checkNumber = item.print_check_number || employee?.last_check_number || 0
+        const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
+        const rowKey = getPrintRowKey(item)
+        const edit = edits[rowKey] || {}
+        const payDate = edit.payDate || defaultPayDate
+        const checkAmount = edit.amount === '' ? totals?.netPay : Number(edit.amount)
+
+        return (
+          <div key={rowKey}>
+            <div className="no-print mx-auto my-4 grid max-w-[215.9mm] gap-3 rounded-lg border border-slate-700 bg-[#07111f] p-3 text-white md:grid-cols-[1fr_160px_160px]">
+              <div className="min-w-0">
+                <div className="truncate text-sm font-semibold">
+                  Check #{checkNumber || '-'} · {item.fullName || getFullName(employee)}
+                </div>
+              </div>
+
+              <label className="block text-xs font-semibold text-slate-300">
+                Date
+                <input
+                  type="date"
+                  value={payDate}
+                  onChange={(event) => updateEdit(rowKey, 'payDate', event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500"
+                />
+              </label>
+
+              <label className="block text-xs font-semibold text-slate-300">
+                Amount
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={edit.amount ?? String(Number(totals?.netPay || 0).toFixed(2))}
+                  onChange={(event) => updateEdit(rowKey, 'amount', event.target.value)}
+                  className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500"
+                />
+              </label>
+            </div>
+
+            {item.grouped_company ? (
+              <CompanyPayrollCheck
+                companyName={item.fullName || getFullName(employee)}
+                groupedItems={item.grouped_items || []}
+                totals={totals}
+                periodStart={week.startText}
+                periodEnd={week.endText}
+                checkNumber={checkNumber}
+                payDate={payDate}
+                checkAmount={checkAmount}
+              />
+            ) : (
+              <PayrollCheck
+                employee={employee}
+                fullName={item.fullName || getFullName(employee)}
+                totals={totals}
+                periodStart={week.startText}
+                periodEnd={week.endText}
+                checkNumber={checkNumber}
+                payDate={payDate}
+                checkAmount={checkAmount}
+              />
+            )}
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 function getPreviousWeekRange() {
@@ -1111,30 +1269,6 @@ export default function DashboardPage() {
     )
   }
 
-  function mapPayrollRowToCheckTotals(item) {
-    if (item?.checkTotals) return item.checkTotals
-    if (item?.totals) return item.totals
-
-    return {
-      mainHours: item.regularHours,
-      overtimeHours: item.overtimeHours,
-      totalLabor: item.grossPay,
-      mainLabor: item.regularLabor,
-      overtimeLabor: item.overtimeLabor,
-      employeeTaxNum: item.deductions?.tax || 0,
-      rentNum: item.deductions?.rent || 0,
-      electricNum: item.deductions?.electric || 0,
-      waterNum: item.deductions?.water || 0,
-      cleanNum: item.deductions?.clean || 0,
-      transportNum: item.deductions?.transport || 0,
-      netPay: item.netPay,
-      rows: item.rows || [],
-      filteredForView: item.rows || [],
-      rowsByDate: item.rowsByDate || {},
-    }
-  }
-
-
   function copyPrintStylesToWindow(printDocument) {
     Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).forEach((node) => {
       try {
@@ -1189,48 +1323,17 @@ export default function DashboardPage() {
     const payDate = toLocalDateString(new Date())
 
     root.render(
-      <div className="dashboard-selected-checks-print">
-        {payrollRows.map((item) => {
-          const employee = item.employee
-          const checkNumber = item.print_check_number || employee?.last_check_number || 0
-
-          const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-
-          if (item.grouped_company) {
-            return (
-              <CompanyPayrollCheck
-                key={`${employee.id}-${checkNumber}`}
-                companyName={item.fullName || getFullName(employee)}
-                groupedItems={item.grouped_items || []}
-                totals={totals}
-                periodStart={week.startText}
-                periodEnd={week.endText}
-                checkNumber={checkNumber}
-                payDate={payDate}
-              />
-            )
-          }
-
-          return (
-            <PayrollCheck
-              key={`${employee.id}-${checkNumber}`}
-              employee={employee}
-              fullName={item.fullName || getFullName(employee)}
-              totals={totals}
-              periodStart={week.startText}
-              periodEnd={week.endText}
-              checkNumber={checkNumber}
-              payDate={payDate}
-            />
-          )
-        })}
-      </div>
+      <PayrollPrintDocument
+        rows={payrollRows}
+        week={week}
+        defaultPayDate={payDate}
+        getFullName={getFullName}
+      />
     )
 
     setTimeout(() => {
       targetWindow.focus()
-      targetWindow.print()
-    }, 500)
+    }, 150)
   }
 
   function toggleSelectedCheck(employeeId) {
