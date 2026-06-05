@@ -101,7 +101,7 @@ function mapPayrollRowToCheckTotals(item) {
   }
 }
 
-function PayrollPrintDocument({ rows, week, defaultPayDate, getFullName }) {
+function PayrollPrintDocument({ rows, week, defaultPayDate, getFullName, printWindow }) {
   const [edits, setEdits] = useState(() => {
     const initial = {}
 
@@ -127,7 +127,7 @@ function PayrollPrintDocument({ rows, week, defaultPayDate, getFullName }) {
   }
 
   return (
-    <div className="dashboard-selected-checks-print">
+    <div className="payroll-print-host dashboard-selected-checks-print">
       <div className="no-print sticky top-0 z-10 border-b border-slate-700 bg-[#07111f] px-4 py-3 text-white shadow">
         <div className="mx-auto flex max-w-[215.9mm] items-center justify-between gap-3">
           <div>
@@ -138,7 +138,7 @@ function PayrollPrintDocument({ rows, week, defaultPayDate, getFullName }) {
           <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={() => window.print()}
+              onClick={() => (printWindow || window).print()}
               className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500"
             >
               <Printer size={16} />
@@ -147,7 +147,7 @@ function PayrollPrintDocument({ rows, week, defaultPayDate, getFullName }) {
 
             <button
               type="button"
-              onClick={() => window.close()}
+              onClick={() => (printWindow || window).close()}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:border-red-500"
             >
               <X size={16} />
@@ -1328,6 +1328,7 @@ export default function DashboardPage() {
         week={week}
         defaultPayDate={payDate}
         getFullName={getFullName}
+        printWindow={targetWindow}
       />
     )
 
