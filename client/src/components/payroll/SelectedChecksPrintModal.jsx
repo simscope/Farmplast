@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Printer, X } from 'lucide-react'
 import PayrollCheck from './PayrollCheck'
 import './PayrollCheck.css'
@@ -15,6 +15,10 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function getRowKey(item) {
+  return `${item?.employee?.id || 'employee'}-${item?.saved_check_number || 'check'}`
+}
+
 export default function SelectedChecksPrintModal({
   open,
   onClose,
@@ -25,13 +29,26 @@ export default function SelectedChecksPrintModal({
   onAutoPrintDone,
 }) {
   const [printing, setPrinting] = useState(false)
+  const [checkEdits, setCheckEdits] = useState({})
   const lastAutoPrintKeyRef = useRef('')
 
   const printKey = (rows || [])
     .map((item) => `${item?.employee?.id || ''}-${item?.saved_check_number || ''}`)
     .join('|')
 
-  async function handlePrint() {
+  const defaultPayDate = useMemo(() => new Date().toISOString().slice(0, 10), [])
+
+  function updateCheckEdit(rowKey, field, value) {
+    setCheckEdits((prev) => ({
+      ...prev,
+      [rowKey]: {
+        ...(prev[rowKey] || {}),
+        [field]: value,
+      },
+    }))
+  }
+
+  const handlePrint = useCallback(async function handlePrint() {
     if (!open || !rows?.length || printing) return
 
     try {
@@ -51,7 +68,7 @@ export default function SelectedChecksPrintModal({
         onAutoPrintDone()
       }
     }
-  }
+  }, [onAutoPrintDone, open, printing, rows?.length])
 
   useEffect(() => {
     if (!open || !autoPrint || !rows?.length) return
@@ -60,7 +77,27 @@ export default function SelectedChecksPrintModal({
 
     lastAutoPrintKeyRef.current = printKey
     handlePrint()
-  }, [open, autoPrint, printKey])
+  }, [autoPrint, handlePrint, open, printKey, rows?.length])
+
+  useEffect(() => {
+    if (!open || !rows?.length) return
+
+    setCheckEdits((prev) => {
+      const next = { ...prev }
+
+      rows.forEach((item) => {
+        const rowKey = getRowKey(item)
+        if (next[rowKey]) return
+
+        next[rowKey] = {
+          payDate: defaultPayDate,
+          amount: String(Number(item?.print_totals?.netPay || 0).toFixed(2)),
+        }
+      })
+
+      return next
+    })
+  }, [defaultPayDate, open, printKey, rows])
 
   if (!open) return null
 
@@ -103,18 +140,58 @@ export default function SelectedChecksPrintModal({
               const employee = item.employee
               const totals = item.print_totals || {}
               const checkNumber = item.saved_check_number
+              const rowKey = getRowKey(item)
+              const edit = checkEdits[rowKey] || {}
+              const payDate = edit.payDate || defaultPayDate
+              const checkAmount = edit.amount === '' ? totals.netPay : Number(edit.amount)
 
               return (
-                <PayrollCheck
-                  key={`${employee?.id || 'employee'}-${checkNumber || 'check'}`}
-                  employee={employee}
-                  fullName={getFullName(employee)}
-                  totals={totals}
-                  periodStart={week?.startText}
-                  periodEnd={week?.endText}
-                  checkNumber={checkNumber}
-                  payDate={new Date().toISOString().slice(0, 10)}
-                />
+                <div key={rowKey}>
+                  <div className="no-print mb-3 grid gap-3 rounded-lg border border-slate-700 bg-[#07111f] p-3 text-white md:grid-cols-[1fr_160px_160px]">
+                    <div>
+                      <div className="text-sm font-semibold">
+                        Check #{checkNumber || '—'} · {getFullName(employee)}
+                      </div>
+                    </div>
+
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Date
+                      <input
+                        type="date"
+                        value={payDate}
+                        onChange={(event) =>
+                          updateCheckEdit(rowKey, 'payDate', event.target.value)
+                        }
+                        className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500"
+                      />
+                    </label>
+
+                    <label className="block text-xs font-semibold text-slate-300">
+                      Amount
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={edit.amount ?? String(Number(totals.netPay || 0).toFixed(2))}
+                        onChange={(event) =>
+                          updateCheckEdit(rowKey, 'amount', event.target.value)
+                        }
+                        className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500"
+                      />
+                    </label>
+                  </div>
+
+                  <PayrollCheck
+                    employee={employee}
+                    fullName={getFullName(employee)}
+                    totals={totals}
+                    periodStart={week?.startText}
+                    periodEnd={week?.endText}
+                    checkNumber={checkNumber}
+                    payDate={payDate}
+                    checkAmount={checkAmount}
+                  />
+                </div>
               )
             })}
           </div>
