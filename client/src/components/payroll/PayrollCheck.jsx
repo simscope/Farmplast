@@ -908,7 +908,7 @@ export default function PayrollCheck({
 
         .print-report-sheet {
           background: white;
-          padding: 8mm 4mm 2mm;
+          padding: 2mm 4mm;
           box-sizing: border-box;
         }
 
@@ -957,7 +957,7 @@ export default function PayrollCheck({
           .print-report-sheet {
             width: 215.9mm !important;
             margin: 0 !important;
-            padding: 8mm 4mm 2mm !important;
+            padding: 2mm 4mm !important;
             background: white !important;
             box-shadow: none !important;
           }
@@ -1007,7 +1007,7 @@ export default function PayrollCheck({
         ) : null}
 
         {showEmployerCopy ? (
-  <div style={{ marginTop: '10mm' }}>
+  <div style={{ marginTop: '16mm' }}>
     <PayrollStubCopy
       title="FARMPLAST LLC. EMPLOYER COPY"
       employee={employee}
