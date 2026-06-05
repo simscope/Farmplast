@@ -208,21 +208,18 @@
   }
 
   .payroll-print-host .print-report-sheet {
-    position: absolute !important;
-    left: 8mm !important;
-    top: 96mm !important;
-    width: 200mm !important;
+    position: relative !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 215.9mm !important;
     margin: 0 !important;
-    padding: 4mm !important;
+    padding: 2mm 4mm !important;
     background: white !important;
     box-shadow: none !important;
   }
 
   .payroll-print-host .print-tear-line {
-    display: block !important;
-    width: 100% !important;
-    border-top: 2px dashed #555 !important;
-    margin: 0 0 6mm 0 !important;
+    display: none !important;
   }
 
   .no-print,

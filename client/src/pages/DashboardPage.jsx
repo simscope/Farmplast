@@ -167,7 +167,7 @@ function PayrollPrintDocument({ rows, week, defaultPayDate, getFullName }) {
         const checkAmount = edit.amount === '' ? totals?.netPay : Number(edit.amount)
 
         return (
-          <div key={rowKey}>
+          <div key={rowKey} className="dashboard-selected-check-page">
             <div className="no-print mx-auto my-4 grid max-w-[215.9mm] gap-3 rounded-lg border border-slate-700 bg-[#07111f] p-3 text-white md:grid-cols-[1fr_160px_160px]">
               <div className="min-w-0">
                 <div className="truncate text-sm font-semibold">
@@ -1284,8 +1284,8 @@ export default function DashboardPage() {
       html, body { margin: 0; padding: 0; background: white; color: black; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
       #print-root { background: white; }
       .dashboard-selected-checks-print { background: white; }
-      .dashboard-selected-checks-print > * { page-break-after: always; break-after: page; }
-      .dashboard-selected-checks-print > *:last-child { page-break-after: auto; break-after: auto; }
+      .dashboard-selected-check-page { page-break-after: always; break-after: page; }
+      .dashboard-selected-check-page:last-child { page-break-after: auto; break-after: auto; }
     `
     printDocument.head.appendChild(style)
   }
