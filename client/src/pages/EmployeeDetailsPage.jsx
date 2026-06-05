@@ -390,6 +390,7 @@ function openPayrollCheckPrintWindow({
   periodEnd,
   checkNumber,
   payDate,
+  checkAmount,
 }) {
   const printWindow = window.open('', '_blank')
 
@@ -416,21 +417,52 @@ function openPayrollCheckPrintWindow({
   const root = createRoot(rootElement)
 
   root.render(
-    <PayrollCheck
-      employee={employee}
-      fullName={fullName}
-      totals={totals}
-      periodStart={periodStart}
-      periodEnd={periodEnd}
-      checkNumber={checkNumber}
-      payDate={payDate}
-    />
+    <div className="payroll-print-host">
+      <div className="no-print border-b border-slate-700 bg-[#07111f] px-4 py-3 text-white shadow">
+        <div className="mx-auto flex max-w-[215.9mm] items-center justify-between gap-3">
+          <div>
+            <div className="text-sm font-bold">Payroll check #{checkNumber || '-'}</div>
+            <div className="text-xs text-slate-400">{fullName}</div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => printWindow.print()}
+              className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500"
+            >
+              <Printer size={16} />
+              Print
+            </button>
+
+            <button
+              type="button"
+              onClick={() => printWindow.close()}
+              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:border-red-500"
+            >
+              <X size={16} />
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <PayrollCheck
+        employee={employee}
+        fullName={fullName}
+        totals={totals}
+        periodStart={periodStart}
+        periodEnd={periodEnd}
+        checkNumber={checkNumber}
+        payDate={payDate}
+        checkAmount={checkAmount}
+      />
+    </div>
   )
 
   setTimeout(() => {
     printWindow.focus()
-    printWindow.print()
-  }, 500)
+  }, 150)
 }
 
 function PrintPreviewModal({
@@ -445,6 +477,9 @@ function PrintPreviewModal({
   periodEnd,
   checkNumber,
   payDate,
+  checkAmount,
+  onPayDateChange,
+  onCheckAmountChange,
 }) {
   if (!open) return null
 
@@ -457,7 +492,29 @@ function PrintPreviewModal({
             <p className="mt-1 text-sm text-slate-400">Check + payment report</p>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-end justify-end gap-3">
+            <label className="block text-xs font-semibold text-slate-300">
+              Date
+              <input
+                type="date"
+                value={payDate || ''}
+                onChange={(event) => onPayDateChange(event.target.value)}
+                className="mt-1 w-[150px] rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500"
+              />
+            </label>
+
+            <label className="block text-xs font-semibold text-slate-300">
+              Amount
+              <input
+                type="number"
+                step="0.01"
+                min="0"
+                value={checkAmount ?? ''}
+                onChange={(event) => onCheckAmountChange(event.target.value)}
+                className="mt-1 w-[130px] rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500"
+              />
+            </label>
+
             <button
               onClick={onPrintAndSave}
               disabled={printing}
@@ -488,6 +545,7 @@ function PrintPreviewModal({
                 periodEnd={periodEnd}
                 checkNumber={checkNumber}
                 payDate={payDate}
+                checkAmount={checkAmount}
               />
             ) : (
               <div
@@ -528,6 +586,7 @@ export default function EmployeeDetailsPage() {
   const [printCheckNumber, setPrintCheckNumber] = useState(null)
   const [printCheckStatus, setPrintCheckStatus] = useState(null)
   const [printPayDate, setPrintPayDate] = useState(toLocalDateString(new Date()))
+  const [printCheckAmount, setPrintCheckAmount] = useState('')
   const [editEmployeeOpen, setEditEmployeeOpen] = useState(false)
   const [editEmployeeForm, setEditEmployeeForm] = useState(() => buildEmployeeEditForm())
   const [editEmployeeW4Open, setEditEmployeeW4Open] = useState(false)
@@ -1437,6 +1496,7 @@ export default function EmployeeDetailsPage() {
       setPrintCheckNumber(null)
       setPrintCheckStatus(null)
       setPrintPayDate(toLocalDateString(new Date()))
+      setPrintCheckAmount(String(Number(totals.netPay || 0).toFixed(2)))
 
       const netPay = Number(totals.netPay || 0)
 
@@ -1479,6 +1539,7 @@ export default function EmployeeDetailsPage() {
         setPrintCheckNumber(createdCheck.check_number)
         setPrintCheckStatus(createdCheck.status || 'draft')
         setPrintPayDate(payDate)
+        setPrintCheckAmount(String(Number(createdCheck.net_pay ?? netPay).toFixed(2)))
         setEmployee((prev) =>
           prev
             ? {
@@ -1521,6 +1582,7 @@ export default function EmployeeDetailsPage() {
       setPrintCheckId(null)
       setPrintCheckNumber(null)
       setPrintCheckStatus(null)
+      setPrintCheckAmount('')
     }
   }
 
@@ -1545,6 +1607,9 @@ export default function EmployeeDetailsPage() {
 
       const confirmedAt =
         printedCheck?.printed_confirmed_at || printedCheck?.printed_at || new Date().toISOString()
+      const paymentDate = printPayDate || String(confirmedAt).slice(0, 10)
+      const paidAt = new Date(`${paymentDate}T12:00:00`).toISOString()
+      const printedAmount = Number(printCheckAmount || totals.netPay || 0)
 
       const payload = {
         employee_id: id,
@@ -1557,15 +1622,15 @@ export default function EmployeeDetailsPage() {
         water: Number(totals.waterNum || 0),
         clean: Number(totals.cleanNum || 0),
         transport: Number(totals.transportNum || 0),
-        net_pay: Number(totals.netPay || 0),
-        paid_at: confirmedAt,
+        net_pay: printedAmount,
+        paid_at: paidAt,
       }
 
       await saveEmployeePayment(supabase, payload)
 
       flushSync(() => {
         setPrintCheckStatus('printed')
-        setPrintPayDate(String(confirmedAt).slice(0, 10))
+        setPrintPayDate(paymentDate)
       })
 
       await loadPaymentsOnly()
@@ -1584,7 +1649,8 @@ export default function EmployeeDetailsPage() {
         periodStart,
         periodEnd,
         checkNumber: printCheckNumber,
-        payDate: String(confirmedAt).slice(0, 10),
+        payDate: paymentDate,
+        checkAmount: printedAmount,
       })
     } catch (err) {
       console.error('handleSaveAndPrint error:', err)
@@ -2885,6 +2951,9 @@ export default function EmployeeDetailsPage() {
           periodEnd={periodEnd}
           checkNumber={printCheckNumber}
           payDate={printPayDate}
+          checkAmount={printCheckAmount}
+          onPayDateChange={setPrintPayDate}
+          onCheckAmountChange={setPrintCheckAmount}
         />
       </div>
     </div>
