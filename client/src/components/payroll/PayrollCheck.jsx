@@ -1007,7 +1007,7 @@ export default function PayrollCheck({
         ) : null}
 
         {showEmployerCopy ? (
-  <div style={{ marginTop: '16mm' }}>
+  <div style={{ marginTop: '23mm' }}>
     <PayrollStubCopy
       title="FARMPLAST LLC. EMPLOYER COPY"
       employee={employee}
