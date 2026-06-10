@@ -210,6 +210,25 @@ function getDeductionNumber(value) {
   return Number.isFinite(num) ? num : 0
 }
 
+function sumDeductionRows(rows = []) {
+  return rows.reduce(
+    (acc, row) => ({
+      rent: acc.rent + getDeductionNumber(row?.rent),
+      electric: acc.electric + getDeductionNumber(row?.electric),
+      water: acc.water + getDeductionNumber(row?.water),
+      clean: acc.clean + getDeductionNumber(row?.clean),
+      transport: acc.transport + getDeductionNumber(row?.transport),
+    }),
+    {
+      rent: 0,
+      electric: 0,
+      water: 0,
+      clean: 0,
+      transport: 0,
+    }
+  )
+}
+
 const defaultTaxProfile = {
   federal_filing_status: 'single',
   federal_w4_step3: '0',
@@ -585,7 +604,7 @@ export default function EmployeeDetailsPage() {
         return
       }
 
-      const { data, error } = await supabase
+      const { data: exactData, error: exactError } = await supabase
         .from('employee_payroll_deductions')
         .select('rent,electric,water,clean,transport')
         .eq('employee_id', id)
@@ -593,13 +612,28 @@ export default function EmployeeDetailsPage() {
         .eq('period_end', periodEnd)
         .maybeSingle()
 
-      if (error) throw error
+      if (exactError) throw exactError
 
-      setRent(String(getDeductionNumber(data?.rent)))
-      setElectric(String(getDeductionNumber(data?.electric)))
-      setWater(String(getDeductionNumber(data?.water)))
-      setClean(String(getDeductionNumber(data?.clean)))
-      setTransport(String(getDeductionNumber(data?.transport)))
+      let deductions = exactData
+
+      if (!deductions) {
+        const { data: rangeData, error: rangeError } = await supabase
+          .from('employee_payroll_deductions')
+          .select('rent,electric,water,clean,transport')
+          .eq('employee_id', id)
+          .gte('period_start', periodStart)
+          .lte('period_end', periodEnd)
+
+        if (rangeError) throw rangeError
+
+        deductions = sumDeductionRows(rangeData || [])
+      }
+
+      setRent(String(getDeductionNumber(deductions?.rent)))
+      setElectric(String(getDeductionNumber(deductions?.electric)))
+      setWater(String(getDeductionNumber(deductions?.water)))
+      setClean(String(getDeductionNumber(deductions?.clean)))
+      setTransport(String(getDeductionNumber(deductions?.transport)))
     } catch (err) {
       console.error('loadDeductionsForPeriod error:', err)
       setRent('0')
