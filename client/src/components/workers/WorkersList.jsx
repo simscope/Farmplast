@@ -11,6 +11,7 @@ import {
   Trash2,
   User,
 } from 'lucide-react'
+import { getEmployeePhotoThumbnailUrl } from '../../utils/employeePhotos'
 
 const LAST_ACCESSED_EMPLOYEE_KEY = 'farmplast:last-accessed-employee-id'
 
@@ -219,7 +220,7 @@ export default function WorkersList({
                       <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-[#07101d]">
                         {employee.photo_url ? (
                           <img
-                            src={employee.photo_url}
+                            src={getEmployeePhotoThumbnailUrl(employee.photo_url, 96)}
                             alt={getFullName(employee)}
                             className="h-full w-full object-cover"
                           />
@@ -401,7 +402,7 @@ export default function WorkersList({
                   <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-700 bg-[#07101d]">
                     {employee.photo_url ? (
                       <img
-                        src={employee.photo_url}
+                        src={getEmployeePhotoThumbnailUrl(employee.photo_url, 128)}
                         alt={getFullName(employee)}
                         className="h-full w-full object-cover"
                       />

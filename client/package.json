@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "compress:employee-photos": "node scripts/compress-employee-photos.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.1",

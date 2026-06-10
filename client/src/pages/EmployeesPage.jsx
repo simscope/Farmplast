@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import {
+  EMPLOYEE_PHOTO_BUCKET,
+  compressEmployeePhoto,
+  getEmployeePhotoThumbnailUrl,
+} from '../utils/employeePhotos'
 
 const pageStyle = {
   minHeight: '100vh',
@@ -555,23 +560,24 @@ export default function EmployeesPage() {
 
       setUploadingId(employee.id)
 
-      const fileExt = safeFileName(file.name).split('.').pop() || 'png'
+      const compressedPhoto = await compressEmployeePhoto(file)
+      const fileExt = compressedPhoto.extension
       const filePath = `employees/${employee.id}/${Date.now()}-${safeFileName(
         `${employee.employee_number || 'employee'}-photo.${fileExt}`
       )}`
 
       const { error: uploadError } = await supabase.storage
-        .from('employee-photos')
-        .upload(filePath, file, {
+        .from(EMPLOYEE_PHOTO_BUCKET)
+        .upload(filePath, compressedPhoto.file, {
           cacheControl: '3600',
           upsert: true,
-          contentType: file.type,
+          contentType: compressedPhoto.type,
         })
 
       if (uploadError) throw uploadError
 
       const { data: publicUrlData } = supabase.storage
-        .from('employee-photos')
+        .from(EMPLOYEE_PHOTO_BUCKET)
         .getPublicUrl(filePath)
 
       const publicUrl = publicUrlData?.publicUrl
@@ -1037,7 +1043,7 @@ export default function EmployeesPage() {
                         <div style={photoBoxStyle}>
                           {employee.photo_url ? (
                             <img
-                              src={employee.photo_url}
+                              src={getEmployeePhotoThumbnailUrl(employee.photo_url, 128)}
                               alt={`${employee.first_name || ''} ${employee.last_name || ''}`}
                               style={{
                                 width: '100%',

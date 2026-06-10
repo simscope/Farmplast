@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { X, Upload, Loader2, Trash2, FileText, Printer } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { EMPLOYEE_PHOTO_BUCKET, compressEmployeePhoto } from '../utils/employeePhotos'
 
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
@@ -22,7 +23,7 @@ async function removeEmployeePhotos(employeeId) {
   const folder = `employees/${employeeId}`
 
   const { data, error } = await supabase.storage
-    .from('employee-photos')
+    .from(EMPLOYEE_PHOTO_BUCKET)
     .list(folder)
 
   if (error) throw error
@@ -31,7 +32,7 @@ async function removeEmployeePhotos(employeeId) {
 
   if (files.length > 0) {
     const { error: removeError } = await supabase.storage
-      .from('employee-photos')
+      .from(EMPLOYEE_PHOTO_BUCKET)
       .remove(files)
 
     if (removeError) throw removeError
@@ -39,7 +40,8 @@ async function removeEmployeePhotos(employeeId) {
 }
 
 async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
-  const ext = file.name.split('.').pop() || 'jpg'
+  const compressedPhoto = await compressEmployeePhoto(file)
+  const ext = compressedPhoto.extension
   const safeName = sanitizeFileName(file.name.replace(/\.[^.]+$/, ''))
   const filePath = `employees/${employeeIdOrTemp}/${Date.now()}-${safeName}.${ext}`
 
@@ -48,17 +50,17 @@ async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
   }
 
   const { error: uploadError } = await supabase.storage
-    .from('employee-photos')
-    .upload(filePath, file, {
+    .from(EMPLOYEE_PHOTO_BUCKET)
+    .upload(filePath, compressedPhoto.file, {
       cacheControl: '3600',
       upsert: true,
-      contentType: file.type,
+      contentType: compressedPhoto.type,
     })
 
   if (uploadError) throw uploadError
 
   const { data } = supabase.storage
-    .from('employee-photos')
+    .from(EMPLOYEE_PHOTO_BUCKET)
     .getPublicUrl(filePath)
 
   if (!data?.publicUrl) {
