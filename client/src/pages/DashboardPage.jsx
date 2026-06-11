@@ -955,6 +955,7 @@ export default function DashboardPage() {
     const { data, error } = await supabase
       .from('employee_work_logs')
       .select('*')
+      .or('is_deleted.is.null,is_deleted.eq.false')
       .limit(10000)
 
     if (error) throw error
