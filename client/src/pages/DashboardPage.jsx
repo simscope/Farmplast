@@ -956,14 +956,14 @@ export default function DashboardPage() {
       .from('employee_work_logs')
       .select('*')
       .or('is_deleted.is.null,is_deleted.eq.false')
+      .gte('work_date', week.startText)
+      .lte('work_date', week.endText)
+      .order('work_date', { ascending: true })
       .limit(10000)
 
     if (error) throw error
 
-    const logs = (data || []).filter((log) => {
-      const dateText = getLogDate(log)
-      return dateText >= week.startText && dateText <= week.endText
-    })
+    const logs = data || []
 
     return { week, logs }
   }
