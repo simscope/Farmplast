@@ -327,6 +327,11 @@ function normalizeShiftType(value) {
   return String(value || 'day').toLowerCase() === 'night' ? 'night' : 'day'
 }
 
+function normalizeDefaultLunchHours(value) {
+  const hours = Number(value)
+  return [0, 0.5, 1].includes(hours) ? hours : 1
+}
+
 function getShiftLabel(employee) {
   return normalizeShiftType(employee?.shift_type) === 'night' ? 'NIGHT' : 'DAY'
 }
@@ -430,6 +435,7 @@ export default function DashboardPage() {
     monthly_salary: '',
     overtime_enabled: false,
     downtime_enabled: true,
+    default_lunch_hours: '1',
     shift_type: 'day',
     active: true,
     exclude_from_payroll_report: false,
@@ -564,7 +570,7 @@ export default function DashboardPage() {
       if (employeeIds.length > 0) {
         const { data: paymentMetaRows, error: paymentMetaError } = await supabase
           .from('employees')
-          .select('id, company_id, last_payment_date, last_payment_amount, last_check_number')
+          .select('id, company_id, last_payment_date, last_payment_amount, last_check_number, default_lunch_hours')
           .in('id', employeeIds)
 
         if (paymentMetaError) throw paymentMetaError
@@ -616,6 +622,7 @@ export default function DashboardPage() {
           last_payment_date: paymentMeta.last_payment_date || null,
           last_payment_amount: paymentMeta.last_payment_amount ?? null,
           last_check_number: paymentMeta.last_check_number ?? null,
+          default_lunch_hours: normalizeDefaultLunchHours(paymentMeta.default_lunch_hours),
           tax_profile: normalizeTaxProfile(taxProfileByEmployeeId.get(employee.id)),
           punch_errors_week: punchErrorsByEmployee.get(employee.id) || [],
           punch_errors_week_start: week.startText,
@@ -780,6 +787,7 @@ export default function DashboardPage() {
       monthly_salary: employee.monthly_salary ?? '',
       overtime_enabled: employee.overtime_enabled ?? false,
       downtime_enabled: employee.downtime_enabled ?? true,
+      default_lunch_hours: String(normalizeDefaultLunchHours(employee.default_lunch_hours)),
       shift_type: normalizeShiftType(employee.shift_type),
       active: employee.active ?? true,
       exclude_from_payroll_report: employee.exclude_from_payroll_report === true,
@@ -847,6 +855,7 @@ export default function DashboardPage() {
             : null,
         overtime_enabled: Boolean(form.overtime_enabled),
         downtime_enabled: form.downtime_enabled !== false,
+        default_lunch_hours: normalizeDefaultLunchHours(form.default_lunch_hours),
         shift_type: normalizeShiftType(form.shift_type),
         active: Boolean(form.active),
         exclude_from_payroll_report: form.exclude_from_payroll_report === true,

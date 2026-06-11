@@ -297,6 +297,7 @@ export default function EmployeeModal({
       ['Monthly / one-time amount', form.monthly_salary],
       ['Overtime', form.overtime_enabled ? 'With overtime' : 'No overtime'],
       ['Downtime', form.downtime_enabled === false ? 'No downtime / always 0' : 'Downtime enabled'],
+      ['Default lunch', `${form.default_lunch_hours ?? '1'} hour(s)`],
       ['Shift', normalizeShiftType(form.shift_type).toUpperCase()],
       ['Status', form.active ? 'Active' : 'Inactive'],
       ['Excluded from payroll report', form.exclude_from_payroll_report ? 'Yes' : 'No'],
@@ -762,6 +763,24 @@ export default function EmployeeModal({
                 </select>
                 <p className="mt-1 text-[11px] text-slate-500">
                   Default is enabled. If disabled, employee work log downtime is saved as 0.
+                </p>
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-slate-300">Default lunch</label>
+                <select
+                  className={inputClass}
+                  value={form.default_lunch_hours ?? '1'}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, default_lunch_hours: e.target.value }))
+                  }
+                >
+                  <option value="1">1 hour</option>
+                  <option value="0.5">0.5 hour</option>
+                  <option value="0">0 hour</option>
+                </select>
+                <p className="mt-1 text-[11px] text-slate-500">
+                  New work log rows use this lunch value by default.
                 </p>
               </div>
 

@@ -1,7 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { flushSync } from 'react-dom'
-import { createRoot } from 'react-dom/client'
 import {
   ArrowLeft,
   CalendarDays,
@@ -274,6 +273,11 @@ function normalizeShiftType(value) {
   return value === 'night' ? 'night' : 'day'
 }
 
+function normalizeDefaultLunchHours(value) {
+  const hours = Number(value)
+  return [0, 0.5, 1].includes(hours) ? hours : 1
+}
+
 function buildEmployeeEditForm(employee = {}, profile = {}) {
   return {
     employee_number: employee.employee_number ?? '',
@@ -287,6 +291,7 @@ function buildEmployeeEditForm(employee = {}, profile = {}) {
     monthly_salary: employee.monthly_salary ?? '',
     overtime_enabled: employee.overtime_enabled === true,
     downtime_enabled: employee.downtime_enabled !== false,
+    default_lunch_hours: String(normalizeDefaultLunchHours(employee.default_lunch_hours)),
     shift_type: normalizeShiftType(employee.shift_type),
     active: employee.active !== false,
     exclude_from_payroll_report: employee.exclude_from_payroll_report === true,
@@ -305,13 +310,13 @@ function buildEmployeeEditForm(employee = {}, profile = {}) {
   }
 }
 
-function buildEmptyRow(downtimeEnabled = true) {
+function buildEmptyRow(downtimeEnabled = true, defaultLunchHours = 1) {
   return {
     id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     work_date: toLocalDateString(new Date()),
     time_in: '',
     time_out: '',
-    lunch_hours: '1',
+    lunch_hours: String(normalizeDefaultLunchHours(defaultLunchHours)),
     downtime_hours: downtimeEnabled ? '1' : '0',
     reg_hours: '0',
     labor_amount: '0',
@@ -349,139 +354,12 @@ function getPayrollWeekRange(type = 'last', baseDate = new Date()) {
   }
 }
 
-
-function copyPrintStylesToWindow(printDocument) {
-  Array.from(document.querySelectorAll('style, link[rel="stylesheet"]')).forEach((node) => {
-    try {
-      printDocument.head.appendChild(node.cloneNode(true))
-    } catch (err) {
-      console.warn('Could not copy print style node:', err)
-    }
+function waitForNextPaint() {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(resolve)
+    })
   })
-
-  const style = printDocument.createElement('style')
-  style.textContent = `
-    @page { size: 215.9mm 279.4mm; margin: 0; }
-    * { box-sizing: border-box; }
-    html,
-    body {
-      width: 215.9mm;
-      min-width: 215.9mm;
-      max-width: 215.9mm;
-      height: 279.4mm;
-      min-height: 279.4mm;
-      max-height: 279.4mm;
-      margin: 0 !important;
-      padding: 0 !important;
-      overflow: hidden !important;
-      background: white !important;
-      color: black !important;
-      -webkit-print-color-adjust: exact;
-      print-color-adjust: exact;
-    }
-    #print-root {
-      width: 215.9mm;
-      min-width: 215.9mm;
-      max-width: 215.9mm;
-      height: 279.4mm;
-      min-height: 279.4mm;
-      max-height: 279.4mm;
-      margin: 0 !important;
-      padding: 0 !important;
-      overflow: hidden !important;
-      background: white !important;
-    }
-    #print-root > * {
-      margin: 0 !important;
-      transform: none !important;
-      zoom: 1 !important;
-    }
-    .no-print { display: none !important; }
-  `
-  printDocument.head.appendChild(style)
-}
-
-function openPayrollCheckPrintWindow({
-  employee,
-  fullName,
-  totals,
-  periodStart,
-  periodEnd,
-  checkNumber,
-  payDate,
-  checkAmount,
-}) {
-  const printWindow = window.open('', '_blank')
-
-  if (!printWindow) {
-    throw new Error('Popup blocked. Allow popups for this site and click Print again.')
-  }
-
-  printWindow.document.open()
-  printWindow.document.write(`<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>Payroll check #${checkNumber || ''}</title>
-</head>
-<body>
-  <div id="print-root"></div>
-</body>
-</html>`)
-  printWindow.document.close()
-
-  copyPrintStylesToWindow(printWindow.document)
-
-  const rootElement = printWindow.document.getElementById('print-root')
-  const root = createRoot(rootElement)
-
-  root.render(
-    <div className="payroll-print-host">
-      <div className="no-print border-b border-slate-700 bg-[#07111f] px-4 py-3 text-white shadow">
-        <div className="mx-auto flex max-w-[215.9mm] items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-bold">Payroll check #{checkNumber || '-'}</div>
-            <div className="text-xs text-slate-400">{fullName}</div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => printWindow.print()}
-              className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500"
-            >
-              <Printer size={16} />
-              Print
-            </button>
-
-            <button
-              type="button"
-              onClick={() => printWindow.close()}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:border-red-500"
-            >
-              <X size={16} />
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <PayrollCheck
-        employee={employee}
-        fullName={fullName}
-        totals={totals}
-        periodStart={periodStart}
-        periodEnd={periodEnd}
-        checkNumber={checkNumber}
-        payDate={payDate}
-        checkAmount={checkAmount}
-      />
-    </div>
-  )
-
-  setTimeout(() => {
-    printWindow.focus()
-  }, 150)
 }
 
 function PrintPreviewModal({
@@ -874,6 +752,7 @@ export default function EmployeeDetailsPage() {
             : null,
         overtime_enabled: editEmployeeForm.overtime_enabled === true,
         downtime_enabled: editEmployeeForm.downtime_enabled !== false,
+        default_lunch_hours: normalizeDefaultLunchHours(editEmployeeForm.default_lunch_hours),
         shift_type: normalizeShiftType(editEmployeeForm.shift_type),
         active: editEmployeeForm.active !== false,
         exclude_from_payroll_report: editEmployeeForm.exclude_from_payroll_report === true,
@@ -996,7 +875,13 @@ export default function EmployeeDetailsPage() {
   }
 
   function addRow() {
-    setLogs((prev) => [buildEmptyRow(employee?.downtime_enabled !== false), ...prev])
+    setLogs((prev) => [
+      buildEmptyRow(
+        employee?.downtime_enabled !== false,
+        employee?.default_lunch_hours
+      ),
+      ...prev,
+    ])
   }
 
   function buildDraftRowForDate(rowId) {
@@ -1141,7 +1026,7 @@ export default function EmployeeDetailsPage() {
           nextRow.is_empty = false
 
           if (nextRow.lunch_hours === '' || nextRow.lunch_hours === null || nextRow.lunch_hours === undefined) {
-            nextRow.lunch_hours = '1'
+            nextRow.lunch_hours = String(normalizeDefaultLunchHours(employee?.default_lunch_hours))
           }
 
           if (employee?.downtime_enabled === false) {
@@ -1670,22 +1555,12 @@ export default function EmployeeDetailsPage() {
       await loadPaymentsOnly()
       setSuccess(`Check #${printCheckNumber} marked as printed`)
 
-      await new Promise((resolve) => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(resolve)
-        })
-      })
+      if (document?.fonts?.ready) {
+        await document.fonts.ready
+      }
 
-      openPayrollCheckPrintWindow({
-        employee,
-        fullName,
-        totals,
-        periodStart,
-        periodEnd,
-        checkNumber: printCheckNumber,
-        payDate: paymentDate,
-        checkAmount: printedAmount,
-      })
+      await waitForNextPaint()
+      window.print()
     } catch (err) {
       console.error('handleSaveAndPrint error:', err)
       setError(err.message || 'Failed to print check')
@@ -2317,7 +2192,11 @@ export default function EmployeeDetailsPage() {
                           type="number"
                           step="0.25"
                           min="0"
-                          value={rowHasAnyTime(row) ? row.lunch_hours ?? '1' : ''}
+                          value={
+                            rowHasAnyTime(row)
+                              ? row.lunch_hours ?? String(normalizeDefaultLunchHours(employee?.default_lunch_hours))
+                              : ''
+                          }
                           onChange={(e) =>
                             updateRowValue(row.id, 'lunch_hours', e.target.value)
                           }
@@ -2742,6 +2621,20 @@ export default function EmployeeDetailsPage() {
                     >
                       <option value="true">Downtime enabled</option>
                       <option value="false">No downtime / always 0</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Default lunch</label>
+                    <select
+                      value={editEmployeeForm.default_lunch_hours ?? '1'}
+                      onChange={(e) => updateEditEmployeeForm('default_lunch_hours', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    >
+                      <option value="1">1 hour</option>
+                      <option value="0.5">0.5 hour</option>
+                      <option value="0">0 hour</option>
                     </select>
                   </div>
                 </div>

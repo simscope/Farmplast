@@ -333,6 +333,7 @@ const initialForm = {
   position: 'technician',
   hourly_rate: '',
   overtime_enabled: false,
+  default_lunch_hours: '1',
   exclude_from_payroll_report: false,
   active: true,
 }
@@ -637,6 +638,9 @@ export default function EmployeesPage() {
             ? null
             : Number(parseFloat(form.hourly_rate).toFixed(2)),
         overtime_enabled: Boolean(form.overtime_enabled),
+        default_lunch_hours: [0, 0.5, 1].includes(Number(form.default_lunch_hours))
+          ? Number(form.default_lunch_hours)
+          : 1,
         exclude_from_payroll_report: Boolean(form.exclude_from_payroll_report),
         active: !!form.active,
         photo_url: null,
@@ -934,6 +938,23 @@ export default function EmployeesPage() {
                   <option value="false">No overtime</option>
                   <option value="true">With overtime</option>
                 </select>
+              </div>
+
+              <div style={fieldStyle}>
+                <label style={labelStyle}>Default lunch</label>
+                <select
+                  style={selectStyle}
+                  name="default_lunch_hours"
+                  value={form.default_lunch_hours}
+                  onChange={handleChange}
+                >
+                  <option value="1">1 hour</option>
+                  <option value="0.5">0.5 hour</option>
+                  <option value="0">0 hour</option>
+                </select>
+                <div style={{ ...infoTextStyle, marginTop: '4px', fontSize: '10px' }}>
+                  New work log rows use this lunch value by default.
+                </div>
               </div>
 
               <div style={fieldStyle}>
