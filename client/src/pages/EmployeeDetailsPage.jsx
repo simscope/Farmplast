@@ -431,8 +431,8 @@ function PrintPreviewModal({
           </div>
         </div>
 
-        <div className="flex-1 overflow-auto bg-slate-200 p-5">
-          <div className="mx-auto w-fit bg-white shadow-lg">
+        <div className="flex-1 overflow-auto bg-white p-0">
+          <div className="payroll-print-host mx-auto w-fit bg-white">
             {checkNumber ? (
               <PayrollCheck
                 employee={employee}
