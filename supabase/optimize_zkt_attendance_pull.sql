@@ -127,7 +127,19 @@ begin
   end if;
 end $$;
 
-analyze public.zkt_bridge_commands;
-analyze public.zkt_attendance_logs;
-analyze public.employee_work_logs;
-analyze public.employees;
+-- Refresh planner statistics only for tables that exist.
+do $$
+declare
+  table_name text;
+begin
+  foreach table_name in array array[
+    'zkt_bridge_commands',
+    'zkt_attendance_logs',
+    'employee_work_logs',
+    'employees'
+  ] loop
+    if to_regclass(format('public.%I', table_name)) is not null then
+      execute format('analyze public.%I', table_name);
+    end if;
+  end loop;
+end $$;
