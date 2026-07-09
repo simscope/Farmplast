@@ -185,14 +185,17 @@ export default function WorkersList({
               ) : (
                 filteredEmployees.map((employee) => {
                   const isLastAccessed = String(employee.id) === lastAccessedEmployeeId
+                  const isInactive = employee.active === false
 
                   return (
                   <div
                     key={employee.id}
                     className={`grid grid-cols-[70px_30px_230px_90px_150px_170px_110px_100px_180px_110px_120px_270px_160px] items-center border-t border-slate-800 px-3 py-2 text-xs text-slate-200 ${
                       isLastAccessed
-                        ? 'bg-cyan-500/10 ring-1 ring-inset ring-cyan-400/50'
-                        : 'bg-[#08101c]'
+                        ? `${isInactive ? 'bg-rose-950/35' : 'bg-cyan-500/10'} ring-1 ring-inset ring-cyan-400/50`
+                        : isInactive
+                          ? 'bg-rose-950/35'
+                          : 'bg-[#08101c]'
                     }`}
                   >
                     <div className="font-semibold text-cyan-300">
@@ -382,14 +385,17 @@ export default function WorkersList({
         <div className="space-y-3 lg:hidden">
           {filteredEmployees.map((employee) => {
             const isLastAccessed = String(employee.id) === lastAccessedEmployeeId
+            const isInactive = employee.active === false
 
             return (
             <div
               key={employee.id}
               className={`rounded-xl border p-3 ${
                 isLastAccessed
-                  ? 'border-cyan-400/50 bg-cyan-500/10 ring-1 ring-cyan-400/40'
-                  : 'border-slate-800 bg-[#08101c]'
+                  ? `${isInactive ? 'bg-rose-950/35' : 'bg-cyan-500/10'} border-cyan-400/50 ring-1 ring-cyan-400/40`
+                  : isInactive
+                    ? 'border-rose-500/20 bg-rose-950/35'
+                    : 'border-slate-800 bg-[#08101c]'
               }`}
             >
               <div className="flex items-start justify-between gap-3">
