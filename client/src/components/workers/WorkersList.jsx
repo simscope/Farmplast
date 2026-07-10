@@ -192,9 +192,9 @@ export default function WorkersList({
                     key={employee.id}
                     className={`grid grid-cols-[70px_30px_230px_90px_150px_170px_110px_100px_180px_110px_120px_270px_160px] items-center border-t border-slate-800 px-3 py-2 text-xs text-slate-200 ${
                       isLastAccessed
-                        ? `${isInactive ? 'bg-rose-950/35' : 'bg-cyan-500/10'} ring-1 ring-inset ring-cyan-400/50`
+                        ? `${isInactive ? 'bg-orange-950/45' : 'bg-cyan-500/10'} ring-1 ring-inset ring-cyan-400/50`
                         : isInactive
-                          ? 'bg-rose-950/35'
+                          ? 'bg-orange-950/45'
                           : 'bg-[#08101c]'
                     }`}
                   >
@@ -392,9 +392,9 @@ export default function WorkersList({
               key={employee.id}
               className={`rounded-xl border p-3 ${
                 isLastAccessed
-                  ? `${isInactive ? 'bg-rose-950/35' : 'bg-cyan-500/10'} border-cyan-400/50 ring-1 ring-cyan-400/40`
+                  ? `${isInactive ? 'bg-orange-950/45' : 'bg-cyan-500/10'} border-cyan-400/50 ring-1 ring-cyan-400/40`
                   : isInactive
-                    ? 'border-rose-500/20 bg-rose-950/35'
+                    ? 'border-orange-500/30 bg-orange-950/45'
                     : 'border-slate-800 bg-[#08101c]'
               }`}
             >
