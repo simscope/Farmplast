@@ -761,7 +761,7 @@ export default function DashboardPage() {
     const name = getFullName(employee)
 
     await runZktCommand(
-      'verify_one_employee',
+      'verify_employees',
       `VERIFY ZKT ${name}`,
       { employee_id: employee.id },
       loadEmployees
