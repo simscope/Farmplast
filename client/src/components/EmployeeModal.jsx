@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { X, Upload, Loader2, Trash2, FileText, Printer } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import { EMPLOYEE_PHOTO_BUCKET, compressEmployeePhoto } from '../utils/employeePhotos'
+import {
+  EMPLOYEE_PHOTO_BUCKET,
+  compressEmployeePhoto,
+  getEmployeePhotoStoragePath,
+} from '../utils/employeePhotos'
 
 const inputClass =
   'w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500'
@@ -17,36 +21,26 @@ function sanitizeFileName(name) {
     .replace(/-+/g, '-')
 }
 
-async function removeEmployeePhotos(employeeId) {
-  if (!employeeId) return
+async function removeEmployeePhotoByUrl(photoUrl) {
+  const path = getEmployeePhotoStoragePath(photoUrl)
 
-  const folder = `employees/${employeeId}`
+  if (!path) return
 
-  const { data, error } = await supabase.storage
+  const { error } = await supabase.storage
     .from(EMPLOYEE_PHOTO_BUCKET)
-    .list(folder)
+    .remove([path])
 
   if (error) throw error
-
-  const files = (data || []).map((file) => `${folder}/${file.name}`)
-
-  if (files.length > 0) {
-    const { error: removeError } = await supabase.storage
-      .from(EMPLOYEE_PHOTO_BUCKET)
-      .remove(files)
-
-    if (removeError) throw removeError
-  }
 }
 
-async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp') {
+async function uploadEmployeePhoto(file, employeeIdOrTemp = 'temp', currentPhotoUrl = '') {
   const compressedPhoto = await compressEmployeePhoto(file)
   const ext = compressedPhoto.extension
   const safeName = sanitizeFileName(file.name.replace(/\.[^.]+$/, ''))
   const filePath = `employees/${employeeIdOrTemp}/${Date.now()}-${safeName}.${ext}`
 
   if (employeeIdOrTemp !== 'temp') {
-    await removeEmployeePhotos(employeeIdOrTemp)
+    await removeEmployeePhotoByUrl(currentPhotoUrl)
   }
 
   const { error: uploadError } = await supabase.storage
@@ -228,7 +222,7 @@ export default function EmployeeModal({
       setUploadingPhoto(true)
       setUploadError('')
 
-      const photoUrl = await uploadEmployeePhoto(file, form.id || 'temp')
+      const photoUrl = await uploadEmployeePhoto(file, form.id || 'temp', form.photo_url)
 
       if (form.id) {
         const { error } = await supabase
@@ -257,7 +251,7 @@ export default function EmployeeModal({
       setUploadError('')
 
       if (form.id) {
-        await removeEmployeePhotos(form.id)
+        await removeEmployeePhotoByUrl(form.photo_url)
 
         const { error } = await supabase
           .from('employees')
