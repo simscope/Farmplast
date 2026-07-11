@@ -654,6 +654,43 @@ export default function DashboardPage() {
     return data
   }
 
+  async function wakeZktBridge(commandRow) {
+    if (!commandRow?.id) return
+
+    const channel = supabase.channel('zkt-bridge-command-wake')
+
+    try {
+      await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('Wake subscribe timeout')), 1500)
+
+        channel.subscribe((status) => {
+          if (status === 'SUBSCRIBED') {
+            clearTimeout(timer)
+            resolve()
+          }
+
+          if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+            clearTimeout(timer)
+            reject(new Error(`Wake channel ${status}`))
+          }
+        })
+      })
+
+      await channel.send({
+        type: 'broadcast',
+        event: 'wake',
+        payload: {
+          id: commandRow.id,
+          command: commandRow.command,
+        },
+      })
+    } catch (err) {
+      console.warn('ZKT bridge wake skipped:', err)
+    } finally {
+      supabase.removeChannel(channel)
+    }
+  }
+
   async function waitForZktCommand(commandId, label) {
     const maxAttempts = 120
 
@@ -703,6 +740,7 @@ export default function DashboardPage() {
 
       setActiveCommandId(created.id)
       setZkStatus(`${label}: command created. ID: ${created.id}`)
+      await wakeZktBridge(created)
 
       const finished = await waitForZktCommand(created.id, label)
 
