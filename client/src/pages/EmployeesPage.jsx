@@ -331,6 +331,7 @@ const initialForm = {
   phone: '',
   email: '',
   position: 'technician',
+  plant_location: 'NJ',
   hourly_rate: '',
   overtime_enabled: false,
   default_lunch_hours: '1',
@@ -633,6 +634,7 @@ export default function EmployeesPage() {
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         position: form.position.trim() || null,
+        plant_location: String(form.plant_location || 'NJ').toUpperCase() === 'PA' ? 'PA' : 'NJ',
         hourly_rate:
           form.hourly_rate === ''
             ? null
@@ -923,6 +925,19 @@ export default function EmployeesPage() {
               </div>
 
               <div style={fieldStyle}>
+                <label style={labelStyle}>Location</label>
+                <select
+                  style={selectStyle}
+                  name="plant_location"
+                  value={form.plant_location}
+                  onChange={handleChange}
+                >
+                  <option value="NJ">New Jersey</option>
+                  <option value="PA">Pennsylvania</option>
+                </select>
+              </div>
+
+              <div style={fieldStyle}>
                 <label style={labelStyle}>Overtime</label>
                 <select
                   style={selectStyle}
@@ -1046,6 +1061,7 @@ export default function EmployeesPage() {
                     <th style={{ ...thStyle, width: '90px' }}>Employee #</th>
                     <th style={{ ...thStyle, width: '190px' }}>Name</th>
                     <th style={{ ...thStyle, width: '120px' }}>Position</th>
+                    <th style={{ ...thStyle, width: '120px' }}>Location</th>
                     <th style={{ ...thStyle, width: '140px' }}>Phone</th>
                     <th style={{ ...thStyle, width: '220px' }}>Email</th>
                     <th style={{ ...thStyle, width: '100px' }}>Hourly rate</th>
@@ -1109,6 +1125,10 @@ export default function EmployeesPage() {
                         }}
                       >
                         {employee.position || '-'}
+                      </td>
+
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                        {String(employee.plant_location || 'NJ').toUpperCase() === 'PA' ? 'Pennsylvania' : 'New Jersey'}
                       </td>
 
                       <td

@@ -21,6 +21,7 @@ import {
   ChevronDown,
   ChevronUp,
   Loader2,
+  MapPin,
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
@@ -278,6 +279,14 @@ function normalizeDefaultLunchHours(value) {
   return [0, 0.5, 1].includes(hours) ? hours : 1
 }
 
+function normalizePlantLocation(value) {
+  return String(value || 'NJ').toUpperCase() === 'PA' ? 'PA' : 'NJ'
+}
+
+function getPlantLocationLabel(value) {
+  return normalizePlantLocation(value) === 'PA' ? 'Pennsylvania' : 'New Jersey'
+}
+
 function buildEmployeeEditForm(employee = {}, profile = {}) {
   return {
     employee_number: employee.employee_number ?? '',
@@ -292,6 +301,7 @@ function buildEmployeeEditForm(employee = {}, profile = {}) {
     overtime_enabled: employee.overtime_enabled === true,
     downtime_enabled: employee.downtime_enabled !== false,
     default_lunch_hours: String(normalizeDefaultLunchHours(employee.default_lunch_hours)),
+    plant_location: normalizePlantLocation(employee.plant_location),
     shift_type: normalizeShiftType(employee.shift_type),
     active: employee.active !== false,
     exclude_from_payroll_report: employee.exclude_from_payroll_report === true,
@@ -753,6 +763,7 @@ export default function EmployeeDetailsPage() {
         overtime_enabled: editEmployeeForm.overtime_enabled === true,
         downtime_enabled: editEmployeeForm.downtime_enabled !== false,
         default_lunch_hours: normalizeDefaultLunchHours(editEmployeeForm.default_lunch_hours),
+        plant_location: normalizePlantLocation(editEmployeeForm.plant_location),
         shift_type: normalizeShiftType(editEmployeeForm.shift_type),
         active: editEmployeeForm.active !== false,
         exclude_from_payroll_report: editEmployeeForm.exclude_from_payroll_report === true,
@@ -1747,7 +1758,7 @@ export default function EmployeeDetailsPage() {
                   </div>
                 </div>
 
-                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-6">
+                <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-7">
                   <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
                     <div className="flex items-center gap-2 text-xs text-slate-400">
                       <Hash size={14} />
@@ -1755,6 +1766,16 @@ export default function EmployeeDetailsPage() {
                     </div>
                     <div className="mt-1 text-lg font-bold text-white">
                       {employee?.employee_number ?? '—'}
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
+                    <div className="flex items-center gap-2 text-xs text-slate-400">
+                      <MapPin size={14} />
+                      Location
+                    </div>
+                    <div className="mt-1 text-lg font-bold text-white">
+                      {getPlantLocationLabel(employee?.plant_location)}
                     </div>
                   </div>
 
@@ -2584,6 +2605,19 @@ export default function EmployeeDetailsPage() {
                       />
                     </div>
                   ) : null}
+
+                  <div>
+                    <label className="mb-1 block text-xs text-slate-300">Location</label>
+                    <select
+                      value={normalizePlantLocation(editEmployeeForm.plant_location)}
+                      onChange={(e) => updateEditEmployeeForm('plant_location', e.target.value)}
+                      className={employeeEditInput}
+                      disabled={savingEmployee}
+                    >
+                      <option value="NJ">New Jersey</option>
+                      <option value="PA">Pennsylvania</option>
+                    </select>
+                  </div>
 
                   <div>
                     <label className="mb-1 block text-xs text-slate-300">Shift</label>

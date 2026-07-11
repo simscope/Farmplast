@@ -332,6 +332,10 @@ function normalizeDefaultLunchHours(value) {
   return [0, 0.5, 1].includes(hours) ? hours : 1
 }
 
+function normalizePlantLocation(value) {
+  return String(value || 'NJ').toUpperCase() === 'PA' ? 'PA' : 'NJ'
+}
+
 function getShiftLabel(employee) {
   return normalizeShiftType(employee?.shift_type) === 'night' ? 'NIGHT' : 'DAY'
 }
@@ -436,6 +440,7 @@ export default function DashboardPage() {
     overtime_enabled: false,
     downtime_enabled: true,
     default_lunch_hours: '1',
+    plant_location: 'NJ',
     shift_type: 'day',
     active: true,
     exclude_from_payroll_report: false,
@@ -570,7 +575,7 @@ export default function DashboardPage() {
       if (employeeIds.length > 0) {
         const { data: paymentMetaRows, error: paymentMetaError } = await supabase
           .from('employees')
-          .select('id, company_id, last_payment_date, last_payment_amount, last_check_number, default_lunch_hours')
+          .select('id, company_id, last_payment_date, last_payment_amount, last_check_number, default_lunch_hours, plant_location')
           .in('id', employeeIds)
 
         if (paymentMetaError) throw paymentMetaError
@@ -623,6 +628,7 @@ export default function DashboardPage() {
           last_payment_amount: paymentMeta.last_payment_amount ?? null,
           last_check_number: paymentMeta.last_check_number ?? null,
           default_lunch_hours: normalizeDefaultLunchHours(paymentMeta.default_lunch_hours),
+          plant_location: normalizePlantLocation(paymentMeta.plant_location),
           tax_profile: normalizeTaxProfile(taxProfileByEmployeeId.get(employee.id)),
           punch_errors_week: punchErrorsByEmployee.get(employee.id) || [],
           punch_errors_week_start: week.startText,
@@ -826,6 +832,7 @@ export default function DashboardPage() {
       overtime_enabled: employee.overtime_enabled ?? false,
       downtime_enabled: employee.downtime_enabled ?? true,
       default_lunch_hours: String(normalizeDefaultLunchHours(employee.default_lunch_hours)),
+      plant_location: normalizePlantLocation(employee.plant_location),
       shift_type: normalizeShiftType(employee.shift_type),
       active: employee.active ?? true,
       exclude_from_payroll_report: employee.exclude_from_payroll_report === true,
@@ -894,6 +901,7 @@ export default function DashboardPage() {
         overtime_enabled: Boolean(form.overtime_enabled),
         downtime_enabled: form.downtime_enabled !== false,
         default_lunch_hours: normalizeDefaultLunchHours(form.default_lunch_hours),
+        plant_location: normalizePlantLocation(form.plant_location),
         shift_type: normalizeShiftType(form.shift_type),
         active: Boolean(form.active),
         exclude_from_payroll_report: form.exclude_from_payroll_report === true,

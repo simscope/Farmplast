@@ -14,6 +14,10 @@ function normalizeShiftType(value) {
   return String(value || 'day').toLowerCase() === 'night' ? 'night' : 'day'
 }
 
+function normalizePlantLocation(value) {
+  return String(value || 'NJ').toUpperCase() === 'PA' ? 'PA' : 'NJ'
+}
+
 function sanitizeFileName(name) {
   return String(name || 'file')
     .toLowerCase()
@@ -283,6 +287,7 @@ export default function EmployeeModal({
       ['Phone', form.phone],
       ['Email', form.email],
       ['Position', form.position],
+      ['Location', normalizePlantLocation(form.plant_location) === 'PA' ? 'Pennsylvania' : 'New Jersey'],
       ['Hire date', form.hire_date],
       ['Form Employer', form.employer_form],
       ['Company', companyName],
@@ -589,6 +594,20 @@ export default function EmployeeModal({
                   }
                   placeholder="worker"
                 />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-xs text-slate-300">Location</label>
+                <select
+                  className={inputClass}
+                  value={normalizePlantLocation(form.plant_location)}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, plant_location: e.target.value }))
+                  }
+                >
+                  <option value="NJ">New Jersey</option>
+                  <option value="PA">Pennsylvania</option>
+                </select>
               </div>
 
               <div>

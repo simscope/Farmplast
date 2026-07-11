@@ -74,6 +74,8 @@ export function useEmployeeList(employees, helpers) {
         (employee.phone || '').toLowerCase().includes(q) ||
         (employee.email || '').toLowerCase().includes(q) ||
         (employee.position || '').toLowerCase().includes(q) ||
+        (employee.plant_location || '').toLowerCase().includes(q) ||
+        (String(employee.plant_location || '').toUpperCase() === 'PA' ? 'pennsylvania pa' : 'new jersey nj').includes(q) ||
         normalizeShiftType(employee.shift_type).includes(q) ||
         getShiftLabel(employee).toLowerCase().includes(q) ||
         (employee.zkt_sync_status || '').toLowerCase().includes(q) ||

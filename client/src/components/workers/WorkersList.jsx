@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowDown,
@@ -14,6 +14,14 @@ import {
 import { getEmployeePhotoThumbnailUrl } from '../../utils/employeePhotos'
 
 const LAST_ACCESSED_EMPLOYEE_KEY = 'farmplast:last-accessed-employee-id'
+
+function normalizePlantLocation(value) {
+  return String(value || 'NJ').toUpperCase() === 'PA' ? 'PA' : 'NJ'
+}
+
+function getPlantLocationLabel(value) {
+  return normalizePlantLocation(value) === 'PA' ? 'Pennsylvania' : 'New Jersey'
+}
 
 function SortIcon({ field, employeeSort }) {
   if (employeeSort.field !== field) return <ArrowUpDown size={12} />
@@ -81,6 +89,22 @@ export default function WorkersList({
     rememberEmployeeAccess(employee)
     openEditModal(employee)
   }
+
+  const employeeSections = useMemo(() => {
+    return ['NJ', 'PA']
+      .map((location) => {
+        const employees = filteredEmployees.filter(
+          (employee) => normalizePlantLocation(employee.plant_location) === location
+        )
+
+        return {
+          key: location,
+          label: getPlantLocationLabel(location),
+          employees,
+        }
+      })
+      .filter((section) => section.employees.length > 0)
+  }, [filteredEmployees])
 
   return (
     <div className={cardClass}>
@@ -183,7 +207,16 @@ export default function WorkersList({
                   No employees found
                 </div>
               ) : (
-                filteredEmployees.map((employee) => {
+                employeeSections.map((section) => (
+                  <Fragment key={section.key}>
+                    <div className="border-t border-slate-700/80 bg-slate-900 px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-cyan-200">
+                      {section.label}
+                      <span className="ml-2 font-semibold normal-case text-slate-400">
+                        {section.employees.length} worker{section.employees.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+
+                    {section.employees.map((employee) => {
                   const isLastAccessed = String(employee.id) === lastAccessedEmployeeId
                   const isInactive = employee.active === false
 
@@ -376,14 +409,25 @@ export default function WorkersList({
                     </div>
                   </div>
                   )
-                })
+                })}
+                  </Fragment>
+                ))
               )}
             </div>
           </div>
         )}
 
         <div className="space-y-3 lg:hidden">
-          {filteredEmployees.map((employee) => {
+          {employeeSections.map((section) => (
+            <Fragment key={section.key}>
+              <div className="rounded-xl border border-slate-700/80 bg-slate-900 px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-cyan-200">
+                {section.label}
+                <span className="ml-2 font-semibold normal-case text-slate-400">
+                  {section.employees.length} worker{section.employees.length === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              {section.employees.map((employee) => {
             const isLastAccessed = String(employee.id) === lastAccessedEmployeeId
             const isInactive = employee.active === false
 
@@ -432,7 +476,7 @@ export default function WorkersList({
                       ) : null}
                     </div>
                     <div className="mt-1 text-xs text-slate-400">
-                      {employee.position || 'worker'} В· {getShiftLabel(employee)} В· {getPunchErrorLabel(employee)} В· {getPayLabel(employee)} В· {getOvertimeLabel(employee)}
+                      {getPlantLocationLabel(employee.plant_location)} В· {employee.position || 'worker'} В· {getShiftLabel(employee)} В· {getPunchErrorLabel(employee)} В· {getPayLabel(employee)} В· {getOvertimeLabel(employee)}
                     </div>
                   </div>
                 </button>
@@ -554,6 +598,8 @@ export default function WorkersList({
             </div>
             )
           })}
+            </Fragment>
+          ))}
         </div>
       </div>
     </div>
