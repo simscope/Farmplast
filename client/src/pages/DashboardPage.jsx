@@ -5,10 +5,11 @@ import {
   LogOut,
   Plus,
   RefreshCw,
-  Upload,
+  UploadCloud,
+  DownloadCloud,
   Loader2,
-  CalendarDays,
-  ShieldCheck,
+  BadgeCheck,
+  Zap,
   FileText,
   Printer,
   X,
@@ -497,6 +498,14 @@ export default function DashboardPage() {
   })
 
   const isEditing = Boolean(form.id)
+
+  function renderZktActionIcon(actionKey, Icon) {
+    if (activeZkAction === actionKey) {
+      return <Loader2 size={15} className="animate-spin" />
+    }
+
+    return <Icon size={15} />
+  }
 
   useEffect(() => {
     loadEmployees()
@@ -2164,7 +2173,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {activeZkAction === 'test-NJ' ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                {renderZktActionIcon('test-NJ', Zap)}
                 Test NJ
               </button>
 
@@ -2173,7 +2182,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {activeZkAction === 'test-PA' ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                {renderZktActionIcon('test-PA', Zap)}
                 Test PA
               </button>
 
@@ -2182,7 +2191,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {activeZkAction === 'sync-NJ' ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                {renderZktActionIcon('sync-NJ', UploadCloud)}
                 Sync NJ → ZKT
               </button>
 
@@ -2191,7 +2200,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {activeZkAction === 'sync-PA' ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                {renderZktActionIcon('sync-PA', UploadCloud)}
                 Sync PA → ZKT
               </button>
 
@@ -2200,7 +2209,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {activeZkAction === 'verify-NJ' ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
+                {renderZktActionIcon('verify-NJ', BadgeCheck)}
                 Verify NJ
               </button>
 
@@ -2209,7 +2218,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {activeZkAction === 'verify-PA' ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
+                {renderZktActionIcon('verify-PA', BadgeCheck)}
                 Verify PA
               </button>
 
@@ -2218,7 +2227,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {activeZkAction === 'pull-NJ' ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
+                {renderZktActionIcon('pull-NJ', DownloadCloud)}
                 Pull NJ
               </button>
 
@@ -2227,7 +2236,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {activeZkAction === 'pull-PA' ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
+                {renderZktActionIcon('pull-PA', DownloadCloud)}
                 Pull PA
               </button>
               </div>
