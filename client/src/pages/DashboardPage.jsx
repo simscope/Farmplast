@@ -667,11 +667,14 @@ export default function DashboardPage() {
   }
 
   async function createZktCommand(command, payload = {}) {
+    const plantLocation = normalizePlantLocation(payload?.plant_location)
+    const status = plantLocation === 'PA' ? 'pending_pa' : 'pending'
+
     const { data, error } = await supabase
       .from('zkt_bridge_commands')
       .insert({
         command,
-        status: 'pending',
+        status,
         payload,
       })
       .select('id, command, status, created_at')
@@ -736,7 +739,7 @@ export default function DashboardPage() {
       if (error) throw error
       if (!data) throw new Error('Command not found')
 
-      if (data.status === 'pending') {
+      if (data.status === 'pending' || data.status === 'pending_pa') {
         setZkStatus(`${label}: waiting for bridge... (${attempt}/${maxAttempts})`)
       }
 
@@ -802,11 +805,6 @@ export default function DashboardPage() {
 
   async function handleZkSyncEmployees(plantLocation) {
     const label = getPlantLocationLabel(plantLocation)
-    if (label === 'PA') {
-      setZkStatus('SYNC PA → ZKT is temporarily disabled until every bridge is plant-safe.')
-      return
-    }
-
     await runZktCommand(
       'sync_employees',
       `SYNC ${label} EMPLOYEES`,
@@ -2207,9 +2205,8 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkSyncEmployees('PA')}
-                disabled
-                title="Temporarily disabled until every ZKT bridge is plant-safe."
-                className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-sm font-medium text-blue-300/50 opacity-70"
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('sync-PA', UploadCloud)}
                 Sync PA → ZKT
