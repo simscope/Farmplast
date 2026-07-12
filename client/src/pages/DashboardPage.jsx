@@ -475,6 +475,7 @@ export default function DashboardPage() {
   const [error, setError] = useState('')
   const [zkLoading, setZkLoading] = useState(false)
   const [zkStatus, setZkStatus] = useState('')
+  const [activeZkAction, setActiveZkAction] = useState('')
   const [activeCommandId, setActiveCommandId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState(emptyForm)
@@ -746,9 +747,10 @@ export default function DashboardPage() {
     throw new Error('Timeout: Windows bridge did not finish command')
   }
 
-  async function runZktCommand(command, label, payload = {}, afterDone) {
+  async function runZktCommand(command, label, payload = {}, afterDone, actionKey = '') {
     try {
       setZkLoading(true)
+      setActiveZkAction(actionKey)
       setError('')
       setActiveCommandId(null)
       setZkStatus(`${label}: creating command...`)
@@ -769,6 +771,7 @@ export default function DashboardPage() {
       setZkStatus(`ERROR: ${label}: ${err.message || 'Failed to run command'}`)
     } finally {
       setZkLoading(false)
+      setActiveZkAction('')
     }
   }
 
@@ -777,7 +780,9 @@ export default function DashboardPage() {
     await runZktCommand(
       'test',
       `TEST ZKT ${label}`,
-      buildZktPayloadForLocation(plantLocation)
+      buildZktPayloadForLocation(plantLocation),
+      undefined,
+      `test-${label}`
     )
   }
 
@@ -787,7 +792,8 @@ export default function DashboardPage() {
       'sync_employees',
       `SYNC ${label} EMPLOYEES`,
       buildZktPayloadForLocation(plantLocation),
-      loadEmployees
+      loadEmployees,
+      `sync-${label}`
     )
   }
 
@@ -797,7 +803,8 @@ export default function DashboardPage() {
       'verify_employees',
       `VERIFY ${label} ZKT`,
       buildZktPayloadForLocation(plantLocation),
-      loadEmployees
+      loadEmployees,
+      `verify-${label}`
     )
   }
 
@@ -807,7 +814,8 @@ export default function DashboardPage() {
       'pull_attendance',
       `PULL ${label} ATTENDANCE`,
       buildZktPayloadForLocation(plantLocation),
-      loadEmployees
+      loadEmployees,
+      `pull-${label}`
     )
   }
 
@@ -2156,7 +2164,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                {activeZkAction === 'test-NJ' ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
                 Test NJ
               </button>
 
@@ -2165,7 +2173,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                {activeZkAction === 'test-PA' ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
                 Test PA
               </button>
 
@@ -2174,7 +2182,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                {activeZkAction === 'sync-NJ' ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
                 Sync NJ → ZKT
               </button>
 
@@ -2183,7 +2191,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                {activeZkAction === 'sync-PA' ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
                 Sync PA → ZKT
               </button>
 
@@ -2192,7 +2200,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
+                {activeZkAction === 'verify-NJ' ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
                 Verify NJ
               </button>
 
@@ -2201,7 +2209,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
+                {activeZkAction === 'verify-PA' ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
                 Verify PA
               </button>
 
@@ -2210,7 +2218,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
+                {activeZkAction === 'pull-NJ' ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
                 Pull NJ
               </button>
 
@@ -2219,7 +2227,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
+                {activeZkAction === 'pull-PA' ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
                 Pull PA
               </button>
               </div>
