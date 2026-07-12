@@ -718,8 +718,13 @@ export default function DashboardPage() {
     }
   }
 
-  async function waitForZktCommand(commandId, label) {
-    const maxAttempts = 120
+  function getZktCommandMaxAttempts(command) {
+    if (command === 'sync_employees' || command === 'sync_one_employee') return 300
+    return 120
+  }
+
+  async function waitForZktCommand(commandId, label, command) {
+    const maxAttempts = getZktCommandMaxAttempts(command)
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const { data, error } = await supabase
@@ -736,7 +741,7 @@ export default function DashboardPage() {
       }
 
       if (data.status === 'running') {
-        setZkStatus(`${label}: running on Windows bridge...`)
+        setZkStatus(`${label}: running on ZKT bridge... (${attempt}/${maxAttempts})`)
       }
 
       if (data.status === 'done') {
@@ -753,7 +758,7 @@ export default function DashboardPage() {
       await sleep(1000)
     }
 
-    throw new Error('Timeout: Windows bridge did not finish command')
+    throw new Error('Timeout: ZKT bridge did not finish command')
   }
 
   async function runZktCommand(command, label, payload = {}, afterDone, actionKey = '') {
@@ -770,7 +775,7 @@ export default function DashboardPage() {
       setZkStatus(`${label}: command created. ID: ${created.id}`)
       await wakeZktBridge(created)
 
-      const finished = await waitForZktCommand(created.id, label)
+      const finished = await waitForZktCommand(created.id, label, command)
 
       if (typeof afterDone === 'function') {
         await afterDone(finished)
@@ -797,11 +802,6 @@ export default function DashboardPage() {
 
   async function handleZkSyncEmployees(plantLocation) {
     const label = getPlantLocationLabel(plantLocation)
-    if (label === 'PA') {
-      setZkStatus('SYNC PA → ZKT is not available yet. PA Linux bridge can Test, Verify, and Pull, but cannot write users to ZKT.')
-      return
-    }
-
     await runZktCommand(
       'sync_employees',
       `SYNC ${label} EMPLOYEES`,
@@ -2202,9 +2202,8 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkSyncEmployees('PA')}
-                disabled
-                title="PA Linux bridge cannot write users to ZKT yet."
-                className="inline-flex cursor-not-allowed items-center gap-2 rounded-lg border border-blue-500/20 bg-blue-500/5 px-3 py-2 text-sm font-medium text-blue-300/50 opacity-70"
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('sync-PA', UploadCloud)}
                 Sync PA → ZKT
