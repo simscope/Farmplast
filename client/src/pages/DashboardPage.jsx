@@ -336,6 +336,17 @@ function normalizePlantLocation(value) {
   return String(value || 'NJ').toUpperCase() === 'PA' ? 'PA' : 'NJ'
 }
 
+function getPlantLocationLabel(value) {
+  return normalizePlantLocation(value) === 'PA' ? 'PA' : 'NJ'
+}
+
+function buildZktPayloadForLocation(plantLocation, extraPayload = {}) {
+  return {
+    ...extraPayload,
+    plant_location: normalizePlantLocation(plantLocation),
+  }
+}
+
 function getShiftLabel(employee) {
   return normalizeShiftType(employee?.shift_type) === 'night' ? 'NIGHT' : 'DAY'
 }
@@ -761,20 +772,43 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleZkTest() {
-    await runZktCommand('test', 'TEST ZKT')
+  async function handleZkTest(plantLocation) {
+    const label = getPlantLocationLabel(plantLocation)
+    await runZktCommand(
+      'test',
+      `TEST ZKT ${label}`,
+      buildZktPayloadForLocation(plantLocation)
+    )
   }
 
-  async function handleZkSyncEmployees() {
-    await runZktCommand('sync_employees', 'SYNC EMPLOYEES', {}, loadEmployees)
+  async function handleZkSyncEmployees(plantLocation) {
+    const label = getPlantLocationLabel(plantLocation)
+    await runZktCommand(
+      'sync_employees',
+      `SYNC ${label} EMPLOYEES`,
+      buildZktPayloadForLocation(plantLocation),
+      loadEmployees
+    )
   }
 
-  async function handleZkVerifyEmployees() {
-    await runZktCommand('verify_employees', 'VERIFY ZKT', {}, loadEmployees)
+  async function handleZkVerifyEmployees(plantLocation) {
+    const label = getPlantLocationLabel(plantLocation)
+    await runZktCommand(
+      'verify_employees',
+      `VERIFY ${label} ZKT`,
+      buildZktPayloadForLocation(plantLocation),
+      loadEmployees
+    )
   }
 
-  async function handleZkPullLogs() {
-    await runZktCommand('pull_attendance', 'PULL ATTENDANCE', {}, loadEmployees)
+  async function handleZkPullLogs(plantLocation) {
+    const label = getPlantLocationLabel(plantLocation)
+    await runZktCommand(
+      'pull_attendance',
+      `PULL ${label} ATTENDANCE`,
+      buildZktPayloadForLocation(plantLocation),
+      loadEmployees
+    )
   }
 
   async function handleDeleteFromZkt(employee) {
@@ -785,7 +819,7 @@ export default function DashboardPage() {
     await runZktCommand(
       'delete_employee_from_zkt',
       `DELETE FROM ZKT ${name}`,
-      { employee_id: employee.id },
+      buildZktPayloadForLocation(employee.plant_location, { employee_id: employee.id }),
       loadEmployees
     )
   }
@@ -796,7 +830,7 @@ export default function DashboardPage() {
     await runZktCommand(
       'sync_one_employee',
       `SYNC ZKT ${name}`,
-      { employee_id: employee.id },
+      buildZktPayloadForLocation(employee.plant_location, { employee_id: employee.id }),
       loadEmployees
     )
   }
@@ -807,7 +841,7 @@ export default function DashboardPage() {
     await runZktCommand(
       'verify_employees',
       `VERIFY ZKT ${name}`,
-      { employee_id: employee.id },
+      buildZktPayloadForLocation(employee.plant_location, { employee_id: employee.id }),
       loadEmployees
     )
   }
@@ -2117,39 +2151,75 @@ export default function DashboardPage() {
               </button>
 
               <button
-                onClick={handleZkTest}
+                onClick={() => handleZkTest('NJ')}
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
-                Test ZKT
+                Test NJ
               </button>
 
               <button
-                onClick={handleZkSyncEmployees}
+                onClick={() => handleZkTest('PA')}
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
+                Test PA
+              </button>
+
+              <button
+                onClick={() => handleZkSyncEmployees('NJ')}
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-                Sync → ZKT
+                Sync NJ → ZKT
               </button>
 
               <button
-                onClick={handleZkVerifyEmployees}
+                onClick={() => handleZkSyncEmployees('PA')}
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
+                Sync PA → ZKT
+              </button>
+
+              <button
+                onClick={() => handleZkVerifyEmployees('NJ')}
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
-                Verify ZKT
+                Verify NJ
               </button>
 
               <button
-                onClick={handleZkPullLogs}
+                onClick={() => handleZkVerifyEmployees('PA')}
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
+                Verify PA
+              </button>
+
+              <button
+                onClick={() => handleZkPullLogs('NJ')}
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
-                Pull Logs
+                Pull NJ
+              </button>
+
+              <button
+                onClick={() => handleZkPullLogs('PA')}
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
+                Pull PA
               </button>
 
               <button
