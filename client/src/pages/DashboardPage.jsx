@@ -2150,6 +2150,7 @@ export default function DashboardPage() {
                 Refresh
               </button>
 
+              <div className="grid grid-flow-col grid-rows-2 gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2">
               <button
                 onClick={() => handleZkTest('NJ')}
                 disabled={zkLoading}
@@ -2221,6 +2222,7 @@ export default function DashboardPage() {
                 {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
                 Pull PA
               </button>
+              </div>
 
               <button
                 onClick={openAddModal}
