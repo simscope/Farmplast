@@ -114,8 +114,19 @@ export function getWeeksInSelectedPeriod(periodStart, periodEnd) {
   return Math.max(1, Math.ceil(daysInclusive / 7))
 }
 
+function normalizeDefaultLunchHours(value) {
+  const hours = Number(value)
+  return [0, 0.5, 1].includes(hours) ? hours : 1
+}
+
 export function normalizePayrollRow(row, employee = {}) {
   const hourlyRate = Number(employee?.hourly_rate || 0)
+  const fromZkt = String(row?.source || '').toLowerCase() === 'zkt'
+  const manuallyEdited = row?.manually_edited === true
+  const lunchHours =
+    fromZkt && !manuallyEdited
+      ? normalizeDefaultLunchHours(employee?.default_lunch_hours)
+      : Number(row.lunch_hours || 0)
   const downtimeHours =
     employee?.downtime_enabled === false
       ? 0
@@ -126,7 +137,7 @@ export function normalizePayrollRow(row, employee = {}) {
       ? calcDayHours(
           row.time_in,
           row.time_out,
-          row.lunch_hours,
+          lunchHours,
           downtimeHours
         )
       : Number(row.reg_hours || 0)
@@ -139,6 +150,7 @@ export function normalizePayrollRow(row, employee = {}) {
 
   return {
     ...row,
+    lunch_hours: lunchHours,
     downtime_hours: downtimeHours,
     shift_letter: getShiftLetter(row.time_in),
     reg_hours: round2(fullHours),

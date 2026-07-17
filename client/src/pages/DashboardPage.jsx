@@ -499,12 +499,12 @@ export default function DashboardPage() {
 
   const isEditing = Boolean(form.id)
 
-  function renderZktActionIcon(actionKey, Icon) {
+  function renderZktActionIcon(actionKey, icon) {
     if (activeZkAction === actionKey) {
       return <Loader2 size={15} className="animate-spin" />
     }
 
-    return <Icon size={15} />
+    return icon
   }
 
   useEffect(() => {
@@ -1039,6 +1039,28 @@ export default function DashboardPage() {
   async function rebuildZktWorkLogs() {
     const { error } = await supabase.rpc('process_zkt_attendance_to_work_logs')
     if (error) throw error
+
+    const { data: employeesWithLunch, error: employeesError } = await supabase
+      .from('employees')
+      .select('id, default_lunch_hours')
+
+    if (employeesError) throw employeesError
+
+    const lunchUpdateResults = await Promise.all(
+      (employeesWithLunch || []).map((employeeRow) =>
+        supabase
+          .from('employee_work_logs')
+          .update({
+            lunch_hours: normalizeDefaultLunchHours(employeeRow.default_lunch_hours),
+          })
+          .eq('employee_id', employeeRow.id)
+          .eq('source', 'zkt')
+          .or('manually_edited.is.null,manually_edited.eq.false')
+      )
+    )
+
+    const lunchUpdateError = lunchUpdateResults.find((result) => result.error)?.error
+    if (lunchUpdateError) throw lunchUpdateError
   }
 
   async function handleShiftChange(employeeId, shiftType) {
@@ -2181,7 +2203,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {renderZktActionIcon('test-NJ', Zap)}
+                {renderZktActionIcon('test-NJ', <Zap size={15} />)}
                 Test NJ
               </button>
 
@@ -2190,7 +2212,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {renderZktActionIcon('test-PA', Zap)}
+                {renderZktActionIcon('test-PA', <Zap size={15} />)}
                 Test PA
               </button>
 
@@ -2199,7 +2221,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {renderZktActionIcon('sync-NJ', UploadCloud)}
+                {renderZktActionIcon('sync-NJ', <UploadCloud size={15} />)}
                 Sync NJ → ZKT
               </button>
 
@@ -2208,7 +2230,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {renderZktActionIcon('sync-PA', UploadCloud)}
+                {renderZktActionIcon('sync-PA', <UploadCloud size={15} />)}
                 Sync PA → ZKT
               </button>
 
@@ -2217,7 +2239,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {renderZktActionIcon('verify-NJ', BadgeCheck)}
+                {renderZktActionIcon('verify-NJ', <BadgeCheck size={15} />)}
                 Verify NJ
               </button>
 
@@ -2226,7 +2248,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {renderZktActionIcon('verify-PA', BadgeCheck)}
+                {renderZktActionIcon('verify-PA', <BadgeCheck size={15} />)}
                 Verify PA
               </button>
 
@@ -2235,7 +2257,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {renderZktActionIcon('pull-NJ', DownloadCloud)}
+                {renderZktActionIcon('pull-NJ', <DownloadCloud size={15} />)}
                 Pull NJ
               </button>
 
@@ -2244,7 +2266,7 @@ export default function DashboardPage() {
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {renderZktActionIcon('pull-PA', DownloadCloud)}
+                {renderZktActionIcon('pull-PA', <DownloadCloud size={15} />)}
                 Pull PA
               </button>
               </div>

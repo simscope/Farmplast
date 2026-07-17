@@ -662,7 +662,20 @@ export default function EmployeeDetailsPage() {
         console.error('employee_work_logs load error:', logsError)
         setLogs([])
       } else {
-        setLogs(logsData || [])
+        const defaultLunch = normalizeDefaultLunchHours(employeeData.default_lunch_hours)
+        setLogs(
+          (logsData || []).map((row) => {
+            const fromZkt = String(row.source || '').toLowerCase() === 'zkt'
+            const manuallyEdited = row.manually_edited === true
+
+            if (!fromZkt || manuallyEdited) return row
+
+            return {
+              ...row,
+              lunch_hours: defaultLunch,
+            }
+          })
+        )
       }
 
       const { data: paymentsData, error: paymentsError } = await supabase
@@ -1250,6 +1263,18 @@ export default function EmployeeDetailsPage() {
       })
 
       if (error) throw error
+
+      const { error: lunchError } = await supabase
+        .from('employee_work_logs')
+        .update({
+          lunch_hours: normalizeDefaultLunchHours(employee?.default_lunch_hours),
+        })
+        .eq('employee_id', id)
+        .eq('work_date', row.work_date)
+        .eq('source', 'zkt')
+        .or('manually_edited.is.null,manually_edited.eq.false')
+
+      if (lunchError) throw lunchError
 
       setSuccess('Row rebuilt from ZKT')
       await loadPage()
