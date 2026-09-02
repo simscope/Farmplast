@@ -355,6 +355,37 @@ const initialZktForm = {
   zkt_synced_at: '',
 }
 
+function EmployeePhoto({ employee, size = 128 }) {
+  const [useOriginalPhoto, setUseOriginalPhoto] = useState(false)
+
+  if (!employee.photo_url) return 'No photo'
+
+  const src = useOriginalPhoto
+    ? employee.photo_url
+    : getEmployeePhotoThumbnailUrl(employee.photo_url, size)
+
+  return (
+    <img
+      src={src}
+      alt={`${employee.first_name || ''} ${employee.last_name || ''}`}
+      style={{
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        display: 'block',
+      }}
+      onError={(event) => {
+        if (!useOriginalPhoto) {
+          setUseOriginalPhoto(true)
+          return
+        }
+
+        event.currentTarget.style.display = 'none'
+      }}
+    />
+  )
+}
+
 function formatMoney(value) {
   const number = Number(value || 0)
   return `$${number.toFixed(2)}`
@@ -1078,23 +1109,7 @@ export default function EmployeesPage() {
                     <tr key={employee.id}>
                       <td style={tdStyle}>
                         <div style={photoBoxStyle}>
-                          {employee.photo_url ? (
-                            <img
-                              src={getEmployeePhotoThumbnailUrl(employee.photo_url, 128)}
-                              alt={`${employee.first_name || ''} ${employee.last_name || ''}`}
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                display: 'block',
-                              }}
-                              onError={(event) => {
-                                event.currentTarget.style.display = 'none'
-                              }}
-                            />
-                          ) : (
-                            'No photo'
-                          )}
+                          <EmployeePhoto employee={employee} size={128} />
                         </div>
                       </td>
 

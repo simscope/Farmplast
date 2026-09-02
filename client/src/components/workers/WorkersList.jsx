@@ -23,6 +23,29 @@ function getPlantLocationLabel(value) {
   return normalizePlantLocation(value) === 'PA' ? 'Pennsylvania' : 'New Jersey'
 }
 
+function EmployeePhoto({ employee, getFullName, size }) {
+  const [useOriginalPhoto, setUseOriginalPhoto] = useState(false)
+
+  if (!employee.photo_url) return null
+
+  const src = useOriginalPhoto
+    ? employee.photo_url
+    : getEmployeePhotoThumbnailUrl(employee.photo_url, size)
+
+  return (
+    <img
+      src={src}
+      alt={getFullName(employee)}
+      className="h-full w-full object-cover"
+      onError={() => {
+        if (!useOriginalPhoto) {
+          setUseOriginalPhoto(true)
+        }
+      }}
+    />
+  )
+}
+
 function SortIcon({ field, employeeSort }) {
   if (employeeSort.field !== field) return <ArrowUpDown size={12} />
   return employeeSort.direction === 'asc'
@@ -254,13 +277,7 @@ export default function WorkersList({
                       title="Edit employee"
                     >
                       <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-[#07101d]">
-                        {employee.photo_url ? (
-                          <img
-                            src={getEmployeePhotoThumbnailUrl(employee.photo_url, 96)}
-                            alt={getFullName(employee)}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : null}
+                        <EmployeePhoto employee={employee} getFullName={getFullName} size={96} />
                       </div>
 
                       <div className="min-w-0 leading-tight">
@@ -450,13 +467,7 @@ export default function WorkersList({
                   title="Edit employee"
                 >
                   <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-700 bg-[#07101d]">
-                    {employee.photo_url ? (
-                      <img
-                        src={getEmployeePhotoThumbnailUrl(employee.photo_url, 128)}
-                        alt={getFullName(employee)}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
+                    <EmployeePhoto employee={employee} getFullName={getFullName} size={128} />
                   </div>
 
                   <div className="min-w-0">
