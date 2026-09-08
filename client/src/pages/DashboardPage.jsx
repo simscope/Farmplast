@@ -5,10 +5,11 @@ import {
   LogOut,
   Plus,
   RefreshCw,
-  Upload,
+  UploadCloud,
+  DownloadCloud,
   Loader2,
-  CalendarDays,
-  ShieldCheck,
+  BadgeCheck,
+  Zap,
   FileText,
   Printer,
   X,
@@ -332,6 +333,21 @@ function normalizeDefaultLunchHours(value) {
   return [0, 0.5, 1].includes(hours) ? hours : 1
 }
 
+function normalizePlantLocation(value) {
+  return String(value || 'NJ').toUpperCase() === 'PA' ? 'PA' : 'NJ'
+}
+
+function getPlantLocationLabel(value) {
+  return normalizePlantLocation(value) === 'PA' ? 'PA' : 'NJ'
+}
+
+function buildZktPayloadForLocation(plantLocation, extraPayload = {}) {
+  return {
+    ...extraPayload,
+    plant_location: normalizePlantLocation(plantLocation),
+  }
+}
+
 function getShiftLabel(employee) {
   return normalizeShiftType(employee?.shift_type) === 'night' ? 'NIGHT' : 'DAY'
 }
@@ -436,6 +452,7 @@ export default function DashboardPage() {
     overtime_enabled: false,
     downtime_enabled: true,
     default_lunch_hours: '1',
+    plant_location: 'NJ',
     shift_type: 'day',
     active: true,
     exclude_from_payroll_report: false,
@@ -459,6 +476,7 @@ export default function DashboardPage() {
   const [error, setError] = useState('')
   const [zkLoading, setZkLoading] = useState(false)
   const [zkStatus, setZkStatus] = useState('')
+  const [activeZkAction, setActiveZkAction] = useState('')
   const [activeCommandId, setActiveCommandId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState(emptyForm)
@@ -480,6 +498,14 @@ export default function DashboardPage() {
   })
 
   const isEditing = Boolean(form.id)
+
+  function renderZktActionIcon(actionKey, icon) {
+    if (activeZkAction === actionKey) {
+      return <Loader2 size={15} className="animate-spin" />
+    }
+
+    return icon
+  }
 
   useEffect(() => {
     loadEmployees()
@@ -570,7 +596,7 @@ export default function DashboardPage() {
       if (employeeIds.length > 0) {
         const { data: paymentMetaRows, error: paymentMetaError } = await supabase
           .from('employees')
-          .select('id, company_id, last_payment_date, last_payment_amount, last_check_number, default_lunch_hours')
+          .select('id, company_id, last_payment_date, last_payment_amount, last_check_number, default_lunch_hours, plant_location')
           .in('id', employeeIds)
 
         if (paymentMetaError) throw paymentMetaError
@@ -623,6 +649,7 @@ export default function DashboardPage() {
           last_payment_amount: paymentMeta.last_payment_amount ?? null,
           last_check_number: paymentMeta.last_check_number ?? null,
           default_lunch_hours: normalizeDefaultLunchHours(paymentMeta.default_lunch_hours),
+          plant_location: normalizePlantLocation(paymentMeta.plant_location),
           tax_profile: normalizeTaxProfile(taxProfileByEmployeeId.get(employee.id)),
           punch_errors_week: punchErrorsByEmployee.get(employee.id) || [],
           punch_errors_week_start: week.startText,
@@ -640,11 +667,14 @@ export default function DashboardPage() {
   }
 
   async function createZktCommand(command, payload = {}) {
+    const plantLocation = normalizePlantLocation(payload?.plant_location)
+    const status = plantLocation === 'PA' ? 'pending_pa' : 'pending'
+
     const { data, error } = await supabase
       .from('zkt_bridge_commands')
       .insert({
         command,
-        status: 'pending',
+        status,
         payload,
       })
       .select('id, command, status, created_at')
@@ -691,8 +721,13 @@ export default function DashboardPage() {
     }
   }
 
-  async function waitForZktCommand(commandId, label) {
-    const maxAttempts = 120
+  function getZktCommandMaxAttempts(command) {
+    if (command === 'sync_employees' || command === 'sync_one_employee') return 300
+    return 120
+  }
+
+  async function waitForZktCommand(commandId, label, command) {
+    const maxAttempts = getZktCommandMaxAttempts(command)
 
     for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
       const { data, error } = await supabase
@@ -704,12 +739,12 @@ export default function DashboardPage() {
       if (error) throw error
       if (!data) throw new Error('Command not found')
 
-      if (data.status === 'pending') {
+      if (data.status === 'pending' || data.status === 'pending_pa') {
         setZkStatus(`${label}: waiting for bridge... (${attempt}/${maxAttempts})`)
       }
 
       if (data.status === 'running') {
-        setZkStatus(`${label}: running on Windows bridge...`)
+        setZkStatus(`${label}: running on ZKT bridge... (${attempt}/${maxAttempts})`)
       }
 
       if (data.status === 'done') {
@@ -726,12 +761,13 @@ export default function DashboardPage() {
       await sleep(1000)
     }
 
-    throw new Error('Timeout: Windows bridge did not finish command')
+    throw new Error('Timeout: ZKT bridge did not finish command')
   }
 
-  async function runZktCommand(command, label, payload = {}, afterDone) {
+  async function runZktCommand(command, label, payload = {}, afterDone, actionKey = '') {
     try {
       setZkLoading(true)
+      setActiveZkAction(actionKey)
       setError('')
       setActiveCommandId(null)
       setZkStatus(`${label}: creating command...`)
@@ -742,7 +778,7 @@ export default function DashboardPage() {
       setZkStatus(`${label}: command created. ID: ${created.id}`)
       await wakeZktBridge(created)
 
-      const finished = await waitForZktCommand(created.id, label)
+      const finished = await waitForZktCommand(created.id, label, command)
 
       if (typeof afterDone === 'function') {
         await afterDone(finished)
@@ -752,23 +788,52 @@ export default function DashboardPage() {
       setZkStatus(`ERROR: ${label}: ${err.message || 'Failed to run command'}`)
     } finally {
       setZkLoading(false)
+      setActiveZkAction('')
     }
   }
 
-  async function handleZkTest() {
-    await runZktCommand('test', 'TEST ZKT')
+  async function handleZkTest(plantLocation) {
+    const label = getPlantLocationLabel(plantLocation)
+    await runZktCommand(
+      'test',
+      `TEST ZKT ${label}`,
+      buildZktPayloadForLocation(plantLocation),
+      undefined,
+      `test-${label}`
+    )
   }
 
-  async function handleZkSyncEmployees() {
-    await runZktCommand('sync_employees', 'SYNC EMPLOYEES', {}, loadEmployees)
+  async function handleZkSyncEmployees(plantLocation) {
+    const label = getPlantLocationLabel(plantLocation)
+    await runZktCommand(
+      'sync_employees',
+      `SYNC ${label} EMPLOYEES`,
+      buildZktPayloadForLocation(plantLocation),
+      loadEmployees,
+      `sync-${label}`
+    )
   }
 
-  async function handleZkVerifyEmployees() {
-    await runZktCommand('verify_employees', 'VERIFY ZKT', {}, loadEmployees)
+  async function handleZkVerifyEmployees(plantLocation) {
+    const label = getPlantLocationLabel(plantLocation)
+    await runZktCommand(
+      'verify_employees',
+      `VERIFY ${label} ZKT`,
+      buildZktPayloadForLocation(plantLocation),
+      loadEmployees,
+      `verify-${label}`
+    )
   }
 
-  async function handleZkPullLogs() {
-    await runZktCommand('pull_attendance', 'PULL ATTENDANCE', {}, loadEmployees)
+  async function handleZkPullLogs(plantLocation) {
+    const label = getPlantLocationLabel(plantLocation)
+    await runZktCommand(
+      'pull_attendance',
+      `PULL ${label} ATTENDANCE`,
+      buildZktPayloadForLocation(plantLocation),
+      loadEmployees,
+      `pull-${label}`
+    )
   }
 
   async function handleDeleteFromZkt(employee) {
@@ -779,7 +844,7 @@ export default function DashboardPage() {
     await runZktCommand(
       'delete_employee_from_zkt',
       `DELETE FROM ZKT ${name}`,
-      { employee_id: employee.id },
+      buildZktPayloadForLocation(employee.plant_location, { employee_id: employee.id }),
       loadEmployees
     )
   }
@@ -790,7 +855,7 @@ export default function DashboardPage() {
     await runZktCommand(
       'sync_one_employee',
       `SYNC ZKT ${name}`,
-      { employee_id: employee.id },
+      buildZktPayloadForLocation(employee.plant_location, { employee_id: employee.id }),
       loadEmployees
     )
   }
@@ -801,7 +866,7 @@ export default function DashboardPage() {
     await runZktCommand(
       'verify_employees',
       `VERIFY ZKT ${name}`,
-      { employee_id: employee.id },
+      buildZktPayloadForLocation(employee.plant_location, { employee_id: employee.id }),
       loadEmployees
     )
   }
@@ -826,6 +891,7 @@ export default function DashboardPage() {
       overtime_enabled: employee.overtime_enabled ?? false,
       downtime_enabled: employee.downtime_enabled ?? true,
       default_lunch_hours: String(normalizeDefaultLunchHours(employee.default_lunch_hours)),
+      plant_location: normalizePlantLocation(employee.plant_location),
       shift_type: normalizeShiftType(employee.shift_type),
       active: employee.active ?? true,
       exclude_from_payroll_report: employee.exclude_from_payroll_report === true,
@@ -894,6 +960,7 @@ export default function DashboardPage() {
         overtime_enabled: Boolean(form.overtime_enabled),
         downtime_enabled: form.downtime_enabled !== false,
         default_lunch_hours: normalizeDefaultLunchHours(form.default_lunch_hours),
+        plant_location: normalizePlantLocation(form.plant_location),
         shift_type: normalizeShiftType(form.shift_type),
         active: Boolean(form.active),
         exclude_from_payroll_report: form.exclude_from_payroll_report === true,
@@ -972,6 +1039,28 @@ export default function DashboardPage() {
   async function rebuildZktWorkLogs() {
     const { error } = await supabase.rpc('process_zkt_attendance_to_work_logs')
     if (error) throw error
+
+    const { data: employeesWithLunch, error: employeesError } = await supabase
+      .from('employees')
+      .select('id, default_lunch_hours')
+
+    if (employeesError) throw employeesError
+
+    const lunchUpdateResults = await Promise.all(
+      (employeesWithLunch || []).map((employeeRow) =>
+        supabase
+          .from('employee_work_logs')
+          .update({
+            lunch_hours: normalizeDefaultLunchHours(employeeRow.default_lunch_hours),
+          })
+          .eq('employee_id', employeeRow.id)
+          .eq('source', 'zkt')
+          .or('manually_edited.is.null,manually_edited.eq.false')
+      )
+    )
+
+    const lunchUpdateError = lunchUpdateResults.find((result) => result.error)?.error
+    if (lunchUpdateError) throw lunchUpdateError
   }
 
   async function handleShiftChange(employeeId, shiftType) {
@@ -2108,41 +2197,79 @@ export default function DashboardPage() {
                 Refresh
               </button>
 
+              <div className="grid grid-flow-col grid-rows-2 gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2">
               <button
-                onClick={handleZkTest}
+                onClick={() => handleZkTest('NJ')}
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <RefreshCw size={15} />}
-                Test ZKT
+                {renderZktActionIcon('test-NJ', <Zap size={15} />)}
+                Test NJ
               </button>
 
               <button
-                onClick={handleZkSyncEmployees}
+                onClick={() => handleZkTest('PA')}
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {renderZktActionIcon('test-PA', <Zap size={15} />)}
+                Test PA
+              </button>
+
+              <button
+                onClick={() => handleZkSyncEmployees('NJ')}
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <Upload size={15} />}
-                Sync → ZKT
+                {renderZktActionIcon('sync-NJ', <UploadCloud size={15} />)}
+                Sync NJ → ZKT
               </button>
 
               <button
-                onClick={handleZkVerifyEmployees}
+                onClick={() => handleZkSyncEmployees('PA')}
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {renderZktActionIcon('sync-PA', <UploadCloud size={15} />)}
+                Sync PA → ZKT
+              </button>
+
+              <button
+                onClick={() => handleZkVerifyEmployees('NJ')}
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <ShieldCheck size={15} />}
-                Verify ZKT
+                {renderZktActionIcon('verify-NJ', <BadgeCheck size={15} />)}
+                Verify NJ
               </button>
 
               <button
-                onClick={handleZkPullLogs}
+                onClick={() => handleZkVerifyEmployees('PA')}
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {renderZktActionIcon('verify-PA', <BadgeCheck size={15} />)}
+                Verify PA
+              </button>
+
+              <button
+                onClick={() => handleZkPullLogs('NJ')}
                 disabled={zkLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {zkLoading ? <Loader2 size={15} className="animate-spin" /> : <CalendarDays size={15} />}
-                Pull Logs
+                {renderZktActionIcon('pull-NJ', <DownloadCloud size={15} />)}
+                Pull NJ
               </button>
+
+              <button
+                onClick={() => handleZkPullLogs('PA')}
+                disabled={zkLoading}
+                className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {renderZktActionIcon('pull-PA', <DownloadCloud size={15} />)}
+                Pull PA
+              </button>
+              </div>
 
               <button
                 onClick={openAddModal}

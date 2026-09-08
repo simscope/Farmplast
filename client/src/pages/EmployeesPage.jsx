@@ -331,6 +331,7 @@ const initialForm = {
   phone: '',
   email: '',
   position: 'technician',
+  plant_location: 'NJ',
   hourly_rate: '',
   overtime_enabled: false,
   default_lunch_hours: '1',
@@ -352,6 +353,37 @@ const initialZktForm = {
   zkt_sync_status: '',
   zkt_sync_error: '',
   zkt_synced_at: '',
+}
+
+function EmployeePhoto({ employee, size = 128 }) {
+  const [useOriginalPhoto, setUseOriginalPhoto] = useState(false)
+
+  if (!employee.photo_url) return 'No photo'
+
+  const src = useOriginalPhoto
+    ? employee.photo_url
+    : getEmployeePhotoThumbnailUrl(employee.photo_url, size)
+
+  return (
+    <img
+      src={src}
+      alt={`${employee.first_name || ''} ${employee.last_name || ''}`}
+      style={{
+        width: '100%',
+        height: '100%',
+        objectFit: 'cover',
+        display: 'block',
+      }}
+      onError={(event) => {
+        if (!useOriginalPhoto) {
+          setUseOriginalPhoto(true)
+          return
+        }
+
+        event.currentTarget.style.display = 'none'
+      }}
+    />
+  )
 }
 
 function formatMoney(value) {
@@ -633,6 +665,7 @@ export default function EmployeesPage() {
         phone: form.phone.trim() || null,
         email: form.email.trim() || null,
         position: form.position.trim() || null,
+        plant_location: String(form.plant_location || 'NJ').toUpperCase() === 'PA' ? 'PA' : 'NJ',
         hourly_rate:
           form.hourly_rate === ''
             ? null
@@ -923,6 +956,19 @@ export default function EmployeesPage() {
               </div>
 
               <div style={fieldStyle}>
+                <label style={labelStyle}>Location</label>
+                <select
+                  style={selectStyle}
+                  name="plant_location"
+                  value={form.plant_location}
+                  onChange={handleChange}
+                >
+                  <option value="NJ">New Jersey</option>
+                  <option value="PA">Pennsylvania</option>
+                </select>
+              </div>
+
+              <div style={fieldStyle}>
                 <label style={labelStyle}>Overtime</label>
                 <select
                   style={selectStyle}
@@ -1046,6 +1092,7 @@ export default function EmployeesPage() {
                     <th style={{ ...thStyle, width: '90px' }}>Employee #</th>
                     <th style={{ ...thStyle, width: '190px' }}>Name</th>
                     <th style={{ ...thStyle, width: '120px' }}>Position</th>
+                    <th style={{ ...thStyle, width: '120px' }}>Location</th>
                     <th style={{ ...thStyle, width: '140px' }}>Phone</th>
                     <th style={{ ...thStyle, width: '220px' }}>Email</th>
                     <th style={{ ...thStyle, width: '100px' }}>Hourly rate</th>
@@ -1062,23 +1109,7 @@ export default function EmployeesPage() {
                     <tr key={employee.id}>
                       <td style={tdStyle}>
                         <div style={photoBoxStyle}>
-                          {employee.photo_url ? (
-                            <img
-                              src={getEmployeePhotoThumbnailUrl(employee.photo_url, 128)}
-                              alt={`${employee.first_name || ''} ${employee.last_name || ''}`}
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                display: 'block',
-                              }}
-                              onError={(event) => {
-                                event.currentTarget.style.display = 'none'
-                              }}
-                            />
-                          ) : (
-                            'No photo'
-                          )}
+                          <EmployeePhoto employee={employee} size={128} />
                         </div>
                       </td>
 
@@ -1109,6 +1140,10 @@ export default function EmployeesPage() {
                         }}
                       >
                         {employee.position || '-'}
+                      </td>
+
+                      <td style={{ ...tdStyle, whiteSpace: 'nowrap' }}>
+                        {String(employee.plant_location || 'NJ').toUpperCase() === 'PA' ? 'Pennsylvania' : 'New Jersey'}
                       </td>
 
                       <td

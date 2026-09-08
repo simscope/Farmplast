@@ -92,3 +92,19 @@ export function getEmployeePhotoThumbnailUrl(photoUrl, size = 96) {
     return photoUrl
   }
 }
+
+export function getEmployeePhotoStoragePath(photoUrl) {
+  if (!photoUrl) return ''
+
+  try {
+    const url = new URL(photoUrl)
+    const marker = `/storage/v1/object/public/${EMPLOYEE_PHOTO_BUCKET}/`
+    const markerIndex = url.pathname.indexOf(marker)
+
+    if (markerIndex === -1) return ''
+
+    return decodeURIComponent(url.pathname.slice(markerIndex + marker.length))
+  } catch {
+    return ''
+  }
+}

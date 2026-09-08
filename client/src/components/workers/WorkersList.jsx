@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ArrowDown,
@@ -14,6 +14,37 @@ import {
 import { getEmployeePhotoThumbnailUrl } from '../../utils/employeePhotos'
 
 const LAST_ACCESSED_EMPLOYEE_KEY = 'farmplast:last-accessed-employee-id'
+
+function normalizePlantLocation(value) {
+  return String(value || 'NJ').toUpperCase() === 'PA' ? 'PA' : 'NJ'
+}
+
+function getPlantLocationLabel(value) {
+  return normalizePlantLocation(value) === 'PA' ? 'Pennsylvania' : 'New Jersey'
+}
+
+function EmployeePhoto({ employee, getFullName, size }) {
+  const [useOriginalPhoto, setUseOriginalPhoto] = useState(false)
+
+  if (!employee.photo_url) return null
+
+  const src = useOriginalPhoto
+    ? employee.photo_url
+    : getEmployeePhotoThumbnailUrl(employee.photo_url, size)
+
+  return (
+    <img
+      src={src}
+      alt={getFullName(employee)}
+      className="h-full w-full object-cover"
+      onError={() => {
+        if (!useOriginalPhoto) {
+          setUseOriginalPhoto(true)
+        }
+      }}
+    />
+  )
+}
 
 function SortIcon({ field, employeeSort }) {
   if (employeeSort.field !== field) return <ArrowUpDown size={12} />
@@ -81,6 +112,22 @@ export default function WorkersList({
     rememberEmployeeAccess(employee)
     openEditModal(employee)
   }
+
+  const employeeSections = useMemo(() => {
+    return ['NJ', 'PA']
+      .map((location) => {
+        const employees = filteredEmployees.filter(
+          (employee) => normalizePlantLocation(employee.plant_location) === location
+        )
+
+        return {
+          key: location,
+          label: getPlantLocationLabel(location),
+          employees,
+        }
+      })
+      .filter((section) => section.employees.length > 0)
+  }, [filteredEmployees])
 
   return (
     <div className={cardClass}>
@@ -183,7 +230,16 @@ export default function WorkersList({
                   No employees found
                 </div>
               ) : (
-                filteredEmployees.map((employee) => {
+                employeeSections.map((section) => (
+                  <Fragment key={section.key}>
+                    <div className="border-t border-slate-700/80 bg-slate-900 px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-cyan-200">
+                      {section.label}
+                      <span className="ml-2 font-semibold normal-case text-slate-400">
+                        {section.employees.length} worker{section.employees.length === 1 ? '' : 's'}
+                      </span>
+                    </div>
+
+                    {section.employees.map((employee) => {
                   const isLastAccessed = String(employee.id) === lastAccessedEmployeeId
                   const isInactive = employee.active === false
 
@@ -221,13 +277,7 @@ export default function WorkersList({
                       title="Edit employee"
                     >
                       <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-[#07101d]">
-                        {employee.photo_url ? (
-                          <img
-                            src={getEmployeePhotoThumbnailUrl(employee.photo_url, 96)}
-                            alt={getFullName(employee)}
-                            className="h-full w-full object-cover"
-                          />
-                        ) : null}
+                        <EmployeePhoto employee={employee} getFullName={getFullName} size={96} />
                       </div>
 
                       <div className="min-w-0 leading-tight">
@@ -376,14 +426,25 @@ export default function WorkersList({
                     </div>
                   </div>
                   )
-                })
+                })}
+                  </Fragment>
+                ))
               )}
             </div>
           </div>
         )}
 
         <div className="space-y-3 lg:hidden">
-          {filteredEmployees.map((employee) => {
+          {employeeSections.map((section) => (
+            <Fragment key={section.key}>
+              <div className="rounded-xl border border-slate-700/80 bg-slate-900 px-3 py-2 text-xs font-extrabold uppercase tracking-wide text-cyan-200">
+                {section.label}
+                <span className="ml-2 font-semibold normal-case text-slate-400">
+                  {section.employees.length} worker{section.employees.length === 1 ? '' : 's'}
+                </span>
+              </div>
+
+              {section.employees.map((employee) => {
             const isLastAccessed = String(employee.id) === lastAccessedEmployeeId
             const isInactive = employee.active === false
 
@@ -406,13 +467,7 @@ export default function WorkersList({
                   title="Edit employee"
                 >
                   <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-700 bg-[#07101d]">
-                    {employee.photo_url ? (
-                      <img
-                        src={getEmployeePhotoThumbnailUrl(employee.photo_url, 128)}
-                        alt={getFullName(employee)}
-                        className="h-full w-full object-cover"
-                      />
-                    ) : null}
+                    <EmployeePhoto employee={employee} getFullName={getFullName} size={128} />
                   </div>
 
                   <div className="min-w-0">
@@ -432,7 +487,7 @@ export default function WorkersList({
                       ) : null}
                     </div>
                     <div className="mt-1 text-xs text-slate-400">
-                      {employee.position || 'worker'} В· {getShiftLabel(employee)} В· {getPunchErrorLabel(employee)} В· {getPayLabel(employee)} В· {getOvertimeLabel(employee)}
+                      {getPlantLocationLabel(employee.plant_location)} В· {employee.position || 'worker'} В· {getShiftLabel(employee)} В· {getPunchErrorLabel(employee)} В· {getPayLabel(employee)} В· {getOvertimeLabel(employee)}
                     </div>
                   </div>
                 </button>
@@ -554,6 +609,8 @@ export default function WorkersList({
             </div>
             )
           })}
+            </Fragment>
+          ))}
         </div>
       </div>
     </div>
