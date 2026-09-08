@@ -19,13 +19,15 @@
       "kind": "runtime",
       "name": "zkt-bridge.exe",
       "localPath": "runtime/zkt-bridge.exe",
-      "sha256": "5A45D0F09506336D4A771C79EE942DDF407B12AAD54607B4DAF5BE39030DFF60"
+      "sha256": "5A45D0F09506336D4A771C79EE942DDF407B12AAD54607B4DAF5BE39030DFF60",
+      "gitIncluded": false
     },
     {
       "kind": "runtime",
       "name": "nssm.exe",
       "localPath": "runtime/nssm.exe",
-      "sha256": "BCE355F89B95D9F7C7441563D03A6CE6CD429DB865920F66561C0D90D1E0E285"
+      "sha256": "BCE355F89B95D9F7C7441563D03A6CE6CD429DB865920F66561C0D90D1E0E285",
+      "gitIncluded": false
     },
     {
       "kind": "sdk",
@@ -63,5 +65,73 @@
       "sha256": "DB63242E5C6F244EFBCB618CC7BB5ECE8F9E0EA9C11BF4DFBB0C3DAB1FFFAED9",
       "gitIncluded": false
     }
-  ]
+  ],
+  "productionExecutablePath": "C:\\Program Files (x86)\\ZKTBridge\\zkt-bridge.exe",
+  "powershell": {
+    "executable": "C:\\Windows\\SysWOW64\\WindowsPowerShell\\v1.0\\powershell.exe",
+    "architecture": "32-bit"
+  },
+  "network": {
+    "zktPort": 4370,
+    "zktIp": "192.168.22.201",
+    "route": "192.168.22.0/24",
+    "nextHop": "0.0.0.0",
+    "capturedLocalIp": "192.168.22.66",
+    "prefixLength": 24,
+    "gateway": "Not captured; do not infer from the on-link route",
+    "capturedAdapter": "Wi-Fi"
+  },
+  "configuration": {
+    "deploymentPath": "C:\\Program Files (x86)\\ZKTBridge\\.env",
+    "valuesInGit": false,
+    "requiredFields": [
+      "SUPABASE_URL",
+      "SUPABASE_SERVICE_ROLE_KEY",
+      "ZKT_IP",
+      "ZKT_PORT",
+      "ZKT_MACHINE_NUMBER",
+      "POLL_INTERVAL_MS",
+      "ZKT_COMMAND_TIMEOUT",
+      "ZKT_POWERSHELL_TIMEOUT",
+      "ZKT_ATTENDANCE_LOOKBACK_DAYS",
+      "ZKT_AUTO_PULL_HOURS",
+      "ZKT_BRIDGE_ACTIVE_START_HOUR",
+      "ZKT_BRIDGE_ACTIVE_END_HOUR",
+      "ZKT_REALTIME_WAKE_ENABLED",
+      "ZKT_WAKE_SERVER_ENABLED"
+    ]
+  },
+  "validation": [
+    {
+      "uiSuccess": true,
+      "elapsedSeconds": 2.892,
+      "status": "done",
+      "command": "test",
+      "id": "23a53f44-cb18-4354-99d1-386018880099",
+      "resultOk": true
+    },
+    {
+      "uiSuccess": true,
+      "elapsedSeconds": 3.665,
+      "status": "done",
+      "command": "sync_one_employee",
+      "id": "dac3e1b5-2475-449c-99ae-d1fee789b6ba",
+      "resultOk": true
+    },
+    {
+      "uiSuccess": true,
+      "elapsedSeconds": 21.52,
+      "status": "done",
+      "command": "pull_attendance",
+      "id": "faa6b11a-8ad5-484d-93e6-d529b9801c47",
+      "resultOk": true
+    }
+  ],
+  "offlineArchive": {
+    "sha256": "FCCB670C95FCDB1155DEFF34EEA3D517F511FF12E0A0F0CEB814916C0F5FE5C7",
+    "containsProductionConfiguration": false,
+    "path": "C:\\Users\\Owner\\Documents\\farmplast\\.private-zkt-recovery\\verified-nj-5591-tl-20260908-artifacts.zip",
+    "manifestNote": "Archive retains the original capture manifest; this Git manifest adds documentation metadata without changing artifact hashes."
+  },
+  "protectedConfigurationBackup": "nj-5591-tl:C:\\Farmplast-ZKT-Backup\\20260908-121908\\installation\\.env"
 }

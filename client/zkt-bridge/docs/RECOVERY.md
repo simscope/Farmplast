@@ -115,7 +115,7 @@ attendance and schedules. Tailscale provides management access, not the ZKT LAN.
 
    Confirm the lookback value against the remote backup during recovery; runtime
    startup logs reported 3 days. Do not change polling merely to mask an incident.
-7. Run `install\verify-network.ps1` and `install\verify-zkt-com.ps1`.
+7. Run `install\verify-zkt-com.ps1` first, then `install\verify-network.ps1`.
 8. Run `install\install-service.ps1`. It installs an Automatic service but leaves
    it STOPPED. Automatic startup intentionally supports reboot recovery on the
    replacement; captured production used Manual plus daily tasks. The executable
@@ -178,3 +178,41 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install\verify-bridge.
 Use the same invocation form for the other reviewed scripts. Do not permanently
 weaken the machine execution policy. The health script was run against production
 from its protected backup directory; the installer was not run there.
+
+## Read-only replacement preflight
+
+Before any installation, extract the verified artifacts and run from this package:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\install\preflight-replacement-pc.ps1 -RuntimeDirectory 'C:\RecoveryArtifacts\runtime' -ConfigPath 'C:\RecoveryConfig\.env'
+```
+
+The configuration path is a technician-supplied protected file; do not put it in
+Git. Without parameters the runtime folder is this package's runtime/ and the
+configuration path is C:\Program Files (x86)\ZKTBridge\.env. The script prints
+PASS/WARN/FAIL lines, suppresses configuration values, checks runtime hashes,
+Windows/admin/32-bit PowerShell, 32-bit COM registration, interfaces, ICMP and a
+bounded TCP connection, and existing service state. It never creates COM objects,
+installs/registers anything, executes the bridge, changes configuration/services,
+or contacts Supabase. Exit 1 means prerequisites are missing or invalid. On a blank
+PC missing COM/configuration is expected; resolve findings in the installation
+sequence and rerun. Use -SkipNetwork for offline inspection; a WARN then explicitly
+means network reachability was not tested.
+
+After preparation validate in order: (1) verify-zkt-com.ps1, expecting
+`PASS: 32-bit zkemkeeper.ZKEM object creation`; (2) verify-network.ps1, expecting
+TcpTestSucceeded=True; (3) install the STOPPED service; (4) approved cutover and
+service health/Test NJ; (5) Pull NJ; (6) existing employee sync_one_employee.
+No installation, production tests or production contact is part of the finalization
+of this documentation package.
+
+For rollback during an actual future cutover: stop the replacement service first,
+verify its worker has exited, and retain its logs/configuration. If the original PC
+is intact, restore its approved prior service/schedule state only after the
+replacement is isolated. If restoring on another PC, use the timestamped installation
+backup plus its service export/task XML as reference, preserving credentials and
+matching artifact hashes; review machine-specific accounts/paths before applying
+those exports. Do not blindly merge registry exports onto a running installation.
+Never activate both workers or reset/replay queue entries to attempt recovery.
+
+See RECOVERY-INVENTORY.md for the complete Git/offline/missing-material distinction.
