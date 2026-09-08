@@ -1,0 +1,13 @@
+.env
+.env.*
+!.env.example
+logs/
+sdk/
+node_modules/
+*.log
+*.pid
+*.backup*
+*.reg
+*.key
+*.pem
+runtime/*.exe

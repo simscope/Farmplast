@@ -1,0 +1,67 @@
+{
+  "capturedAt": "2026-09-08",
+  "hostname": "nj-5591-tl",
+  "sourceDirectory": "C:\\Program Files (x86)\\ZKTBridge",
+  "service": "ZKTBridge",
+  "serviceStartModeAtCapture": "Manual; scheduled start 07:00 and stop 21:00",
+  "nodeEmbeddedVersion": "18.5.0",
+  "nssmVersion": "2.24-103-gdee49fc (32-bit)",
+  "windows": "Windows 11 Pro 10.0.26200",
+  "com": {
+    "progId": "zkemkeeper.ZKEM",
+    "clsid": "{00853A19-BD51-419B-9269-2DABE57EB61F}",
+    "architecture": "32-bit",
+    "threadingModel": "both"
+  },
+  "sourceAvailability": "Main bridge.cjs exists only as V8 bytecode in packaged executable; editable original source and build lockfile were not found.",
+  "files": [
+    {
+      "kind": "runtime",
+      "name": "zkt-bridge.exe",
+      "localPath": "runtime/zkt-bridge.exe",
+      "sha256": "5A45D0F09506336D4A771C79EE942DDF407B12AAD54607B4DAF5BE39030DFF60"
+    },
+    {
+      "kind": "runtime",
+      "name": "nssm.exe",
+      "localPath": "runtime/nssm.exe",
+      "sha256": "BCE355F89B95D9F7C7441563D03A6CE6CD429DB865920F66561C0D90D1E0E285"
+    },
+    {
+      "kind": "sdk",
+      "name": "commpro.dll",
+      "sha256": "53FE03787F0200ABB9118CA7464FD902CE774B62B66DF7EB9CC01C6A413D3EF6",
+      "gitIncluded": false
+    },
+    {
+      "kind": "sdk",
+      "name": "mfc71.dll",
+      "sha256": "385EA2A454172E3F9B1B18778D4D29318A12BE9F0C0C0602DB72E2CCE136E823",
+      "gitIncluded": false
+    },
+    {
+      "kind": "sdk",
+      "name": "msvcp71.dll",
+      "sha256": "6C483CBE349863C7DCF6F8CB7334E7D28C299E7D5AA063297EA2F62352F6BDD9",
+      "gitIncluded": false
+    },
+    {
+      "kind": "sdk",
+      "name": "msvcr71.dll",
+      "sha256": "C4D4339DF314A27FF75A38967B7569D9962337B8D4CD4B0DB3ABA5FF72B2BFBB",
+      "gitIncluded": false
+    },
+    {
+      "kind": "sdk",
+      "name": "plcommpro.dll",
+      "sha256": "429AF7B290856BBF0110C850EA458CF4586B6E43E4B60FE7AC19B62D9EF94D39",
+      "gitIncluded": false
+    },
+    {
+      "kind": "sdk",
+      "name": "zkemkeeper.dll",
+      "sha256": "DB63242E5C6F244EFBCB618CC7BB5ECE8F9E0EA9C11BF4DFBB0C3DAB1FFFAED9",
+      "gitIncluded": false
+    }
+  ]
+}

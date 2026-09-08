@@ -1,0 +1,135 @@
+{
+  "payloadPosition": 37574656,
+  "mainEntry": {
+    "0": [
+      0,
+      60336
+    ],
+    "3": [
+      60336,
+      121
+    ]
+  },
+  "packages": [
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\cross-fetch\\package.json",
+      "name": "cross-fetch",
+      "version": "4.1.0",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\ws\\package.json",
+      "name": "ws",
+      "version": "8.20.0",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\@supabase\\supabase-js\\package.json",
+      "name": "@supabase/supabase-js",
+      "version": "2.105.1",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\dotenv\\package.json",
+      "name": "dotenv",
+      "version": "16.6.1",
+      "license": "BSD-2-Clause"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\cross-fetch\\polyfill\\package.json",
+      "name": "cross-fetch-polyfill",
+      "version": "0.0.0",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\node-fetch\\package.json",
+      "name": "node-fetch",
+      "version": "2.7.0",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\@supabase\\auth-js\\package.json",
+      "name": "@supabase/auth-js",
+      "version": "2.105.1",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\@supabase\\functions-js\\package.json",
+      "name": "@supabase/functions-js",
+      "version": "2.105.1",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\@supabase\\postgrest-js\\package.json",
+      "name": "@supabase/postgrest-js",
+      "version": "2.105.1",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\@supabase\\realtime-js\\package.json",
+      "name": "@supabase/realtime-js",
+      "version": "2.105.1",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\@supabase\\storage-js\\package.json",
+      "name": "@supabase/storage-js",
+      "version": "2.105.1",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\whatwg-url\\package.json",
+      "name": "whatwg-url",
+      "version": "5.0.0",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\tslib\\package.json",
+      "name": "tslib",
+      "version": "2.8.1",
+      "license": "0BSD"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\@supabase\\phoenix\\package.json",
+      "name": "@supabase/phoenix",
+      "version": "0.4.1",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\@types\\ws\\package.json",
+      "name": "@types/ws",
+      "version": "8.18.1",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\iceberg-js\\package.json",
+      "name": "iceberg-js",
+      "version": "0.8.1",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\tr46\\package.json",
+      "name": "tr46",
+      "version": "0.0.3",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\webidl-conversions\\package.json",
+      "name": "webidl-conversions",
+      "version": "3.0.1",
+      "license": "BSD-2-Clause"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\@types\\node\\package.json",
+      "name": "@types/node",
+      "version": "25.6.0",
+      "license": "MIT"
+    },
+    {
+      "path": "C:\\snapshot\\zkt-bridge\\node_modules\\undici-types\\package.json",
+      "name": "undici-types",
+      "version": "7.19.2",
+      "license": "MIT"
+    }
+  ]
+}
