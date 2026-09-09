@@ -1,0 +1,32 @@
+{
+  "name": "farmplast-zkt-bridge-candidate-v2",
+  "version": "2.0.0-candidate.1",
+  "private": true,
+  "description": "Offline-tested reconstruction; not deployed and not production-equivalence verified",
+  "main": "src/bridge.cjs",
+  "bin": "src/bridge.cjs",
+  "engines": {
+    "node": ">=18.5.0"
+  },
+  "packageManager": "npm@11.17.0",
+  "scripts": {
+    "start": "node src/bridge.cjs",
+    "test": "node --test test/*.test.cjs",
+    "build": "node scripts/build.cjs",
+    "test:exe": "node scripts/test-exe.cjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.105.1",
+    "cross-fetch": "4.1.0",
+    "dotenv": "16.6.1",
+    "ws": "8.20.0"
+  },
+  "devDependencies": {
+    "pkg": "5.8.1"
+  },
+  "pkg": {
+    "assets": [
+      "src/zkt.ps1"
+    ]
+  }
+}

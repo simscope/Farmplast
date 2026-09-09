@@ -11,3 +11,10 @@ node_modules/
 *.key
 *.pem
 runtime/*.exe
+
+build/
+source-recovery*/
+*.v8cache
+command-journal.json*
+auto-pull-state.json
+SDK-UNCERTAIN
