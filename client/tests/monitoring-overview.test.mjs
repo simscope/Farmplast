@@ -25,6 +25,14 @@ async function point(asset, code, type, value, age = 0, group = '') {
     [asset,code,group,type,type === 'boolean' ? value : null,type === 'number' ? value : null,age])
 }
 
+test('migration can be reapplied without changing its contract or invoker security', async () => {
+  const before = await overview()
+  await db.exec(await fs.readFile(new URL('../../supabase/add_nj_monitoring_overview.sql', import.meta.url), 'utf8'))
+  assert.deepEqual(await overview(), before)
+  const { rows } = await db.query("select reloptions from pg_class where oid = 'public.v_nj_monitoring_overview'::regclass")
+  assert.ok(rows[0].reloptions.includes('security_invoker=true'))
+})
+
 test('exact five slots and exact 13 columns even with no telemetry', async () => {
   const rows = await overview()
   assert.equal(rows.length, 5)

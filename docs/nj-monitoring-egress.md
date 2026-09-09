@@ -68,7 +68,7 @@ CH3 raw reads accept its existing CH2_R prefix as well as CH3_R. Only verified d
 
 - Production frontend build: PASS.
 - Full frontend lint: PASS, zero errors; six warnings in unchanged ChillerIllustration, AuthContext and EmployeeDetailsPage.
-- Ten Node tests: PASS. They execute the migration in PGlite PostgreSQL, verify five rows/13 columns, zero/NULL handling, barrel mapping, stale online flags, CH1 compressor mapping and JS/SQL status parity, dashboard reuse, invoker permissions/RLS, request overlap protection, hidden-tab behavior, StrictMode and unmount cleanup.
+- Eleven Node tests: PASS. They execute and reapply the migration in PGlite PostgreSQL, verify five rows/13 columns, zero/NULL handling, barrel mapping, stale online flags, CH1 compressor mapping and JS/SQL status parity, dashboard reuse, invoker permissions/RLS, request overlap protection, hidden-tab behavior, StrictMode and unmount cleanup.
 - Local browser fixture preview: all five compact cards render; no temperature/distance diagnostics on overview; both barrel links show the correct swapped detailed data. The local API log shows barrel-only five-second reads and overview-only reads after returning to the overview. No production data was changed for these checks.
 - Existing unrelated build warning: /fonts/micr.ttf is unresolved at build time and left for runtime resolution. It was not suppressed.
 - No ESP firmware, telemetry frequency, Modbus, PLC, networking or ingestion changes.
@@ -116,3 +116,7 @@ That is about 98.78% less body data per refresh. At normal intervals, the estima
 - client/tests/monitoring-overview.test.mjs, client/tests/monitoring-polling.test.mjs: SQL and lifecycle verification.
 - supabase/add_nj_monitoring_overview.sql: exact view definition and public read grant.
 - docs/nj-monitoring-egress.md: this report.
+
+## Review preparation
+
+Fetched origin and directly verified remote main at cf7fc99893781455c1af16a8f7df24036d9e57c9. Git rebase origin/main reported that codex/nj-monitoring-egress was already up to date; no conflicts or rewritten optimization commits were necessary. The original optimization commit 6bd82cffdb528e028086ee338e3e8f441f40f42d remains in branch history, and the main ZKT bridge/recovery files are unchanged. Added a migration reapplication test covering its stable five-row contract and security_invoker setting. Production migration/frontend deployment and PR merge are explicitly excluded from this review task.
