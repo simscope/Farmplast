@@ -1,17 +1,11 @@
-import React, { useEffect, useMemo, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import React, { useCallback, useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft } from 'lucide-react'
 import { supabase } from '../lib/supabase'
-import ChillerIllustration from '../components/monitoring/ChillerIllustration'
 import BarrelIllustration from '../components/monitoring/BarrelIllustration'
-import {
-  POLL_INTERVAL_MS,
-  normalizeRow,
-  groupAssets,
-  getAssetStatus,
-  statCardStyle,
-  pageButtonStyle,
-} from '../utils/monitoringHelpers'
+import useMonitoringPolling from '../hooks/useMonitoringPolling'
+import { OVERVIEW_COLUMNS } from '../utils/monitoringColumns'
+import { statCardStyle, pageButtonStyle } from '../utils/monitoringHelpers'
 
 function useViewport() {
   const getWidth = () => (typeof window !== 'undefined' ? window.innerWidth : 1440)
@@ -34,150 +28,6 @@ function useViewport() {
   }
 }
 
-function barrelSort(a, b) {
-  const codeA = String(a?.asset_code || '')
-  const codeB = String(b?.asset_code || '')
-  return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
-}
-
-function chillerCodeSort(a, b) {
-  const codeA = String(a?.asset_code || '')
-  const codeB = String(b?.asset_code || '')
-  return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' })
-}
-
-const NJ_BARREL_SLOTS = [
-  { code: 'BARREL-NJ-01', name: 'Material Barrel 1' },
-  { code: 'BARREL-NJ-02', name: 'Material Barrel 2' },
-]
-
-const NJ_BARREL_DATA_SWAP = {
-  'BARREL-NJ-01': 'BARREL-NJ-02',
-  'BARREL-NJ-02': 'BARREL-NJ-01',
-}
-
-function createEmptyBarrelAsset(slot) {
-  return {
-    asset_code: slot.code,
-    asset_name: slot.name,
-    asset_type: 'barrel',
-    points: [],
-  }
-}
-
-function fmtNumber(value, digits = 1) {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
-  return Number(value).toFixed(digits)
-}
-
-function getBarrelLevel(asset) {
-  const point = asset?.points?.find((p) => {
-    const code = String(p.point_code || '').toUpperCase()
-    return code.includes('LEVEL_PERCENT') || code.includes('PERCENT')
-  })
-
-  const value = Number(point?.value_number)
-  return Number.isFinite(value) ? value : null
-}
-
-function getDashboardSetpoint(row, rawRows = []) {
-  const rawRow = Array.isArray(rawRows)
-    ? rawRows.find((r) => Number(r?.raw_register) === 40023)
-    : null
-
-  if (rawRow) {
-    const raw = rawRow.raw_value ?? rawRow.value_number
-    const num = Number(raw)
-
-    if (!Number.isNaN(num)) {
-      return num / 10
-    }
-  }
-
-  const raw =
-    row?.ch2_r40023 ??
-    row?.CH2_R40023 ??
-    row?.process_setpoint_raw ??
-    row?.setpoint_raw
-
-  if (raw === null || raw === undefined || raw === '') return null
-
-  const value = Number(raw)
-  if (Number.isNaN(value)) return null
-
-  return value
-}
-
-function SmallMetric({ title, value, unit, subtitle, accent = 'cyan' }) {
-  const border =
-    accent === 'red'
-      ? 'rgba(251,113,133,0.28)'
-      : accent === 'green'
-        ? 'rgba(52,211,153,0.28)'
-        : accent === 'yellow'
-          ? 'rgba(250,204,21,0.28)'
-          : 'rgba(34,211,238,0.28)'
-
-  const glow =
-    accent === 'red'
-      ? 'rgba(127,29,29,0.22)'
-      : accent === 'green'
-        ? 'rgba(6,78,59,0.22)'
-        : accent === 'yellow'
-          ? 'rgba(113,63,18,0.22)'
-          : 'rgba(8,47,73,0.22)'
-
-  const valueColor =
-    accent === 'red'
-      ? '#fda4af'
-      : accent === 'green'
-        ? '#86efac'
-        : accent === 'yellow'
-          ? '#fde68a'
-          : '#93c5fd'
-
-  const titleColor =
-    accent === 'red'
-      ? '#fca5a5'
-      : accent === 'green'
-        ? '#86efac'
-        : accent === 'yellow'
-          ? '#facc15'
-          : '#67e8f9'
-
-  return (
-    <div
-      style={{
-        border: `1px solid ${border}`,
-        background: glow,
-        borderRadius: 22,
-        padding: '16px 18px',
-        minHeight: 108,
-      }}
-    >
-      <div style={{ color: titleColor, fontSize: 13, fontWeight: 900, letterSpacing: 0.8 }}>
-        {title}
-      </div>
-
-      <div
-        style={{
-          marginTop: 6,
-          fontSize: 30,
-          lineHeight: 1,
-          fontWeight: 900,
-          color: valueColor,
-        }}
-      >
-        {value}
-        {unit ? <span style={{ marginLeft: 2 }}>{unit}</span> : null}
-      </div>
-
-      {subtitle ? (
-        <div style={{ marginTop: 8, fontSize: 14, color: '#94a3b8' }}>{subtitle}</div>
-      ) : null}
-    </div>
-  )
-}
 
 function Badge({ children, tone = 'slate' }) {
   const styles = {
@@ -220,7 +70,7 @@ function Badge({ children, tone = 'slate' }) {
   )
 }
 
-function StatusDot({ active, label }) {
+function StatusDot({ active, label, unsupported }) {
   return (
     <div
       style={{
@@ -246,513 +96,69 @@ function StatusDot({ active, label }) {
           boxShadow: active ? '0 0 12px rgba(34,197,94,0.7)' : 'none',
         }}
       />
-      {label}
+      {label}: {active == null ? (unsupported ? 'N/A' : 'UNKNOWN') : active ? 'ON' : 'OFF'}
     </div>
   )
 }
 
-function DashboardChillerCard({
-  title,
-  row,
-  rawRows,
-  isMobile,
-  onClick,
-}) {
-  const online = !!row?.is_online
-  const hasAlarm = !!row?.alarm_active || !!row?.has_alarm || !!row?.alert_active
-  const setpoint = getDashboardSetpoint(row, rawRows)
 
-  return (
-    <div
-      onClick={onClick}
-      style={{
-        cursor: 'pointer',
-        borderRadius: 28,
-        border: '1px solid rgba(56,189,248,0.22)',
-        background:
-          'linear-gradient(180deg, rgba(15,23,42,0.96) 0%, rgba(2,6,23,0.98) 100%)',
-        boxShadow: '0 0 0 1px rgba(96,165,250,0.06) inset, 0 20px 50px rgba(0,0,0,0.25)',
-        overflow: 'hidden',
-      }}
-    >
-      <div style={{ padding: isMobile ? 18 : 20 }}>
-        <div
-          style={{
-            display: 'flex',
-            justifyContent: 'space-between',
-            alignItems: 'flex-start',
-            gap: 12,
-            flexWrap: 'wrap',
-            marginBottom: 18,
-          }}
-        >
-          <div>
-            <div
-              style={{
-                color: '#67e8f9',
-                fontSize: 13,
-                fontWeight: 900,
-                letterSpacing: 1,
-              }}
-            >
-              CHILLER
-            </div>
+const COMPRESSORS = ['1a', '1b', '1c', '2a', '2b', '2c']
+const SLOTS = [
+  ...[1, 2, 3].map(n => ({ asset_code: `CH-NJ-0${n}`, asset_name: `Chiller ${n}`, asset_type: 'chiller', route: `chiller-${n}` })),
+  ...[1, 2].map(n => ({ asset_code: `BARREL-NJ-0${n}`, asset_name: `Material Barrel ${n}`, asset_type: 'barrel', route: `barrel-${n}` })),
+]
 
-            <div
-              style={{
-                marginTop: 6,
-                fontSize: isMobile ? 28 : 40,
-                lineHeight: 1,
-                fontWeight: 900,
-              }}
-            >
-              {title}
-            </div>
-
-            <div style={{ marginTop: 10, fontSize: 14, color: '#cbd5e1' }}>
-              {row?.asset_code || '—'}
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Badge tone={online ? 'green' : 'red'}>{online ? 'Online' : 'Offline'}</Badge>
-            <Badge tone={hasAlarm ? 'red' : 'slate'}>{hasAlarm ? 'Alarm' : 'Normal'}</Badge>
-          </div>
+function DashboardChillerCard({ asset, isMobile }) {
+  return <Link to={`/monitoring/nj/${asset.route}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+    <div style={{ ...statCardStyle(isMobile), border: '1px solid rgba(56,189,248,0.22)', borderRadius: 28, background: 'linear-gradient(180deg, rgba(15,23,42,0.96), rgba(2,6,23,0.98))' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div><div style={{ color: '#67e8f9', fontSize: 13, fontWeight: 900 }}>{asset.asset_code}</div>
+          <h2 style={{ fontSize: isMobile ? 28 : 40, margin: '8px 0 18px' }}>{asset.asset_name}</h2></div>
+        <Badge tone={asset.is_online ? 'green' : 'red'}>{asset.is_online ? 'ONLINE' : 'OFFLINE'}</Badge>
+      </div>
+      <div style={{ padding: 18, borderRadius: 24, border: '1px solid rgba(56,189,248,0.14)', background: 'radial-gradient(circle, rgba(59,130,246,0.12), rgba(2,6,23,0.72))' }}>
+        <div style={{ color: '#94a3b8', fontSize: 12, fontWeight: 900, marginBottom: 16 }}>COMPRESSOR SECTIONS</div>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 10 }}>
+          {COMPRESSORS.map(code => <StatusDot key={code} label={code.toUpperCase()} unsupported={asset.asset_code === 'CH-NJ-01' && !['1a', '1b'].includes(code)} active={asset[`comp_${code}_enabled`]} />)}
         </div>
-
-        <div
-          style={{
-            borderRadius: 24,
-            border: '1px solid rgba(56,189,248,0.14)',
-            background: 'rgba(15, 23, 42, 0.32)',
-            padding: isMobile ? 16 : 18,
-          }}
-        >
-          <div
-            style={{
-              display: 'grid',
-              gridTemplateColumns: isMobile ? '1fr' : '1fr minmax(280px, 0.9fr) 1fr',
-              gap: 16,
-              alignItems: 'stretch',
-            }}
-          >
-            <div style={{ display: 'grid', gap: 16 }}>
-              <SmallMetric
-                title="CHILLER IN 1"
-                value={fmtNumber(row?.chiller_entering_f, 1)}
-                unit="°F"
-                subtitle="section 1 entering fluid"
-                accent="cyan"
-              />
-
-              <SmallMetric
-                title="CHILLER IN 2"
-                value={fmtNumber(row?.chiller_entering_f, 1)}
-                unit="°F"
-                subtitle="section 2 entering fluid"
-                accent="cyan"
-              />
-            </div>
-
-            <div
-              style={{
-                minHeight: isMobile ? 220 : 260,
-                borderRadius: 24,
-                border: '1px solid rgba(56,189,248,0.14)',
-                background:
-                  'radial-gradient(circle at center, rgba(59,130,246,0.12) 0%, rgba(15,23,42,0.4) 60%, rgba(2,6,23,0.72) 100%)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                padding: 16,
-              }}
-            >
-              <div
-                style={{
-                  width: '100%',
-                  maxWidth: 220,
-                  borderRadius: 24,
-                  border: '1px solid rgba(250,204,21,0.28)',
-                  background: 'rgba(113,63,18,0.18)',
-                  padding: '20px 16px',
-                  textAlign: 'center',
-                }}
-              >
-                <div
-                  style={{
-                    color: '#facc15',
-                    fontSize: 12,
-                    fontWeight: 900,
-                    letterSpacing: 1,
-                  }}
-                >
-                  SETPOINT
-                </div>
-
-                <div
-                  style={{
-                    marginTop: 10,
-                    fontSize: isMobile ? 36 : 44,
-                    lineHeight: 1,
-                    fontWeight: 900,
-                    color: '#fde68a',
-                  }}
-                >
-                  {setpoint === null ? '—' : setpoint.toFixed(1)}
-                  {setpoint === null ? null : <span style={{ marginLeft: 4 }}>°F</span>}
-                </div>
-              </div>
-
-              <div
-                style={{
-                  marginTop: 16,
-                  fontSize: 12,
-                  fontWeight: 900,
-                  color: '#94a3b8',
-                  letterSpacing: 0.4,
-                }}
-              >
-                COMPRESSOR SECTIONS
-              </div>
-
-              <div
-                style={{
-                  marginTop: 16,
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(3, minmax(54px, 1fr))',
-                  gap: 10,
-                  width: '100%',
-                  maxWidth: 240,
-                }}
-              >
-                <StatusDot active={!!row?.comp_1a_enabled} label="1A" />
-                <StatusDot active={!!row?.comp_1b_enabled} label="1B" />
-                <StatusDot active={!!row?.comp_1c_enabled} label="1C" />
-                <StatusDot active={!!row?.comp_2a_enabled} label="2A" />
-                <StatusDot active={!!row?.comp_2b_enabled} label="2B" />
-                <StatusDot active={!!row?.comp_2c_enabled} label="2C" />
-              </div>
-            </div>
-
-            <div style={{ display: 'grid', gap: 16 }}>
-              <SmallMetric
-                title="CHILLER OUT 1"
-                value={fmtNumber(row?.evap_out_c1_f, 1)}
-                unit="°F"
-                subtitle="evaporator out 1"
-                accent="cyan"
-              />
-
-              <SmallMetric
-                title="CHILLER OUT 2"
-                value={fmtNumber(row?.evap_out_c2_f, 1)}
-                unit="°F"
-                subtitle="evaporator out 2"
-                accent="cyan"
-              />
-            </div>
-          </div>
-        </div>
+        {asset.asset_code === 'CH-NJ-01' && <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 12 }}>1A = Compressor 1 · 1B = Compressor 2</div>}
       </div>
     </div>
-  )
+  </Link>
 }
 
 export default function MonitoringNJPage() {
-  const navigate = useNavigate()
-
   const [rows, setRows] = useState([])
-  const [rawRowsCh2, setRawRowsCh2] = useState([])
-  const [rawRowsCh3, setRawRowsCh3] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [selectedAssetCode, setSelectedAssetCode] = useState('CH-NJ-01')
-  const [ch2Dashboard, setCh2Dashboard] = useState(null)
-  const [ch3Dashboard, setCh3Dashboard] = useState(null)
-
   const { isMobile, isTablet, isDesktop } = useViewport()
-
-  async function fetchData({ silent = false } = {}) {
+  const load = useCallback(async (signal) => {
     try {
-      if (!silent) {
-        setLoading(true)
-      }
-
-      const [
-        { data, error: fetchError },
-        { data: ch2Data, error: ch2Error },
-        { data: ch2Raw, error: ch2RawError },
-        { data: ch3Data, error: ch3Error },
-        { data: ch3Raw, error: ch3RawError },
-      ] = await Promise.all([
-        supabase
-          .from('v_asset_points_latest')
-          .select('*')
-          .order('asset_code', { ascending: true })
-          .order('display_order', { ascending: true }),
-        supabase.from('v_ch2_dashboard').select('*').single(),
-        supabase
-          .from('ch2_latest')
-          .select('point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at')
-          .like('point_code', 'CH2_R%')
-          .order('raw_register', { ascending: true }),
-        supabase.from('v_ch3_dashboard').select('*').single(),
-        supabase
-          .from('ch3_latest')
-          .select('point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at')
-          .like('point_code', 'CH2_R%')
-          .order('raw_register', { ascending: true }),
-      ])
-
+      const { data, error: fetchError } = await supabase.from('v_nj_monitoring_overview')
+        .select(OVERVIEW_COLUMNS).order('asset_code').abortSignal(signal)
+      if (signal.aborted) return
       if (fetchError) throw fetchError
-      if (ch2Error && ch2Error.code !== 'PGRST116') throw ch2Error
-      if (ch2RawError) throw ch2RawError
-      if (ch3Error && ch3Error.code !== 'PGRST116') throw ch3Error
-      if (ch3RawError) throw ch3RawError
-
-      const normalized = Array.isArray(data) ? data.map(normalizeRow) : []
-
-      setRows(normalized)
-      setCh2Dashboard(ch2Data || null)
-      setRawRowsCh2(ch2Raw || [])
-      setCh3Dashboard(ch3Data || null)
-      setRawRowsCh3(ch3Raw || [])
-
-      if (!normalized.length && !ch2Data && !(ch2Raw || []).length && !ch3Data && !(ch3Raw || []).length) {
-        setError('No live telemetry rows returned from the live sources.')
-      } else {
-        setError('')
-      }
+      if (data?.length !== 5) throw new Error('Expected five NJ monitoring assets.')
+      setRows(data)
+      setError('')
     } catch (err) {
+      if (signal.aborted) return
       setRows([])
-      setRawRowsCh2([])
-      setRawRowsCh3([])
-      setCh2Dashboard(null)
-      setCh3Dashboard(null)
-      setError(err?.message || 'Failed to load live telemetry.')
+      setError(err?.message || 'Failed to load NJ monitoring status.')
     } finally {
-      if (!silent) setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchData()
-
-    const timer = setInterval(() => {
-      fetchData({ silent: true })
-    }, POLL_INTERVAL_MS)
-
-    const latestChannel = supabase
-      .channel('monitoring-telemetry-latest')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'telemetry_latest',
-        },
-        () => {
-          fetchData({ silent: true })
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'ch2_latest',
-        },
-        () => {
-          fetchData({ silent: true })
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'ch3_latest',
-        },
-        () => {
-          fetchData({ silent: true })
-        }
-      )
-      .subscribe()
-
-    return () => {
-      clearInterval(timer)
-      supabase.removeChannel(latestChannel)
+      if (!signal.aborted) setLoading(false)
     }
   }, [])
-
-  const assets = useMemo(() => groupAssets(rows), [rows])
-
-  const njAssets = useMemo(() => {
-    return assets.filter((asset) => {
-      const code = String(asset.asset_code || '').toUpperCase()
-      return code.includes('-NJ-')
-    })
-  }, [assets])
-
-  const oldChillers = useMemo(() => {
-    return njAssets
-      .filter((asset) => {
-        const code = String(asset.asset_code || '').toUpperCase()
-        return (
-          String(asset.asset_type || '').toLowerCase() === 'chiller' &&
-          code !== 'CH-NJ-02' &&
-          code !== 'CH-NJ-03'
-        )
-      })
-      .sort(chillerCodeSort)
-  }, [njAssets])
-
-  const barrels = useMemo(() => {
-    return njAssets
-      .filter((asset) => String(asset.asset_type || '').toLowerCase() === 'barrel')
-      .sort(barrelSort)
-  }, [njAssets])
-
-  const barrelSlots = useMemo(() => {
-    return NJ_BARREL_SLOTS.map((slot) => {
-      const dataCode = NJ_BARREL_DATA_SWAP[slot.code] || slot.code
-      const dataAsset = barrels.find(
-        (barrel) => String(barrel.asset_code || '').toUpperCase() === dataCode
-      )
-
-      return {
-        ...(dataAsset || createEmptyBarrelAsset(slot)),
-        asset_code: slot.code,
-        asset_name: slot.name,
-      }
-    })
-  }, [barrels])
-
-  const selectedAsset = useMemo(() => {
-    if (!oldChillers.length) return null
-    return oldChillers.find((asset) => asset.asset_code === selectedAssetCode) || oldChillers[0]
-  }, [oldChillers, selectedAssetCode])
-
-  useEffect(() => {
-    if (!selectedAsset && oldChillers[0]) {
-      setSelectedAssetCode(oldChillers[0].asset_code)
-    }
-  }, [selectedAsset, oldChillers])
-
-  const chillersInOrder = useMemo(() => {
-    const byCode = new Map(
-      oldChillers.map((asset) => [String(asset.asset_code || '').toUpperCase(), asset])
-    )
-
-    const ordered = []
-
-    if (byCode.get('CH-NJ-01')) {
-      ordered.push({
-        kind: 'old',
-        asset: byCode.get('CH-NJ-01'),
-        code: 'CH-NJ-01',
-      })
-    } else {
-      ordered.push({
-        kind: 'old',
-        asset: {
-          asset_code: 'CH-NJ-01',
-          asset_name: 'Chiller 1',
-          name: 'Chiller 1',
-          asset_type: 'chiller',
-          points: [],
-        },
-        code: 'CH-NJ-01',
-      })
-    }
-
-    if (ch2Dashboard || rawRowsCh2.length) {
-      ordered.push({
-        kind: 'ch2',
-        row: ch2Dashboard || {},
-        rawRows: rawRowsCh2,
-        code: 'CH-NJ-02',
-      })
-    }
-
-    if (ch3Dashboard || rawRowsCh3.length) {
-      ordered.push({
-        kind: 'ch3',
-        row: ch3Dashboard || {},
-        rawRows: rawRowsCh3,
-        code: 'CH-NJ-03',
-      })
-    }
-
-    oldChillers.forEach((asset) => {
-      const code = String(asset.asset_code || '').toUpperCase()
-      if (code === 'CH-NJ-01') return
-
-      ordered.push({
-        kind: 'old',
-        asset,
-        code,
-      })
-    })
-
-    return ordered
-  }, [oldChillers, ch2Dashboard, ch3Dashboard, rawRowsCh2, rawRowsCh3])
-
-  const summary = useMemo(() => {
-    const chillerOnline = chillersInOrder.reduce((count, item) => {
-      if (item.kind === 'ch2') return count + (ch2Dashboard?.is_online ? 1 : 0)
-      if (item.kind === 'ch3') return count + (ch3Dashboard?.is_online ? 1 : 0)
-      return count + (getAssetStatus(item.asset).online ? 1 : 0)
-    }, 0)
-
-    const barrelOnline = barrelSlots.filter((asset) => getAssetStatus(asset).online).length
-
-    const total = chillersInOrder.length + barrelSlots.length
-    const online = chillerOnline + barrelOnline
-
-    const offline = Math.max(total - online, 0)
-
-    const compressorsOnOld = chillersInOrder
-      .filter((item) => item.kind === 'old')
-      .flatMap((item) => item.asset?.points || [])
-      .filter((point) => {
-        const group = String(point.point_group || '').toUpperCase()
-        const code = String(point.point_code || '').toUpperCase()
-
-        const isCompressorPoint =
-          group.includes('COMPRESSOR') ||
-          group.includes('COMPRESSORS') ||
-          code.includes('COMP')
-
-        return isCompressorPoint && point.value_boolean === true
-      }).length
-
-    const compressorsOnCh2 =
-      (ch2Dashboard?.comp_1a_enabled ? 1 : 0) +
-      (ch2Dashboard?.comp_1b_enabled ? 1 : 0) +
-      (ch2Dashboard?.comp_1c_enabled ? 1 : 0) +
-      (ch2Dashboard?.comp_2a_enabled ? 1 : 0) +
-      (ch2Dashboard?.comp_2b_enabled ? 1 : 0) +
-      (ch2Dashboard?.comp_2c_enabled ? 1 : 0)
-
-    const compressorsOnCh3 =
-      (ch3Dashboard?.comp_1a_enabled ? 1 : 0) +
-      (ch3Dashboard?.comp_1b_enabled ? 1 : 0) +
-      (ch3Dashboard?.comp_1c_enabled ? 1 : 0) +
-      (ch3Dashboard?.comp_2a_enabled ? 1 : 0) +
-      (ch3Dashboard?.comp_2b_enabled ? 1 : 0) +
-      (ch3Dashboard?.comp_2c_enabled ? 1 : 0)
-
-    return {
-      total,
-      online,
-      offline,
-      compressorsOn: compressorsOnOld + compressorsOnCh2 + compressorsOnCh3,
-      barrelLevels: barrelSlots.map((asset) => getBarrelLevel(asset)),
-    }
-  }, [barrelSlots, chillersInOrder, ch2Dashboard, ch3Dashboard])
-
+  useMonitoringPolling(load, 15000)
+  const assets = SLOTS.map(slot => ({ ...slot, ...rows.find(row => row.asset_code === slot.asset_code) }))
+  const chillers = assets.filter(asset => asset.asset_type === 'chiller')
+  const barrelSlots = assets.filter(asset => asset.asset_type === 'barrel')
+  const online = assets.filter(asset => asset.is_online).length
+  const summary = {
+    total: assets.length, online, offline: assets.length - online,
+    compressorsOn: chillers.reduce((sum, asset) => sum + COMPRESSORS.filter(code => asset[`comp_${code}_enabled`] === true).length, 0),
+    barrelLevels: barrelSlots.map(asset => asset.level_percent),
+  }
   const pagePadding = isMobile ? 12 : 16
   const mainGridColumns = isDesktop ? '1.3fr 0.9fr' : '1fr'
   const summaryColumns = isMobile
@@ -761,23 +167,6 @@ export default function MonitoringNJPage() {
       ? 'repeat(3, minmax(0, 1fr))'
       : 'repeat(6, minmax(120px, 1fr))'
 
-  function handleChillerSelect(asset) {
-    const code = String(asset?.asset_code || '').toUpperCase()
-    if (code === 'CH-NJ-01') {
-      navigate('/monitoring/nj/chiller-1')
-      return
-    }
-    if (code === 'CH-NJ-02') {
-      navigate('/monitoring/nj/chiller-2')
-      return
-    }
-    if (code === 'CH-NJ-03') {
-      navigate('/monitoring/nj/chiller-3')
-      return
-    }
-
-    setSelectedAssetCode(asset.asset_code)
-  }
 
   return (
     <div
@@ -965,60 +354,13 @@ export default function MonitoringNJPage() {
             }}
           >
             <div style={{ display: 'grid', gap: 18 }}>
-              {chillersInOrder.map((item) => {
-                if (item.kind === 'ch2') {
-                  return (
-                    <DashboardChillerCard
-                      key="CH-NJ-02"
-                      title="Chiller 2"
-                      row={item.row}
-                      rawRows={item.rawRows}
-                      isMobile={isMobile}
-                      badgeLabel="CH2"
-                      onClick={() => navigate('/monitoring/nj/chiller-2')}
-                    />
-                  )
-                }
 
-                if (item.kind === 'ch3') {
-                  return (
-                    <DashboardChillerCard
-                      key="CH-NJ-03"
-                      title="Chiller 3"
-                      row={item.row}
-                      rawRows={item.rawRows}
-                      isMobile={isMobile}
-                      badgeLabel="CH3"
-                      onClick={() => navigate('/monitoring/nj/chiller-3')}
-                    />
-                  )
-                }
-
-                return (
-                  <div
-                    key={item.code}
-                    onClick={() => handleChillerSelect(item.asset)}
-                    style={{ cursor: 'pointer' }}
-                  >
-                    <ChillerIllustration
-                      asset={item.asset}
-                      selected={selectedAsset?.asset_code === item.asset.asset_code}
-                      onSelect={() => {}}
-                      isMobile={isMobile}
-                    />
-                  </div>
-                )
-              })}
+              {chillers.map(asset => <DashboardChillerCard key={asset.asset_code} asset={asset} isMobile={isMobile} />)}
             </div>
-
             <div style={{ display: 'grid', gap: 18 }}>
-              {barrelSlots.map((barrel) => (
-                <BarrelIllustration
-                  key={barrel.asset_code}
-                  asset={barrel}
-                  isMobile={isMobile}
-                />
-              ))}
+              {barrelSlots.map(barrel => <Link key={barrel.asset_code} to={`/monitoring/nj/${barrel.route}`} style={{ color: 'inherit', textDecoration: 'none' }}>
+                <BarrelIllustration asset={barrel} isMobile={isMobile} overview />
+              </Link>)}
             </div>
           </div>
         )}

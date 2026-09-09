@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -13,8 +13,10 @@ import {
   Target,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import useMonitoringPolling from '../hooks/useMonitoringPolling'
+import { DASHBOARD_COLUMNS } from '../utils/monitoringColumns'
 
-const POLL_MS = 3000
+const POLL_MS = 5000
 
 const REGISTER_MAP = {
   40001: { name: 'Target Setpoint', unit: '°F', scale: 0.1 },
@@ -221,58 +223,38 @@ export default function Chiller3HMIPage() {
   const [loading, setLoading] = useState(true)
   const [lastError, setLastError] = useState('')
 
-  async function loadData(silent = false) {
+  const loadTelemetry = useCallback(async (signal, silent) => {
     try {
       if (!silent) setLoading(true)
       setLastError('')
 
       const [{ data: dashboardData, error: dashboardError }, { data: rawData, error: rawError }] =
         await Promise.all([
-          supabase.from('v_ch3_dashboard').select('*').single(),
+          supabase.from('v_ch3_dashboard').select(DASHBOARD_COLUMNS + ',capacity_c2_tons,ch2_r40023,system_demand_percent').single().abortSignal(signal),
           supabase
             .from('ch3_latest')
             .select(
               'point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at'
             )
-            .like('point_code', 'CH2_R%')
-            .order('raw_register', { ascending: true }),
+            .or('point_code.like.CH3_R%,point_code.like.CH2_R%')
+            .order('raw_register', { ascending: true }).abortSignal(signal),
         ])
 
+      if (signal.aborted) return
       if (dashboardError) throw dashboardError
       if (rawError) throw rawError
 
       setDashboard(dashboardData || null)
       setRawRows(rawData || [])
     } catch (err) {
+      if (signal.aborted) return
       setLastError(err?.message || 'Failed to load chiller data')
     } finally {
-      if (!silent) setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadData()
-
-    const timer = setInterval(() => {
-      loadData(true)
-    }, POLL_MS)
-
-    const latestChannel = supabase
-      .channel('ch3-hmi-latest')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'ch3_latest' },
-        () => {
-          loadData(true)
-        }
-      )
-      .subscribe()
-
-    return () => {
-      clearInterval(timer)
-      supabase.removeChannel(latestChannel)
+      if (!signal.aborted) setLoading(false)
     }
   }, [])
+
+  const loadData = useMonitoringPolling(loadTelemetry, POLL_MS)
 
   const summary = useMemo(() => {
     const rawSetpoint = getRawRegisterValue(rawRows, 40023)

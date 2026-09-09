@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -13,8 +13,10 @@ import {
   Target,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import useMonitoringPolling from '../hooks/useMonitoringPolling'
+import { DASHBOARD_COLUMNS } from '../utils/monitoringColumns'
 
-const POLL_MS = 3000
+const POLL_MS = 5000
 
 const REGISTER_MAP = {
   40001: { name: 'Target Setpoint', unit: '°F', scale: 0.1 },
@@ -121,21 +123,6 @@ function decodeRegister(row) {
   }
 }
 
-function getSetpointFromDashboard(dashboard) {
-  const raw =
-    dashboard?.ch2_r40023 ??
-    dashboard?.CH2_R40023 ??
-    dashboard?.process_setpoint_raw ??
-    dashboard?.setpoint_raw
-
-  if (raw !== null && raw !== undefined && raw !== '') {
-    const num = Number(raw)
-    if (!Number.isNaN(num)) return num / 10
-  }
-
-  return null
-}
-
 function getRawRegisterValue(rows, register) {
   const found = rows.find((row) => Number(row.raw_register) === Number(register))
   if (!found) return null
@@ -221,58 +208,38 @@ export default function Chiller2HMIPage() {
   const [loading, setLoading] = useState(true)
   const [lastError, setLastError] = useState('')
 
-  async function loadData(silent = false) {
+  const loadTelemetry = useCallback(async (signal, silent) => {
     try {
       if (!silent) setLoading(true)
       setLastError('')
 
       const [{ data: dashboardData, error: dashboardError }, { data: rawData, error: rawError }] =
         await Promise.all([
-          supabase.from('v_ch2_dashboard').select('*').single(),
+          supabase.from('v_ch2_dashboard').select(DASHBOARD_COLUMNS).single().abortSignal(signal),
           supabase
             .from('ch2_latest')
             .select(
               'point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at'
             )
             .like('point_code', 'CH2_R%')
-            .order('raw_register', { ascending: true }),
+            .order('raw_register', { ascending: true }).abortSignal(signal),
         ])
 
+      if (signal.aborted) return
       if (dashboardError) throw dashboardError
       if (rawError) throw rawError
 
       setDashboard(dashboardData || null)
       setRawRows(rawData || [])
     } catch (err) {
+      if (signal.aborted) return
       setLastError(err?.message || 'Failed to load chiller data')
     } finally {
-      if (!silent) setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    loadData()
-
-    const timer = setInterval(() => {
-      loadData(true)
-    }, POLL_MS)
-
-    const latestChannel = supabase
-      .channel('ch2-hmi-latest')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'ch2_latest' },
-        () => {
-          loadData(true)
-        }
-      )
-      .subscribe()
-
-    return () => {
-      clearInterval(timer)
-      supabase.removeChannel(latestChannel)
+      if (!signal.aborted) setLoading(false)
     }
   }, [])
+
+  const loadData = useMonitoringPolling(loadTelemetry, POLL_MS)
 
   const summary = useMemo(() => {
     const rawSetpoint = getRawRegisterValue(rawRows, 40023)
@@ -291,7 +258,7 @@ export default function Chiller2HMIPage() {
     const rawDemand = getRawRegisterValue(rawRows, 40061)
 
     const setpoint =
-      rawSetpoint != null ? rawSetpoint / 10 : getSetpointFromDashboard(dashboard)
+      rawSetpoint != null ? rawSetpoint / 10 : null
 
     return {
       assetCode: dashboard?.asset_code || 'CH-NJ-02',
@@ -339,7 +306,7 @@ export default function Chiller2HMIPage() {
       capacityC2:
         rawCapacityC2 != null
           ? rawCapacityC2
-          : dashboard?.capacity_c2_tons,
+          : null,
 
       evapOutC1:
         rawEvapOutC1 != null
@@ -359,7 +326,7 @@ export default function Chiller2HMIPage() {
       demandPercent:
         rawDemand != null
           ? rawDemand
-          : dashboard?.system_demand_percent,
+          : null,
 
       heartbeatUpdatedAt: dashboard?.heartbeat_updated_at,
       latestUpdatedAt: dashboard?.latest_updated_at,

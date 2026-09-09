@@ -16,6 +16,7 @@ const EmployeePayStubPage = lazy(() => import('./pages/EmployeePayStubPage'))
 const Chiller1HMIPage = lazy(() => import('./pages/Chiller1HMIPage'))
 const Chiller2HMIPage = lazy(() => import('./pages/Chiller2HMIPage'))
 const Chiller3HMIPage = lazy(() => import('./pages/Chiller3HMIPage'))
+const BarrelDetailPage = lazy(() => import('./pages/BarrelDetailPage'))
 const BackupPage = lazy(() => import('./pages/BackupPage'))
 
 function PageFallback() {
@@ -36,6 +37,8 @@ export default function App() {
 
           <Route path="/monitoring" element={<MonitoringPage />} />
           <Route path="/monitoring/nj" element={<MonitoringNJPage />} />
+          <Route path="/monitoring/nj/barrel-1" element={<BarrelDetailPage key="barrel-1" barrelNumber={1} />} />
+          <Route path="/monitoring/nj/barrel-2" element={<BarrelDetailPage key="barrel-2" barrelNumber={2} />} />
           <Route path="/monitoring/pa" element={<MonitoringPAPage />} />
 
           <Route

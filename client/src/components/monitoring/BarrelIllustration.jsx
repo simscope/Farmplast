@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useId } from 'react'
 import { Radar, Ruler, Thermometer } from 'lucide-react'
 import StatusPill from './StatusPill'
 import { getAssetStatus, statCardStyle } from '../../utils/monitoringHelpers'
@@ -8,7 +8,8 @@ function findPoint(asset, matcher) {
 }
 
 function getNumeric(point, fallback = null) {
-  const n = Number(point?.value_number)
+  if (point?.value_number == null) return fallback
+  const n = Number(point.value_number)
   return Number.isFinite(n) ? n : fallback
 }
 
@@ -42,7 +43,8 @@ function getLevelStatus(levelPercent) {
   return 'NORMAL'
 }
 
-export default function BarrelIllustration({ asset, isMobile }) {
+export default function BarrelIllustration({ asset, isMobile, overview = false }) {
+  const svgId = useId()
   const derivedStatus = getAssetStatus(asset?.points || [])
 
   const onlinePoint = findPoint(
@@ -76,7 +78,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
       code.includes('TEMP_C')
   )
 
-  const rawLevelPercent = getNumeric(percentPoint)
+  const rawLevelPercent = overview ? asset?.level_percent : getNumeric(percentPoint)
   const levelPercent = Number.isFinite(rawLevelPercent)
     ? Math.max(0, Math.min(100, rawLevelPercent))
     : null
@@ -84,11 +86,11 @@ export default function BarrelIllustration({ asset, isMobile }) {
   const tempC = getNumeric(tempPoint)
 
   const explicitOnline = getBoolean(onlinePoint, null)
-  const online = explicitOnline ?? derivedStatus.online
+  const online = overview ? !!asset?.is_online : (explicitOnline ?? derivedStatus.online)
 
   const fillColor = getLevelColor(levelPercent)
   const fillHeight = levelPercent === null ? 0 : Math.max(8, (levelPercent / 100) * 240)
-  const statusText = getLevelStatus(levelPercent)
+  const statusText = overview ? (asset?.has_error == null ? 'ERROR STATUS UNKNOWN' : asset.has_error ? 'ERROR' : 'NORMAL') : getLevelStatus(levelPercent)
 
   const metaText = online ? 'LIVE DATA' : 'OFFLINE / NO FRESH DATA'
 
@@ -137,12 +139,12 @@ export default function BarrelIllustration({ asset, isMobile }) {
         >
           <svg viewBox="0 0 280 430" style={{ width: '100%', height: 'auto', display: 'block' }}>
             <defs>
-              <linearGradient id="barrelFillGradient" x1="0" y1="1" x2="0" y2="0">
+              <linearGradient id={`${svgId}-barrelFillGradient`} x1="0" y1="1" x2="0" y2="0">
                 <stop offset="0%" stopColor={fillColor} />
                 <stop offset="100%" stopColor={`${fillColor}cc`} />
               </linearGradient>
 
-              <linearGradient id="barrelMetal" x1="0" y1="0" x2="1" y2="1">
+              <linearGradient id={`${svgId}-barrelMetal`} x1="0" y1="0" x2="1" y2="1">
                 <stop offset="0%" stopColor="#334155" />
                 <stop offset="100%" stopColor="#0f172a" />
               </linearGradient>
@@ -156,7 +158,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
               width="160"
               height="280"
               rx="40"
-              fill="url(#barrelMetal)"
+              fill={`url(#${svgId}-barrelMetal)`}
               stroke="rgba(148,163,184,0.3)"
               strokeWidth="4"
             />
@@ -181,17 +183,17 @@ export default function BarrelIllustration({ asset, isMobile }) {
               strokeWidth="4"
             />
 
-            <clipPath id="barrelClip">
+            <clipPath id={`${svgId}-barrelClip`}>
               <rect x="72" y="62" width="136" height="256" rx="28" />
             </clipPath>
 
-            <g clipPath="url(#barrelClip)">
+            <g clipPath={`url(#${svgId}-barrelClip)`}>
               <rect
                 x="72"
                 y={318 - fillHeight}
                 width="136"
                 height={fillHeight}
-                fill="url(#barrelFillGradient)"
+                fill={`url(#${svgId}-barrelFillGradient)`}
               />
               <ellipse
                 cx="140"
@@ -246,6 +248,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
               MATERIAL LEVEL
             </text>
 
+            {!overview && (
             <text
               x="140"
               y="235"
@@ -256,7 +259,9 @@ export default function BarrelIllustration({ asset, isMobile }) {
             >
               T {formatNumber(tempC)} °C
             </text>
+            )}
 
+            {!overview && (
             <text
               x="140"
               y="255"
@@ -267,6 +272,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
             >
               D {formatNumber(distanceM, 2)} m
             </text>
+            )}
           </svg>
         </div>
 
@@ -296,6 +302,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
             </div>
           </div>
 
+          {!overview && <>
           <div
             style={{
               background: 'rgba(2,6,23,0.46)',
@@ -346,6 +353,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
             </div>
           </div>
 
+          </>}
           <div
             style={{
               background: 'rgba(2,6,23,0.46)',
@@ -358,7 +366,7 @@ export default function BarrelIllustration({ asset, isMobile }) {
               STATUS
             </div>
 
-            <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: fillColor }}>
+            <div style={{ marginTop: 8, fontSize: 16, fontWeight: 900, color: overview && asset?.has_error ? '#f87171' : fillColor }}>
               {statusText}
             </div>
           </div>
