@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -18,6 +18,8 @@ import {
   Cpu,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import useMonitoringPolling from '../hooks/useMonitoringPolling'
+import { POINT_DETAIL_COLUMNS } from '../utils/monitoringColumns'
 import {
   POLL_INTERVAL_MS,
   normalizeRow,
@@ -936,9 +938,7 @@ export default function Chiller1HMIPage() {
       })
     }
 
-    setTimeout(() => {
-      fetchData({ silent: true })
-    }, 600)
+    await fetchData()
   }
 
   function openResetAlertModal() {
@@ -964,16 +964,18 @@ export default function Chiller1HMIPage() {
     await handleResetAlert()
   }
 
-  async function fetchData({ silent = false } = {}) {
+  const loadTelemetry = useCallback(async (signal, silent) => {
     try {
       if (!silent) setLoading(true)
 
       const { data, error: fetchError } = await supabase
         .from('v_asset_points_latest')
-        .select('*')
+        .select(POINT_DETAIL_COLUMNS)
         .eq('asset_code', 'CH-NJ-01')
         .order('display_order', { ascending: true })
+        .abortSignal(signal)
 
+      if (signal.aborted) return
       if (fetchError) throw fetchError
 
       const normalized = Array.isArray(data) ? data.map(normalizeRow) : []
@@ -985,40 +987,15 @@ export default function Chiller1HMIPage() {
         setError('')
       }
     } catch (err) {
+      if (signal.aborted) return
       setRows([])
       setError(err?.message || 'Failed to load CH-NJ-01 telemetry.')
     } finally {
-      if (!silent) setLoading(false)
-    }
-  }
-
-  useEffect(() => {
-    fetchData()
-
-    const timer = setInterval(() => {
-      fetchData({ silent: true })
-    }, POLL_INTERVAL_MS)
-
-    const telemetryChannel = supabase
-      .channel('monitoring-ch1-hmi')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'telemetry_latest',
-        },
-        () => {
-          fetchData({ silent: true })
-        }
-      )
-      .subscribe()
-
-    return () => {
-      clearInterval(timer)
-      supabase.removeChannel(telemetryChannel)
+      if (!signal.aborted) setLoading(false)
     }
   }, [])
+
+  const fetchData = useMonitoringPolling(loadTelemetry, POLL_INTERVAL_MS)
 
   const assets = useMemo(() => groupAssets(rows), [rows])
 
