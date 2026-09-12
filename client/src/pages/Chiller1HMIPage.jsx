@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   ArrowLeft,
@@ -18,6 +18,8 @@ import {
   Cpu,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import Ch1Programming from '../components/Ch1Programming'
+import { commandOutcome } from '../utils/ch1CommandState.mjs'
 import useMonitoringPolling from '../hooks/useMonitoringPolling'
 import { POINT_DETAIL_COLUMNS } from '../utils/monitoringColumns'
 import {
@@ -845,100 +847,30 @@ export default function Chiller1HMIPage() {
   const [resetPinInput, setResetPinInput] = useState('')
   const [resetPinError, setResetPinError] = useState('')
 
-  const RESET_ALERT_PIN = '7720'
+  const [controlData, setControlData] = useState(null)
+  const [controlError, setControlError] = useState('')
+  const [pendingCommand, setPendingCommand] = useState(null)
+  const [tuning, setTuning] = useState({d1:'',d2:'',hyst:''})
+  const commandGuard = useRef(false)
+  const pendingRef = useRef(null)
+  const sendingAny = sendingSetpoint || !!sendingSpeed || !!sendingMode || !!sendingPower || resettingAlert || !!pendingCommand
 
-  async function updateTelemetryPoint(pointId, { value_number = null, value_boolean = null }) {
-    const now = new Date().toISOString()
-
-    const { error } = await supabase
-      .from('telemetry_latest')
-      .update({
-        value_number,
-        value_boolean,
-        value_text: null,
-        quality: 'good',
-        source_timestamp: now,
-        updated_at: now,
-      })
-      .eq('point_id', pointId)
-
-    if (error) throw error
-  }
-
-  async function sendCommand(commandType, commandValue) {
-    setCommandMessage('')
-
-    const POINTS = {
-      CH1_SETPOINT: 'ab3ff6eb-b0a8-4083-9f1b-e705a0e5cd8d',
-      CH1_AUTO: 'b049389c-15a0-4c53-ab98-db1fee78a14c',
-      CH1_FAN_ENABLE: 'b39efd27-f542-441c-a1af-eb59206536a8',
-      CH1_FAN_30: '6e8e6326-95e8-47c8-9bc4-f2a68861d9df',
-      CH1_FAN_60: '32fe2b00-aa40-4a22-a5d2-3938caa37746',
-      CH1_RESET: '5639737e-7b96-44f2-b721-fd865bb52112',
-    }
-
-    if (commandType === 'fan_setpoint') {
-      await updateTelemetryPoint(POINTS.CH1_SETPOINT, {
-        value_number: Number(commandValue),
-        value_boolean: null,
-      })
-    }
-
-    if (commandType === 'fan_mode') {
-      await updateTelemetryPoint(POINTS.CH1_AUTO, {
-        value_number: null,
-        value_boolean: commandValue === 'auto',
-      })
-    }
-
-    if (commandType === 'fan_off') {
-      await updateTelemetryPoint(POINTS.CH1_AUTO, {
-        value_number: null,
-        value_boolean: false,
-      })
-      await updateTelemetryPoint(POINTS.CH1_FAN_ENABLE, {
-        value_number: null,
-        value_boolean: false,
-      })
-      await updateTelemetryPoint(POINTS.CH1_FAN_30, {
-        value_number: null,
-        value_boolean: false,
-      })
-      await updateTelemetryPoint(POINTS.CH1_FAN_60, {
-        value_number: null,
-        value_boolean: false,
-      })
-    }
-
-    if (commandType === 'fan_speed') {
-      const speed = Number(commandValue)
-
-      await updateTelemetryPoint(POINTS.CH1_AUTO, {
-        value_number: null,
-        value_boolean: false,
-      })
-      await updateTelemetryPoint(POINTS.CH1_FAN_ENABLE, {
-        value_number: null,
-        value_boolean: true,
-      })
-      await updateTelemetryPoint(POINTS.CH1_FAN_30, {
-        value_number: null,
-        value_boolean: speed === 30,
-      })
-      await updateTelemetryPoint(POINTS.CH1_FAN_60, {
-        value_number: null,
-        value_boolean: speed === 60,
-      })
-    }
-
-    if (commandType === 'reset_alert') {
-      await updateTelemetryPoint(POINTS.CH1_RESET, {
-        value_number: null,
-        value_boolean: true,
-      })
-    }
-
-    await fetchData()
+  async function sendCommand(commandType, commandValue, pin) {
+    if (commandGuard.current || pendingRef.current) throw new Error('Wait for the pending command to be confirmed.')
+    commandGuard.current = true
+    setCommandMessage('Sending requested state…')
+    try {
+      const id=crypto.randomUUID()
+      const {data,error}=await supabase.functions.invoke('ch1-ota',{body:{op:'command',id,type:commandType,value:commandValue,pin},timeout:15000})
+      if(error || data?.error) {
+        let detail=data?.error
+        try {detail ||= (await error?.context?.json())?.error} catch { /* fallback */ }
+        throw new Error(detail || 'Command rejected: check sign-in, device connectivity and pending jobs.')
+      }
+      pendingRef.current=data.command
+      setPendingCommand(data.command)
+      setCommandMessage('REQUESTED: pending ESP32 acknowledgement. ACTUAL values remain device-reported.')
+    } finally {commandGuard.current=false}
   }
 
   function openResetAlertModal() {
@@ -954,14 +886,9 @@ export default function Chiller1HMIPage() {
   }
 
   async function confirmResetAlertWithPin() {
-    if (resetPinInput !== RESET_ALERT_PIN) {
-      setResetPinError('Invalid PIN code')
-      return
-    }
-
+    if (!resetPinInput) {setResetPinError('Enter PIN code');return}
     setResetPinError('')
-    setShowResetModal(false)
-    await handleResetAlert()
+    await handleResetAlert(resetPinInput)
   }
 
   const loadTelemetry = useCallback(async (signal, silent) => {
@@ -978,6 +905,19 @@ export default function Chiller1HMIPage() {
       if (signal.aborted) return
       if (fetchError) throw fetchError
 
+      const controller=await supabase.functions.invoke('ch1-ota',{body:{op:'status'},signal,timeout:8000}).catch(error=>({error}))
+      if(signal.aborted) return
+      if(controller.error || controller.data?.error) setControlError('Controller API unavailable or operator sign-in required. Live telemetry remains available.')
+      else {
+        setControlData(controller.data);setControlError('')
+        if(pendingRef.current) {
+          const outcome=commandOutcome(pendingRef.current,controller.data.commands)
+          if(outcome==='applied' || outcome==='timeout') {
+            setCommandMessage(outcome==='applied' ? 'APPLIED: ESP32 acknowledgement and reported state confirmed.' : 'TIMEOUT: no matching ESP32 reported state. Check device connectivity.')
+            pendingRef.current=null;setPendingCommand(null)
+          }
+        }
+      }
       const normalized = Array.isArray(data) ? data.map(normalizeRow) : []
       setRows(normalized)
 
@@ -991,6 +931,10 @@ export default function Chiller1HMIPage() {
       setRows([])
       setError(err?.message || 'Failed to load CH-NJ-01 telemetry.')
     } finally {
+      if (!signal.aborted && commandOutcome(pendingRef.current)==='timeout') {
+        pendingRef.current=null;setPendingCommand(null)
+        setCommandMessage('TIMEOUT: command was not confirmed. Reported telemetry was not changed locally.')
+      }
       if (!signal.aborted) setLoading(false)
     }
   }, [])
@@ -1047,7 +991,6 @@ export default function Chiller1HMIPage() {
 
     try {
       await sendCommand('fan_setpoint', value.toFixed(1))
-      setCommandMessage(`Command queued: fan_setpoint = ${value.toFixed(1)} °F`)
     } catch (err) {
       setCommandMessage(err?.message || 'Failed to send fan setpoint command.')
     } finally {
@@ -1060,7 +1003,6 @@ export default function Chiller1HMIPage() {
 
     try {
       await sendCommand('fan_speed', speed)
-      setCommandMessage(`Command queued: fan_speed = ${speed} Hz`)
     } catch (err) {
       setCommandMessage(err?.message || `Failed to send fan speed ${speed} Hz.`)
     } finally {
@@ -1068,14 +1010,14 @@ export default function Chiller1HMIPage() {
     }
   }
 
-  async function handleResetAlert() {
+  async function handleResetAlert(pin) {
     setResettingAlert(true)
 
     try {
-      await sendCommand('reset_alert', 1)
-      setCommandMessage('Command queued: reset_alert')
+      await sendCommand('reset_alert', 1, pin)
+      closeResetAlertModal()
     } catch (err) {
-      setCommandMessage(err?.message || 'Failed to send reset_alert command.')
+      setResetPinError(err?.message || 'Failed to send reset_alert command.')
     } finally {
       setResettingAlert(false)
     }
@@ -1085,7 +1027,6 @@ export default function Chiller1HMIPage() {
     setSendingPower('off')
     try {
       await sendCommand('fan_off', 1)
-      setCommandMessage('Command queued: fan_off')
     } catch (err) {
       setCommandMessage(err?.message || 'Failed to send fan_off command.')
     } finally {
@@ -1097,7 +1038,6 @@ export default function Chiller1HMIPage() {
     setSendingMode('auto')
     try {
       await sendCommand('fan_mode', 'auto')
-      setCommandMessage('Command queued: fan_mode = auto')
     } catch (err) {
       setCommandMessage(err?.message || 'Failed to send fan_mode auto.')
     } finally {
@@ -1109,7 +1049,6 @@ export default function Chiller1HMIPage() {
     setSendingMode('manual')
     try {
       await sendCommand('fan_mode', 'manual')
-      setCommandMessage('Command queued: fan_mode = manual')
     } catch (err) {
       setCommandMessage(err?.message || 'Failed to send fan_mode manual.')
     } finally {
@@ -1195,6 +1134,7 @@ export default function Chiller1HMIPage() {
               {fanAutoMode ? 'auto' : 'manual'}
             </Badge>
             <Badge tone="cyan">{asset?.asset_code || 'CH-NJ-01'}</Badge>
+
           </div>
         </div>
 
@@ -1227,6 +1167,12 @@ export default function Chiller1HMIPage() {
             {commandMessage}
           </div>
         ) : null}
+
+        <Panel title="CONTROLLER · ESP32-CH1" icon={<Cpu size={18} />}>
+          <Ch1Programming data={controlData} error={controlError} onRefresh={() => fetchData()} />
+          <p>REQUESTED: {controlData?.desired ? `${controlData.desired.values.auto ? 'AUTO' : 'MANUAL'} · Fan ${controlData.desired.values.fan_enable ? (controlData.desired.values.fan_60 ? '60 Hz' : controlData.desired.values.fan_30 ? '30 Hz' : 'enabled') : 'OFF'} · Setpoint ${controlData.desired.values.setpoint}°F · D1 ${controlData.desired.values.d1} · D2 ${controlData.desired.values.d2} · HYST ${controlData.desired.values.hyst}` : 'Not available'}</p>
+          <p>ACTUAL: shown in the live fan state below · {pendingCommand ? 'COMMAND PENDING' : 'No local pending command'}</p>
+        </Panel>
 
         {loading ? (
           <div style={statCardStyle(isMobile)}>Loading Chiller 1 HMI…</div>
@@ -1363,9 +1309,15 @@ export default function Chiller1HMIPage() {
                     setInputValue={setFanSetpointInput}
                     liveValue={fanSetpoint}
                     onSave={handleSaveSetpoint}
-                    saving={sendingSetpoint}
+                    saving={!!sendingAny}
                     condOut={condOut}
                   />
+                  <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+                    {['d1','d2','hyst'].map(field => <label key={field}>{field.toUpperCase()} (reported: {getTemperature(points,['CH1_'+field.toUpperCase()]) ?? '—'})
+                      <input aria-label={field.toUpperCase()} type="number" min="0" max="100" step="0.1" value={tuning[field]} onChange={e=>setTuning({...tuning,[field]:e.target.value})} style={{width:80,margin:6}} />
+                      <button disabled={!!sendingAny || tuning[field]==='' || !online} onClick={async()=>{try{await sendCommand(field,Number(tuning[field]))}catch(err){setCommandMessage(err.message)}}}>Save</button>
+                    </label>)}
+                  </div>
 
                   <div
                     style={{
@@ -1379,42 +1331,42 @@ export default function Chiller1HMIPage() {
                       icon={<Fan size={16} />}
                       active={fanAutoMode}
                       onClick={handleFanAuto}
-                      disabled={sendingMode !== ''}
+                      disabled={!!sendingAny || !online}
                     />
                     <CommandButton
                       label={sendingMode === 'manual' ? 'Sending…' : 'MANUAL'}
                       icon={<Settings size={16} />}
                       active={!fanAutoMode}
                       onClick={handleFanManual}
-                      disabled={sendingMode !== ''}
+                      disabled={!!sendingAny || !online}
                     />
                     <CommandButton
                       label={sendingPower === 'off' ? 'Sending…' : 'OFF'}
                       icon={<Power size={16} />}
                       active={!fanRunning && !fan30Active && !fan60Active}
                       onClick={handleFanOff}
-                      disabled={sendingPower !== ''}
+                      disabled={!!sendingAny || !online}
                     />
                     <CommandButton
                       label={sendingSpeed === '30' ? 'Sending…' : '30 Hz'}
                       icon={<Zap size={16} />}
                       active={fan30Active}
                       onClick={() => handleSetFanSpeed(30)}
-                      disabled={sendingSpeed !== ''}
+                      disabled={!!sendingAny || !online}
                     />
                     <CommandButton
                       label={sendingSpeed === '60' ? 'Sending…' : '60 Hz'}
                       icon={<Zap size={16} />}
                       active={fan60Active}
                       onClick={() => handleSetFanSpeed(60)}
-                      disabled={sendingSpeed !== ''}
+                      disabled={!!sendingAny || !online}
                     />
                     <CommandButton
                       label={resettingAlert ? 'Resetting…' : 'RESET ALERT'}
                       icon={<RotateCcw size={16} />}
                       danger
                       onClick={openResetAlertModal}
-                      disabled={resettingAlert}
+                      disabled={!!sendingAny || !online}
                     />
                   </div>
                 </div>

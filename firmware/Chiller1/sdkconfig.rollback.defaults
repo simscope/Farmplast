@@ -1,0 +1,4 @@
+# Release requirement for an ESP-IDF / Arduino-as-component bootloader build.
+# Arduino CLI DOES NOT apply this file to its prebuilt bootloader.
+# Rebuild and verify the bootloader with this setting before qualifying crash recovery.
+CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE=y
