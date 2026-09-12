@@ -37,7 +37,7 @@ There are no raw registers, temperatures, pressures, setpoints, flows, capacitie
 | --- | --- | --- |
 | CH-NJ-01 | v_asset_points_latest, CH-NJ-01 | Existing meaningful-data rules plus floor(age in seconds) <= 15 |
 | CH-NJ-02 | v_ch2_dashboard | latest_updated_at newer than 45 seconds; legacy is_online deliberately ignored |
-| CH-NJ-03 | v_ch3_dashboard | Existing is_online, recalculated by the source view on every read |
+| CH-NJ-03 | v_ch3_dashboard | Latest compact migration uses latest_updated_at newer than 45 seconds; legacy is_online ignored |
 | BARREL-NJ-01 | v_asset_points_latest, BARREL-NJ-02 | Explicit ONLINE bit when present, otherwise meaningful data; always gated by freshness |
 | BARREL-NJ-02 | v_asset_points_latest, BARREL-NJ-01 | Same |
 
@@ -85,7 +85,7 @@ All six routes use the same scheduler. No Realtime subscriptions remain in the o
 
 Hidden documents have no polling timer; showing the tab causes one immediate guarded refresh and resumes the normal interval. Initial hidden mounts wait until visible. An already running request can finish while hidden. Unmount removes the timer and visibility listener and aborts outstanding requests; loaders ignore aborted results. React StrictMode's discarded setup does not issue an initial request. Route changes between the two barrel pages have distinct keys to discard old route state.
 
-CH3 raw reads accept its existing CH2_R prefix as well as CH3_R. Only verified dashboard columns are requested: CH2 does not have capacity_c2_tons, ch2_r40023 or system_demand_percent, so its existing raw-register values remain the source for those displays; CH3 retains its verified extra columns.
+CH2 and CH3 raw reads are explicitly filtered to the same eight verified raw_register values. CH3 retains its production CH2_R wire prefix. Both HMI dashboard projections omit heartbeat, capacity and delta diagnostics. See [CH2/CH3 telemetry cleanup](ch23-telemetry-cleanup.md) for the production schema baseline, dependency audit, compact ingestion migration and release verification.
 
 ## Original egress implementation verification (historical)
 

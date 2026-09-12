@@ -41,7 +41,7 @@ with slots(asset_code, asset_name, asset_type, source_code) as (
   where asset_code in ('CH-NJ-01', 'BARREL-NJ-01', 'BARREL-NJ-02')
   group by asset_code
 ), dashboards as (
-  -- CH2 tolerates delayed 15-second telemetry; CH3 keeps its existing status semantics.
+  -- CH2 and CH3 presentation status depends only on telemetry freshness.
   select 'CH-NJ-02'::text as asset_code, max(latest_updated_at) as updated_at,
     coalesce(max(latest_updated_at) > now() - interval '45 seconds', false) as is_online,
     bool_or(comp_1a_enabled) as comp_1a_enabled, bool_or(comp_1b_enabled) as comp_1b_enabled,
@@ -49,7 +49,8 @@ with slots(asset_code, asset_name, asset_type, source_code) as (
     bool_or(comp_2b_enabled) as comp_2b_enabled, bool_or(comp_2c_enabled) as comp_2c_enabled
   from public.v_ch2_dashboard
   union all
-  select 'CH-NJ-03'::text, max(latest_updated_at), bool_or(is_online),
+  select 'CH-NJ-03'::text, max(latest_updated_at),
+    coalesce(max(latest_updated_at) > now() - interval '45 seconds', false),
     bool_or(comp_1a_enabled), bool_or(comp_1b_enabled), bool_or(comp_1c_enabled),
     bool_or(comp_2a_enabled), bool_or(comp_2b_enabled), bool_or(comp_2c_enabled)
   from public.v_ch3_dashboard

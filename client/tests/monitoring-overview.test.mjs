@@ -29,10 +29,11 @@ async function point(asset, code, type, value, age = 0, group = '') {
 test('migration can be reapplied without changing its contract or invoker security', async () => {
   const before = await overview()
   const canonical = await fs.readFile(new URL('../../supabase/add_nj_monitoring_overview.sql', import.meta.url), 'utf8')
-  const followUp = await fs.readFile(new URL('../../supabase/fix_ch2_overview_freshness.sql', import.meta.url), 'utf8')
-  assert.equal(followUp, canonical, 'follow-up and fresh-install definitions must stay identical')
-  await db.exec(followUp)
-  await db.exec(followUp)
+  const followUp = await fs.readFile(new URL('../../supabase/compact_ch2_ch3_latest.sql', import.meta.url), 'utf8')
+  const viewDefinition = canonical.slice(canonical.indexOf('create or replace view'), canonical.indexOf('comment on view')).trim()
+  assert.ok(followUp.includes(viewDefinition), 'compact migration and fresh-install overview must agree')
+  await db.exec(canonical)
+  await db.exec(canonical)
   assert.deepEqual(await overview(), before)
   const { rows } = await db.query("select reloptions from pg_class where oid = 'public.v_nj_monitoring_overview'::regclass")
   assert.ok(rows[0].reloptions.includes('security_invoker=true'))
@@ -87,7 +88,7 @@ test('CH1 SQL freshness and meaningful-data behavior matches existing JS helper'
   }
 })
 
-test('fresh CH2 overrides legacy false; CH3 retains dashboard status and five-row cardinality', async () => {
+test('fresh CH2 overrides legacy false; CH3 uses freshness and five-row cardinality', async () => {
   await clear()
   await db.exec(`insert into v_ch2_dashboard (is_online,comp_1a_enabled,latest_updated_at) values (false,true,now());
     insert into v_ch3_dashboard (is_online,comp_2c_enabled,latest_updated_at) values (true,true,now()),(true,true,now());`)
@@ -97,7 +98,7 @@ test('fresh CH2 overrides legacy false; CH3 retains dashboard status and five-ro
   assert.equal(rows[4].is_online, true); assert.equal(rows[4].comp_2c_enabled, true)
 })
 
-test('CH2 SQL and HMI agree at the 45-second boundary; CH3 ignores the new threshold', async () => {
+test('CH2 SQL and HMI agree at the 45-second boundary; CH3 follows the same threshold', async () => {
   // PostgreSQL now() is fixed for the transaction: boundary assertions never depend on sleeps.
   await db.exec('begin')
   try {
@@ -114,12 +115,12 @@ test('CH2 SQL and HMI agree at the 45-second boundary; CH3 ignores the new thres
       // PostgREST sends ISO strings; PGlite returns Date objects for timestamptz.
       assert.equal(isCh2Online(ch2.updated_at?.toISOString() ?? null, now), expected, `HMI age ${age}`)
       assert.equal(ch2.comp_1a_enabled, true)
-      assert.equal(rows.find(r => r.asset_code === 'CH-NJ-03').is_online, false)
+      assert.equal(rows.find(r => r.asset_code === 'CH-NJ-03').is_online, true)
     }
     await db.exec("update v_ch2_dashboard set is_online=true; update v_ch3_dashboard set latest_updated_at=now()-interval '2 hours',is_online=true")
     const rows = await overview()
     assert.equal(rows.find(r => r.asset_code === 'CH-NJ-02').is_online, false)
-    assert.equal(rows.find(r => r.asset_code === 'CH-NJ-03').is_online, true)
+    assert.equal(rows.find(r => r.asset_code === 'CH-NJ-03').is_online, false)
   } finally { await db.exec('rollback') }
 })
 
