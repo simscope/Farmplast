@@ -5,71 +5,18 @@ import {
   RefreshCw,
   Thermometer,
   Gauge,
-  Activity,
   AlertTriangle,
   Cpu,
-  Clock3,
   Wifi,
   Target,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import useMonitoringPolling from '../hooks/useMonitoringPolling'
-import { DASHBOARD_COLUMNS } from '../utils/monitoringColumns'
+
 import { isCh2Online } from '../utils/ch2Status'
 
 const POLL_MS = 5000
-
-const REGISTER_MAP = {
-  40001: { name: 'Target Setpoint', unit: '°F', scale: 0.1 },
-  40002: { name: 'Chiller Start', unit: '', scale: 1 },
-  40003: { name: 'Chiller Stop', unit: '', scale: 1 },
-
-  40021: { name: 'PLC Version', unit: '', scale: 0.001 },
-  40022: { name: 'Local Compressor Count', unit: '', scale: 1 },
-  40023: { name: 'Process Setpoint', unit: '°F', scale: 0.1 },
-  40024: { name: 'Chiller Entering Fluid Temp', unit: '°F', scale: 0.1 },
-  40025: { name: 'Chiller Leaving Fluid Temp', unit: '°F', scale: 0.1 },
-
-  40026: { name: 'Compressors Available', unit: '', scale: 1 },
-  40027: { name: 'Compressors Staged', unit: '', scale: 1 },
-  40028: { name: 'Condenser Fluid In Temp', unit: '°F', scale: 1 },
-  40029: { name: 'Condenser Fluid Out Temp Circuit 1', unit: '°F', scale: 1 },
-  40030: { name: 'Condenser Fluid Out Temp Circuit 2', unit: '°F', scale: 1 },
-
-  40031: { name: 'Refrigerant Suction Temp Circuit 1', unit: '°F', scale: 1 },
-  40032: { name: 'Refrigerant Suction Temp Circuit 2', unit: '°F', scale: 1 },
-  40033: { name: 'Refrigerant Suction Pressure Circuit 1', unit: 'PSIG', scale: 1 },
-  40034: { name: 'Refrigerant Suction Pressure Circuit 2', unit: 'PSIG', scale: 1 },
-  40035: { name: 'Refrigerant Liquid Temp Circuit 1', unit: '°F', scale: 1 },
-  40036: { name: 'Refrigerant Liquid Temp Circuit 2', unit: '°F', scale: 1 },
-  40037: { name: 'Refrigerant Discharge Pressure Circuit 1', unit: 'PSIG', scale: 1 },
-  40038: { name: 'Refrigerant Discharge Pressure Circuit 2', unit: 'PSIG', scale: 1 },
-  40039: { name: 'Differential Pressure', unit: 'PSIG', scale: 1 },
-  40040: { name: 'Process Pump Pressure', unit: 'PSIG', scale: 1 },
-  40041: { name: 'HGB Position Circuit 1', unit: '%', scale: 1 },
-  40042: { name: 'HGB Position Circuit 2', unit: '%', scale: 1 },
-  40043: { name: 'HGB Mode Circuit 1', unit: '', scale: 1 },
-  40044: { name: 'HGB Mode Circuit 2', unit: '', scale: 1 },
-
-  40045: { name: 'Circuit 1 Compressor A Hours', unit: 'h', scale: 1 },
-  40046: { name: 'Circuit 1 Compressor B Hours', unit: 'h', scale: 1 },
-  40047: { name: 'Circuit 1 Compressor C Hours', unit: 'h', scale: 1 },
-  40048: { name: 'Circuit 2 Compressor A Hours', unit: 'h', scale: 1 },
-  40049: { name: 'Circuit 2 Compressor B Hours', unit: 'h', scale: 1 },
-  40050: { name: 'Circuit 2 Compressor C Hours', unit: 'h', scale: 1 },
-
-  40051: { name: 'Circuit 1 Flow', unit: 'GPM', scale: 1 },
-  40052: { name: 'Circuit 2 Flow', unit: 'GPM', scale: 1 },
-  40053: { name: 'Circuit 1 Capacity', unit: 'TONS', scale: 1 },
-  40054: { name: 'Circuit 2 Capacity', unit: 'TONS', scale: 1 },
-  40055: { name: 'HMI Message Display', unit: '', scale: 1 },
-  40056: { name: 'Evap Fluid Out Temp Circuit 1', unit: '°F', scale: 1 },
-  40057: { name: 'Evap Fluid Out Temp Circuit 2', unit: '°F', scale: 1 },
-  40058: { name: 'Circuit 1 Compressors On Count', unit: '', scale: 1 },
-  40059: { name: 'Circuit 2 Compressors On Count', unit: '', scale: 1 },
-  40060: { name: 'Process Fluid Delta T', unit: '°F', scale: 0.1 },
-  40061: { name: 'System Demand Percent', unit: '%', scale: 1 },
-}
+const CH2_DASHBOARD_COLUMNS = 'asset_code,device_code,system_running,comp_1a_enabled,comp_1b_enabled,comp_1c_enabled,comp_2a_enabled,comp_2b_enabled,comp_2c_enabled,chiller_entering_f,chiller_leaving_f,flow_c1_gpm,flow_c2_gpm,evap_out_c1_f,evap_out_c2_f,latest_updated_at'
 
 function formatNumber(value, digits = 1) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return '—'
@@ -81,47 +28,6 @@ function formatDateTime(value) {
   const d = new Date(value)
   if (Number.isNaN(d.getTime())) return '—'
   return d.toLocaleString()
-}
-
-function decodeRegister(row) {
-  const reg = Number(row.raw_register)
-  const meta = REGISTER_MAP[reg]
-
-  if (!meta) {
-    return {
-      register: row.raw_register ?? '—',
-      name: row.point_name || 'Unknown register',
-      scaledValue: row.raw_value ?? row.value_number ?? row.value_boolean ?? '—',
-      unit: '',
-    }
-  }
-
-  const raw = row.raw_value ?? row.value_number
-  const num = raw === null || raw === undefined || raw === '' ? null : Number(raw)
-
-  if (num === null || Number.isNaN(num)) {
-    return {
-      register: reg,
-      name: meta.name,
-      scaledValue: '—',
-      unit: meta.unit || '',
-    }
-  }
-
-  const scaled = num * meta.scale
-  const valueText =
-    meta.scale === 1
-      ? Number.isInteger(scaled)
-        ? String(scaled)
-        : scaled.toFixed(1)
-      : scaled.toFixed(1)
-
-  return {
-    register: reg,
-    name: meta.name,
-    scaledValue: valueText,
-    unit: meta.unit || '',
-  }
 }
 
 function getRawRegisterValue(rows, register) {
@@ -216,13 +122,13 @@ export default function Chiller2HMIPage() {
 
       const [{ data: dashboardData, error: dashboardError }, { data: rawData, error: rawError }] =
         await Promise.all([
-          supabase.from('v_ch2_dashboard').select(DASHBOARD_COLUMNS).single().abortSignal(signal),
+          supabase.from('v_ch2_dashboard').select(CH2_DASHBOARD_COLUMNS).single().abortSignal(signal),
           supabase
             .from('ch2_latest')
             .select(
               'point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at'
             )
-            .like('point_code', 'CH2_R%')
+            .in('raw_register', [40023, 40024, 40025, 40051, 40052, 40056, 40057, 40061])
             .order('raw_register', { ascending: true }).abortSignal(signal),
         ])
 
@@ -246,13 +152,9 @@ export default function Chiller2HMIPage() {
     const rawSetpoint = getRawRegisterValue(rawRows, 40023)
     const rawEntering = getRawRegisterValue(rawRows, 40024)
     const rawLeaving = getRawRegisterValue(rawRows, 40025)
-    const rawDeltaT = getRawRegisterValue(rawRows, 40060)
 
     const rawFlowC1 = getRawRegisterValue(rawRows, 40051)
     const rawFlowC2 = getRawRegisterValue(rawRows, 40052)
-
-    const rawCapacityC1 = getRawRegisterValue(rawRows, 40053)
-    const rawCapacityC2 = getRawRegisterValue(rawRows, 40054)
 
     const rawEvapOutC1 = getRawRegisterValue(rawRows, 40056)
     const rawEvapOutC2 = getRawRegisterValue(rawRows, 40057)
@@ -266,7 +168,6 @@ export default function Chiller2HMIPage() {
       deviceCode: dashboard?.device_code || 'ESP32-CH2-PLC',
 
       online: isCh2Online(dashboard?.latest_updated_at),
-      heartbeat: !!dashboard?.heartbeat,
       systemRunning: !!dashboard?.system_running,
 
       comp1A: !!dashboard?.comp_1a_enabled,
@@ -299,16 +200,6 @@ export default function Chiller2HMIPage() {
           ? rawFlowC2
           : dashboard?.flow_c2_gpm,
 
-      capacityC1:
-        rawCapacityC1 != null
-          ? rawCapacityC1
-          : dashboard?.capacity_c1_tons,
-
-      capacityC2:
-        rawCapacityC2 != null
-          ? rawCapacityC2
-          : null,
-
       evapOutC1:
         rawEvapOutC1 != null
           ? rawEvapOutC1
@@ -319,24 +210,17 @@ export default function Chiller2HMIPage() {
           ? rawEvapOutC2
           : dashboard?.evap_out_c2_f,
 
-      deltaT:
-        rawDeltaT != null
-          ? rawDeltaT / 10
-          : dashboard?.process_delta_t_f,
-
       demandPercent:
         rawDemand != null
           ? rawDemand
           : null,
 
-      heartbeatUpdatedAt: dashboard?.heartbeat_updated_at,
       latestUpdatedAt: dashboard?.latest_updated_at,
     }
   }, [dashboard, rawRows])
 
   const importantBits = [
     { label: 'Online', active: summary.online },
-    { label: 'Heartbeat', active: summary.heartbeat },
     { label: 'System Running', active: summary.systemRunning },
 
     { label: 'C1 Comp A', active: summary.comp1A },
@@ -412,7 +296,7 @@ export default function Chiller2HMIPage() {
           </div>
         ) : (
           <>
-            <div className="mb-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-7">
+            <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
               <StatCard
                 title="Setpoint"
                 value={formatNumber(summary.setpointF, 1)}
@@ -433,13 +317,6 @@ export default function Chiller2HMIPage() {
                 unit="°F"
                 icon={Thermometer}
                 accent="green"
-              />
-              <StatCard
-                title="Delta T"
-                value={formatNumber(summary.deltaT, 1)}
-                unit="°F"
-                icon={Activity}
-                accent="yellow"
               />
               <StatCard
                 title="Flow C1"
@@ -481,12 +358,7 @@ export default function Chiller2HMIPage() {
                   value={formatNumber(summary.setpointF, 1)}
                   unit="°F"
                 />
-                <ValueRow label="Heartbeat" value={summary.heartbeat ? 'ON' : 'OFF'} />
                 <ValueRow label="System Running" value={summary.systemRunning ? 'ON' : 'OFF'} />
-                <ValueRow
-                  label="Heartbeat Updated"
-                  value={formatDateTime(summary.heartbeatUpdatedAt)}
-                />
                 <ValueRow label="Latest Updated" value={formatDateTime(summary.latestUpdatedAt)} />
               </SectionCard>
 
@@ -502,11 +374,6 @@ export default function Chiller2HMIPage() {
                 <ValueRow label="Comp 1B Enabled" value={summary.comp1B ? 'ON' : 'OFF'} />
                 <ValueRow label="Comp 1C Enabled" value={summary.comp1C ? 'ON' : 'OFF'} />
                 <ValueRow label="Flow C1" value={formatNumber(summary.flowC1, 0)} unit="GPM" />
-                <ValueRow
-                  label="Capacity C1"
-                  value={formatNumber(summary.capacityC1, 0)}
-                  unit="TONS"
-                />
                 <ValueRow
                   label="Evap Out C1"
                   value={formatNumber(summary.evapOutC1, 1)}
@@ -527,11 +394,6 @@ export default function Chiller2HMIPage() {
                 <ValueRow label="Comp 2C Enabled" value={summary.comp2C ? 'ON' : 'OFF'} />
                 <ValueRow label="Flow C2" value={formatNumber(summary.flowC2, 0)} unit="GPM" />
                 <ValueRow
-                  label="Capacity C2"
-                  value={formatNumber(summary.capacityC2, 0)}
-                  unit="TONS"
-                />
-                <ValueRow
                   label="Evap Out C2"
                   value={formatNumber(summary.evapOutC2, 1)}
                   unit="°F"
@@ -545,75 +407,10 @@ export default function Chiller2HMIPage() {
                 Status Bits
               </div>
 
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4 xl:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
                 {importantBits.map((bit) => (
                   <BitBadge key={bit.label} label={bit.label} active={bit.active} />
                 ))}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-[#0b1220] p-4 shadow-xl">
-              <div className="mb-4 flex items-center gap-2 text-lg font-semibold">
-                <Clock3 size={18} />
-                RAW Registers Table
-              </div>
-
-              <div className="overflow-x-auto">
-                <table className="min-w-full border-separate border-spacing-0">
-                  <thead>
-                    <tr>
-                      <th className="sticky top-0 border-b border-white/10 bg-[#0b1220] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/50">
-                        Register
-                      </th>
-                      <th className="sticky top-0 border-b border-white/10 bg-[#0b1220] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/50">
-                        Point Code
-                      </th>
-                      <th className="sticky top-0 border-b border-white/10 bg-[#0b1220] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/50">
-                        Decode
-                      </th>
-                      <th className="sticky top-0 border-b border-white/10 bg-[#0b1220] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/50">
-                        Scaled Value
-                      </th>
-                      <th className="sticky top-0 border-b border-white/10 bg-[#0b1220] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/50">
-                        Raw Value
-                      </th>
-                      <th className="sticky top-0 border-b border-white/10 bg-[#0b1220] px-3 py-3 text-left text-xs font-semibold uppercase tracking-wide text-white/50">
-                        Updated At
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {rawRows.map((row) => {
-                      const decoded = decodeRegister(row)
-
-                      return (
-                        <tr key={row.point_code} className="transition hover:bg-white/[0.03]">
-                          <td className="border-b border-white/5 px-3 py-2 text-sm text-cyan-300">
-                            {decoded.register}
-                          </td>
-                          <td className="border-b border-white/5 px-3 py-2 text-sm text-white/80">
-                            {row.point_code}
-                          </td>
-                          <td className="border-b border-white/5 px-3 py-2 text-sm text-white">
-                            {decoded.name}
-                          </td>
-                          <td className="border-b border-white/5 px-3 py-2 text-sm text-emerald-300">
-                            {decoded.scaledValue}
-                            {decoded.unit ? (
-                              <span className="ml-1 text-emerald-200/70">{decoded.unit}</span>
-                            ) : null}
-                          </td>
-                          <td className="border-b border-white/5 px-3 py-2 text-sm text-white/80">
-                            {row.raw_value ?? row.value_number ?? row.value_boolean ?? '—'}
-                          </td>
-                          <td className="border-b border-white/5 px-3 py-2 text-sm text-white/50">
-                            {row.updated_at ? new Date(row.updated_at).toLocaleString() : '—'}
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
               </div>
             </div>
           </>
