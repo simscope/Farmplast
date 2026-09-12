@@ -1,0 +1,3 @@
+# Only this new endpoint uses custom authentication; existing functions are untouched.
+[functions.ch1-ota]
+verify_jwt = false
