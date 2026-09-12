@@ -36,15 +36,30 @@ There are no raw registers, temperatures, pressures, setpoints, flows, capacitie
 | Presentation asset | Existing source | Online behavior |
 | --- | --- | --- |
 | CH-NJ-01 | v_asset_points_latest, CH-NJ-01 | Existing meaningful-data rules plus floor(age in seconds) <= 15 |
-| CH-NJ-02 | v_ch2_dashboard | Existing is_online, recalculated by the source view on every read |
+| CH-NJ-02 | v_ch2_dashboard | latest_updated_at newer than 45 seconds; legacy is_online deliberately ignored |
 | CH-NJ-03 | v_ch3_dashboard | Existing is_online, recalculated by the source view on every read |
 | BARREL-NJ-01 | v_asset_points_latest, BARREL-NJ-02 | Explicit ONLINE bit when present, otherwise meaningful data; always gated by freshness |
 | BARREL-NJ-02 | v_asset_points_latest, BARREL-NJ-01 | Same |
 
 The barrel swap was explicitly confirmed by the user and is identical on overview and details. The live CH1 schema has CH1_COMP1/CH1_COMP2 only. Per user confirmation, these map to 1A/1B; the remaining four fields are NULL and display N/A. Missing data for supported compressor positions displays UNKNOWN. Barrel error state comes from HAS_ERROR, preserving NULL as unknown rather than implying normal. Zero material level remains valid.
 
-The SQL expression updated_at > now() - interval '16 seconds' preserves the existing JavaScript floor(secondsAgo) <= 15 boundary. CH1 meaningful-data parity is tested against monitoringHelpers.getAssetStatus. Barrel detail uses the same existing 15-second threshold and explicitly gates stored ONLINE bits so a stopped ESP becomes offline. CH2/CH3 reuse their existing dashboard status; live reads confirmed both were offline with old timestamps. No competing client threshold is added for those dashboards.
+The SQL expression updated_at > now() - interval '16 seconds' preserves the existing JavaScript floor(secondsAgo) <= 15 boundary. CH1 meaningful-data parity is tested against monitoringHelpers.getAssetStatus. Barrel detail uses the same existing 15-second threshold and explicitly gates stored ONLINE bits so a stopped ESP becomes offline. CH3 retains its existing dashboard status. CH2 alone overrides the legacy dashboard status with the 45-second freshness rule described below.
 
+## CH2 false-OFFLINE follow-up (not deployed)
+
+CH-NJ-02 uses latest_updated_at freshness for ONLINE on both the overview and its HMI. Normally reporting firmware may publish around every 15 seconds; the legacy v_ch2_dashboard.is_online can expire between updates. The presentation layer therefore deliberately ignores that legacy boolean for CH2, even when it is false but the latest telemetry is fresh. The underlying v_ch2_dashboard definition and ingest_ch2 are not changed.
+
+The nominal window is 45 seconds. Both implementations match the task's explicit SQL predicate exactly: latest_updated_at > now() - interval '45 seconds'. Thus 10 seconds, 44 seconds and 44.999 seconds are ONLINE; exactly 45 seconds and older are OFFLINE. NULL/missing/invalid timestamps are OFFLINE. No rounding to whole seconds is used. SQL uses server time; the HMI uses browser time on the existing polling cycle, so a materially incorrect browser clock can affect its badge.
+
+For an existing installation, apply supabase/fix_ch2_overview_freshness.sql as a follow-up before deploying this frontend. It transactionally replaces only v_nj_monitoring_overview with the same five fixed rows, 13 public columns, invoker security and grants. supabase/add_nj_monitoring_overview.sql is kept identical as the fresh-install source of truth; tests prevent drift and reapply the follow-up twice. Nothing drops/recreates the underlying dashboard views, ingestion objects or data.
+
+Chiller2HMIPage calls the small isCh2Online helper with dashboard.latest_updated_at; it still requests exactly v_ch2_dashboard and ch2_latest every five seconds while visible. The overview still makes one compact request every 15 seconds. No new queries, subscriptions, timers or fields are added. Compressor decoding, all telemetry values, CH1, CH3 and the intentional barrel swap/freshness rules remain unchanged.
+
+Deterministic tests cover SQL/JavaScript freshness parity, the exact threshold, missing/invalid values, fresh telemetry with legacy false, CH3's unchanged legacy behavior, unchanged compressor values and five-row/13-column contract. SQL boundary tests freeze now() in a transaction; JavaScript tests inject a fixed clock. Existing CH1/barrel/security/polling tests remain in the suite.
+
+Follow-up verification: npm test passes all 21 tests; npm run build passes; npm run lint has zero errors and the same six pre-existing hook warnings. The existing /fonts/micr.ttf build warning remains. npm scripts were run through node and the installed npm-cli.js because the shell npm launcher is broken.
+
+This follow-up is implementation and local verification only. No production deployment, migration application or PR merge is authorized for this task.
 ## Refresh behavior
 
 | Route | Initial refresh | Normal interval | Requests per refresh |

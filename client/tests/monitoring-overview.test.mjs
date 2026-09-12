@@ -4,6 +4,7 @@ import fs from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
 import { OVERVIEW_COLUMNS } from '../src/utils/monitoringColumns.js'
 import { getAssetStatus } from '../src/utils/monitoringHelpers.js'
+import { isCh2Online } from '../src/utils/ch2Status.js'
 
 const db = new PGlite()
 const compressors = ['1a','1b','1c','2a','2b','2c']
@@ -27,7 +28,11 @@ async function point(asset, code, type, value, age = 0, group = '') {
 
 test('migration can be reapplied without changing its contract or invoker security', async () => {
   const before = await overview()
-  await db.exec(await fs.readFile(new URL('../../supabase/add_nj_monitoring_overview.sql', import.meta.url), 'utf8'))
+  const canonical = await fs.readFile(new URL('../../supabase/add_nj_monitoring_overview.sql', import.meta.url), 'utf8')
+  const followUp = await fs.readFile(new URL('../../supabase/fix_ch2_overview_freshness.sql', import.meta.url), 'utf8')
+  assert.equal(followUp, canonical, 'follow-up and fresh-install definitions must stay identical')
+  await db.exec(followUp)
+  await db.exec(followUp)
   assert.deepEqual(await overview(), before)
   const { rows } = await db.query("select reloptions from pg_class where oid = 'public.v_nj_monitoring_overview'::regclass")
   assert.ok(rows[0].reloptions.includes('security_invoker=true'))
@@ -82,14 +87,40 @@ test('CH1 SQL freshness and meaningful-data behavior matches existing JS helper'
   }
 })
 
-test('CH2/CH3 reuse dashboard online status and cannot multiply overview rows', async () => {
+test('fresh CH2 overrides legacy false; CH3 retains dashboard status and five-row cardinality', async () => {
   await clear()
   await db.exec(`insert into v_ch2_dashboard (is_online,comp_1a_enabled,latest_updated_at) values (false,true,now());
     insert into v_ch3_dashboard (is_online,comp_2c_enabled,latest_updated_at) values (true,true,now()),(true,true,now());`)
   const rows = await overview()
   assert.equal(rows.length, 5)
-  assert.equal(rows[3].is_online, false); assert.equal(rows[3].comp_1a_enabled, true)
+  assert.equal(rows[3].is_online, true); assert.equal(rows[3].comp_1a_enabled, true)
   assert.equal(rows[4].is_online, true); assert.equal(rows[4].comp_2c_enabled, true)
+})
+
+test('CH2 SQL and HMI agree at the 45-second boundary; CH3 ignores the new threshold', async () => {
+  // PostgreSQL now() is fixed for the transaction: boundary assertions never depend on sleeps.
+  await db.exec('begin')
+  try {
+    const now = new Date((await db.query('select now() as time')).rows[0].time).getTime()
+    for (const [age, expected] of [[10,true],[44,true],[44.999,true],[45,false],[46,false],[null,false]]) {
+      await clear()
+      await db.query(`insert into v_ch2_dashboard(latest_updated_at,is_online,comp_1a_enabled)
+        values (case when $1::numeric is null then null else now()-($1*interval '1 second') end,false,true)`, [age])
+      await db.exec(`insert into v_ch3_dashboard(latest_updated_at,is_online) values (now(),false)`)
+      const rows = await overview(), ch2 = rows.find(r => r.asset_code === 'CH-NJ-02')
+      assert.equal(rows.length, 5)
+      assert.deepEqual(Object.keys(ch2), OVERVIEW_COLUMNS.split(','))
+      assert.equal(ch2.is_online, expected, `SQL age ${age}`)
+      // PostgREST sends ISO strings; PGlite returns Date objects for timestamptz.
+      assert.equal(isCh2Online(ch2.updated_at?.toISOString() ?? null, now), expected, `HMI age ${age}`)
+      assert.equal(ch2.comp_1a_enabled, true)
+      assert.equal(rows.find(r => r.asset_code === 'CH-NJ-03').is_online, false)
+    }
+    await db.exec("update v_ch2_dashboard set is_online=true; update v_ch3_dashboard set latest_updated_at=now()-interval '2 hours',is_online=true")
+    const rows = await overview()
+    assert.equal(rows.find(r => r.asset_code === 'CH-NJ-02').is_online, false)
+    assert.equal(rows.find(r => r.asset_code === 'CH-NJ-03').is_online, true)
+  } finally { await db.exec('rollback') }
 })
 
 test('invoker security does not grant underlying access; RLS remains effective', async () => {

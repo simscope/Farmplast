@@ -15,6 +15,7 @@ import {
 import { supabase } from '../lib/supabase'
 import useMonitoringPolling from '../hooks/useMonitoringPolling'
 import { DASHBOARD_COLUMNS } from '../utils/monitoringColumns'
+import { isCh2Online } from '../utils/ch2Status'
 
 const POLL_MS = 5000
 
@@ -264,7 +265,7 @@ export default function Chiller2HMIPage() {
       assetCode: dashboard?.asset_code || 'CH-NJ-02',
       deviceCode: dashboard?.device_code || 'ESP32-CH2-PLC',
 
-      online: !!dashboard?.is_online,
+      online: isCh2Online(dashboard?.latest_updated_at),
       heartbeat: !!dashboard?.heartbeat,
       systemRunning: !!dashboard?.system_running,
 
