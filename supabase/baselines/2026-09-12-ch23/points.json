@@ -1,0 +1,1226 @@
+[
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40011",
+    "point_name": "Register 40011",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40011
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40012",
+    "point_name": "Register 40012",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40012
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40013",
+    "point_name": "Register 40013",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40013
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40014",
+    "point_name": "Register 40014",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40014
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40015",
+    "point_name": "Register 40015",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40015
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40016",
+    "point_name": "Register 40016",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40016
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40017",
+    "point_name": "Register 40017",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40017
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40018",
+    "point_name": "Register 40018",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40018
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40019",
+    "point_name": "Register 40019",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40019
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40020",
+    "point_name": "Register 40020",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40020
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40021",
+    "point_name": "Register 40021",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40021
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40022",
+    "point_name": "Register 40022",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40022
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40023",
+    "point_name": "Register 40023",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40023
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40024",
+    "point_name": "Register 40024",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40024
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40025",
+    "point_name": "Register 40025",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40025
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40026",
+    "point_name": "Register 40026",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40026
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40027",
+    "point_name": "Register 40027",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40027
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40028",
+    "point_name": "Register 40028",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40028
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40029",
+    "point_name": "Register 40029",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40029
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40030",
+    "point_name": "Register 40030",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40030
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40031",
+    "point_name": "Register 40031",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40031
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40032",
+    "point_name": "Register 40032",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40032
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40033",
+    "point_name": "Register 40033",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40033
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40034",
+    "point_name": "Register 40034",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40034
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40035",
+    "point_name": "Register 40035",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40035
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40036",
+    "point_name": "Register 40036",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40036
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40037",
+    "point_name": "Register 40037",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40037
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40038",
+    "point_name": "Register 40038",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40038
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40039",
+    "point_name": "Register 40039",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40039
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40040",
+    "point_name": "Register 40040",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40040
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40041",
+    "point_name": "Register 40041",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40041
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40042",
+    "point_name": "Register 40042",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40042
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40043",
+    "point_name": "Register 40043",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40043
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40044",
+    "point_name": "Register 40044",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40044
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40045",
+    "point_name": "Register 40045",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40045
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40046",
+    "point_name": "Register 40046",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40046
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40047",
+    "point_name": "Register 40047",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40047
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40048",
+    "point_name": "Register 40048",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40048
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40049",
+    "point_name": "Register 40049",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40049
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40050",
+    "point_name": "Register 40050",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40050
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40051",
+    "point_name": "Register 40051",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40051
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40052",
+    "point_name": "Register 40052",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40052
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40053",
+    "point_name": "Register 40053",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40053
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40054",
+    "point_name": "Register 40054",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40054
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40055",
+    "point_name": "Register 40055",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40055
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40056",
+    "point_name": "Register 40056",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40056
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40057",
+    "point_name": "Register 40057",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40057
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40058",
+    "point_name": "Register 40058",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40058
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40059",
+    "point_name": "Register 40059",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40059
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40060",
+    "point_name": "Register 40060",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40060
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_R40061",
+    "point_name": "Register 40061",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": 40061
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_CAPACITY_C1_TONS",
+    "point_name": "Capacity C1",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_CHILLER_ENTERING_F",
+    "point_name": "Chiller Entering Fluid Temp",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_CHILLER_LEAVING_F",
+    "point_name": "Chiller Leaving Fluid Temp",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_COMP_1A_ENABLED",
+    "point_name": "Comp 1A Enabled",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_COMP_1B_ENABLED",
+    "point_name": "Comp 1B Enabled",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_COMP_1C_ENABLED",
+    "point_name": "Comp 1C Enabled",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_COMP_2A_ENABLED",
+    "point_name": "Comp 2A Enabled",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_COMP_2B_ENABLED",
+    "point_name": "Comp 2B Enabled",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_COMP_2C_ENABLED",
+    "point_name": "Comp 2C Enabled",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_EVAP_OUT_C1_F",
+    "point_name": "Evap Out C1",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_EVAP_OUT_C2_F",
+    "point_name": "Evap Out C2",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_FLOW_C1_GPM",
+    "point_name": "Flow C1",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_FLOW_C2_GPM",
+    "point_name": "Flow C2",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_HEARTBEAT",
+    "point_name": "Heartbeat",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_ONLINE",
+    "point_name": "Online",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_PROCESS_DELTA_T_F",
+    "point_name": "Process Delta T",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch2_latest",
+    "asset_code": "CH-NJ-02",
+    "point_code": "CH2_SYSTEM_RUNNING",
+    "point_name": "System Running",
+    "device_code": "ESP32-CH2-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40011",
+    "point_name": "Register 40011",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40011
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40012",
+    "point_name": "Register 40012",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40012
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40013",
+    "point_name": "Register 40013",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40013
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40014",
+    "point_name": "Register 40014",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40014
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40015",
+    "point_name": "Register 40015",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40015
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40016",
+    "point_name": "Register 40016",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40016
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40017",
+    "point_name": "Register 40017",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40017
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40018",
+    "point_name": "Register 40018",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40018
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40019",
+    "point_name": "Register 40019",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40019
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40020",
+    "point_name": "Register 40020",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40020
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40021",
+    "point_name": "Register 40021",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40021
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40022",
+    "point_name": "Register 40022",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40022
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40023",
+    "point_name": "Register 40023",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40023
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40024",
+    "point_name": "Register 40024",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40024
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40025",
+    "point_name": "Register 40025",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40025
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40026",
+    "point_name": "Register 40026",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40026
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40027",
+    "point_name": "Register 40027",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40027
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40028",
+    "point_name": "Register 40028",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40028
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40029",
+    "point_name": "Register 40029",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40029
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40030",
+    "point_name": "Register 40030",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40030
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40031",
+    "point_name": "Register 40031",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40031
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40032",
+    "point_name": "Register 40032",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40032
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40033",
+    "point_name": "Register 40033",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40033
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40034",
+    "point_name": "Register 40034",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40034
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40035",
+    "point_name": "Register 40035",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40035
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40036",
+    "point_name": "Register 40036",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40036
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40037",
+    "point_name": "Register 40037",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40037
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40038",
+    "point_name": "Register 40038",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40038
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40039",
+    "point_name": "Register 40039",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40039
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40040",
+    "point_name": "Register 40040",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40040
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40041",
+    "point_name": "Register 40041",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40041
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40042",
+    "point_name": "Register 40042",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40042
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40043",
+    "point_name": "Register 40043",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40043
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40044",
+    "point_name": "Register 40044",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40044
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40045",
+    "point_name": "Register 40045",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40045
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40046",
+    "point_name": "Register 40046",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40046
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40047",
+    "point_name": "Register 40047",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40047
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40048",
+    "point_name": "Register 40048",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40048
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40049",
+    "point_name": "Register 40049",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40049
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40050",
+    "point_name": "Register 40050",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40050
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40051",
+    "point_name": "Register 40051",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40051
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40052",
+    "point_name": "Register 40052",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40052
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40053",
+    "point_name": "Register 40053",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40053
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40054",
+    "point_name": "Register 40054",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40054
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40055",
+    "point_name": "Register 40055",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40055
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40056",
+    "point_name": "Register 40056",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40056
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40057",
+    "point_name": "Register 40057",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40057
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40058",
+    "point_name": "Register 40058",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40058
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40059",
+    "point_name": "Register 40059",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40059
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40060",
+    "point_name": "Register 40060",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40060
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_R40061",
+    "point_name": "Register 40061",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": 40061
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_CAPACITY_C1_TONS",
+    "point_name": "Capacity C1",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_CHILLER_ENTERING_F",
+    "point_name": "Chiller Entering Fluid Temp",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_CHILLER_LEAVING_F",
+    "point_name": "Chiller Leaving Fluid Temp",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_COMP_1A_ENABLED",
+    "point_name": "Comp 1A Enabled",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_COMP_1B_ENABLED",
+    "point_name": "Comp 1B Enabled",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_COMP_1C_ENABLED",
+    "point_name": "Comp 1C Enabled",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_COMP_2A_ENABLED",
+    "point_name": "Comp 2A Enabled",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_COMP_2B_ENABLED",
+    "point_name": "Comp 2B Enabled",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_COMP_2C_ENABLED",
+    "point_name": "Comp 2C Enabled",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_EVAP_OUT_C1_F",
+    "point_name": "Evap Out C1",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_EVAP_OUT_C2_F",
+    "point_name": "Evap Out C2",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_FLOW_C1_GPM",
+    "point_name": "Flow C1",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_FLOW_C2_GPM",
+    "point_name": "Flow C2",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_HEARTBEAT",
+    "point_name": "Heartbeat",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_ONLINE",
+    "point_name": "Online",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_PROCESS_DELTA_T_F",
+    "point_name": "Process Delta T",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  },
+  {
+    "rows": 1,
+    "source": "ch3_latest",
+    "asset_code": "CH-NJ-03",
+    "point_code": "CH2_SYSTEM_RUNNING",
+    "point_name": "System Running",
+    "device_code": "ESP32-CH3-PLC",
+    "raw_register": null
+  }
+]

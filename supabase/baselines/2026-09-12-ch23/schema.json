@@ -1,0 +1,2354 @@
+{
+  "views": {
+    "v_ch2_dashboard": " WITH agg AS (\n         SELECT max(ch2_latest.updated_at) AS latest_updated_at,\n            max(ch2_latest.updated_at) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_HEARTBEAT'::text, 'CH3_HEARTBEAT'::text]))) AS heartbeat_updated_at,\n            bool_or(ch2_latest.value_boolean) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_HEARTBEAT'::text, 'CH3_HEARTBEAT'::text]))) AS raw_heartbeat,\n            bool_or(ch2_latest.value_boolean) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_SYSTEM_RUNNING'::text, 'CH3_SYSTEM_RUNNING'::text]))) AS system_running,\n            bool_or(ch2_latest.value_boolean) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_COMP_1A_ENABLED'::text, 'CH3_COMP_1A_ENABLED'::text]))) AS comp_1a_enabled,\n            bool_or(ch2_latest.value_boolean) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_COMP_1B_ENABLED'::text, 'CH3_COMP_1B_ENABLED'::text]))) AS comp_1b_enabled,\n            bool_or(ch2_latest.value_boolean) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_COMP_1C_ENABLED'::text, 'CH3_COMP_1C_ENABLED'::text]))) AS comp_1c_enabled,\n            bool_or(ch2_latest.value_boolean) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_COMP_2A_ENABLED'::text, 'CH3_COMP_2A_ENABLED'::text]))) AS comp_2a_enabled,\n            bool_or(ch2_latest.value_boolean) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_COMP_2B_ENABLED'::text, 'CH3_COMP_2B_ENABLED'::text]))) AS comp_2b_enabled,\n            bool_or(ch2_latest.value_boolean) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_COMP_2C_ENABLED'::text, 'CH3_COMP_2C_ENABLED'::text]))) AS comp_2c_enabled,\n            max(ch2_latest.value_number) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_CHILLER_ENTERING_F'::text, 'CH3_CHILLER_ENTERING_F'::text]))) AS chiller_entering_f,\n            max(ch2_latest.value_number) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_CHILLER_LEAVING_F'::text, 'CH3_CHILLER_LEAVING_F'::text]))) AS chiller_leaving_f,\n            max(ch2_latest.value_number) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_FLOW_C1_GPM'::text, 'CH3_FLOW_C1_GPM'::text]))) AS flow_c1_gpm,\n            max(ch2_latest.value_number) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_FLOW_C2_GPM'::text, 'CH3_FLOW_C2_GPM'::text]))) AS flow_c2_gpm,\n            max(ch2_latest.value_number) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_CAPACITY_C1_TONS'::text, 'CH3_CAPACITY_C1_TONS'::text]))) AS capacity_c1_tons,\n            max(ch2_latest.value_number) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_EVAP_OUT_C1_F'::text, 'CH3_EVAP_OUT_C1_F'::text]))) AS evap_out_c1_f,\n            max(ch2_latest.value_number) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_EVAP_OUT_C2_F'::text, 'CH3_EVAP_OUT_C2_F'::text]))) AS evap_out_c2_f,\n            max(ch2_latest.value_number) FILTER (WHERE (ch2_latest.point_code = ANY (ARRAY['CH2_PROCESS_DELTA_T_F'::text, 'CH3_PROCESS_DELTA_T_F'::text]))) AS process_delta_t_f\n           FROM ch2_latest\n        ), fresh AS (\n         SELECT agg.latest_updated_at,\n            agg.heartbeat_updated_at,\n            agg.raw_heartbeat,\n            agg.system_running,\n            agg.comp_1a_enabled,\n            agg.comp_1b_enabled,\n            agg.comp_1c_enabled,\n            agg.comp_2a_enabled,\n            agg.comp_2b_enabled,\n            agg.comp_2c_enabled,\n            agg.chiller_entering_f,\n            agg.chiller_leaving_f,\n            agg.flow_c1_gpm,\n            agg.flow_c2_gpm,\n            agg.capacity_c1_tons,\n            agg.evap_out_c1_f,\n            agg.evap_out_c2_f,\n            agg.process_delta_t_f,\n            (COALESCE(agg.raw_heartbeat, false) AND (agg.latest_updated_at > (now() - '00:01:00'::interval))) AS fresh_heartbeat\n           FROM agg\n        )\n SELECT 'CH-NJ-02'::text AS asset_code,\n    'ESP32-CH2-PLC'::text AS device_code,\n    fresh_heartbeat AS is_online,\n    fresh_heartbeat AS heartbeat,\n    COALESCE(system_running, false) AS system_running,\n    COALESCE(comp_1a_enabled, false) AS comp_1a_enabled,\n    COALESCE(comp_1b_enabled, false) AS comp_1b_enabled,\n    COALESCE(comp_1c_enabled, false) AS comp_1c_enabled,\n    COALESCE(comp_2a_enabled, false) AS comp_2a_enabled,\n    COALESCE(comp_2b_enabled, false) AS comp_2b_enabled,\n    COALESCE(comp_2c_enabled, false) AS comp_2c_enabled,\n    chiller_entering_f,\n    chiller_leaving_f,\n    flow_c1_gpm,\n    flow_c2_gpm,\n    capacity_c1_tons,\n    evap_out_c1_f,\n    evap_out_c2_f,\n    process_delta_t_f,\n    heartbeat_updated_at,\n    latest_updated_at\n   FROM fresh;",
+    "v_ch3_dashboard": " WITH agg AS (\n         SELECT max(ch3_latest.updated_at) AS latest_updated_at,\n            max(ch3_latest.updated_at) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_HEARTBEAT'::text, 'CH3_HEARTBEAT'::text]))) AS heartbeat_updated_at,\n            bool_or(ch3_latest.value_boolean) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_HEARTBEAT'::text, 'CH3_HEARTBEAT'::text]))) AS raw_heartbeat,\n            bool_or(ch3_latest.value_boolean) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_SYSTEM_RUNNING'::text, 'CH3_SYSTEM_RUNNING'::text]))) AS system_running,\n            bool_or(ch3_latest.value_boolean) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_COMP_1A_ENABLED'::text, 'CH3_COMP_1A_ENABLED'::text]))) AS comp_1a_enabled,\n            bool_or(ch3_latest.value_boolean) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_COMP_1B_ENABLED'::text, 'CH3_COMP_1B_ENABLED'::text]))) AS comp_1b_enabled,\n            bool_or(ch3_latest.value_boolean) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_COMP_1C_ENABLED'::text, 'CH3_COMP_1C_ENABLED'::text]))) AS comp_1c_enabled,\n            bool_or(ch3_latest.value_boolean) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_COMP_2A_ENABLED'::text, 'CH3_COMP_2A_ENABLED'::text]))) AS comp_2a_enabled,\n            bool_or(ch3_latest.value_boolean) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_COMP_2B_ENABLED'::text, 'CH3_COMP_2B_ENABLED'::text]))) AS comp_2b_enabled,\n            bool_or(ch3_latest.value_boolean) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_COMP_2C_ENABLED'::text, 'CH3_COMP_2C_ENABLED'::text]))) AS comp_2c_enabled,\n            max(ch3_latest.value_number) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_CHILLER_ENTERING_F'::text, 'CH3_CHILLER_ENTERING_F'::text]))) AS chiller_entering_f,\n            max(ch3_latest.value_number) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_CHILLER_LEAVING_F'::text, 'CH3_CHILLER_LEAVING_F'::text]))) AS chiller_leaving_f,\n            max(ch3_latest.value_number) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_FLOW_C1_GPM'::text, 'CH3_FLOW_C1_GPM'::text]))) AS flow_c1_gpm,\n            max(ch3_latest.value_number) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_FLOW_C2_GPM'::text, 'CH3_FLOW_C2_GPM'::text]))) AS flow_c2_gpm,\n            (max(ch3_latest.value_number) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_CAPACITY_C1_TONS'::text, 'CH3_CAPACITY_C1_TONS'::text]))))::integer AS capacity_c1_tons,\n            (max(ch3_latest.value_number) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_CAPACITY_C2_TONS'::text, 'CH3_CAPACITY_C2_TONS'::text]))))::integer AS capacity_c2_tons,\n            max(ch3_latest.value_number) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_EVAP_OUT_C1_F'::text, 'CH3_EVAP_OUT_C1_F'::text]))) AS evap_out_c1_f,\n            max(ch3_latest.value_number) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_EVAP_OUT_C2_F'::text, 'CH3_EVAP_OUT_C2_F'::text]))) AS evap_out_c2_f,\n            max(ch3_latest.value_number) FILTER (WHERE (ch3_latest.point_code = ANY (ARRAY['CH2_PROCESS_DELTA_T_F'::text, 'CH3_PROCESS_DELTA_T_F'::text]))) AS process_delta_t_f,\n            (max(ch3_latest.value_number) FILTER (WHERE (ch3_latest.raw_register = 40023)) / 10.0) AS ch2_r40023,\n            (max(ch3_latest.value_number) FILTER (WHERE (ch3_latest.raw_register = 40061)))::integer AS system_demand_percent\n           FROM ch3_latest\n        ), fresh AS (\n         SELECT agg.latest_updated_at,\n            agg.heartbeat_updated_at,\n            agg.raw_heartbeat,\n            agg.system_running,\n            agg.comp_1a_enabled,\n            agg.comp_1b_enabled,\n            agg.comp_1c_enabled,\n            agg.comp_2a_enabled,\n            agg.comp_2b_enabled,\n            agg.comp_2c_enabled,\n            agg.chiller_entering_f,\n            agg.chiller_leaving_f,\n            agg.flow_c1_gpm,\n            agg.flow_c2_gpm,\n            agg.capacity_c1_tons,\n            agg.capacity_c2_tons,\n            agg.evap_out_c1_f,\n            agg.evap_out_c2_f,\n            agg.process_delta_t_f,\n            agg.ch2_r40023,\n            agg.system_demand_percent,\n            (COALESCE(agg.raw_heartbeat, false) AND (agg.latest_updated_at > (now() - '00:01:00'::interval))) AS fresh_heartbeat\n           FROM agg\n        )\n SELECT 'CH-NJ-03'::text AS asset_code,\n    'ESP32-CH3-PLC'::text AS device_code,\n    fresh_heartbeat AS is_online,\n    fresh_heartbeat AS heartbeat,\n    COALESCE(system_running, false) AS system_running,\n    COALESCE(comp_1a_enabled, false) AS comp_1a_enabled,\n    COALESCE(comp_1b_enabled, false) AS comp_1b_enabled,\n    COALESCE(comp_1c_enabled, false) AS comp_1c_enabled,\n    COALESCE(comp_2a_enabled, false) AS comp_2a_enabled,\n    COALESCE(comp_2b_enabled, false) AS comp_2b_enabled,\n    COALESCE(comp_2c_enabled, false) AS comp_2c_enabled,\n    chiller_entering_f,\n    chiller_leaving_f,\n    flow_c1_gpm,\n    flow_c2_gpm,\n    capacity_c1_tons,\n    capacity_c2_tons,\n    evap_out_c1_f,\n    evap_out_c2_f,\n    process_delta_t_f,\n    ch2_r40023,\n    system_demand_percent,\n    heartbeat_updated_at,\n    latest_updated_at\n   FROM fresh;",
+    "v_nj_monitoring_overview": " WITH slots(asset_code, asset_name, asset_type, source_code) AS (\n         VALUES ('CH-NJ-01'::text,'Chiller 1'::text,'chiller'::text,'CH-NJ-01'::text), ('CH-NJ-02'::text,'Chiller 2'::text,'chiller'::text,'CH-NJ-02'::text), ('CH-NJ-03'::text,'Chiller 3'::text,'chiller'::text,'CH-NJ-03'::text), ('BARREL-NJ-01'::text,'Material Barrel 1'::text,'barrel'::text,'BARREL-NJ-02'::text), ('BARREL-NJ-02'::text,'Material Barrel 2'::text,'barrel'::text,'BARREL-NJ-01'::text)\n        ), points_summary AS (\n         SELECT v_asset_points_latest.asset_code,\n            max(v_asset_points_latest.updated_at) AS updated_at,\n            bool_or(\n                CASE\n                    WHEN (v_asset_points_latest.data_type = 'boolean'::text) THEN (v_asset_points_latest.value_boolean IS TRUE)\n                    WHEN (v_asset_points_latest.data_type = 'number'::text) THEN\n                    CASE\n                        WHEN ((upper(v_asset_points_latest.point_code) ~ similar_to_escape('%(TEMP|CHW|COND|INLET|OUTLET|SUCTION|DISCHARGE|PRESSURE|COMP)%'::text)) OR (upper(v_asset_points_latest.point_group) ~ similar_to_escape('%(TEMPERATURE|PRESSURE|COMPRESSOR)%'::text))) THEN (v_asset_points_latest.value_number > (0)::double precision)\n                        ELSE (v_asset_points_latest.value_number <> (0)::double precision)\n                    END\n                    ELSE (COALESCE(TRIM(BOTH FROM v_asset_points_latest.value_text), ''::text) <> ''::text)\n                END) AS chiller_has_data,\n            bool_or(\n                CASE\n                    WHEN (v_asset_points_latest.data_type = 'boolean'::text) THEN (v_asset_points_latest.value_boolean IS NOT NULL)\n                    WHEN (v_asset_points_latest.data_type = 'number'::text) THEN (v_asset_points_latest.value_number IS NOT NULL)\n                    ELSE ((COALESCE(TRIM(BOTH FROM v_asset_points_latest.value_text), ''::text) <> ''::text) OR (upper(v_asset_points_latest.point_code) ~ similar_to_escape('%(STATUS|ALARM|LOW)%'::text)) OR (upper(v_asset_points_latest.point_name) ~ similar_to_escape('%(STATUS|ALARM)%'::text)))\n                END) AS barrel_has_data,\n            bool_or(v_asset_points_latest.value_boolean) FILTER (WHERE (v_asset_points_latest.point_code = ANY (ARRAY['BARREL1_ONLINE'::text, 'BARREL2_ONLINE'::text]))) AS barrel_online,\n            bool_or(v_asset_points_latest.value_boolean) FILTER (WHERE (v_asset_points_latest.point_code = 'CH1_COMP1'::text)) AS comp_1a_enabled,\n            bool_or(v_asset_points_latest.value_boolean) FILTER (WHERE (v_asset_points_latest.point_code = 'CH1_COMP2'::text)) AS comp_1b_enabled,\n            max(v_asset_points_latest.value_number) FILTER (WHERE (v_asset_points_latest.point_code = ANY (ARRAY['BARREL1_LEVEL_PERCENT'::text, 'BARREL2_LEVEL_PERCENT'::text]))) AS level_percent,\n            bool_or(v_asset_points_latest.value_boolean) FILTER (WHERE (v_asset_points_latest.point_code = ANY (ARRAY['BARREL1_HAS_ERROR'::text, 'BARREL2_HAS_ERROR'::text]))) AS has_error\n           FROM v_asset_points_latest\n          WHERE (v_asset_points_latest.asset_code = ANY (ARRAY['CH-NJ-01'::text, 'BARREL-NJ-01'::text, 'BARREL-NJ-02'::text]))\n          GROUP BY v_asset_points_latest.asset_code\n        ), dashboards AS (\n         SELECT 'CH-NJ-02'::text AS asset_code,\n            max(v_ch2_dashboard.latest_updated_at) AS updated_at,\n            COALESCE((max(v_ch2_dashboard.latest_updated_at) > (now() - '00:00:45'::interval)), false) AS is_online,\n            bool_or(v_ch2_dashboard.comp_1a_enabled) AS comp_1a_enabled,\n            bool_or(v_ch2_dashboard.comp_1b_enabled) AS comp_1b_enabled,\n            bool_or(v_ch2_dashboard.comp_1c_enabled) AS comp_1c_enabled,\n            bool_or(v_ch2_dashboard.comp_2a_enabled) AS comp_2a_enabled,\n            bool_or(v_ch2_dashboard.comp_2b_enabled) AS comp_2b_enabled,\n            bool_or(v_ch2_dashboard.comp_2c_enabled) AS comp_2c_enabled\n           FROM v_ch2_dashboard\n        UNION ALL\n         SELECT 'CH-NJ-03'::text AS text,\n            max(v_ch3_dashboard.latest_updated_at) AS max,\n            bool_or(v_ch3_dashboard.is_online) AS bool_or,\n            bool_or(v_ch3_dashboard.comp_1a_enabled) AS bool_or,\n            bool_or(v_ch3_dashboard.comp_1b_enabled) AS bool_or,\n            bool_or(v_ch3_dashboard.comp_1c_enabled) AS bool_or,\n            bool_or(v_ch3_dashboard.comp_2a_enabled) AS bool_or,\n            bool_or(v_ch3_dashboard.comp_2b_enabled) AS bool_or,\n            bool_or(v_ch3_dashboard.comp_2c_enabled) AS bool_or\n           FROM v_ch3_dashboard\n        )\n SELECT s.asset_code,\n    s.asset_name,\n    s.asset_type,\n    COALESCE(d.updated_at, p.updated_at) AS updated_at,\n        CASE\n            WHEN (s.asset_code = ANY (ARRAY['CH-NJ-02'::text, 'CH-NJ-03'::text])) THEN COALESCE(d.is_online, false)\n            WHEN (s.asset_type = 'barrel'::text) THEN COALESCE(((p.updated_at > (now() - '00:00:16'::interval)) AND COALESCE(p.barrel_online, p.barrel_has_data)), false)\n            ELSE COALESCE(((p.updated_at > (now() - '00:00:16'::interval)) AND p.chiller_has_data), false)\n        END AS is_online,\n    COALESCE(d.comp_1a_enabled, p.comp_1a_enabled) AS comp_1a_enabled,\n    COALESCE(d.comp_1b_enabled, p.comp_1b_enabled) AS comp_1b_enabled,\n    d.comp_1c_enabled,\n    d.comp_2a_enabled,\n    d.comp_2b_enabled,\n    d.comp_2c_enabled,\n    p.level_percent,\n    p.has_error\n   FROM ((slots s\n     LEFT JOIN points_summary p ON ((p.asset_code = s.source_code)))\n     LEFT JOIN dashboards d ON ((d.asset_code = s.source_code)));"
+  },
+  "grants": [
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch2_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_latest",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "ch3_point_map",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch2_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "postgres",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "YES",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "anon",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "authenticated",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "INSERT",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "SELECT",
+      "with_hierarchy": "YES"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "UPDATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "DELETE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRUNCATE",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "REFERENCES",
+      "with_hierarchy": "NO"
+    },
+    {
+      "grantee": "service_role",
+      "grantor": "postgres",
+      "table_name": "v_ch3_dashboard",
+      "is_grantable": "NO",
+      "table_schema": "public",
+      "table_catalog": "postgres",
+      "privilege_type": "TRIGGER",
+      "with_hierarchy": "NO"
+    }
+  ],
+  "columns": [
+    {
+      "data_type": "text",
+      "table_name": "ch2_latest",
+      "column_name": "point_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch2_latest",
+      "column_name": "asset_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch2_latest",
+      "column_name": "device_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch2_latest",
+      "column_name": "point_name",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "numeric",
+      "table_name": "ch2_latest",
+      "column_name": "value_number",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "boolean",
+      "table_name": "ch2_latest",
+      "column_name": "value_boolean",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "integer",
+      "table_name": "ch2_latest",
+      "column_name": "raw_register",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "integer",
+      "table_name": "ch2_latest",
+      "column_name": "raw_value",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "timestamp with time zone",
+      "table_name": "ch2_latest",
+      "column_name": "updated_at",
+      "is_nullable": "NO",
+      "column_default": "now()"
+    },
+    {
+      "data_type": "bigint",
+      "table_name": "ch2_point_map",
+      "column_name": "id",
+      "is_nullable": "NO",
+      "column_default": "nextval('ch2_point_map_id_seq'::regclass)"
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch2_point_map",
+      "column_name": "asset_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch2_point_map",
+      "column_name": "device_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch2_point_map",
+      "column_name": "point_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch2_point_map",
+      "column_name": "point_name",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch2_point_map",
+      "column_name": "source_kind",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "integer",
+      "table_name": "ch2_point_map",
+      "column_name": "reg_num",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "integer",
+      "table_name": "ch2_point_map",
+      "column_name": "bit_index",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "numeric",
+      "table_name": "ch2_point_map",
+      "column_name": "scale",
+      "is_nullable": "NO",
+      "column_default": "1"
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch2_point_map",
+      "column_name": "unit",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "integer",
+      "table_name": "ch2_point_map",
+      "column_name": "sort_order",
+      "is_nullable": "NO",
+      "column_default": "0"
+    },
+    {
+      "data_type": "boolean",
+      "table_name": "ch2_point_map",
+      "column_name": "is_enabled",
+      "is_nullable": "NO",
+      "column_default": "true"
+    },
+    {
+      "data_type": "timestamp with time zone",
+      "table_name": "ch2_point_map",
+      "column_name": "created_at",
+      "is_nullable": "NO",
+      "column_default": "now()"
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch3_latest",
+      "column_name": "point_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch3_latest",
+      "column_name": "asset_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch3_latest",
+      "column_name": "device_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch3_latest",
+      "column_name": "point_name",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "numeric",
+      "table_name": "ch3_latest",
+      "column_name": "value_number",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "boolean",
+      "table_name": "ch3_latest",
+      "column_name": "value_boolean",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "integer",
+      "table_name": "ch3_latest",
+      "column_name": "raw_register",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "integer",
+      "table_name": "ch3_latest",
+      "column_name": "raw_value",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "timestamp with time zone",
+      "table_name": "ch3_latest",
+      "column_name": "updated_at",
+      "is_nullable": "NO",
+      "column_default": "now()"
+    },
+    {
+      "data_type": "bigint",
+      "table_name": "ch3_point_map",
+      "column_name": "id",
+      "is_nullable": "NO",
+      "column_default": "nextval('ch2_point_map_id_seq'::regclass)"
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch3_point_map",
+      "column_name": "asset_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch3_point_map",
+      "column_name": "device_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch3_point_map",
+      "column_name": "point_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch3_point_map",
+      "column_name": "point_name",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch3_point_map",
+      "column_name": "source_kind",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "integer",
+      "table_name": "ch3_point_map",
+      "column_name": "reg_num",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "integer",
+      "table_name": "ch3_point_map",
+      "column_name": "bit_index",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "numeric",
+      "table_name": "ch3_point_map",
+      "column_name": "scale",
+      "is_nullable": "NO",
+      "column_default": "1"
+    },
+    {
+      "data_type": "text",
+      "table_name": "ch3_point_map",
+      "column_name": "unit",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "integer",
+      "table_name": "ch3_point_map",
+      "column_name": "sort_order",
+      "is_nullable": "NO",
+      "column_default": "0"
+    },
+    {
+      "data_type": "boolean",
+      "table_name": "ch3_point_map",
+      "column_name": "is_enabled",
+      "is_nullable": "NO",
+      "column_default": "true"
+    },
+    {
+      "data_type": "timestamp with time zone",
+      "table_name": "ch3_point_map",
+      "column_name": "created_at",
+      "is_nullable": "NO",
+      "column_default": "now()"
+    },
+    {
+      "data_type": "uuid",
+      "table_name": "devices",
+      "column_name": "id",
+      "is_nullable": "NO",
+      "column_default": "gen_random_uuid()"
+    },
+    {
+      "data_type": "uuid",
+      "table_name": "devices",
+      "column_name": "asset_id",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "devices",
+      "column_name": "device_code",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "devices",
+      "column_name": "device_name",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "devices",
+      "column_name": "device_type",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "devices",
+      "column_name": "communication_type",
+      "is_nullable": "NO",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "devices",
+      "column_name": "ip_address",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "devices",
+      "column_name": "mac_address",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "devices",
+      "column_name": "firmware_version",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "text",
+      "table_name": "devices",
+      "column_name": "plc_protocol",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "timestamp with time zone",
+      "table_name": "devices",
+      "column_name": "last_seen_at",
+      "is_nullable": "YES",
+      "column_default": null
+    },
+    {
+      "data_type": "boolean",
+      "table_name": "devices",
+      "column_name": "is_active",
+      "is_nullable": "NO",
+      "column_default": "true"
+    },
+    {
+      "data_type": "timestamp with time zone",
+      "table_name": "devices",
+      "column_name": "created_at",
+      "is_nullable": "NO",
+      "column_default": "now()"
+    },
+    {
+      "data_type": "text",
+      "table_name": "devices",
+      "column_name": "device_secret",
+      "is_nullable": "YES",
+      "column_default": null
+    }
+  ],
+  "indexes": [
+    {
+      "indexdef": "CREATE UNIQUE INDEX ch2_latest_pkey ON public.ch2_latest USING btree (point_code)",
+      "indexname": "ch2_latest_pkey",
+      "tablename": "ch2_latest",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX ch2_latest_device_idx ON public.ch2_latest USING btree (device_code)",
+      "indexname": "ch2_latest_device_idx",
+      "tablename": "ch2_latest",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX ch2_latest_updated_idx ON public.ch2_latest USING btree (updated_at DESC)",
+      "indexname": "ch2_latest_updated_idx",
+      "tablename": "ch2_latest",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX ch2_point_map_pkey ON public.ch2_point_map USING btree (id)",
+      "indexname": "ch2_point_map_pkey",
+      "tablename": "ch2_point_map",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX ch2_point_map_point_code_key ON public.ch2_point_map USING btree (point_code)",
+      "indexname": "ch2_point_map_point_code_key",
+      "tablename": "ch2_point_map",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX ch2_point_map_device_idx ON public.ch2_point_map USING btree (device_code)",
+      "indexname": "ch2_point_map_device_idx",
+      "tablename": "ch2_point_map",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX ch2_point_map_reg_idx ON public.ch2_point_map USING btree (reg_num)",
+      "indexname": "ch2_point_map_reg_idx",
+      "tablename": "ch2_point_map",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX ch3_latest_pkey ON public.ch3_latest USING btree (point_code)",
+      "indexname": "ch3_latest_pkey",
+      "tablename": "ch3_latest",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX ch3_latest_device_code_idx ON public.ch3_latest USING btree (device_code)",
+      "indexname": "ch3_latest_device_code_idx",
+      "tablename": "ch3_latest",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX ch3_latest_updated_at_idx ON public.ch3_latest USING btree (updated_at DESC)",
+      "indexname": "ch3_latest_updated_at_idx",
+      "tablename": "ch3_latest",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX ch3_point_map_pkey ON public.ch3_point_map USING btree (id)",
+      "indexname": "ch3_point_map_pkey",
+      "tablename": "ch3_point_map",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE UNIQUE INDEX ch3_point_map_point_code_key ON public.ch3_point_map USING btree (point_code)",
+      "indexname": "ch3_point_map_point_code_key",
+      "tablename": "ch3_point_map",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX ch3_point_map_device_code_idx ON public.ch3_point_map USING btree (device_code)",
+      "indexname": "ch3_point_map_device_code_idx",
+      "tablename": "ch3_point_map",
+      "schemaname": "public",
+      "tablespace": null
+    },
+    {
+      "indexdef": "CREATE INDEX ch3_point_map_reg_num_idx ON public.ch3_point_map USING btree (reg_num)",
+      "indexname": "ch3_point_map_reg_num_idx",
+      "tablename": "ch3_point_map",
+      "schemaname": "public",
+      "tablespace": null
+    }
+  ],
+  "policies": [
+    {
+      "cmd": "SELECT",
+      "qual": "true",
+      "roles": [
+        "public"
+      ],
+      "tablename": "ch2_latest",
+      "permissive": "PERMISSIVE",
+      "policyname": "ch2_latest_read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "ch2_latest",
+      "permissive": "PERMISSIVE",
+      "policyname": "insert_ch2_latest",
+      "schemaname": "public",
+      "with_check": "true"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "true",
+      "roles": [
+        "public"
+      ],
+      "tablename": "ch2_latest",
+      "permissive": "PERMISSIVE",
+      "policyname": "public_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "true",
+      "roles": [
+        "public"
+      ],
+      "tablename": "ch2_point_map",
+      "permissive": "PERMISSIVE",
+      "policyname": "public_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "true",
+      "roles": [
+        "public"
+      ],
+      "tablename": "ch3_latest",
+      "permissive": "PERMISSIVE",
+      "policyname": "ch3_latest_read",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "INSERT",
+      "qual": null,
+      "roles": [
+        "public"
+      ],
+      "tablename": "ch3_latest",
+      "permissive": "PERMISSIVE",
+      "policyname": "insert_ch3_latest",
+      "schemaname": "public",
+      "with_check": "true"
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "true",
+      "roles": [
+        "public"
+      ],
+      "tablename": "ch3_latest",
+      "permissive": "PERMISSIVE",
+      "policyname": "public_select",
+      "schemaname": "public",
+      "with_check": null
+    },
+    {
+      "cmd": "SELECT",
+      "qual": "true",
+      "roles": [
+        "public"
+      ],
+      "tablename": "ch3_point_map",
+      "permissive": "PERMISSIVE",
+      "policyname": "public_select",
+      "schemaname": "public",
+      "with_check": null
+    }
+  ],
+  "security": [
+    {
+      "rls": true,
+      "name": "ch2_latest",
+      "owner": "postgres",
+      "options": null,
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "name": "v_ch2_dashboard",
+      "owner": "postgres",
+      "options": [
+        "security_invoker=true"
+      ],
+      "force_rls": false
+    },
+    {
+      "rls": true,
+      "name": "ch3_latest",
+      "owner": "postgres",
+      "options": null,
+      "force_rls": false
+    },
+    {
+      "rls": false,
+      "name": "v_ch3_dashboard",
+      "owner": "postgres",
+      "options": [
+        "security_invoker=true"
+      ],
+      "force_rls": false
+    }
+  ],
+  "captured_at": "2026-09-12T22:27:07.469743+00:00",
+  "rpc_security": [
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "name": "ingest_ch2",
+      "owner": "postgres"
+    },
+    {
+      "acl": [
+        "=X/postgres",
+        "postgres=X/postgres",
+        "anon=X/postgres",
+        "authenticated=X/postgres",
+        "service_role=X/postgres"
+      ],
+      "name": "ingest_ch3",
+      "owner": "postgres"
+    }
+  ]
+}

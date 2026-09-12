@@ -1,3 +1,2 @@
 export const POINT_DETAIL_COLUMNS = 'asset_id,asset_code,asset_name,asset_type,point_id,point_code,point_name,point_group,data_type,value_number,value_boolean,value_text,unit,updated_at,display_order'
 export const OVERVIEW_COLUMNS = 'asset_code,asset_name,asset_type,updated_at,is_online,comp_1a_enabled,comp_1b_enabled,comp_1c_enabled,comp_2a_enabled,comp_2b_enabled,comp_2c_enabled,level_percent,has_error'
-export const DASHBOARD_COLUMNS = 'asset_code,device_code,is_online,heartbeat,system_running,comp_1a_enabled,comp_1b_enabled,comp_1c_enabled,comp_2a_enabled,comp_2b_enabled,comp_2c_enabled,chiller_entering_f,chiller_leaving_f,flow_c1_gpm,flow_c2_gpm,capacity_c1_tons,evap_out_c1_f,evap_out_c2_f,process_delta_t_f,heartbeat_updated_at,latest_updated_at'
