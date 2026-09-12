@@ -7,9 +7,9 @@ The delivery message supplies the implementation commit SHA.
 
 ## Deployment status
 
-Implementation and local verification are complete. The SQL migration has NOT been applied to the live Supabase database, and the frontend has NOT been deployed. Apply supabase/add_nj_monitoring_overview.sql before releasing the frontend; the overview deliberately has no fallback to the expensive sources. Existing SQL files use descriptive names directly under supabase/, which this migration follows.
+The monitoring overview and CH2 freshness fix are deployed to production. The CH2 follow-up migration supabase/fix_ch2_overview_freshness.sql was applied, and [PR #7](https://github.com/simscope/Farmplast/pull/7) was merged on 2026-09-12. The verified production release SHA is d26cea722fe7571d04acbacc10556f385fcf9990. See the CH2 follow-up section below for production verification. Existing SQL files use descriptive names directly under supabase/; supabase/add_nj_monitoring_overview.sql remains the fresh-install definition.
 
-Live read-only requests verified every selected column on v_asset_points_latest, telemetry_latest, ch2_latest, ch3_latest, v_ch2_dashboard and v_ch3_dashboard, plus the NJ assets, device codes, and relevant point codes. The repository does not contain the original definitions of these views/tables, and the public API does not expose their full DDL. Migration execution was tested in embedded PostgreSQL against fixtures using those verified columns, not against production. Production permissions and query plans should be checked when applying the migration.
+Initial read-only requests verified every selected column on v_asset_points_latest, telemetry_latest, ch2_latest, ch3_latest, v_ch2_dashboard and v_ch3_dashboard, plus the NJ assets, device codes, and relevant point codes. The repository does not contain the original definitions of these views/tables, and the public API does not expose their full DDL. Before release, migration execution was tested in embedded PostgreSQL against fixtures using those verified columns. The CH2 follow-up was subsequently applied and its overview contract verified in production; this does not constitute a production query-plan audit.
 
 ## View contract and security
 
@@ -45,13 +45,13 @@ The barrel swap was explicitly confirmed by the user and is identical on overvie
 
 The SQL expression updated_at > now() - interval '16 seconds' preserves the existing JavaScript floor(secondsAgo) <= 15 boundary. CH1 meaningful-data parity is tested against monitoringHelpers.getAssetStatus. Barrel detail uses the same existing 15-second threshold and explicitly gates stored ONLINE bits so a stopped ESP becomes offline. CH3 retains its existing dashboard status. CH2 alone overrides the legacy dashboard status with the 45-second freshness rule described below.
 
-## CH2 false-OFFLINE follow-up (not deployed)
+## CH2 false-OFFLINE follow-up (deployed to production)
 
 CH-NJ-02 uses latest_updated_at freshness for ONLINE on both the overview and its HMI. Normally reporting firmware may publish around every 15 seconds; the legacy v_ch2_dashboard.is_online can expire between updates. The presentation layer therefore deliberately ignores that legacy boolean for CH2, even when it is false but the latest telemetry is fresh. The underlying v_ch2_dashboard definition and ingest_ch2 are not changed.
 
 The nominal window is 45 seconds. Both implementations match the task's explicit SQL predicate exactly: latest_updated_at > now() - interval '45 seconds'. Thus 10 seconds, 44 seconds and 44.999 seconds are ONLINE; exactly 45 seconds and older are OFFLINE. NULL/missing/invalid timestamps are OFFLINE. No rounding to whole seconds is used. SQL uses server time; the HMI uses browser time on the existing polling cycle, so a materially incorrect browser clock can affect its badge.
 
-For an existing installation, apply supabase/fix_ch2_overview_freshness.sql as a follow-up before deploying this frontend. It transactionally replaces only v_nj_monitoring_overview with the same five fixed rows, 13 public columns, invoker security and grants. supabase/add_nj_monitoring_overview.sql is kept identical as the fresh-install source of truth; tests prevent drift and reapply the follow-up twice. Nothing drops/recreates the underlying dashboard views, ingestion objects or data.
+supabase/fix_ch2_overview_freshness.sql was applied to production before the frontend release. It transactionally replaces only v_nj_monitoring_overview with the same five fixed rows, 13 public columns, invoker security and grants. supabase/add_nj_monitoring_overview.sql is kept identical as the fresh-install source of truth; tests prevent drift and reapply the follow-up twice. Nothing drops/recreates the underlying dashboard views, ingestion objects or data.
 
 Chiller2HMIPage calls the small isCh2Online helper with dashboard.latest_updated_at; it still requests exactly v_ch2_dashboard and ch2_latest every five seconds while visible. The overview still makes one compact request every 15 seconds. No new queries, subscriptions, timers or fields are added. Compressor decoding, all telemetry values, CH1, CH3 and the intentional barrel swap/freshness rules remain unchanged.
 
@@ -59,7 +59,15 @@ Deterministic tests cover SQL/JavaScript freshness parity, the exact threshold, 
 
 Follow-up verification: npm test passes all 21 tests; npm run build passes; npm run lint has zero errors and the same six pre-existing hook warnings. The existing /fonts/micr.ttf build warning remains. npm scripts were run through node and the installed npm-cli.js because the shell npm launcher is broken.
 
-This follow-up is implementation and local verification only. No production deployment, migration application or PR merge is authorized for this task.
+[PR #7](https://github.com/simscope/Farmplast/pull/7) was merged at 2026-09-12 15:30:14 UTC and the frontend deployment succeeded. Production release SHA: d26cea722fe7571d04acbacc10556f385fcf9990.
+
+Production verification confirmed:
+
+- /monitoring/nj displayed Chiller 2 ONLINE.
+- /monitoring/nj/chiller-2 displayed Online: YES.
+- v_nj_monitoring_overview retained exactly five rows and 13 columns. At 2026-09-12 15:30:26.943966 UTC, CH2 telemetry was 3.737424 seconds old and its overview status was ONLINE.
+- CH1, CH3, barrels, firmware, ingest_ch2, Modbus and telemetry frequency were unchanged by this release.
+
 ## Refresh behavior
 
 | Route | Initial refresh | Normal interval | Requests per refresh |
@@ -79,7 +87,7 @@ Hidden documents have no polling timer; showing the tab causes one immediate gua
 
 CH3 raw reads accept its existing CH2_R prefix as well as CH3_R. Only verified dashboard columns are requested: CH2 does not have capacity_c2_tons, ch2_r40023 or system_demand_percent, so its existing raw-register values remain the source for those displays; CH3 retains its verified extra columns.
 
-## Verification
+## Original egress implementation verification (historical)
 
 - Production frontend build: PASS.
 - Full frontend lint: PASS, zero errors; six warnings in unchanged ChillerIllustration, AuthContext and EmployeeDetailsPage.
@@ -112,7 +120,7 @@ One read-only sample on September 9, 2026 UTC measured these uncompressed JSON b
 | ch3_latest raw registers | 51 | 9,384 |
 | Total | 383 | 129,883 |
 
-Because the old point/dashboard requests used SELECT *, this is a conservative projected baseline, not an exact captured old wire response. The compact 13-column/five-row JSON serialization from that sample was 1,588 bytes (approximately 1.6 KB). Actual PostgREST timestamp/number formatting may differ slightly. This is a local projection estimate, not a response from the undeployed new view.
+Because the old point/dashboard requests used SELECT *, this is a conservative projected baseline, not an exact captured old wire response. The compact 13-column/five-row JSON serialization from that sample was 1,588 bytes (approximately 1.6 KB). Actual PostgREST timestamp/number formatting may differ slightly. This is a local projection estimate, not a response from the then-undeployed new view.
 
 That is about 98.78% less body data per refresh. At normal intervals, the estimated polling-only totals are at least 2,244,378,240 bytes/day (2.24 GB) before versus about 9,146,880 bytes/day (9.15 MB) after: approximately 99.59% less uncompressed body data. This excludes HTTP/TLS headers, compression, Realtime messages and event-triggered fetches; it is not a prediction of billed egress. Real usage should be measured after deployment.
 
@@ -132,6 +140,6 @@ That is about 98.78% less body data per refresh. At normal intervals, the estima
 - supabase/add_nj_monitoring_overview.sql: exact view definition and public read grant.
 - docs/nj-monitoring-egress.md: this report.
 
-## Review preparation
+## Original review preparation (historical)
 
-Fetched origin and directly verified remote main at cf7fc99893781455c1af16a8f7df24036d9e57c9. Git rebase origin/main reported that codex/nj-monitoring-egress was already up to date; no conflicts or rewritten optimization commits were necessary. The original optimization commit 6bd82cffdb528e028086ee338e3e8f441f40f42d remains in branch history, and the main ZKT bridge/recovery files are unchanged. Added a migration reapplication test covering its stable five-row contract and security_invoker setting. Production migration/frontend deployment and PR merge are explicitly excluded from this review task.
+Fetched origin and directly verified remote main at cf7fc99893781455c1af16a8f7df24036d9e57c9. Git rebase origin/main reported that codex/nj-monitoring-egress was already up to date; no conflicts or rewritten optimization commits were necessary. The original optimization commit 6bd82cffdb528e028086ee338e3e8f441f40f42d remains in branch history, and the main ZKT bridge/recovery files are unchanged. Added a migration reapplication test covering its stable five-row contract and security_invoker setting. Production migration/frontend deployment and PR merge were excluded from that original review task. The later CH2 production release is recorded above.
