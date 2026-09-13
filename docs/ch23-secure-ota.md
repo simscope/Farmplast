@@ -108,6 +108,8 @@ Deploy `supabase/functions/chiller-ota/` with JWT gateway verification disabled
 as in `supabase/config.toml`; authentication is mandatory inside the handler.
 Configure server secrets `CHILLER_OTA_WEB_ORIGIN`, `CHILLER_OTA_OPERATOR_IDS`,
 `CHILLER_OTA_OPERATOR_CODE`, `CH2_OTA_DEVICE_KEY`, `CH3_OTA_DEVICE_KEY`.
+`CHILLER_OTA_WEB_ORIGIN` accepts a comma-separated list of exact origins, allowing
+the authenticated PR preview alongside production without wildcard access.
 Supabase supplies its URL and service-role environment. Provision the new CH3
 ingest secret on its existing device row; preserve CH2's working ingest secret.
 

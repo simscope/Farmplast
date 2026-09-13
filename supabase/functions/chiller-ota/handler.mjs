@@ -6,11 +6,12 @@ export function createHandler(createClient, getEnv) {
 const env = name => { const value = getEnv(name); if (!value) throw new Error('OTA not configured'); return value }
 return async req => {
   const origin = req.headers.get('origin')
-  const allowedOrigin = getEnv('CHILLER_OTA_WEB_ORIGIN')
+  const allowedOrigins = (getEnv('CHILLER_OTA_WEB_ORIGIN') || '').split(',').map(value=>value.trim()).filter(Boolean)
+  const allowedOrigin = origin && allowedOrigins.includes(origin)
   const headers = { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', 'Vary': 'Origin' }
-  if (origin && origin === allowedOrigin) Object.assign(headers, { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS' })
+  if (allowedOrigin) Object.assign(headers, { 'Access-Control-Allow-Origin': origin, 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS' })
   const reply = (body, status = 200) => new Response(JSON.stringify(body), { status, headers })
-  if (origin && origin !== allowedOrigin) return reply({ error: 'Origin rejected' }, 403)
+  if (origin && !allowedOrigin) return reply({ error: 'Origin rejected' }, 403)
   if (req.method === 'OPTIONS') return new Response(null, { headers })
   if (req.method !== 'POST') return reply({ error: 'POST required' }, 405)
   try {

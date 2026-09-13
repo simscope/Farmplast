@@ -138,6 +138,13 @@ test('HTTP authorization rejects untrusted users, bad PIN, rate limits and devic
  let identity=null,allowed=true
  const fake={auth:{getUser:async()=>({data:{user:identity},error:null})},rpc:async()=>({data:allowed,error:null}),from:()=>({insert:async()=>({data:null,error:null})})}
  const handler=createHandler(()=>fake,key=>env[key])
+ env.CHILLER_OTA_WEB_ORIGIN='https://production.example,https://preview.example'
+ for(const origin of ['https://production.example','https://preview.example']) {
+  const response=await handler(new Request('https://test.invalid',{method:'POST',headers:{origin},body:JSON.stringify({device:device(2),op:'status'})}))
+  assert.equal(response.status,401)
+  assert.equal(response.headers.get('Access-Control-Allow-Origin'),origin)
+ }
+ assert.equal((await handler(new Request('https://test.invalid',{method:'POST',headers:{origin:'https://preview.example.attacker.invalid'},body:'{}'}))).status,403)
  const request=(body,key)=>new Request('https://test.invalid',{method:'POST',headers:{authorization:'Bearer test',...(key?{'x-chiller-device-key':key}:{})},body:JSON.stringify({device:device(2),...body})})
  assert.equal((await handler(request({op:'queue'}))).status,401)
  identity={id:'other'};assert.equal((await handler(request({op:'unlock',code:'1234'}))).status,403)
