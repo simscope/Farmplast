@@ -11,6 +11,7 @@ import {
   Target,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import ChillerProgramming from '../components/ChillerProgramming'
 import useMonitoringPolling from '../hooks/useMonitoringPolling'
 
 import { isCh2Online } from '../utils/ch2Status'
@@ -114,13 +115,15 @@ export default function Chiller2HMIPage() {
   const [rawRows, setRawRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [lastError, setLastError] = useState('')
+  const [programming, setProgramming] = useState(null)
+  const [programmingError, setProgrammingError] = useState('')
 
   const loadTelemetry = useCallback(async (signal, silent) => {
     try {
       if (!silent) setLoading(true)
       setLastError('')
 
-      const [{ data: dashboardData, error: dashboardError }, { data: rawData, error: rawError }] =
+      const [{ data: dashboardData, error: dashboardError }, { data: rawData, error: rawError }, ota] =
         await Promise.all([
           supabase.from('v_ch2_dashboard').select(CH2_DASHBOARD_COLUMNS).single().abortSignal(signal),
           supabase
@@ -130,9 +133,12 @@ export default function Chiller2HMIPage() {
             )
             .in('raw_register', [40023, 40024, 40025, 40051, 40052, 40056, 40057, 40061])
             .order('raw_register', { ascending: true }).abortSignal(signal),
+          supabase.functions.invoke('chiller-ota', {body:{op:'status',device:'ESP32-CH2-PLC'},signal,timeout:10000}),
         ])
 
       if (signal.aborted) return
+      setProgramming(ota.data?.error || ota.error ? null : ota.data)
+      setProgrammingError(ota.data?.error || (ota.error ? 'Programming service unavailable or access denied.' : ''))
       if (dashboardError) throw dashboardError
       if (rawError) throw rawError
 
@@ -282,6 +288,10 @@ export default function Chiller2HMIPage() {
               Refresh
             </button>
           </div>
+        </div>
+
+        <div className="mb-6 rounded-2xl border border-white/10 bg-[#0f172a] p-4">
+          <ChillerProgramming deviceCode="ESP32-CH2-PLC" label="Chiller 2" data={programming} error={programmingError} onRefresh={loadData} />
         </div>
 
         {lastError ? (

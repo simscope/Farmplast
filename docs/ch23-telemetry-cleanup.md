@@ -101,6 +101,8 @@ after deployment; local tests do not constitute a production ingestion check.
 
 The user confirmed the discovered `D:/Farmplast/chiller 2/ethernet/ethernet.ino`
 and `D:/Farmplast/chiller 3/ethernet/ethernet.ino` are **not** the current deployed
-sources. Do not derive OTA firmware from these files. PR B firmware implementation
-requires the exact current sources, preserving each device's networking behavior.
+sources. Do not derive OTA firmware from these files. This historical prerequisite
+was resolved for PR B: the owner supplied the SHA-256 verified CH2 v2.0.3 production
+source. CH3 has no physical deployed device; its new firmware is intentionally
+derived from that CH2 baseline. See `ch23-secure-ota.md` for provenance and rollout.
 No board has been flashed and no remote OTA has been tested as part of this PR.
