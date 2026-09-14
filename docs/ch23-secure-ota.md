@@ -128,9 +128,33 @@ It does not queue programming. Use a new version for each later firmware build.
 
 ## Validation evidence and limits
 
-36 automated tests pass, including production-derived migration replay/idempotency,
+37 automated tests pass, including production-derived migration replay/idempotency,
 cross-device rejection, grants/timeouts, RLS/Storage isolation, new-boot telemetry
 completion and wrong-target image rejection. Frontend build passes; lint has zero
 errors and six pre-existing warnings. The existing MICR font build warning remains.
 Physical flash capacity, power-loss rollback and real OTA need hardware validation.
 Deployment receipts and exact build hashes are recorded separately after execution.
+
+## PR #11 pre-merge verification
+
+Production OTA migration and `chiller-ota` are deployed. Its five server settings
+are configured; `verify_jwt=false` applies only to this function, as explicitly
+authorized by the owner. Custom operator/device authentication remains mandatory.
+Anonymous status/queue and invalid or cross-device keys return HTTP 401; a valid
+operator's scoped status returns HTTP 200. Malformed reports using the correct
+device key return HTTP 400 without registering a device. Exact production and PR
+preview origins are permitted; unrelated origins are rejected.
+
+At 2026-09-13T21:51:09.622787Z all seven OTA tables had RLS enabled, anonymous
+table/function access was denied, Storage was private, both latest datasets had
+21 rows, and overview retained five rows / 13 columns. No devices or jobs were
+registered. Authenticated preview checks on 2026-09-14 confirmed the visible
+Firmware Programming section on both routes, OTA NOT INITIALIZED, first-install
+guidance, NO APPROVED FIRMWARE AVAILABLE and disabled programming. CH3 additionally
+states hardware is not present. No approved binary release has been published.
+
+PR #11 remains unmerged and production frontend remains on PR A pending the
+owner's pre-merge review. CH2 still needs first UART installation and a real OTA
+acceptance test. CH3 hardware is absent; provision its prepared ingest credential
+before future physical installation. No first flash or successful Internet OTA
+is claimed for either target. CH1 is unchanged.
