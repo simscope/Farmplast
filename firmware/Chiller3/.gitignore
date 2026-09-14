@@ -1,0 +1,7 @@
+secrets.h
+ota_config.h
+network_config.h
+build/
+*.bin
+*.elf
+*.map

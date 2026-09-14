@@ -1,3 +1,7 @@
 # Only this new endpoint uses custom authentication; existing functions are untouched.
 [functions.ch1-ota]
 verify_jwt = false
+
+# Shared CH2/CH3 endpoint validates every browser/device request itself.
+[functions.chiller-ota]
+verify_jwt = false
