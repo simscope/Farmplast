@@ -1,4 +1,4 @@
-import { digest, equalSecret, sign, validQueue } from './protocol.mjs'
+import { digest, equalSecret, sign, validQueue, validFailureReport } from './protocol.mjs'
 import { devices } from './protocol.mjs'
 
 // Custom auth is mandatory on EVERY branch: verified user + allowlist, or dedicated device secret.
@@ -35,13 +35,17 @@ return async req => {
       const secret = env(device.key)
       if (secret.length < 32 || !await equalSecret(req.headers.get('x-chiller-device-key') || '', secret)) return reply({ error: 'Unauthorized' }, 401)
       if (!/^[A-Za-z0-9._-]{1,48}$/.test(body.version || '') || !/^[0-9a-f]{32}$/.test(body.boot || '') || !['idle','authorized','downloading','verifying','installing','rebooting','waiting_for_telemetry','completed','failed'].includes(body.status) || !Number.isInteger(body.progress) || body.progress<0 || body.progress>100) return reply({ error: 'Invalid report' }, 400)
-      const result = await checked(db.rpc('chiller_device_sync', { p_device: body.device, p_version: body.version, p_boot: body.boot, p_job: body.job || null, p_status: body.status, p_progress: body.progress }))
+      if (!validFailureReport(body)) return reply({ error: 'Invalid failure code' }, 400)
+      const args = { p_device: body.device, p_version: body.version, p_boot: body.boot, p_job: body.job || null, p_status: body.status, p_progress: body.progress }
+      const result = await checked(db.rpc(body.failure_code == null ? 'chiller_device_sync' : 'chiller_device_sync_diagnostic', body.failure_code == null ? args : {...args,p_failure_code:body.failure_code}))
       if (result.o) {
         const job=result.o
         if(job.device!==body.device || job.model!==device.model || !job.path.startsWith(body.device+'/')) throw new Error('Scope mismatch')
         const link=await checked(db.storage.from('chiller-firmware').createSignedUrl(job.path,Math.max(1,job.expires-Math.floor(Date.now()/1000))))
         delete job.path
         result.o={...job,url:link.signedUrl,mac:await sign(job,secret)}
+        // Response prepared, not proof of device receipt. Never audit URL or manifest.
+        await checked(db.rpc('chiller_ota_observe',{p_device:body.device,p_job:job.id,p_event:'manifest_signed_and_returned'}))
       }
       return reply(result)
     }

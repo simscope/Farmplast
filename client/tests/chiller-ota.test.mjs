@@ -3,7 +3,7 @@ import assert from 'node:assert/strict'
 import { readFile } from 'node:fs/promises'
 import { PGlite } from '@electric-sql/pglite'
 import { createHandler } from '../../supabase/functions/chiller-ota/handler.mjs'
-import { sign } from '../../supabase/functions/chiller-ota/protocol.mjs'
+import { sign, failureCodes, validFailureReport } from '../../supabase/functions/chiller-ota/protocol.mjs'
 import { inspectImage } from '../../firmware/prepare-chiller-release.mjs'
 
 test('release preparation rejects wrong target, version, chip and oversized images', () => {
@@ -178,4 +178,75 @@ test('firmware and HMI preserve compact telemetry, device scope and shared polli
  assert.match(header,/esp_ota_mark_app_invalid_rollback_and_reboot/)
  assert.doesNotMatch(header,/setInsecure|xTaskCreate/)
 })
+test('future failure codes are allowlisted, authenticated, scoped and idempotent',async()=>{
+ const sql=await read('chiller_ota_failure_diagnostics.sql');await db.exec(sql);await db.exec(sql)
+ const job=id(501)
+ await db.query(`insert into chiller_ota_jobs(id,device,operator_id,release_id,source_boot) values($1,$2,$3,$4,$5)`,[job,device(2),user,id(2),boot])
+ const diagnostic=(n,code,status='failed')=>db.query('select chiller_device_sync_diagnostic($1,$2,$3,$4,$5,0,$6)',[device(n),'old',boot,job,status,code])
+ for(const code of failureCodes){assert(validFailureReport({job,status:'failed',failure_code:code}));assert(sql.includes(`'${code}'`))}
+ for(const code of ['https://private.invalid/?token=secret','arbitrary server response',123]) {
+  assert(!validFailureReport({job,status:'failed',failure_code:code}))
+  await assert.rejects(diagnostic(2,code),/Invalid failure code/)
+ }
+ assert(!validFailureReport({job,status:'downloading',failure_code:'download_timeout'}))
+ assert(validFailureReport({status:'failed'}));assert(validFailureReport({status:'idle',failure_code:null}))
+ await diagnostic(3,'download_timeout')
+ assert.equal((await db.query('select status from chiller_ota_jobs where id=$1',[job])).rows[0].status,'authorized')
+ await diagnostic(2,'stage_sync_failed');await diagnostic(2,'ota_write_failed')
+ assert.equal((await db.query('select failure from chiller_ota_jobs where id=$1',[job])).rows[0].failure,'stage_sync_failed')
+ assert.equal((await db.query("select count(*)::int n from chiller_ota_events where job_id=$1 and event like 'failure_code:%'",[job])).rows[0].n,1)
+ await db.exec('set role anon');await assert.rejects(diagnostic(2,'stage_sync_failed'),/permission denied/);await db.exec('reset role')
+ let called
+ const env={SUPABASE_URL:'https://test.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-only',CH2_OTA_DEVICE_KEY:'x'.repeat(32)}
+ const handler=createHandler(()=>({rpc:async(name)=>{called=name;return{data:{device:device(2)},error:null}}}),key=>env[key])
+ const request=(failure_code,key=env.CH2_OTA_DEVICE_KEY)=>new Request('https://test.invalid',{method:'POST',headers:{'x-chiller-device-key':key},body:JSON.stringify({op:'sync',device:device(2),version:'old',boot,job,status:'failed',progress:0,...(failure_code===undefined?{}:{failure_code})})})
+ assert.equal((await handler(request('stage_sync_failed','wrong'))).status,401)
+ assert.equal((await handler(request('https://private.invalid'))).status,400)
+ assert.equal((await handler(request('stage_sync_failed'))).status,200);assert.equal(called,'chiller_device_sync_diagnostic')
+ assert.equal((await handler(request(undefined))).status,200);assert.equal(called,'chiller_device_sync')
+})
+
+
+
+test('observability distinguishes device phases and manifests without rewriting terminal history',async()=>{
+ const sql=await read('chiller_ota_observability.sql')
+ const before=(await db.query('select * from chiller_ota_events order by id')).rows
+ await db.exec(sql);await db.exec(sql)
+ assert.deepEqual((await db.query('select * from chiller_ota_events order by id')).rows,before)
+ const job=id(601)
+ await telemetry(2);await sync(2);await grant(2,'observe');await queue(2,'observe',job,id(2))
+ const events=async()=>(await db.query('select event from chiller_ota_events where job_id=$1 order by id',[job])).rows.map(r=>r.event)
+ const observe=(n,event)=>db.query('select chiller_ota_observe($1,$2,$3)',[device(n),job,event])
+ assert.deepEqual(await events(),['authorized'])
+ await sync(3,'old',boot,job,'authorized');assert.deepEqual(await events(),['authorized'])
+ await sync(2);await sync(2)
+ assert.deepEqual(await events(),['authorized','manifest_selected'])
+ await observe(3,'manifest_signed_and_returned');assert.equal((await events()).length,2)
+ await observe(2,'manifest_signed_and_returned');await observe(2,'manifest_signed_and_returned')
+ await sync(2,'old',boot,job,'authorized');await sync(2,'old',boot,job,'authorized')
+ await sync(2,'old',boot,job,'downloading');await sync(2,'old',boot,job,'downloading')
+ await sync(2,'old',boot,job,'failed');await sync(2,'old',boot,job,'failed')
+ assert.deepEqual(await events(),['authorized','manifest_selected','manifest_signed_and_returned','device_report_authorized','device_report_downloading','downloading','device_report_failed','failed'])
+ const terminal=await events()
+ await observe(2,'device_report_verifying');await observe(2,'manifest_signed_and_returned')
+ await db.exec(sql);assert.deepEqual(await events(),terminal)
+ await assert.rejects(observe(2,'https://secret.invalid/token'),/Invalid observation/)
+ await db.exec('set role anon');await assert.rejects(observe(2,'manifest_selected'),/permission denied/);await db.exec('reset role')
+ assert((await events()).every(e=>/^(authorized|downloading|failed|manifest_selected|manifest_signed_and_returned|device_report_(authorized|downloading|failed))$/.test(e)))
+})
+
+test('signed manifest audit follows successful private signing and contains identifiers only',async()=>{
+ const calls=[];let failSigning=false
+ const manifest={id:id(700),device:device(2),model:'CH2-WT32-ETH01-v1',path:device(2)+'/next/file.bin',expires:Math.floor(Date.now()/1000)+600,version:'next',size:1234,sha256:'a'.repeat(64),action:'update'}
+ const env={SUPABASE_URL:'https://test.invalid',SUPABASE_SERVICE_ROLE_KEY:'test-only',CH2_OTA_DEVICE_KEY:'x'.repeat(32)}
+ const handler=createHandler(()=>({rpc:async(name,args)=>{calls.push({name,args});return {data:name==='chiller_device_sync'?{o:{...manifest}}:null}},storage:{from:()=>({createSignedUrl:async()=>{calls.push({name:'sign'});return failSigning?{error:true}:{data:{signedUrl:'https://private.invalid/?token=DO_NOT_AUDIT'}}}})}}),k=>env[k])
+ const request=()=>new Request('https://test.invalid',{method:'POST',headers:{'x-chiller-device-key':env.CH2_OTA_DEVICE_KEY},body:JSON.stringify({op:'sync',device:device(2),version:'old',boot,status:'idle',progress:0})})
+ assert.equal((await handler(request())).status,200)
+ assert.deepEqual(calls.map(c=>c.name),['chiller_device_sync','sign','chiller_ota_observe'])
+ assert.deepEqual(calls[2].args,{p_device:device(2),p_job:id(700),p_event:'manifest_signed_and_returned'})
+ assert(!JSON.stringify(calls).includes('DO_NOT_AUDIT'))
+ calls.length=0;failSigning=true;assert.equal((await handler(request())).status,503)
+ assert.deepEqual(calls.map(c=>c.name),['chiller_device_sync','sign'])
+})
+
 test.after(()=>db.close())

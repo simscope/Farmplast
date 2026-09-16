@@ -24,5 +24,20 @@ test('programming presentation explains initial installation and blocks offline 
   const active=render(2,{device:{version:'old',last_seen:new Date().toISOString()},releases:[],jobs:[{status:'downloading',progress:50}]})
   assert.match(active,/DOWNLOADING/);assert.match(active,/50%/)
   assert.doesNotMatch(active,/PROGRAMMING SUCCESSFUL/)
+  const failure=render(2,{device:null,releases:[],jobs:[{status:'failed',progress:0,failure:'device_reported_failure'}]})
+  assert.match(failure,/Device reported an OTA failure before installation completed\./)
+  assert.match(failure,/Diagnostic code: device_reported_failure/)
  } finally {await server.close()}
+})
+
+test('programming fields retain explicit dark styling including native options', async()=>{
+ const {readFile}=await import('node:fs/promises')
+ const source=await readFile(new URL('../src/components/ChillerProgramming.jsx',import.meta.url),'utf8')
+ assert.match(source,/const field=\{[^\n]*minHeight:44[^\n]*padding:'10px 12px'[^\n]*borderRadius:10[^\n]*border:'1px solid #64748b'[^\n]*background:'#0f172a'[^\n]*color:'#ffffff'[^\n]*colorScheme:'dark'/)
+ assert.match(source,/const option=\{background:'#0f172a',color:'#ffffff'\}/)
+ assert.match(source,/<select style=\{field\}/)
+ assert.equal([...source.matchAll(/<option style=\{option\}/g)].length,2)
+ assert.match(source,/<input style=\{field\}/)
+ assert.match(source,/maxHeight:'calc\(100dvh - 32px\)',overflowY:'auto'/)
+ assert.match(source,/gap:12,flexWrap:'wrap'/)
 })
