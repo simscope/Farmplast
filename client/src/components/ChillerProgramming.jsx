@@ -2,6 +2,8 @@ import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
 
 const button={padding:'12px 16px',borderRadius:12,border:'1px solid #64748b',background:'#0f172a',color:'#fff',cursor:'pointer',fontWeight:800}
+const field={display:'block',boxSizing:'border-box',width:'100%',minWidth:0,minHeight:44,marginTop:6,padding:'10px 12px',borderRadius:10,border:'1px solid #64748b',background:'#0f172a',color:'#ffffff',colorScheme:'dark',fontSize:16}
+const option={background:'#0f172a',color:'#ffffff'}
 const labels={idle:'IDLE',authorized:'AUTHORIZED',downloading:'DOWNLOADING',verifying:'VERIFYING',installing:'INSTALLING',rebooting:'REBOOTING',waiting_for_telemetry:'WAITING FOR DEVICE / TELEMETRY',completed:'PROGRAMMING SUCCESSFUL',failed:'FAILED'}
 async function call(body) {
   const {data,error}=await supabase.functions.invoke('chiller-ota',{body,timeout:15000})
@@ -50,18 +52,18 @@ export default function ChillerProgramming({deviceCode,label,data,error,onRefres
       <strong>{labels[latest?.status||'idle']}</strong>
       {latest&&Number.isFinite(latest.progress)&&<div className="mt-2"><progress aria-label="Firmware update progress" max="100" value={latest.progress} /> <span>{latest.progress}%</span></div>}
     </div>
-    {latest?.failure && <p role="alert">{latest.failure}</p>}
+    {latest?.failure && <div role="alert"><p>{latest.failure==='device_reported_failure'?'Device reported an OTA failure before installation completed.':latest.failure==='deadline_exceeded'?'The firmware update timed out before completion was confirmed.':'The firmware update failed. Review the diagnostic code before retrying.'}</p><p className="mt-1 break-words text-xs text-slate-400">Diagnostic code: {latest.failure}</p></div>}
     <p role="status">{message}</p>{error && <p role="alert">{error}</p>}
     {open && <div role="dialog" aria-modal="true" aria-labelledby="program-title" style={{position:'fixed',inset:0,zIndex:2100,background:'rgba(2,6,23,.85)',display:'grid',placeItems:'center',padding:16}}>
-      <form onSubmit={program} style={{background:'#0f172a',border:'1px solid #64748b',borderRadius:20,padding:24,width:'100%',maxWidth:480}}>
+      <form onSubmit={program} style={{background:'#0f172a',border:'1px solid #64748b',borderRadius:20,padding:24,width:'100%',maxWidth:480,maxHeight:'calc(100dvh - 32px)',overflowY:'auto',boxSizing:'border-box'}}>
         <h2 id="program-title">Program {label} firmware?</h2>
         <p>Current version: <strong>{data?.device?.version||'—'}</strong></p>
         <p>The controller will download the firmware and reboot.<br />Monitoring will be temporarily unavailable.</p>
-        <p><label>Target version <select required value={release} disabled={busy} onChange={e=>{setRelease(e.target.value);request.current=null}}><option value="">Select firmware</option>{versions.map(r=><option key={r.id} value={r.id}>{r.version} · {r.size} bytes</option>)}</select></label></p>
+        <p><label>Target version <select style={field} required value={release} disabled={busy} onChange={e=>{setRelease(e.target.value);request.current=null}}><option style={option} value="">Select firmware</option>{versions.map(r=><option style={option} key={r.id} value={r.id}>{r.version} · {r.size} bytes</option>)}</select></label></p>
         {selected?.size!=null&&<p>Firmware size: {selected.size.toLocaleString()} bytes</p>}
-        <p><label>Programming code <input autoFocus type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={code} disabled={busy} onChange={e=>setCode(e.target.value)} /></label></p>
+        <p><label>Programming code <input style={field} autoFocus type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={code} disabled={busy} onChange={e=>setCode(e.target.value)} /></label></p>
         <p role="alert">{message}</p>
-        <div style={{display:'flex',gap:12}}><button type="button" style={button} disabled={busy} onClick={()=>{setOpen(false);setCode('')}}>CANCEL</button><button style={button} disabled={busy || !online || !selected || code.length!==4}>{busy?'AUTHORIZING…':'CONFIRM PROGRAMMING'}</button></div>
+        <div style={{display:'flex',gap:12,flexWrap:'wrap'}}><button type="button" style={button} disabled={busy} onClick={()=>{setOpen(false);setCode('')}}>CANCEL</button><button style={button} disabled={busy || !online || !selected || code.length!==4}>{busy?'AUTHORIZING…':'CONFIRM PROGRAMMING'}</button></div>
       </form>
     </div>}
   </section>
