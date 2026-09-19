@@ -14,6 +14,7 @@
 #include <time.h>
 #include "ota_config.h"
 #include "network_config.h"
+#include "../common/TelemetryPostResult.h"
 
 #if __has_include(<esp_arduino_version.h>)
   #include <esp_arduino_version.h>
@@ -872,11 +873,18 @@ void diagnoseInternet() {
 // ======================================================
 // SUPABASE POST
 // ======================================================
-bool postToSupabase() {
-  if (!ch.valid || time(nullptr)<1700000000) return false;
+TelemetryPostResult postToSupabase() {
+  if (!ch.valid) {
+    Serial.println("[POST] Skip: no valid PLC sample");
+    return POST_SKIPPED_NO_DATA;
+  }
+  if (time(nullptr)<1700000000) {
+    Serial.println("[POST] Skip: time not ready");
+    return POST_SKIPPED_TIME_NOT_READY;
+  }
   if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("[POST] Skip: Wi-Fi offline");
-    return false;
+    Serial.println("[POST] Network unavailable: Wi-Fi offline");
+    return POST_NETWORK_FAILED;
   }
 
   forceInternetToWiFi();
@@ -894,7 +902,7 @@ bool postToSupabase() {
   if (!http.begin(client, SUPABASE_RPC_URL)) {
     Serial.println("[POST] http.begin FAILED");
     client.stop();
-    return false;
+    return POST_HTTP_FAILED;
   }
 
   http.addHeader("Content-Type", "application/json");
@@ -943,11 +951,14 @@ bool postToSupabase() {
     diagnoseInternet();
   }
 
-  return ok;
+  return ok ? POST_OK : POST_HTTP_FAILED;
 }
 
-void handlePostResult(bool ok) {
-  if (ok) {
+void handlePostResult(TelemetryPostResult result) {
+  if (result == POST_SKIPPED_NO_DATA || result == POST_SKIPPED_TIME_NOT_READY) {
+    return;  // Preserve the real POST failure count; never recover Wi-Fi for PLC/time.
+  }
+  if (result == POST_OK) {
     if (consecutivePostFailures > 0) {
       Serial.println("[POST] Internet recovered");
     }
