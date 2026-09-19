@@ -38,6 +38,12 @@ The raw snapshot is preserved privately outside Git as
 `interrupted_update` does not establish the underlying interruption cause;
 this fix addresses the independently confirmed POST classification bug.
 
+The owner observed the device reboot back into `ch2-secure-1-diag1` shortly
+after the manifest response, before any `device_report_authorized` event.
+The timing does not support claiming that the POST-isolation bug caused this
+OTA reboot. The confirmed telemetry recovery bug is fixed by this branch;
+the root OTA reset cause remains unresolved pending `reset_reason` evidence.
+
 ## Validation and release boundary
 
 Eight regression tests execute the firmware POST/handler/loop statements with
@@ -45,9 +51,18 @@ mocked PLC, clock and network boundaries, translating only C++ syntax needed
 for the existing Node test runner. They cover skips with existing failure counts,
 HTTP failure/recovery/success, offline Wi-Fi, failed HTTP initialization, and OTA
 service after an invalid poll. These tests do not replace an ESP32 compile or a
-hardware acceptance test. No new firmware target is built or released here.
+hardware acceptance test. Compile validation does not create or publish a new
+OTA release; existing release records, failed job and history remain untouched.
 
 Validation: 53/53 tests passed (including eight new regression tests); lint
 reported zero errors and six existing frontend hook warnings. The presentation
 test emitted a non-fatal Vite dependency-scan/server-close diagnostic; its tests
-passed. `git diff --check` passed. Firmware compilation was deliberately not run.
+passed. `git diff --check` passed.
+
+CH2 and CH3 compile validation passed with ESP32 Arduino core 3.3.8 and
+`esp32:esp32:wt32-eth01:FlashMode=dio,FlashFreq=40,PartitionScheme=default`.
+Both partition binaries match the validated default layout, with 1,310,720-byte
+OTA slots. Ignored private configuration headers were used without committing
+them. `TelemetryPostResult.h` contains only an enum protected by `#pragma once`:
+no storage definitions, dynamic allocation or cross-sketch symbol collisions.
+No behavior changes were required for compilation.
