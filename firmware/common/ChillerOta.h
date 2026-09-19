@@ -2,6 +2,10 @@
 #include <Preferences.h>
 #include <esp_ota_ops.h>
 #include <esp_system.h>
+#include <esp_heap_caps.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <utility>
 #include <mbedtls/md.h>
 #include <mbedtls/sha256.h>
 
@@ -58,6 +62,22 @@ static const char* otaSafePhase(const String& phase) {
 static int otaProgress=0;
 static unsigned long otaBootStarted=0, otaLastExchange=0;
 struct OtaJob { String id,version,sha,url; uint32_t size; int64_t expires; };
+static OtaJob otaPendingJob{};
+static bool otaPending=false;
+
+// Rare transition diagnostics only. No payload, URL, credential or HMAC logging.
+static void otaCheckpoint(const char* checkpoint) {
+  Serial.printf("[OTA] %s\n",checkpoint);
+  Serial.printf("[OTA] resources free_heap=%u min_free_heap=%u largest_block=%u",
+    (unsigned)heap_caps_get_free_size(MALLOC_CAP_8BIT),
+    (unsigned)heap_caps_get_minimum_free_size(MALLOC_CAP_8BIT),
+    (unsigned)heap_caps_get_largest_free_block(MALLOC_CAP_8BIT));
+#if INCLUDE_uxTaskGetStackHighWaterMark
+  // ESP-IDF reports bytes (not upstream FreeRTOS words); nullptr = current task.
+  Serial.printf(" stack_hwm_bytes=%u",(unsigned)uxTaskGetStackHighWaterMark(nullptr));
+#endif
+  Serial.println();
+}
 
 static String otaHex(const uint8_t* bytes,size_t count) {
   const char* digits="0123456789abcdef"; String value;value.reserve(count*2);
@@ -100,11 +120,17 @@ static bool otaDecode(JsonObject doc,OtaJob& job) {
 }
 static bool otaStage(const char* phase,int progress) {
   otaPhase=phase;otaProgress=progress;
+  if(otaPhase=="authorized") otaCheckpoint("authorized_save_begin");
   if(!otaSave()) return otaFail("state_save_failed");
+  if(otaPhase=="authorized") {
+    otaCheckpoint("authorized_save_ok");
+    otaCheckpoint("authorized_sync_begin");
+  }
   if(!chillerDeviceSync(true)) {
     otaFail("stage_sync_failed");otaSave(); // Best effort persistence only; the stage still aborts.
     return false;
   }
+  if(otaPhase=="authorized") otaCheckpoint("authorized_sync_ok");
   // A successful sync with a terminal server ACK is not a transport failure.
   return otaPhase!="failed";
 }
@@ -170,6 +196,21 @@ static void otaRun(const OtaJob& job) {
   otaPhase="failed";otaSave();chillerDeviceSync(true);
   // Failure automatically returns to the normal sensor/publish loop on the running image.
 }
+static void otaQueueDecodedJob(OtaJob& job) {
+  if(otaPending || job.id==otaJobId || !otaReady) return;
+  // Arduino String move transfers ownership; no JsonDocument references survive.
+  otaPendingJob=std::move(job);
+  otaPending=true;
+  otaCheckpoint("manifest_queued");
+}
+static void chillerOtaRunPending() {
+  if(!otaPending || otaSyncing) return;
+  OtaJob job=std::move(otaPendingJob);
+  otaPendingJob=OtaJob{};
+  otaPending=false; // Consume before any stage sync/failure; never requeue this job.
+  otaCheckpoint("deferred_run_begin");
+  otaRun(job);
+}
 bool chillerDeviceSync(bool updating) {
   if(!otaReady || otaSyncing || WiFi.status()!=WL_CONNECTED || time(nullptr)<1700000000 || strlen(CHILLER_OTA_DEVICE_KEY)<32 || strlen(CHILLER_OTA_CA_PEM)<100) return false;
   otaSyncing=true;otaLastExchange=millis();
@@ -193,11 +234,15 @@ bool chillerDeviceSync(bool updating) {
   }
   otaSyncing=false;
   OtaJob job;
-  if(ok && !updating && result["o"].is<JsonObject>() && otaDecode(result["o"].as<JsonObject>(),job)) otaRun(job);
+  if(ok && !updating && result["o"].is<JsonObject>() && otaDecode(result["o"].as<JsonObject>(),job)) {
+    Serial.printf("[OTA] manifest_decoded job=%s\n",otaSafeJobId(job.id)?job.id.c_str():"invalid");
+    otaCheckpoint("manifest_decoded");
+    otaQueueDecodedJob(job);
+  }
   return ok;
 }
 static void chillerOtaInit() {
-  Serial.printf("[OTA] reset_reason=%s\n",otaResetReason());
+  Serial.printf("[OTA] reset_reason=%s code=%d\n",otaResetReason(),int(esp_reset_reason()));
   uint8_t boot[16];esp_fill_random(boot,sizeof(boot));otaBoot=otaHex(boot,sizeof(boot));
   otaReady=otaPrefs.begin("ch23ota",false);
   const auto running=esp_ota_get_running_partition();

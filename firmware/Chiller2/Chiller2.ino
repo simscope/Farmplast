@@ -988,6 +988,7 @@ void handlePostResult(TelemetryPostResult result) {
 void serviceOta() {
   chillerOtaRecoveryCheck();
   if (millis()-otaLastExchange>=OTA_CHECK_INTERVAL_MS) chillerDeviceSync(false);
+  chillerOtaRunPending(); // Sync locals (HTTP/TLS/JSON) have been destroyed.
 }
 
 // ======================================================

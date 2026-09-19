@@ -35,6 +35,7 @@ test('actual stage body aborts save/sync failures but never mislabels successful
  function run(saveResults,syncResult,terminal=false) {
   const calls=[];const ctx={phase:'authorized',progress:0,otaPhase:'idle',otaProgress:0,failure:''}
   ctx.otaSave=()=>{calls.push('save');return saveResults.shift()??true}
+  ctx.otaCheckpoint=()=>{}
   ctx.otaFail=code=>{calls.push(code);ctx.failure ||= code;return false}
   ctx.chillerDeviceSync=updating=>{assert.equal(updating,true);calls.push('sync');if(terminal)ctx.otaPhase='failed';return syncResult}
   const result=vm.runInNewContext('(function(){'+stage+'})()',ctx)
