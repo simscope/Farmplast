@@ -153,11 +153,14 @@ export function normalizePayrollRow(row, employee = {}) {
     fromZkt && !manuallyEdited
       ? normalizeDefaultLunchHours(employee?.default_lunch_hours)
       : Number(row.lunch_hours || 0)
-  const downtimeHours = getAutomaticDowntimeHours(
-    row.time_in,
-    row.time_out,
-    employee?.downtime_enabled !== false
-  )
+  const hasManualDowntimeOverride =
+    String(row?.source || '').toLowerCase() === 'manual_downtime'
+  const downtimeHours =
+    employee?.downtime_enabled === false
+      ? 0
+      : hasManualDowntimeOverride
+        ? Number(row.downtime_hours || 0)
+        : getAutomaticDowntimeHours(row.time_in, row.time_out, true)
 
   const fullHours =
     employee?.pay_type === 'hourly'
