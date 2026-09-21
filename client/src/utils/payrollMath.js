@@ -38,6 +38,32 @@ export function roundHoursToNearestQuarter(hours) {
   return round2(roundMinutesToNearestQuarter(value * 60) / 60)
 }
 
+export function getShiftDurationHours(timeIn, timeOut) {
+  const start = timeToMinutes(timeIn)
+  let end = timeToMinutes(timeOut)
+
+  if (start === null || end === null) {
+    return 0
+  }
+
+  if (end < start) {
+    end += 24 * 60
+  }
+
+  const rawMinutes = end - start
+  const cappedMinutes = Math.min(rawMinutes, 12 * 60)
+
+  return round2(cappedMinutes / 60)
+}
+
+export function getAutomaticDowntimeHours(timeIn, timeOut, downtimeEnabled = true) {
+  if (!downtimeEnabled) {
+    return 0
+  }
+
+  return getShiftDurationHours(timeIn, timeOut) >= 9 ? 1 : 0
+}
+
 export function calcDayHours(timeIn, timeOut, lunchHours = 0, downtimeHours = 0) {
   const start = timeToMinutes(timeIn)
   let end = timeToMinutes(timeOut)
@@ -127,10 +153,11 @@ export function normalizePayrollRow(row, employee = {}) {
     fromZkt && !manuallyEdited
       ? normalizeDefaultLunchHours(employee?.default_lunch_hours)
       : Number(row.lunch_hours || 0)
-  const downtimeHours =
-    employee?.downtime_enabled === false
-      ? 0
-      : Number(row.downtime_hours || 0)
+  const downtimeHours = getAutomaticDowntimeHours(
+    row.time_in,
+    row.time_out,
+    employee?.downtime_enabled !== false
+  )
 
   const fullHours =
     employee?.pay_type === 'hourly'

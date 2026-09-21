@@ -32,6 +32,7 @@ import {
   roundDollar,
   roundHoursToNearestQuarter,
   calcDayHours,
+  getAutomaticDowntimeHours,
   getShiftLetter,
   getWeeksInSelectedPeriod,
 } from '../utils/payrollMath'
@@ -327,7 +328,7 @@ function buildEmptyRow(downtimeEnabled = true, defaultLunchHours = 1) {
     time_in: '',
     time_out: '',
     lunch_hours: String(normalizeDefaultLunchHours(defaultLunchHours)),
-    downtime_hours: downtimeEnabled ? '1' : '0',
+    downtime_hours: '0',
     reg_hours: '0',
     labor_amount: '0',
     manual_time_in: false,
@@ -959,7 +960,19 @@ export default function EmployeeDetailsPage() {
           nextRow.is_empty = false
         }
 
-        if (employee?.downtime_enabled === false) {
+        if (
+          field === 'time_in' ||
+          field === 'time_out' ||
+          field === 'lunch_hours'
+        ) {
+          nextRow.downtime_hours = String(
+            getAutomaticDowntimeHours(
+              nextRow.time_in,
+              nextRow.time_out,
+              employee?.downtime_enabled !== false
+            )
+          )
+        } else if (employee?.downtime_enabled === false) {
           nextRow.downtime_hours = '0'
         }
 
@@ -1053,11 +1066,13 @@ export default function EmployeeDetailsPage() {
             nextRow.lunch_hours = String(normalizeDefaultLunchHours(employee?.default_lunch_hours))
           }
 
-          if (employee?.downtime_enabled === false) {
-            nextRow.downtime_hours = '0'
-          } else if (nextRow.downtime_hours === '' || nextRow.downtime_hours === null || nextRow.downtime_hours === undefined) {
-            nextRow.downtime_hours = '1'
-          }
+          nextRow.downtime_hours = String(
+            getAutomaticDowntimeHours(
+              field === 'time_in' ? parsedTime : nextRow.time_in,
+              field === 'time_out' ? parsedTime : nextRow.time_out,
+              employee?.downtime_enabled !== false
+            )
+          )
 
           if (field === 'time_in') {
             nextRow.manual_time_in = true
@@ -1111,7 +1126,13 @@ export default function EmployeeDetailsPage() {
       time_in: row.time_in || null,
       time_out: row.time_out || null,
       lunch_hours: hasAnyTime ? Number(row.lunch_hours || 0) : 0,
-      downtime_hours: employee?.downtime_enabled === false ? 0 : hasAnyTime ? Number(row.downtime_hours || 0) : 0,
+      downtime_hours: hasAnyTime
+        ? getAutomaticDowntimeHours(
+            row.time_in,
+            row.time_out,
+            employee?.downtime_enabled !== false
+          )
+        : 0,
       reg_hours: hasAnyTime ? Number(row.reg_hours || 0) : 0,
       labor_amount: hasAnyTime ? Number(row.labor_amount || 0) : 0,
       source: 'manual',
@@ -2253,22 +2274,19 @@ export default function EmployeeDetailsPage() {
                           type="number"
                           step="0.25"
                           min="0"
-                          disabled={employee?.downtime_enabled === false}
+                          disabled
                           value={
-                            employee?.downtime_enabled === false
-                              ? '0'
-                              : rowHasAnyTime(row)
-                                ? row.downtime_hours ?? '1'
-                                : ''
-                          }
-                          onChange={(e) =>
-                            updateRowValue(row.id, 'downtime_hours', e.target.value)
-                          }
-                          className={`${darkInput} ${
-                            employee?.downtime_enabled === false
-                              ? 'cursor-not-allowed opacity-60'
+                            rowHasAnyTime(row)
+                              ? String(
+                                  getAutomaticDowntimeHours(
+                                    row.time_in,
+                                    row.time_out,
+                                    employee?.downtime_enabled !== false
+                                  )
+                                )
                               : ''
-                          }`}
+                          }
+                          className={`${darkInput} cursor-not-allowed opacity-60`}
                         />
 
                         <input
