@@ -58,3 +58,50 @@ test('payroll normalization replaces stale stored downtime with the automatic ru
   assert.equal(longShift.downtime_hours, 1)
   assert.equal(longShift.reg_hours, 7)
 })
+
+
+test('manual downtime override is preserved', () => {
+  const employee = {
+    pay_type: 'hourly',
+    hourly_rate: 20,
+    downtime_enabled: true,
+    default_lunch_hours: 1,
+  }
+
+  const overridden = normalizePayrollRow(
+    {
+      source: 'manual_downtime',
+      time_in: '07:00',
+      time_out: '15:00',
+      downtime_hours: 0.5,
+      lunch_hours: 1,
+    },
+    employee
+  )
+
+  assert.equal(overridden.downtime_hours, 0.5)
+  assert.equal(overridden.reg_hours, 6.5)
+})
+
+test('legacy manual rows still use the automatic rule unless explicitly overridden', () => {
+  const employee = {
+    pay_type: 'hourly',
+    hourly_rate: 20,
+    downtime_enabled: true,
+    default_lunch_hours: 1,
+  }
+
+  const legacyManual = normalizePayrollRow(
+    {
+      source: 'manual',
+      time_in: '07:00',
+      time_out: '15:00',
+      downtime_hours: 1,
+      lunch_hours: 1,
+    },
+    employee
+  )
+
+  assert.equal(legacyManual.downtime_hours, 0)
+  assert.equal(legacyManual.reg_hours, 7)
+})
