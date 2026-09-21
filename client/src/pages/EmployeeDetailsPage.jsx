@@ -960,18 +960,8 @@ export default function EmployeeDetailsPage() {
           nextRow.is_empty = false
         }
 
-        if (
-          field === 'time_in' ||
-          field === 'time_out' ||
-          field === 'lunch_hours'
-        ) {
-          nextRow.downtime_hours = String(
-            getAutomaticDowntimeHours(
-              nextRow.time_in,
-              nextRow.time_out,
-              employee?.downtime_enabled !== false
-            )
-          )
+        if (field === 'downtime_hours') {
+          nextRow.source = 'manual_downtime'
         } else if (employee?.downtime_enabled === false) {
           nextRow.downtime_hours = '0'
         }
@@ -1066,6 +1056,7 @@ export default function EmployeeDetailsPage() {
             nextRow.lunch_hours = String(normalizeDefaultLunchHours(employee?.default_lunch_hours))
           }
 
+          nextRow.source = 'manual'
           nextRow.downtime_hours = String(
             getAutomaticDowntimeHours(
               field === 'time_in' ? parsedTime : nextRow.time_in,
@@ -1119,6 +1110,8 @@ export default function EmployeeDetailsPage() {
 
   function buildWorkLogPayload(row) {
     const hasAnyTime = rowHasAnyTime(row)
+    const hasManualDowntimeOverride =
+      String(row?.source || '').toLowerCase() === 'manual_downtime'
 
     return {
       employee_id: id,
@@ -1127,15 +1120,15 @@ export default function EmployeeDetailsPage() {
       time_out: row.time_out || null,
       lunch_hours: hasAnyTime ? Number(row.lunch_hours || 0) : 0,
       downtime_hours: hasAnyTime
-        ? getAutomaticDowntimeHours(
-            row.time_in,
-            row.time_out,
-            employee?.downtime_enabled !== false
-          )
+        ? employee?.downtime_enabled === false
+          ? 0
+          : hasManualDowntimeOverride
+            ? Number(row.downtime_hours || 0)
+            : getAutomaticDowntimeHours(row.time_in, row.time_out, true)
         : 0,
       reg_hours: hasAnyTime ? Number(row.reg_hours || 0) : 0,
       labor_amount: hasAnyTime ? Number(row.labor_amount || 0) : 0,
-      source: 'manual',
+      source: hasManualDowntimeOverride ? 'manual_downtime' : 'manual',
       manually_edited:
         row.manually_edited === true ||
         row.manual_time_in === true ||
@@ -2274,19 +2267,30 @@ export default function EmployeeDetailsPage() {
                           type="number"
                           step="0.25"
                           min="0"
-                          disabled
+                          disabled={employee?.downtime_enabled === false}
                           value={
-                            rowHasAnyTime(row)
-                              ? String(
-                                  getAutomaticDowntimeHours(
-                                    row.time_in,
-                                    row.time_out,
-                                    employee?.downtime_enabled !== false
-                                  )
-                                )
-                              : ''
+                            employee?.downtime_enabled === false
+                              ? '0'
+                              : rowHasAnyTime(row)
+                                ? String(row?.source || '').toLowerCase() === 'manual_downtime'
+                                  ? row.downtime_hours ?? '0'
+                                  : String(
+                                      getAutomaticDowntimeHours(
+                                        row.time_in,
+                                        row.time_out,
+                                        true
+                                      )
+                                    )
+                                : ''
                           }
-                          className={`${darkInput} cursor-not-allowed opacity-60`}
+                          onChange={(e) =>
+                            updateRowValue(row.id, 'downtime_hours', e.target.value)
+                          }
+                          className={`${darkInput} ${
+                            employee?.downtime_enabled === false
+                              ? 'cursor-not-allowed opacity-60'
+                              : ''
+                          }`}
                         />
 
                         <input
