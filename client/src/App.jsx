@@ -10,6 +10,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const MonitoringPage = lazy(() => import('./pages/MonitoringPage'))
 const MonitoringNJPage = lazy(() => import('./pages/MonitoringNJPage'))
 const MonitoringPAPage = lazy(() => import('./pages/MonitoringPAPage'))
+const MonitoringPASectionPage = lazy(() => import('./pages/MonitoringPASectionPage'))
 const EmployeesPage = lazy(() => import('./pages/EmployeesPage'))
 const EmployeeDetailsPage = lazy(() => import('./pages/EmployeeDetailsPage'))
 const EmployeePayStubPage = lazy(() => import('./pages/EmployeePayStubPage'))
@@ -40,6 +41,10 @@ export default function App() {
           <Route path="/monitoring/nj/barrel-1" element={<BarrelDetailPage key="barrel-1" barrelNumber={1} />} />
           <Route path="/monitoring/nj/barrel-2" element={<BarrelDetailPage key="barrel-2" barrelNumber={2} />} />
           <Route path="/monitoring/pa" element={<MonitoringPAPage />} />
+          <Route path="/monitoring/pa/chillers" element={<MonitoringPASectionPage section="chillers" />} />
+          <Route path="/monitoring/pa/barrels" element={<MonitoringPASectionPage section="barrels" />} />
+          <Route path="/monitoring/pa/machines" element={<MonitoringPASectionPage section="machines" />} />
+          <Route path="/monitoring/pa/climate" element={<MonitoringPASectionPage section="climate" />} />
 
           <Route
             path="/monitoring/nj/chiller-1"

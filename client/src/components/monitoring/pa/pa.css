@@ -55,3 +55,15 @@
 .pa-footer { padding: 28px 0 0; }
 @media (max-width: 1199px) { .pa-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pa-summary { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 599px) { .pa-dashboard { padding: 20px 14px; } .pa-grid { grid-template-columns: minmax(0, 1fr); } .pa-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; } .pa-summary-item { padding: 14px; } .pa-header h1 { font-size: 32px; } .pa-card { padding: 18px; } }
+.pa-overview .pa-container { max-width: 1440px; }
+.pa-section-nav { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 20px; }
+.pa-section-link { display: flex; flex-direction: column; gap: 16px; min-width: 0; padding: 22px 24px; color: #f8fafc; text-decoration: none; border: 1px solid #263349; border-radius: 16px; background: linear-gradient(150deg, #101c30, #081121); transition: border-color .15s, background .15s; }
+.pa-section-link:hover { border-color: #67e8f9; background: #122237; }
+.pa-section-title, .pa-section-bottom, .pa-open { display: flex; align-items: center; gap: 12px; }
+.pa-section-title svg, .pa-open { color: #67e8f9; }
+.pa-section-title h2 { font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: .7px; }
+.pa-section-count { color: #cbd5e1; font-size: 16px; }
+.pa-section-bottom { justify-content: space-between; margin-top: auto; }
+.pa-open { font-size: 12px; font-weight: 800; letter-spacing: 1px; }
+@media (max-width: 599px) { .pa-section-nav { grid-template-columns: minmax(0, 1fr); } .pa-section-link { padding: 20px; } }
+@media (min-width: 1200px) { .pa-overview { padding-top: 24px; padding-bottom: 24px; } .pa-overview .pa-header { margin-bottom: 20px; } }
