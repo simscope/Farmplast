@@ -139,12 +139,14 @@ static bool otaInstall(const OtaJob& job) {
   if(!slot || slot==esp_ota_get_running_partition() || job.size>slot->size) return otaFail("slot_invalid");
   if(job.expires<=time(nullptr)) return otaFail("job_expired");
   if(!otaStage("downloading",0)) return false;
+  CHILLER_DIAG_CHECKPOINT("runtime_before_https_download");
   forceInternetToWiFi();
   WiFiClientSecure tls;tls.setCACert(CHILLER_OTA_CA_PEM);
   HTTPClient http;http.setTimeout(10000);http.setConnectTimeout(5000);
   if(!http.begin(tls,job.url)) return otaFail("download_begin_failed");
   if(http.GET()!=200) {http.end();return otaFail("download_http_status");}
   if(http.getSize()!=int(job.size)) {http.end();return otaFail("download_size_mismatch");}
+  CHILLER_DIAG_CHECKPOINT("runtime_download_open");
   esp_ota_handle_t handle;
   if(esp_ota_begin(slot,job.size,&handle)!=ESP_OK) {http.end();return otaFail("ota_begin_failed");}
   mbedtls_sha256_context sha;mbedtls_sha256_init(&sha);mbedtls_sha256_starts(&sha,0);
@@ -160,6 +162,7 @@ static bool otaInstall(const OtaJob& job) {
     if(available) {
       size_t count=stream->readBytes(buffer,std::min(size_t(remaining),std::min(available,sizeof(buffer))));
       if(!count) {ok=otaFail("download_timeout");break;}
+      if(remaining==job.size) CHILLER_DIAG_CHECKPOINT("runtime_download_first_chunk");
       if(esp_ota_write(handle,buffer,count)!=ESP_OK) {ok=otaFail("ota_write_failed");break;}
       memcpy(scan+carry,buffer,count);size_t scanSize=carry+count;
       for(size_t i=0;i<scanSize;i++) {
@@ -172,7 +175,11 @@ static bool otaInstall(const OtaJob& job) {
     }
     // The ordinary loop is suspended during the transfer. This uses its SAME device
     // exchange, at the same interval, rather than starting another polling task/timer.
-    if(millis()-otaLastExchange>=OTA_CHECK_INTERVAL_MS) chillerDeviceSync(true);
+    if(millis()-otaLastExchange>=OTA_ACTIVE_CHECK_INTERVAL_MS) {
+      CHILLER_DIAG_CHECKPOINT("runtime_during_download");
+      chillerDeviceSync(true);
+    }
+    CHILLER_DIAG_HEALTH();
     delay(1);
   }
   uint8_t digest[32];mbedtls_sha256_finish(&sha,digest);mbedtls_sha256_free(&sha);http.end();
@@ -213,6 +220,7 @@ static void chillerOtaRunPending() {
 }
 bool chillerDeviceSync(bool updating) {
   if(!otaReady || otaSyncing || WiFi.status()!=WL_CONNECTED || time(nullptr)<1700000000 || strlen(CHILLER_OTA_DEVICE_KEY)<32 || strlen(CHILLER_OTA_CA_PEM)<100) return false;
+  CHILLER_DIAG_COUNT(ota_sync_count);
   otaSyncing=true;otaLastExchange=millis();
   WiFiClientSecure tls;tls.setCACert(CHILLER_OTA_CA_PEM);
   HTTPClient http;http.setTimeout(10000);http.setConnectTimeout(5000);
@@ -243,6 +251,7 @@ bool chillerDeviceSync(bool updating) {
 }
 static void chillerOtaInit() {
   Serial.printf("[OTA] reset_reason=%s code=%d\n",otaResetReason(),int(esp_reset_reason()));
+  CHILLER_DIAG_CHECKPOINT("runtime_boot");
   uint8_t boot[16];esp_fill_random(boot,sizeof(boot));otaBoot=otaHex(boot,sizeof(boot));
   otaReady=otaPrefs.begin("ch23ota",false);
   const auto running=esp_ota_get_running_partition();

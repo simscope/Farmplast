@@ -13,6 +13,7 @@ import {
 import { supabase } from '../lib/supabase'
 import ChillerProgramming from '../components/ChillerProgramming'
 import useMonitoringPolling from '../hooks/useMonitoringPolling'
+import useOtaStatus from '../hooks/useOtaStatus'
 
 import { isCh3Online } from '../utils/ch3Status'
 
@@ -115,15 +116,14 @@ export default function Chiller3HMIPage() {
   const [rawRows, setRawRows] = useState([])
   const [loading, setLoading] = useState(true)
   const [lastError, setLastError] = useState('')
-  const [programming, setProgramming] = useState(null)
-  const [programmingError, setProgrammingError] = useState('')
+  const {data:programming,error:programmingError,refresh:refreshProgramming}=useOtaStatus('ESP32-CH3-PLC')
 
   const loadTelemetry = useCallback(async (signal, silent) => {
     try {
       if (!silent) setLoading(true)
       setLastError('')
 
-      const [{ data: dashboardData, error: dashboardError }, { data: rawData, error: rawError }, ota] =
+      const [{ data: dashboardData, error: dashboardError }, { data: rawData, error: rawError }] =
         await Promise.all([
           supabase.from('v_ch3_dashboard').select(CH3_DASHBOARD_COLUMNS).single().abortSignal(signal),
           supabase
@@ -133,12 +133,9 @@ export default function Chiller3HMIPage() {
             )
             .in('raw_register', [40023, 40024, 40025, 40051, 40052, 40056, 40057, 40061])
             .order('raw_register', { ascending: true }).abortSignal(signal),
-          supabase.functions.invoke('chiller-ota', {body:{op:'status',device:'ESP32-CH3-PLC'},signal,timeout:10000}),
         ])
 
       if (signal.aborted) return
-      setProgramming(ota.data?.error || ota.error ? null : ota.data)
-      setProgrammingError(ota.data?.error || (ota.error ? 'Programming service unavailable or access denied.' : ''))
       if (dashboardError) throw dashboardError
       if (rawError) throw rawError
 
@@ -281,7 +278,7 @@ export default function Chiller3HMIPage() {
             </div>
 
             <button
-              onClick={() => loadData()}
+              onClick={() => {loadData();refreshProgramming()}}
               className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-sm text-white/80 transition hover:bg-white/10"
             >
               <RefreshCw size={16} />
@@ -291,7 +288,7 @@ export default function Chiller3HMIPage() {
         </div>
 
         <div className="mb-6 rounded-2xl border border-white/10 bg-[#0f172a] p-4">
-          <ChillerProgramming deviceCode="ESP32-CH3-PLC" label="Chiller 3" data={programming} error={programmingError} onRefresh={loadData} />
+          <ChillerProgramming deviceCode="ESP32-CH3-PLC" label="Chiller 3" data={programming} error={programmingError} onRefresh={refreshProgramming} online={summary.online} />
         </div>
 
         {lastError ? (
