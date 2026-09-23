@@ -62,9 +62,7 @@ static const char* DEVICE_CODE   = "ESP32-CH2-PLC";
 // ======================================================
 // INTERNET OTA
 // ======================================================
-// This endpoint may return 404 until the Edge Function is deployed.
-// That is harmless; telemetry continues normally.
-#include "../common/OtaWakeSchedule.h"
+// OTA discovery rides on the authenticated telemetry response.
 
 // ======================================================
 // CHILLER PLC / MODBUS TCP
@@ -140,7 +138,7 @@ unsigned long lastPostMs       = 0;
 unsigned long lastWifiRetryMs  = 0;
 unsigned long lastNetStatusMs  = 0;
 unsigned long bootMs           = 0;
-unsigned long lastOtaCheckMs   = 0;
+
 
 
 uint16_t txId = 1;
@@ -710,9 +708,9 @@ bool pollChiller() {
 // ======================================================
 // JSON HELPERS
 // ======================================================
-bool chillerDeviceSync(bool updating);
+bool chillerReportOta();
 #include "../common/ChillerOta.h"
-#include "../common/ChillerOtaRealtime.h"
+
 
 void appendUIntReading(
   String& json,
@@ -916,8 +914,7 @@ TelemetryPostResult postToSupabase() {
     "Bearer " + String(SUPABASE_ANON_KEY)
   );
 
-  // Ask PostgREST for the smallest practical response.
-  http.addHeader("Prefer", "return=minimal");
+  // Consume compact RPC response without logging signed URLs.
   http.addHeader("Connection", "close");
 
   String body = buildRpcBody();
@@ -928,6 +925,11 @@ TelemetryPostResult postToSupabase() {
 
   bool ok = code >= 200 && code < 300;
 
+  if (ok) {
+    String response;
+    ok = otaReadResponse(http, response);
+    if (ok) ok = chillerOtaResponse(response, true);
+  }
   if (ok) {
     chillerTelemetryPublished();
     Serial.printf(
@@ -946,8 +948,7 @@ TelemetryPostResult postToSupabase() {
     );
   }
 
-  // Do NOT download/print the RPC response body.
-  // It is unnecessary telemetry egress.
+  // Release HTTP/TLS before the loop executes any pending installation.
   http.end();
   client.stop();
 
@@ -994,8 +995,7 @@ void handlePostResult(TelemetryPostResult result) {
 // ======================================================
 void serviceOta() {
   chillerOtaRecoveryCheck();
-  if (chillerOtaSyncDue()) chillerDeviceSync(false);
-  chillerOtaRunPending(); // Sync locals (HTTP/TLS/JSON) have been destroyed.
+  chillerOtaRunPending(); // Telemetry locals (HTTP/TLS/JSON) have been destroyed.
 }
 
 // ======================================================
@@ -1041,7 +1041,6 @@ void setup() {
     handlePostResult(postToSupabase());
   }
 
-  chillerOtaRealtimeInit();
   lastPollMs = millis();
   lastPostMs = millis();
 }
@@ -1070,6 +1069,7 @@ void loop() {
   }
 
   serviceOta();
+  CHILLER_DIAG_HEALTH();
 
   delay(2);
 }

@@ -1,94 +1,10 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFile} from 'node:fs/promises'
-import vm from 'node:vm'
 import {startOtaStatusPolling} from '../src/utils/otaStatusPolling.js'
 import {createHandler} from '../../supabase/functions/chiller-ota/handler.mjs'
 
 const read=path=>readFile(new URL('../../'+path,import.meta.url),'utf8')
-const schedule=await read('firmware/common/OtaWakeSchedule.h')
-function scheduler() {
-  // Execute the production scheduler expressions with uint32 wrap semantics.
-  const ctx={pending:false,seenWake:false,lastWake:0,lastAttempt:0,
-    strcmp:(a,b)=>a===b?0:1,uint32_t:x=>x>>>0}
-  for(const [,name,value] of schedule.matchAll(/constexpr uint32_t (\w+) = (\d+)UL/g)) ctx[name]=Number(value)
-  vm.createContext(ctx)
-  for(const name of ['wake','due','attempted']) {
-    const [,args,body]=schedule.match(new RegExp(`(?:bool|void) ${name}\\(([^)]*)\\)(?: const)? \\{([^}]+)\\}`))
-    const params=args.replace(/const char\* |uint32_t |bool /g,'')
-    vm.runInContext(`function ${name}(${params}) {${body}}`,ctx)
-  }
-  return ctx
-}
-test('idle firmware hourly fallback, scoped immediate wake, debounce and wraparound',()=>{
-  for(const device of ['ESP32-CH2-PLC','ESP32-CH3-PLC']) {
-    const s=scheduler(),other=device.includes('CH2')?'ESP32-CH3-PLC':'ESP32-CH2-PLC'
-    for(let now=15000;now<3600000;now+=15000) assert.equal(s.due(now,false),false)
-    assert.equal(s.due(3600000,false),true)
-    s.attempted(3600000)
-    assert.equal(s.wake(other,device,3600001),false)
-    assert.equal(s.due(3600001,false),false)
-    assert.equal(s.wake(device,device,3600001),true)
-    assert.equal(s.due(3600001,false),true);s.attempted(3600001)
-    assert.equal(s.wake(device,device,3610000),false)
-    assert.equal(s.due(3610000,false),false)
-    assert.equal(s.wake(device,device,3630001),true)
-    s.attempted(0xfffffff0)
-    assert.equal(s.due((0xfffffff0+3600000)>>>0,false),true)
-  }
-})
-test('Realtime worker is isolated from PLC/telemetry and never authorizes a manifest',async()=>{
-  const rt=await read('firmware/common/ChillerOtaRealtime.h')
-  assert.match(rt,/xTaskCreate\(otaRealtimeWorker/)
-  assert.match(rt,/static void chillerOtaRealtimeInit\(\) \{[^]*?otaSchedule.pending=true/)
-  assert.match(rt,/beginSslWithCA\(SUPABASE_HOST,443,path.c_str\(\),CHILLER_OTA_CA_PEM/)
-  assert.match(rt,/backoff=std::min\(uint32_t\(60000\),backoff\*2\)/)
-  assert.match(rt,/doc\["payload"\]\["payload"\]\["device"\]==DEVICE_CODE/)
-  assert.doesNotMatch(rt,/ESP.restart|otaDecode|otaInstall|chillerDeviceSync\(/)
-  for(const n of [2,3]) {
-    const ino=await read(`firmware/Chiller${n}/Chiller${n}.ino`)
-    const loop=ino.slice(ino.indexOf('void loop()'))
-    assert.match(loop,/pollChiller\(\)/);assert.match(loop,/handlePostResult\(postToSupabase\(\)\)/)
-    assert.doesNotMatch(loop,/socket|Realtime|otaRealtime/)
-    assert.match(ino,/if \(chillerOtaSyncDue\(\)\) chillerDeviceSync\(false\)/)
-    assert.doesNotMatch(ino,/OTA_CHECK_INTERVAL_MS/)
-    assert.match(ino,/chillerOtaRealtimeInit\(\);/)
-    const page=await read(`client/src/pages/Chiller${n}HMIPage.jsx`)
-    assert.match(page,/refresh:refreshProgramming\}=useOtaStatus/)
-    assert.doesNotMatch(page,/functions.invoke\('chiller-ota'/)
-  }
-})
-
-test('actual loop keeps PLC and telemetry running during Realtime loss and discovers hourly work',async()=>{
-  const rt=await read('firmware/common/ChillerOtaRealtime.h')
-  const due=rt.slice(rt.indexOf('static bool chillerOtaSyncDue() {')+'static bool chillerOtaSyncDue() {'.length,rt.lastIndexOf('}'))
-    .replace('const uint32_t now','const now').replace('const bool active','const active')
-    .replace(/CHILLER_DIAG_(?:HEALTH|CHECKPOINT)\([^;]*\);/g,'')
-    .replace(/CHILLER_DIAG_WAKE_RESULT\(([^;]+)\);/g,'$1;')
-  for(const n of [2,3]) {
-    const ino=await read(`firmware/Chiller${n}/Chiller${n}.ino`),s=scheduler()
-    const loop=ino.slice(ino.indexOf('void loop() {')+'void loop() {'.length,ino.lastIndexOf('}')).replace('unsigned long now','let now')
-    let now=0,plc=0,telemetry=0,syncs=0,paused=true
-    const ctx={otaSchedule:s,otaPhase:'idle',DEVICE_CODE:`ESP32-CH${n}-PLC`,
-      otaWakeRequested:{exchange:()=>false},otaRealtimePause:{store:()=>{}},otaRealtimePaused:{load:()=>paused},
-      WiFi:{status:()=>1},WL_CONNECTED:1,millis:()=>now,otaReady:true,time:()=>1800000000,nullptr:null,
-      lastPollMs:0,lastPostMs:0,lastNetStatusMs:0,
-      serviceWiFi:()=>{},pollChiller:()=>{plc++},postToSupabase:()=>{telemetry++},handlePostResult:()=>{},printNetworkStatus:()=>{},delay:()=>{}}
-    for(const name of ['POLL_INTERVAL_MS','POST_INTERVAL_MS','NET_STATUS_INTERVAL_MS']) ctx[name]=Number(ino.match(new RegExp(name+'\\s*=\\s*(\\d+)'))[1])
-    vm.createContext(ctx)
-    vm.runInContext(`function chillerOtaSyncDue(){${due}}`,ctx)
-    ctx.serviceOta=()=>{if(ctx.chillerOtaSyncDue())syncs++}
-    vm.runInContext(`function loop(){${loop}}`,ctx)
-    for(now=0;now<=3600000;now+=100)ctx.loop()
-    assert.equal(syncs,1);assert.equal(telemetry,3600000/ctx.POST_INTERVAL_MS);assert.equal(plc,Math.floor(3600000/ctx.POLL_INTERVAL_MS))
-    // A worker still releasing TLS cannot block the main loop or start overlapping OTA TLS.
-    paused=false
-    for(now=3600100;now<=7200000;now+=100)ctx.loop()
-    assert.equal(syncs,1);assert.equal(telemetry,7200000/ctx.POST_INTERVAL_MS);assert.equal(plc,Math.floor(7200000/ctx.POLL_INTERVAL_MS))
-    paused=true;ctx.loop();assert.equal(syncs,2)
-  }
-})
-
 const tick=()=>new Promise(resolve=>setImmediate(resolve))
 function browser(load) {
   const callbacks=new Map();let next=0,visibility

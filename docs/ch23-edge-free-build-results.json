@@ -1,0 +1,63 @@
+{
+  "base_commit": "2f37d5cab1855ae3b11a04033190d751384e9cb2",
+  "board": "WT32-ETH01",
+  "core": "3.3.8",
+  "arduinojson": "7.4.2",
+  "fqbn": "esp32:esp32:wt32-eth01:FlashMode=dio,FlashFreq=40,PartitionScheme=default",
+  "comparison": "Preserved PR19 default-off build manifests/logs. Unique version/config string lengths may affect byte counts. Dynamic WSS/TLS heap savings not measured.",
+  "real_pr19_ch2_diag1_reference_bytes": 1230192,
+  "results": [
+    {
+      "device": "ESP32-CH2-PLC",
+      "version": "ch2-edge-free-test1",
+      "sha256": "a1a15929e48487bb3cc19ca38e050248eb93e1092841ff084526f631e3a3f863",
+      "size": 1136688,
+      "ota_slot_bytes": 1310720,
+      "ota_headroom_bytes": 174032,
+      "minimum_headroom_bytes": 65536,
+      "diagnostics": false,
+      "compile_only": true,
+      "physical_validation": "NOT RUN",
+      "production_release": false,
+      "partition_sha256": "148b959cbff1c38aa8e1d5c0ba9d612c54997b945e56a63f41223eef650653a1",
+      "configuration": "example credentials; compile-only, DO NOT INSTALL",
+      "application": "edge-free-build-ch2/Chiller2.ino.bin",
+      "static_ram_bytes": 49344,
+      "pr19_default_image_bytes": 1228256,
+      "pr19_default_static_ram_bytes": 49456,
+      "flash_recovered_bytes": 91568,
+      "static_ram_recovered_bytes": 112,
+      "websockets_linked": false
+    },
+    {
+      "device": "ESP32-CH3-PLC",
+      "version": "ch3-edge-free-test1",
+      "sha256": "327597f9fc00e0046bee5200d3ce6fc012f0b658a9588301109f649dcbdd79ed",
+      "size": 1136688,
+      "ota_slot_bytes": 1310720,
+      "ota_headroom_bytes": 174032,
+      "minimum_headroom_bytes": 65536,
+      "diagnostics": false,
+      "compile_only": true,
+      "physical_validation": "NOT RUN",
+      "production_release": false,
+      "partition_sha256": "148b959cbff1c38aa8e1d5c0ba9d612c54997b945e56a63f41223eef650653a1",
+      "configuration": "example credentials; compile-only, DO NOT INSTALL",
+      "application": "edge-free-build-ch3/Chiller3.ino.bin",
+      "static_ram_bytes": 49344,
+      "pr19_default_image_bytes": 1228240,
+      "pr19_default_static_ram_bytes": 49456,
+      "flash_recovered_bytes": 91552,
+      "static_ram_recovered_bytes": 112,
+      "websockets_linked": false
+    }
+  ],
+  "tests": {
+    "passed": 85,
+    "failed": 0,
+    "web_build": "PASS",
+    "changed_ui_eslint": "PASS",
+    "live_storage_integration": "NOT RUN",
+    "physical_validation": "NOT RUN"
+  }
+}

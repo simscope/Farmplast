@@ -163,7 +163,7 @@ test('firmware and HMI preserve compact telemetry, device scope and shared polli
   assert.match(ino,/Network.setDefaultInterface\(WiFi.STA\)/)
   assert.match(ino,/WiFi.setSleep\(false\)/)
   assert.match(ino,/eth_gateway\s*\(0, 0, 0, 0\)/)
-  assert.match(ino,/"Prefer", "return=minimal"/)
+  assert.match(ino,/chillerOtaResponse\(response, true\)/)
   assert.doesNotMatch(ino,/setInsecure|httpUpdate|CH2_HEARTBEAT|CH2_R40053|CH2_R40054|CH2_R40060/)
   assert.deepEqual([...ino.matchAll(/append(?:UInt|Bool)Reading\(body, first, "([^"]+)"/g)].map(m=>m[1]).sort(),retained)
   const page=await readFile(new URL(`../src/pages/Chiller${n}HMIPage.jsx`,import.meta.url),'utf8')

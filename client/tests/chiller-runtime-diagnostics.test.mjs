@@ -11,53 +11,17 @@ function body(source,name) {
   for(;level;end++) {if(source[end]==='{')level++;if(source[end]==='}')level--}
   return source.slice(start+1,end-1)
 }
-function atomic(value=0) {
-  return {load:()=>value,store:x=>{value=x},exchange:x=>{const old=value;value=x;return old},fetch_add:x=>{const old=value;value=(value+x)>>>0;return old}}
-}
-function harness() {
-  let now=0;const lines=[]
-  const runtimeDiag={}
-  for(const [,name,value] of header.matchAll(/(\w+)\{(0|false)\}/g)) runtimeDiag[name]=atomic(value==='false'?false:0)
-  const ctx={runtimeDiag,millis:()=>now,uint32_t:x=>x>>>0,nullptr:null,
-    heap_caps_get_free_size:()=>100000,heap_caps_get_minimum_free_size:()=>80000,heap_caps_get_largest_free_block:()=>70000,
-    MALLOC_CAP_8BIT:1,WiFi:{status:()=>1,RSSI:()=>-55},WL_CONNECTED:1,
-    uxTaskGetStackHighWaterMark:()=>4096,Serial:{printf:(...values)=>lines.push(values)},
-    RD_VALUE:name=>runtimeDiag[name].load()}
-  vm.createContext(ctx)
-  for(const name of ['runtimeDiagConnection','runtimeDiagWakeResult','runtimeDiagWorkerSample','runtimeDiagHealth']) {
-    const args={runtimeDiagConnection:'connected',runtimeDiagWakeResult:'accepted',runtimeDiagWorkerSample:'',runtimeDiagHealth:'fallbackRemaining,pending,paused'}[name]
-    const code=body(header,name).replace(/^#.*$/gm,'').replace(/std::memory_order_relaxed/g,'0')
-      .replace(/const (bool|uint32_t) /g,'const ').replace(/\(unsigned\)/g,'')
-      .replace(/RD_VALUE\((\w+)\)/g,"RD_VALUE('$1')").replace(/static uint32_t (\w+)=0;/g,(_,key)=>{ctx[key]=0;return ''})
-    vm.runInContext(`function ${name}(${args}){${code}}`,ctx)
-  }
-  return {ctx,lines,at:value=>{now=value}}
-}
-test('diagnostic connections distinguish first join, reconnect, duplicate acknowledgement and disconnect',()=>{
-  const {ctx}=harness(),d=ctx.runtimeDiag
-  ctx.runtimeDiagConnection(true);ctx.runtimeDiagConnection(true)
-  assert.equal(d.realtime_connections.load(),1);assert.equal(d.realtime_reconnect_count.load(),0)
-  ctx.runtimeDiagConnection(false);assert.equal(d.realtime_connected.load(),false)
-  ctx.runtimeDiagConnection(true);assert.equal(d.realtime_connections.load(),2);assert.equal(d.realtime_reconnect_count.load(),1)
-})
-test('wake classification counters wrap without changing scheduler results',()=>{
-  const {ctx}=harness(),d=ctx.runtimeDiag
-  ctx.runtimeDiagWakeResult(true);ctx.runtimeDiagWakeResult(false)
-  assert.equal(d.realtime_wake_accepted.load(),1);assert.equal(d.realtime_wake_debounced.load(),1)
-  d.realtime_wake_accepted.store(0xffffffff);ctx.runtimeDiagWakeResult(true)
-  assert.equal(d.realtime_wake_accepted.load(),0)
-})
-test('health output is limited to one scalar snapshot per minute, including millis wrap',()=>{
-  const {ctx,lines,at}=harness()
-  at(59999);ctx.runtimeDiagHealth(1,false,false);assert.equal(lines.length,0)
-  at(60000);ctx.runtimeDiagWorkerSample();ctx.runtimeDiagHealth(3540000,false,false)
-  assert.equal(lines.length,1);assert.match(lines[0][0],/realtime_worker_stack_hwm=%u/)
-  assert.equal(lines[0][5],4096)
-  at(119999);ctx.runtimeDiagHealth(1,false,false);assert.equal(lines.length,1)
-  at(120000);ctx.runtimeDiagHealth(1,false,false);assert.equal(lines.length,2)
-  ctx.lastLine=0xfffffff0;at((0xfffffff0+60000)>>>0);ctx.runtimeDiagHealth(1,false,false)
-  assert.equal(lines.length,3)
-  assert.doesNotMatch(body(header,'runtimeDiagHealth'),/SUPABASE|SECRET|TOKEN|job\.|https:/)
+test('diagnostics are default-off, scalar-only and limited to once per minute',()=>{
+ assert.match(header,/#define CHILLER_RUNTIME_DIAGNOSTICS 0/)
+ const code=body(header,'chillerRuntimeHealth').replace('static uint32_t lastLine=0;','').replace('const uint32_t now','const now').replace(/\(unsigned\)/g,'')
+ let now=0;const lines=[]
+ const ctx={lastLine:0,millis:()=>now,uint32_t:x=>x>>>0,MALLOC_CAP_8BIT:1,runtimeDiag:{},WiFi:{status:()=>0},WL_CONNECTED:1,
+ heap_caps_get_free_size:()=>1,heap_caps_get_minimum_free_size:()=>1,heap_caps_get_largest_free_block:()=>1,Serial:{printf:(...args)=>lines.push(args)}}
+ const run=()=>vm.runInNewContext('(function(){'+code+'})()',ctx)
+ now=59999;run();assert.equal(lines.length,0);now=60000;run();assert.equal(lines.length,1)
+ now=119999;run();assert.equal(lines.length,1);now=120000;run();assert.equal(lines.length,2)
+ ctx.lastLine=0xfffffff0;now=(0xfffffff0+60000)>>>0;run();assert.equal(lines.length,3)
+ assert.doesNotMatch(code,/SUPABASE|SECRET|TOKEN|job\.|https:/)
 })
 function image(size,diagnostics=true) {
   const result=Buffer.alloc(size)

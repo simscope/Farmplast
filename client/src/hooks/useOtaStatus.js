@@ -7,7 +7,7 @@ export default function useOtaStatus(device) {
   const session=useRef(null)
   useEffect(()=>{
     const polling=startOtaStatusPolling(async signal=>{
-      const result=await supabase.functions.invoke('chiller-ota',{body:{op:'status',device},signal,timeout:10000})
+      const result=await supabase.rpc('chiller_firmware_status',{p_device:device}).abortSignal(signal)
       if(signal.aborted) throw new Error('Aborted')
       if(result.error || result.data?.error) {
         setError(result.data?.error || 'Programming service unavailable or access denied.')

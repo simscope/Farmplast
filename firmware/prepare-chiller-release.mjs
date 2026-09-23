@@ -13,21 +13,10 @@ export function inspectImage(image, device, version) {
 
 async function main() {
   const [device,input,version,output,mode]=process.argv.slice(2)
-  if(!output || (mode && mode!=='--publish')) throw new Error('Usage: node prepare-chiller-release.mjs ESP32-CH2-PLC app.bin version manifest.json [--publish]')
+  if(mode==='--publish') throw new Error('Use the authenticated Firmware Upload UI with stored-byte verification; direct table approval is retired.')
+  if(!output || mode) throw new Error('Usage: node prepare-chiller-release.mjs ESP32-CH2-PLC app.bin version manifest.json')
   const image=await readFile(input), metadata=inspectImage(image,device,version)
   await writeFile(resolve(output),JSON.stringify(metadata,null,2)+'\n',{flag:'wx'})
-  if(mode==='--publish') {
-    const origin=process.env.CHILLER_SUPABASE_URL, key=process.env.CHILLER_SUPABASE_SERVICE_ROLE_KEY
-    if(origin!=='https://eeobivvwjzakbweluwtm.supabase.co' || !key) throw new Error('Set the production project URL and server-only service-role credential in environment variables')
-    const headers={apikey:key,Authorization:`Bearer ${key}`}
-    const upload=await fetch(`${origin}/storage/v1/object/chiller-firmware/${metadata.storage_path}`,{method:'POST',headers:{...headers,'Content-Type':'application/octet-stream','x-upsert':'false'},body:image})
-    if(!upload.ok) throw new Error(`Private upload failed (${upload.status}); no release approved`)
-    // Read back through authenticated Storage, validating bytes before approval.
-    const check=await fetch(`${origin}/storage/v1/object/authenticated/chiller-firmware/${metadata.storage_path}`,{headers})
-    if(!check.ok || createHash('sha256').update(Buffer.from(await check.arrayBuffer())).digest('hex')!==metadata.sha256) throw new Error('Uploaded image verification failed; no release approved')
-    const release=await fetch(`${origin}/rest/v1/chiller_ota_releases`,{method:'POST',headers:{...headers,'Content-Type':'application/json',Prefer:'return=minimal'},body:JSON.stringify({...metadata,approved:true})})
-    if(!release.ok) throw new Error(`Release registration failed (${release.status}); private binary remains unapproved`)
-    console.log('Private image verified and device-scoped release approved. No device programmed.')
-  } else console.log('Validated image; unapproved metadata written. Nothing uploaded or programmed.')
+  console.log('Validated image; unapproved metadata written. Nothing uploaded or programmed.')
 }
 if(process.argv[1] && import.meta.url===pathToFileURL(resolve(process.argv[1])).href) await main()

@@ -16,7 +16,7 @@
 static const char chillerVersionMarker[] = "CH23OTA_VERSION=" CHILLER_OTA_VERSION;
 static const char chillerDeviceMarker[] = CHILLER_OTA_DEVICE_MARKER;
 static Preferences otaPrefs;
-static bool otaReady=false, otaSyncing=false, otaBootCheck=false, otaTelemetryHealthy=false;
+static bool otaReady=false, otaReporting=false, otaBootCheck=false, otaTelemetryHealthy=false;
 static String otaJobId, otaTarget, otaPhase="idle", otaPrevious, otaBoot;
 // Empty or a backend-approved literal only; never preserve server text or URLs.
 static String otaFailureCode;
@@ -60,10 +60,34 @@ static const char* otaSafePhase(const String& phase) {
   return "invalid";
 }
 static int otaProgress=0;
-static unsigned long otaBootStarted=0, otaLastExchange=0;
+static unsigned long otaBootStarted=0, otaLastReport=0;
 struct OtaJob { String id,version,sha,url; uint32_t size; int64_t expires; };
 static OtaJob otaPendingJob{};
 static bool otaPending=false;
+
+// HTTPClient decodes chunked responses into this bounded sink. getString() alone
+// could allocate an attacker-sized body; rejecting unknown lengths would reject
+// legitimate chunked PostgREST responses.
+class OtaResponseSink : public Stream {
+ public:
+  String text; bool overflow=false;
+  size_t write(uint8_t value) override {return write(&value,1);}
+  size_t write(const uint8_t* data,size_t count) override {
+    if(count>4096-text.length()) {overflow=true;return 0;}
+    if(!text.concat((const char*)data,count)) {overflow=true;return 0;}
+    return count;
+  }
+  int available() override {return 0;}
+  int read() override {return -1;}
+  int peek() override {return -1;}
+  void flush() override {}
+};
+static bool otaReadResponse(HTTPClient& http,String& response) {
+  if(http.getSize()>4096) return false;
+  OtaResponseSink sink;
+  if(http.writeToStream(&sink)<0 || sink.overflow) return false;
+  response=std::move(sink.text);return true;
+}
 
 // Rare transition diagnostics only. No payload, URL, credential or HMAC logging.
 static void otaCheckpoint(const char* checkpoint) {
@@ -92,7 +116,8 @@ static bool otaSave() {
   return otaPrefs.putString("record",record)==record.length();
 }
 String chillerGatewayMetadata() {
-  JsonDocument doc;doc["device"]=chillerDeviceMarker+15;doc["version"]=chillerVersionMarker+16;doc["boot"]=otaBoot;doc["job"]=otaJobId;
+  JsonDocument doc;doc["device"]=chillerDeviceMarker+15;doc["version"]=chillerVersionMarker+16;doc["boot"]=otaBoot;doc["job"]=otaJobId;doc["protocol"]=2;doc["status"]=otaPhase;doc["progress"]=otaProgress;doc["reset"]=otaResetReason();
+  if(otaPhase=="failed" && otaFailureCode.length()) doc["failure_code"]=otaFailureCode;
   String result;serializeJson(doc,result);return result;
 }
 void chillerTelemetryPublished() {
@@ -106,12 +131,13 @@ void chillerTelemetryPublished() {
   otaTelemetryHealthy=true;
 }
 static bool otaDecode(JsonObject doc,OtaJob& job) {
+  if(!otaReady || strlen(CHILLER_OTA_DEVICE_KEY)<32 || strlen(CHILLER_OTA_CA_PEM)<100) return false;
   String action=doc["action"]|"",model=doc["model"]|"",mac=doc["mac"]|"";
   job.id=doc["id"]|"";job.version=doc["version"]|"";job.sha=doc["sha256"]|"";job.url=doc["url"]|"";
   job.expires=doc["expires"]|int64_t(0);job.size=doc["size"]|uint32_t(0);
   if(job.id.length()!=36 || model!=CHILLER_OTA_MODEL || String(doc["device"]|"")!=DEVICE_CODE || action!="update" || job.expires<=time(nullptr) || job.expires>time(nullptr)+660 || job.version.length()>48 || job.url.length()>2048) return false;
   if(job.sha.length()!=64 || !job.size || job.size>1310720 || !job.version.length() || job.version==chillerVersionMarker+16 || !job.url.startsWith(String("https://")+SUPABASE_HOST+"/storage/v1/object/sign/chiller-firmware/"+DEVICE_CODE+"/")) return false;
-  String canonical=job.id+"|update|"+String(DEVICE_CODE)+"|"+model+"|"+job.version+"|"+job.sha+"|"+String(job.size)+"|"+String((long long)job.expires);
+  String canonical=job.id+"|update|"+String(DEVICE_CODE)+"|"+model+"|"+job.version+"|"+job.sha+"|"+String(job.size)+"|"+String((long long)job.expires)+"|"+job.url;
   uint8_t digest[32];
   if(mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),(const uint8_t*)CHILLER_OTA_DEVICE_KEY,strlen(CHILLER_OTA_DEVICE_KEY),(const uint8_t*)canonical.c_str(),canonical.length(),digest)) return false;
   String expected=otaHex(digest,32);unsigned diff=mac.length()^expected.length();
@@ -126,7 +152,7 @@ static bool otaStage(const char* phase,int progress) {
     otaCheckpoint("authorized_save_ok");
     otaCheckpoint("authorized_sync_begin");
   }
-  if(!chillerDeviceSync(true)) {
+  if(!chillerReportOta()) {
     otaFail("stage_sync_failed");otaSave(); // Best effort persistence only; the stage still aborts.
     return false;
   }
@@ -173,11 +199,10 @@ static bool otaInstall(const OtaJob& job) {
       mbedtls_sha256_update(&sha,buffer,count);remaining-=count;lastData=millis();
       otaProgress=int((uint64_t(job.size-remaining)*90)/job.size);
     }
-    // The ordinary loop is suspended during the transfer. This uses its SAME device
-    // exchange, at the same interval, rather than starting another polling task/timer.
-    if(millis()-otaLastExchange>=OTA_ACTIVE_CHECK_INTERVAL_MS) {
+    // Active transfer reports only; the idle loop never invokes this RPC.
+    if(millis()-otaLastReport>=15000UL) {
       CHILLER_DIAG_CHECKPOINT("runtime_during_download");
-      chillerDeviceSync(true);
+      chillerReportOta();
     }
     CHILLER_DIAG_HEALTH();
     delay(1);
@@ -200,7 +225,7 @@ static void otaRun(const OtaJob& job) {
   otaFailureCode=""; // Only a NEW authenticated job may discard the previous failure.
   otaJobId=job.id;otaTarget=job.version;otaPrevious=esp_ota_get_running_partition()->label;
   if(otaStage("authorized",0) && otaInstall(job)) return;
-  otaPhase="failed";otaSave();chillerDeviceSync(true);
+  otaPhase="failed";otaSave();chillerReportOta();
   // Failure automatically returns to the normal sensor/publish loop on the running image.
 }
 static void otaQueueDecodedJob(OtaJob& job) {
@@ -211,43 +236,47 @@ static void otaQueueDecodedJob(OtaJob& job) {
   otaCheckpoint("manifest_queued");
 }
 static void chillerOtaRunPending() {
-  if(!otaPending || otaSyncing) return;
+  if(!otaPending || otaReporting) return;
   OtaJob job=std::move(otaPendingJob);
   otaPendingJob=OtaJob{};
   otaPending=false; // Consume before any stage sync/failure; never requeue this job.
   otaCheckpoint("deferred_run_begin");
   otaRun(job);
 }
-bool chillerDeviceSync(bool updating) {
-  if(!otaReady || otaSyncing || WiFi.status()!=WL_CONNECTED || time(nullptr)<1700000000 || strlen(CHILLER_OTA_DEVICE_KEY)<32 || strlen(CHILLER_OTA_CA_PEM)<100) return false;
-  CHILLER_DIAG_COUNT(ota_sync_count);
-  otaSyncing=true;otaLastExchange=millis();
+// Decode a bounded response without running OTA inside telemetry's HTTP scope.
+static bool chillerOtaResponse(const String& response,bool discover) {
+  if(response.length()>4096) return false;
+  JsonDocument result;
+  if(deserializeJson(result,response) || !result.is<JsonObject>() || !result.containsKey("o")) return false;
+  String ack=result["a"]|"";
+  if((ack=="completed" || ack=="failed") && ack!=otaPhase && otaJobId.length()) {
+    otaPhase=ack;otaProgress=ack=="completed"?100:otaProgress;otaSave();
+  }
+  OtaJob job;
+  if(discover && result["o"].is<JsonObject>() && otaDecode(result["o"].as<JsonObject>(),job)) {
+    otaCheckpoint("manifest_decoded");otaQueueDecodedJob(job);
+  }
+  return true;
+}
+// Active transitions only: no idle caller/timer. Reports cannot create telemetry
+// receipts or discover jobs. TLS/JSON from telemetry are already destroyed here.
+bool chillerReportOta() {
+  if(!otaReady || otaReporting || !otaJobId.length() || WiFi.status()!=WL_CONNECTED || time(nullptr)<1700000000) return false;
+  otaReporting=true;otaLastReport=millis();forceInternetToWiFi();
   WiFiClientSecure tls;tls.setCACert(CHILLER_OTA_CA_PEM);
-  HTTPClient http;http.setTimeout(10000);http.setConnectTimeout(5000);
-  bool ok=http.begin(tls,String("https://")+SUPABASE_HOST+"/functions/v1/chiller-ota");
+  HTTPClient http;http.setTimeout(8000);http.setConnectTimeout(5000);
+  bool ok=http.begin(tls,String("https://")+SUPABASE_HOST+"/rest/v1/rpc/chiller_ota_report");
   String response;
   if(ok) {
-    http.addHeader("Content-Type","application/json");http.addHeader("apikey",SUPABASE_ANON_KEY);http.addHeader("x-chiller-device-key",CHILLER_OTA_DEVICE_KEY);
-    JsonDocument doc;doc["op"]="sync";doc["device"]=DEVICE_CODE;doc["version"]=chillerVersionMarker+16;doc["boot"]=otaBoot;doc["job"]=otaJobId;doc["status"]=otaPhase;doc["progress"]=otaProgress;
-    if(otaPhase=="failed" && otaFailureCode.length()) doc["failure_code"]=otaFailureCode;
-    String body;serializeJson(doc,body);int code=http.POST(body);
-    ok=code==200 && http.getSize()<=4096;
-    if(ok) {response=http.getString();ok=response.length()<=4096;}
+    http.addHeader("Content-Type","application/json");http.addHeader("apikey",SUPABASE_ANON_KEY);
+    http.addHeader("Authorization",String("Bearer ")+SUPABASE_ANON_KEY);
+    JsonDocument doc;doc["p_device"]=DEVICE_CODE;doc["p_secret"]=DEVICE_SECRET;
+    JsonDocument metadata;deserializeJson(metadata,chillerGatewayMetadata());doc["p_metadata"]=metadata;
+    String body;serializeJson(doc,body);const int code=http.POST(body);
+    ok=code==200 && otaReadResponse(http,response);
   }
-  http.end();JsonDocument result;
-  ok=ok && !deserializeJson(result,response) && result["device"]==DEVICE_CODE;
-  if(ok) {
-    String ack=result["a"]|"";
-    if((ack=="completed" || ack=="failed") && ack!=otaPhase && otaJobId.length()) {otaPhase=ack;otaProgress=ack=="completed"?100:otaProgress;otaSave();}
-  }
-  otaSyncing=false;
-  OtaJob job;
-  if(ok && !updating && result["o"].is<JsonObject>() && otaDecode(result["o"].as<JsonObject>(),job)) {
-    Serial.printf("[OTA] manifest_decoded job=%s\n",otaSafeJobId(job.id)?job.id.c_str():"invalid");
-    otaCheckpoint("manifest_decoded");
-    otaQueueDecodedJob(job);
-  }
-  return ok;
+  http.end();tls.stop();if(ok) ok=chillerOtaResponse(response,false);
+  otaReporting=false;return ok;
 }
 static void chillerOtaInit() {
   Serial.printf("[OTA] reset_reason=%s code=%d\n",otaResetReason(),int(esp_reset_reason()));

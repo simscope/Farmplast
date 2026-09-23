@@ -18,7 +18,7 @@ function body(source, name) {
 // Execute the actual firmware statements with network/clock/PLC boundaries mocked.
 // Only C++ declarations, casts and namespace syntax are translated to JavaScript.
 function executable(text) {
-  return text.replace(/CHILLER_DIAG_COUNT\(\w+\);/g, '') // Production default: diagnostics compile out.
+  return text.replace('String response;','let response;').replace(/CHILLER_DIAG_COUNT\(\w+\);/g, '') // Production default: diagnostics compile out.
     .replace(/WiFiClientSecure client;/g, 'let client = new WiFiClientSecure();')
     .replace(/HTTPClient http;/g, 'let http = new HTTPClient();')
     .replace(/\b(unsigned long|String|int|bool) (\w+) =/g, 'let $2 =')
@@ -41,13 +41,14 @@ for (const device of ['Chiller2', 'Chiller3']) {
       Serial:{println:x=>calls.logs.push(String(x)), print:x=>calls.logs.push(String(x)), printf:()=>{}},
       WiFiClientSecure:class {setCACert(){} setTimeout(){} stop(){}},
       HTTPClient:class {
+        getSize(){return 10} getString(){return '{"o":null}'}
         setReuse(){} setConnectTimeout(){} setTimeout(){} addHeader(){} end(){}
         begin(){calls.begin++; return ctx.beginOK}
         POST(){calls.http++; return ctx.httpCode}
         static errorToString(){return {c_str:()=>''}}
       },
       buildRpcBody:()=>({length:()=>100}), forceInternetToWiFi:()=>{}, diagnoseInternet:()=>{},
-      chillerTelemetryPublished:()=>calls.published++, hardRecoverWiFi:()=>calls.recover++,
+      otaReadResponse:()=>true,CHILLER_DIAG_HEALTH:()=>{},chillerOtaResponse:()=>true,chillerTelemetryPublished:()=>calls.published++, hardRecoverWiFi:()=>calls.recover++,
       lastPollMs:0, lastPostMs:0, lastNetStatusMs:0,
       POLL_INTERVAL_MS:2000, POST_INTERVAL_MS:15000, NET_STATUS_INTERVAL_MS:60000,
       serviceWiFi:()=>{}, pollChiller:()=>{ctx.ch.valid=false}, printNetworkStatus:()=>{},
