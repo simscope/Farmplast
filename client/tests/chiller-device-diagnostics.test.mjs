@@ -18,7 +18,7 @@ test('device diagnostic vocabulary exactly matches backend; persistent and repor
  assert.deepEqual([...save.matchAll(/doc\["([^"]+)"\]/g)].map(x=>x[1]),['job','target','state','previous','failure'])
  assert.match(save,/putString\("record",record\)==record.length\(\)/)
  assert.doesNotMatch(save,/url|response|secret|token|key/i)
- const sync=body('chillerDeviceSync')
+ const sync=body('chillerGatewayMetadata')
  assert.match(sync,/if\(otaPhase=="failed" && otaFailureCode.length\(\)\) doc\["failure_code"\]=otaFailureCode;/)
  assert.equal([...source.matchAll(/doc\["failure_code"\]/g)].length,1)
  const logs=source.split('\n').filter(x=>x.includes('Serial.')).join('\n')
@@ -37,7 +37,7 @@ test('actual stage body aborts save/sync failures but never mislabels successful
   ctx.otaSave=()=>{calls.push('save');return saveResults.shift()??true}
   ctx.otaCheckpoint=()=>{}
   ctx.otaFail=code=>{calls.push(code);ctx.failure ||= code;return false}
-  ctx.chillerDeviceSync=updating=>{assert.equal(updating,true);calls.push('sync');if(terminal)ctx.otaPhase='failed';return syncResult}
+  ctx.chillerReportOta=()=>{calls.push('sync');if(terminal)ctx.otaPhase='failed';return syncResult}
   const result=vm.runInNewContext('(function(){'+stage+'})()',ctx)
   return {result,calls,failure:ctx.failure,phase:ctx.otaPhase}
  }
@@ -52,14 +52,14 @@ test('new jobs alone clear failure; restoration retains safe cause and prevents 
  const run=body('otaRun'),init=body('chillerOtaInit')
  assert(run.indexOf('if(job.id==otaJobId || !otaReady) return;')<run.indexOf('otaFailureCode=""'))
  assert.equal([...source.matchAll(/otaFailureCode=""/g)].length,1)
- assert.match(run,/otaPhase="failed";otaSave\(\);chillerDeviceSync\(true\)/)
+ assert.match(run,/otaPhase="failed";otaSave\(\);chillerReportOta\(\)/)
  assert.match(init,/String restoredFailure=record\["failure"\]\|""/)
  assert.match(init,/otaFailureCode=otaAllowedFailure\(restoredFailure\)\?restoredFailure:String\(""\)/)
  assert.match(init,/otaPhase!="idle" && otaPhase!="completed" && otaPhase!="failed"/)
  assert.match(init,/else \{otaFail\("interrupted_update"\);otaPhase="failed";\}/)
  assert.doesNotMatch(init,/otaRun\(|otaInstall\(/)
  assert.match(body('otaFail'),/!otaFailureCode.length\(\) && otaAllowedFailure\(code\)/)
- assert.doesNotMatch(body('chillerDeviceSync'),/otaFailureCode\s*=/)
+ assert.doesNotMatch(body('chillerReportOta'),/otaFailureCode\s*=/)
 })
 
 test('each existing OTA failure branch is distinguished without relaxing validation or timeouts',()=>{
@@ -73,6 +73,8 @@ test('each existing OTA failure branch is distinguished without relaxing validat
  assert.match(install,/versionNeedle.length\(\)\+1/)
  assert.match(install,/deviceNeedle.length\(\)\+1/)
  assert.match(body('otaDecode'),/mbedtls_md_hmac/)
+ assert.match(body('otaDecode'),/strlen\(CHILLER_OTA_DEVICE_KEY\)<32/)
+ assert.match(body('otaDecode'),/strlen\(CHILLER_OTA_CA_PEM\)<100/)
  assert.match(source,/esp_ota_mark_app_invalid_rollback_and_reboot/)
  assert.doesNotMatch(source,/setInsecure|setFollowRedirects|xTaskCreate/)
 })

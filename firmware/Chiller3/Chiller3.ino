@@ -15,6 +15,7 @@
 #include "ota_config.h"
 #include "network_config.h"
 #include "../common/TelemetryPostResult.h"
+#include "../common/ChillerRuntimeDiagnostics.h"
 
 #if __has_include(<esp_arduino_version.h>)
   #include <esp_arduino_version.h>
@@ -61,9 +62,7 @@ static const char* DEVICE_CODE   = "ESP32-CH3-PLC";
 // ======================================================
 // INTERNET OTA
 // ======================================================
-// This endpoint may return 404 until the Edge Function is deployed.
-// That is harmless; telemetry continues normally.
-static const unsigned long OTA_CHECK_INTERVAL_MS = 15000UL;
+// OTA discovery rides on the authenticated telemetry response.
 
 // ======================================================
 // CHILLER PLC / MODBUS TCP
@@ -139,7 +138,7 @@ unsigned long lastPostMs       = 0;
 unsigned long lastWifiRetryMs  = 0;
 unsigned long lastNetStatusMs  = 0;
 unsigned long bootMs           = 0;
-unsigned long lastOtaCheckMs   = 0;
+
 
 
 uint16_t txId = 1;
@@ -660,10 +659,12 @@ bool pollChiller() {
   if (!ok) {
     ch.valid = false;
     chillerOnline = false;
+    CHILLER_DIAG_COUNT(plc_poll_fail);
     Serial.println("[POLL] FAILED");
     return false;
   }
 
+  CHILLER_DIAG_COUNT(plc_poll_ok);
   ch.valid = true;
   chillerOnline = true;
 
@@ -707,8 +708,9 @@ bool pollChiller() {
 // ======================================================
 // JSON HELPERS
 // ======================================================
-bool chillerDeviceSync(bool updating);
+bool chillerReportOta();
 #include "../common/ChillerOta.h"
+
 
 void appendUIntReading(
   String& json,
@@ -912,8 +914,7 @@ TelemetryPostResult postToSupabase() {
     "Bearer " + String(SUPABASE_ANON_KEY)
   );
 
-  // Ask PostgREST for the smallest practical response.
-  http.addHeader("Prefer", "return=minimal");
+  // Consume compact RPC response without logging signed URLs.
   http.addHeader("Connection", "close");
 
   String body = buildRpcBody();
@@ -924,6 +925,11 @@ TelemetryPostResult postToSupabase() {
 
   bool ok = code >= 200 && code < 300;
 
+  if (ok) {
+    String response;
+    ok = otaReadResponse(http, response);
+    if (ok) ok = chillerOtaResponse(response, true);
+  }
   if (ok) {
     chillerTelemetryPublished();
     Serial.printf(
@@ -942,8 +948,7 @@ TelemetryPostResult postToSupabase() {
     );
   }
 
-  // Do NOT download/print the RPC response body.
-  // It is unnecessary telemetry egress.
+  // Release HTTP/TLS before the loop executes any pending installation.
   http.end();
   client.stop();
 
@@ -956,9 +961,11 @@ TelemetryPostResult postToSupabase() {
 
 void handlePostResult(TelemetryPostResult result) {
   if (result == POST_SKIPPED_NO_DATA || result == POST_SKIPPED_TIME_NOT_READY) {
+    CHILLER_DIAG_COUNT(telemetry_post_skipped);
     return;  // Preserve the real POST failure count; never recover Wi-Fi for PLC/time.
   }
   if (result == POST_OK) {
+    CHILLER_DIAG_COUNT(telemetry_post_ok);
     if (consecutivePostFailures > 0) {
       Serial.println("[POST] Internet recovered");
     }
@@ -966,6 +973,7 @@ void handlePostResult(TelemetryPostResult result) {
     return;
   }
 
+  CHILLER_DIAG_COUNT(telemetry_post_fail);
   if (consecutivePostFailures < 255) {
     consecutivePostFailures++;
   }
@@ -987,8 +995,7 @@ void handlePostResult(TelemetryPostResult result) {
 // ======================================================
 void serviceOta() {
   chillerOtaRecoveryCheck();
-  if (millis()-otaLastExchange>=OTA_CHECK_INTERVAL_MS) chillerDeviceSync(false);
-  chillerOtaRunPending(); // Sync locals (HTTP/TLS/JSON) have been destroyed.
+  chillerOtaRunPending(); // Telemetry locals (HTTP/TLS/JSON) have been destroyed.
 }
 
 // ======================================================
@@ -997,6 +1004,7 @@ void serviceOta() {
 void setup() {
   Serial.begin(115200);
   delay(800);
+  CHILLER_DIAG_BEGIN();
 
   bootMs = millis();
   chillerOtaInit();
@@ -1061,6 +1069,7 @@ void loop() {
   }
 
   serviceOta();
+  CHILLER_DIAG_HEALTH();
 
   delay(2);
 }

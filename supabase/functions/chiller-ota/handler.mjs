@@ -2,7 +2,7 @@ import { digest, equalSecret, sign, validQueue, validFailureReport } from './pro
 import { devices } from './protocol.mjs'
 
 // Custom auth is mandatory on EVERY branch: verified user + allowlist, or dedicated device secret.
-export function createHandler(createClient, getEnv) {
+export function createHandler(createClient, getEnv, sendWake = fetch) {
 const env = name => { const value = getEnv(name); if (!value) throw new Error('OTA not configured'); return value }
 return async req => {
   const origin = req.headers.get('origin')
@@ -68,12 +68,28 @@ return async req => {
     // Queue validates/consumes the grant atomically; same-operator exact retries are idempotent.
     if (body.op === 'queue' && validQueue(body)) {
       const id = await checked(db.rpc('chiller_ota_queue', { p_user: user.id, p_device:body.device, p_grant: grantHash, p_id: body.id, p_release: body.release || null }))
-      return reply({ id })
+      // Queue committed successfully. Wake is best effort, never an authorization.
+      // An atomic claim suppresses concurrent/idempotent retry broadcasts.
+      let wake = 'fallback'
+      try {
+        if (await checked(db.rpc('chiller_ota_claim_wake', {p_device:body.device,p_job:id}))) {
+          const response = await sendWake(env('SUPABASE_URL') + '/realtime/v1/api/broadcast', {
+            method:'POST', signal:AbortSignal.timeout(3000),
+            headers:{'Content-Type':'application/json',apikey:env('SUPABASE_SERVICE_ROLE_KEY'),Authorization:'Bearer '+env('SUPABASE_SERVICE_ROLE_KEY')},
+            body:JSON.stringify({messages:[{topic:'chiller-ota-wake:'+body.device,event:'wake',payload:{device:body.device},private:false}]}),
+          })
+          if(response.ok) wake='sent'
+        } else wake='already_claimed'
+      } catch { /* Retain the committed job; hourly device fallback will discover it. */ }
+      return reply({ id, wake })
     }
     if (body.op === 'status') {
       await checked(db.rpc('chiller_ota_expire',{p_device:body.device}))
       const releases = await checked(db.from('chiller_ota_releases').select('id,version,size,sha256').eq('approved', true).eq('device',body.device).order('created_at', { ascending: false }).limit(20))
-      const reportedDevice = await checked(db.from('chiller_ota_devices').select('version,boot_id,last_seen').eq('device',body.device).maybeSingle())
+      // Authenticated telemetry already provides liveness, version and boot identity.
+      const registered = await checked(db.from('chiller_ota_devices').select('device').eq('device',body.device).maybeSingle())
+      const receipt = await checked(db.from('chiller_ota_receipts').select('version,boot_id,received_at').eq('device',body.device).maybeSingle())
+      const reportedDevice = registered && receipt ? {...receipt,last_seen:receipt.received_at} : null
       const jobs = await checked(db.from('chiller_ota_jobs').select('id,release_id,status,progress,failure,created_at,updated_at,expires_at,release:chiller_ota_releases(version)').eq('device',body.device).order('created_at', { ascending: false }).limit(5))
       const last_successful_update=await checked(db.from('chiller_ota_jobs').select('updated_at').eq('device',body.device).eq('status','completed').order('updated_at',{ascending:false}).limit(1).maybeSingle())
       return reply({ releases, device:reportedDevice, jobs, last_successful_update })
