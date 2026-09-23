@@ -63,7 +63,7 @@ static const char* DEVICE_CODE   = "ESP32-CH2-PLC";
 // ======================================================
 // This endpoint may return 404 until the Edge Function is deployed.
 // That is harmless; telemetry continues normally.
-static const unsigned long OTA_CHECK_INTERVAL_MS = 15000UL;
+#include "../common/OtaWakeSchedule.h"
 
 // ======================================================
 // CHILLER PLC / MODBUS TCP
@@ -709,6 +709,7 @@ bool pollChiller() {
 // ======================================================
 bool chillerDeviceSync(bool updating);
 #include "../common/ChillerOta.h"
+#include "../common/ChillerOtaRealtime.h"
 
 void appendUIntReading(
   String& json,
@@ -987,7 +988,7 @@ void handlePostResult(TelemetryPostResult result) {
 // ======================================================
 void serviceOta() {
   chillerOtaRecoveryCheck();
-  if (millis()-otaLastExchange>=OTA_CHECK_INTERVAL_MS) chillerDeviceSync(false);
+  if (chillerOtaSyncDue()) chillerDeviceSync(false);
   chillerOtaRunPending(); // Sync locals (HTTP/TLS/JSON) have been destroyed.
 }
 
@@ -1033,6 +1034,7 @@ void setup() {
     handlePostResult(postToSupabase());
   }
 
+  chillerOtaRealtimeInit();
   lastPollMs = millis();
   lastPostMs = millis();
 }

@@ -27,7 +27,7 @@ function harness() {
   const calls=[]
   const ctx={otaPending:false,otaPendingJob:{},otaJobId:'',otaReady:true,otaSyncing:false,
     ok:true,updating:false,manifest:null,httpContextAlive:false,
-    otaLastExchange:0,OTA_CHECK_INTERVAL_MS:15000,millis:()=>15000,
+    otaLastExchange:0,chillerOtaSyncDue:()=>true,millis:()=>15000,
     otaCheckpoint:point=>calls.push(point),otaSafeJobId:()=>true,
     Serial:{printf:()=>{}},chillerOtaRecoveryCheck:()=>{},
     otaDecode:(manifest,job)=>{calls.push('decode');if(!manifest.valid)return false;Object.assign(job,manifest.job);return true},

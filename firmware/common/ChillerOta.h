@@ -172,7 +172,7 @@ static bool otaInstall(const OtaJob& job) {
     }
     // The ordinary loop is suspended during the transfer. This uses its SAME device
     // exchange, at the same interval, rather than starting another polling task/timer.
-    if(millis()-otaLastExchange>=OTA_CHECK_INTERVAL_MS) chillerDeviceSync(true);
+    if(millis()-otaLastExchange>=OTA_ACTIVE_CHECK_INTERVAL_MS) chillerDeviceSync(true);
     delay(1);
   }
   uint8_t digest[32];mbedtls_sha256_finish(&sha,digest);mbedtls_sha256_free(&sha);http.end();
