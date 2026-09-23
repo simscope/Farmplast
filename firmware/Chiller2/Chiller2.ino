@@ -15,6 +15,7 @@
 #include "ota_config.h"
 #include "network_config.h"
 #include "../common/TelemetryPostResult.h"
+#include "../common/ChillerRuntimeDiagnostics.h"
 
 #if __has_include(<esp_arduino_version.h>)
   #include <esp_arduino_version.h>
@@ -660,10 +661,12 @@ bool pollChiller() {
   if (!ok) {
     ch.valid = false;
     chillerOnline = false;
+    CHILLER_DIAG_COUNT(plc_poll_fail);
     Serial.println("[POLL] FAILED");
     return false;
   }
 
+  CHILLER_DIAG_COUNT(plc_poll_ok);
   ch.valid = true;
   chillerOnline = true;
 
@@ -957,9 +960,11 @@ TelemetryPostResult postToSupabase() {
 
 void handlePostResult(TelemetryPostResult result) {
   if (result == POST_SKIPPED_NO_DATA || result == POST_SKIPPED_TIME_NOT_READY) {
+    CHILLER_DIAG_COUNT(telemetry_post_skipped);
     return;  // Preserve the real POST failure count; never recover Wi-Fi for PLC/time.
   }
   if (result == POST_OK) {
+    CHILLER_DIAG_COUNT(telemetry_post_ok);
     if (consecutivePostFailures > 0) {
       Serial.println("[POST] Internet recovered");
     }
@@ -967,6 +972,7 @@ void handlePostResult(TelemetryPostResult result) {
     return;
   }
 
+  CHILLER_DIAG_COUNT(telemetry_post_fail);
   if (consecutivePostFailures < 255) {
     consecutivePostFailures++;
   }
@@ -998,6 +1004,7 @@ void serviceOta() {
 void setup() {
   Serial.begin(115200);
   delay(800);
+  CHILLER_DIAG_BEGIN();
 
   bootMs = millis();
   chillerOtaInit();

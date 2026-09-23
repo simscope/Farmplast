@@ -7,7 +7,13 @@
 // Only this worker owns the socket. Never run TLS connect/loop on the PLC task.
 static std::atomic<bool> otaWakeRequested{false}, otaRealtimePause{false}, otaRealtimePaused{true};
 static OtaWakeSchedule otaSchedule;
-static void requestImmediateOtaSync() { otaWakeRequested.store(true); }
+static void requestImmediateOtaSync() {
+#if CHILLER_RUNTIME_DIAGNOSTICS
+  if(otaWakeRequested.exchange(true)) CHILLER_DIAG_COUNT(realtime_wake_debounced);
+#else
+  otaWakeRequested.store(true);
+#endif
+}
 class OtaWakeSocket : public WebSocketsClient {
 public:
   bool transportOpen() {return _client.tcp && _client.tcp->connected();}
@@ -30,23 +36,29 @@ static void otaRealtimeWorker(void*) {
       String message;serializeJson(doc,message);socket.sendTXT(message);
     } else if(type==WStype_DISCONNECTED) {
       joined=false;heartbeatPending=false;
+      CHILLER_DIAG_CONNECTION(false);
     } else if(type==WStype_TEXT && length<=2048) {
       JsonDocument doc;
       if(deserializeJson(doc,payload,length,DeserializationOption::NestingLimit(8))) return;
       const String event=doc["event"]|"";
       if(event=="phx_reply" && doc["topic"]==topic && doc["ref"]=="join") {
         joined=doc["payload"]["status"]=="ok";
+        CHILLER_DIAG_CONNECTION(joined);
         if(joined) {backoff=1000;lastHeartbeat=millis();otaCheckpoint("realtime_connected");}
         else socket.disconnect();
       } else if(event=="phx_reply" && doc["topic"]=="phoenix" && doc["ref"]=="heartbeat" && doc["payload"]["status"]=="ok") {
         heartbeatPending=false;
       } else if(event=="phx_error" || event=="phx_close") socket.disconnect();
-      else if(joined && event=="broadcast" && doc["topic"]==topic && doc["payload"]["event"]=="wake" && doc["payload"]["payload"]["device"]==DEVICE_CODE) {
-        requestImmediateOtaSync(); // Never decode or install a manifest here.
+      else if(joined && event=="broadcast" && doc["payload"]["event"]=="wake") {
+        CHILLER_DIAG_COUNT(realtime_wake_received);
+        if(doc["topic"]==topic && doc["payload"]["payload"]["device"]==DEVICE_CODE)
+          requestImmediateOtaSync(); // Never decode or install a manifest here.
+        else CHILLER_DIAG_COUNT(realtime_wake_ignored);
       }
     }
   });
   for(;;) {
+    CHILLER_DIAG_WORKER_SAMPLE();
     const uint32_t now=millis();
     if(otaRealtimePause.load() || WiFi.status()!=WL_CONNECTED || time(nullptr)<1700000000) {
       if(started) {socket.disconnect();started=false;}
@@ -69,6 +81,9 @@ static void otaRealtimeWorker(void*) {
         socket.beginSslWithCA(SUPABASE_HOST,443,path.c_str(),CHILLER_OTA_CA_PEM,"");
         started=true;
       }
+#if CHILLER_RUNTIME_DIAGNOSTICS
+      if(!socket.transportOpen()) CHILLER_DIAG_COUNT(realtime_connection_attempts);
+#endif
       socket.loop(); // TLS and socket timeouts block this worker only.
       if(socket.isConnected()) {
         if((!joined && uint32_t(millis()-joinStarted)>10000) || (heartbeatPending && uint32_t(millis()-lastHeartbeat)>10000)) socket.disconnect();
@@ -94,13 +109,25 @@ static void chillerOtaRealtimeInit() {
   if(xTaskCreate(otaRealtimeWorker,"ota-wake",8192,nullptr,1,nullptr)!=pdPASS)
     Serial.println("[OTA] realtime_worker_unavailable");
 }
+#if CHILLER_RUNTIME_DIAGNOSTICS
+static void chillerRuntimeHealth() {
+  const uint32_t elapsed=uint32_t(millis()-otaSchedule.lastAttempt);
+  runtimeDiagHealth(elapsed>=OTA_FALLBACK_CHECK_INTERVAL_MS?0:OTA_FALLBACK_CHECK_INTERVAL_MS-elapsed,
+    otaSchedule.pending,otaRealtimePaused.load());
+}
+#endif
 static bool chillerOtaSyncDue() {
+  CHILLER_DIAG_HEALTH();
   const uint32_t now=millis();
-  if(otaWakeRequested.exchange(false)) otaSchedule.wake(DEVICE_CODE,DEVICE_CODE,now);
+  if(otaWakeRequested.exchange(false)) {
+    CHILLER_DIAG_CHECKPOINT("runtime_wake_received_before_pause");
+    CHILLER_DIAG_WAKE_RESULT(otaSchedule.wake(DEVICE_CODE,DEVICE_CODE,now));
+  }
   const bool active=otaPhase!="idle" && otaPhase!="completed" && otaPhase!="failed";
   if(!otaSchedule.due(now,active)) {otaRealtimePause.store(false);return false;}
   // Asynchronous shutdown releases Realtime TLS before sync/download TLS is allocated.
   otaRealtimePause.store(true);
   if(!otaRealtimePaused.load() || WiFi.status()!=WL_CONNECTED || !otaReady || time(nullptr)<1700000000) return false;
+  CHILLER_DIAG_CHECKPOINT("runtime_after_wss_disconnect");
   otaSchedule.attempted(now);return true;
 }

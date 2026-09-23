@@ -63,6 +63,8 @@ test('actual loop keeps PLC and telemetry running during Realtime loss and disco
   const rt=await read('firmware/common/ChillerOtaRealtime.h')
   const due=rt.slice(rt.indexOf('static bool chillerOtaSyncDue() {')+'static bool chillerOtaSyncDue() {'.length,rt.lastIndexOf('}'))
     .replace('const uint32_t now','const now').replace('const bool active','const active')
+    .replace(/CHILLER_DIAG_(?:HEALTH|CHECKPOINT)\([^;]*\);/g,'')
+    .replace(/CHILLER_DIAG_WAKE_RESULT\(([^;]+)\);/g,'$1;')
   for(const n of [2,3]) {
     const ino=await read(`firmware/Chiller${n}/Chiller${n}.ino`),s=scheduler()
     const loop=ino.slice(ino.indexOf('void loop() {')+'void loop() {'.length,ino.lastIndexOf('}')).replace('unsigned long now','let now')

@@ -18,7 +18,8 @@ function body(source, name) {
 // Execute the actual firmware statements with network/clock/PLC boundaries mocked.
 // Only C++ declarations, casts and namespace syntax are translated to JavaScript.
 function executable(text) {
-  return text.replace(/WiFiClientSecure client;/g, 'let client = new WiFiClientSecure();')
+  return text.replace(/CHILLER_DIAG_COUNT\(\w+\);/g, '') // Production default: diagnostics compile out.
+    .replace(/WiFiClientSecure client;/g, 'let client = new WiFiClientSecure();')
     .replace(/HTTPClient http;/g, 'let http = new HTTPClient();')
     .replace(/\b(unsigned long|String|int|bool) (\w+) =/g, 'let $2 =')
     .replace(/\(unsigned int\)/g, '').replace(/HTTPClient::/g, 'HTTPClient.')
