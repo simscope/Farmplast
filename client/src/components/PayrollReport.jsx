@@ -810,8 +810,8 @@ export default function PayrollReport({ employees = [] }) {
   }
 
   return (
-    <div className={`${cardClass} p-4`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className={`${cardClass} min-w-0 p-3`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-bold text-white">Payroll report</h2>
           <p className="mt-1 text-xs text-cyan-200">
@@ -819,12 +819,12 @@ export default function PayrollReport({ employees = [] }) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <select
             value={selectedWeekStart}
             onChange={(event) => setSelectedWeekStart(event.target.value)}
             disabled={loading}
-            className="rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60"
+            className="min-w-0 max-w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60"
             title="Payroll week"
           >
             {weekOptions.map((week) => (
@@ -857,7 +857,7 @@ export default function PayrollReport({ employees = [] }) {
       </div>
 
       {error ? (
-        <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+        <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           {error}
         </div>
       ) : null}

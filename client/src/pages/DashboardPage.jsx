@@ -9,6 +9,7 @@ import {
   DownloadCloud,
   Loader2,
   BadgeCheck,
+  ShieldCheck,
   Zap,
   FileText,
   Printer,
@@ -2333,7 +2334,30 @@ export default function DashboardPage() {
           ) : null}
         </div>
 
-        <PayrollReport employees={employees} />
+        <div className="mb-3 grid gap-3 md:grid-cols-[minmax(0,3fr)_minmax(210px,1fr)]">
+          <PayrollReport employees={employees} />
+          <section className={`${cardClass} flex min-w-0 flex-col justify-between gap-3 p-3`} aria-labelledby="safety-title">
+            <div className="flex items-start gap-2">
+              <ShieldCheck size={22} className="shrink-0 text-emerald-300" aria-hidden="true" />
+              <div>
+                <h2 id="safety-title" className="text-base font-bold text-white">Техника безопасности</h2>
+                <p className="mt-1 text-xs text-slate-400">SACS</p>
+              </div>
+            </div>
+            {import.meta.env.VITE_SACS_ADMIN_URL ? (
+              <a
+                href={import.meta.env.VITE_SACS_ADMIN_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-fit items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+              >
+                Open SACS
+              </a>
+            ) : (
+              <span className="text-sm text-slate-400">SACS link unavailable</span>
+            )}
+          </section>
+        </div>
 
         <WorkersList
           cardClass={cardClass}
