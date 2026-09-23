@@ -29,11 +29,11 @@ Previously an undiscovered job expired after ten minutes. Newly queued jobs now 
 
 Enable/retain Realtime public Broadcast channels for this project and allow outbound WSS port 443. No Postgres Changes publication, table replication, public firmware storage, or new device secret is required. Public topics contain no credentials or release metadata; the existing project anon key connects the socket. A holder of that public key could generate a wake, but cannot authorize an install; device debounce bounds wake-triggered syncs. If project policy prohibits public channels, private-channel receive-only authorization must be designed before deployment. Do not silently relax that project policy. Production settings have not been inspected or changed in this task.
 
-Official protocol references: https://supabase.com/docs/guides/realtime/protocol and https://supabase.com/docs/guides/realtime/broadcast .
+Official protocol references: [Realtime protocol](https://supabase.com/docs/guides/realtime/protocol) and [Broadcast](https://supabase.com/docs/guides/realtime/broadcast).
 
 ## Dependency and resource validation
 
-Use Links2004 WebSockets **2.7.2**, commit `8d0744eb5e916ec646d83bd1ffed5f643aab04d8` (LGPL-2.1), with ESP32 Arduino **3.3.8** and ArduinoJson **7.4.2**. No Supabase library is added to firmware. The library explicitly supports ESP32 and `beginSslWithCA`; the build uses the existing Supabase CA and never selects insecure TLS. Source: https://github.com/Links2004/arduinoWebSockets/tree/2.7.2 .
+Use Links2004 WebSockets **2.7.2**, commit `8d0744eb5e916ec646d83bd1ffed5f643aab04d8` (LGPL-2.1), with ESP32 Arduino **3.3.8** and ArduinoJson **7.4.2**. No Supabase library is added to firmware. The library explicitly supports ESP32 and `beginSslWithCA`; the build uses the existing Supabase CA and never selects insecure TLS. Source: [WebSockets 2.7.2](https://github.com/Links2004/arduinoWebSockets/tree/2.7.2).
 
 Compile command (same for each before/after sketch; no upload command):
 
@@ -43,7 +43,17 @@ arduino-cli compile --config-file arduino-cli-user-ide.yaml --fqbn esp32:esp32:w
 
 The library root contains pinned `WebSockets` and `ArduinoJson` checkouts. Use local `secrets.h`, `ota_config.h`, and `network_config.h` copied from the examples for compile-only validation. Do not flash these placeholder builds. Both before and after builds use the same examples and compiler settings. The baseline is archived directly from eb3e3f5. Compare actual application `.bin` length against the 1,310,720-byte slot, not the IDE's reported total flash maximum.
 
-Resource table is filled from the final builds below.
+Final source commit: `9cd5aeb`. Both before and after CH2/CH3 builds pass with ESP32 Arduino 3.3.8, the same example configuration, and default dual-OTA partitions. These are compile-only images, not releases. Sizes below are actual application `.bin` bytes.
+
+| Device | Before | After | Added | Free OTA slot before | Free OTA slot after |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| CH2 | 1,133,136 | 1,228,240 | 95,104 | 177,584 | 82,480 |
+| CH3 | 1,133,120 | 1,228,224 | 95,104 | 177,600 | 82,496 |
+
+Both sketches: static RAM rises from **49,328 to 49,456 bytes** (+128). Both 1,310,720-byte OTA slots remain unchanged. Baseline/final partition binaries have identical SHA-256: `148b959cbff1c38aa8e1d5c0ba9d612c54997b945e56a63f41223eef650653a1`. The existing image validator accepts both baseline and final images for their expected device, example version, classic ESP32 chip and OTA size limit. Final images also contain the Realtime worker markers.
+
+CH2 final compile-only application SHA-256: `1ba998dece0319cbf12c6cf73a582b762af1356b8cca159a4df4147d261f7d83`.
+CH3 final compile-only application SHA-256: `49b0f2c7d047e7387a0961406312925357669b70d014965fd52d482accac0844`.
 
 Static RAM figures do not include the worker's 8KiB stack, WebSocket allocations, or mbedTLS heap. Library WebSocket frames are bounded at 15KiB; application JSON accepts at most 2KiB and nesting depth eight. Connection starts only with a largest free heap block of at least 60,000 bytes. This threshold is a defensive gate, not proof of sufficient live heap. The new `realtime_connected` checkpoint reports free/minimum/largest heap and worker stack high-water mark alongside the preserved OTA checkpoints. The existing download's periodic progress HTTPS overlap is unchanged; Realtime TLS is released before that path.
 
@@ -59,7 +69,7 @@ Follow-up design: publish device-scoped wakes after committed command revisions 
 
 ## Validation
 
-See final results and resource table added after compilation. Tests cover scheduler timing and wraparound, target isolation, duplicate debounce, queue/broadcast failure ordering and idempotency, browser visibility and terminal stop, database lost-wake waiting/dispatch expiry, receipt freshness and RPC permissions, plus existing authentication, diagnostics, deferred execution, telemetry and control tests. Firmware isolation tests inspect the actual worker/loop wiring; they are not physical PLC/network endurance tests.
+The full Node client/protocol/database suite passes 74/74 tests. Targeted ESLint on every changed client/test file passes with zero warnings/errors, and the Vite production build passes. Repository-wide ESLint has one pre-existing unused `downtimeEnabled` parameter error in `EmployeeDetailsPage.jsx` plus six existing hook warnings; that unrelated file is unchanged. `git diff --check` passes. Source comparisons confirm both PLC, telemetry POST, POST classification and main-loop bodies are unchanged, and the entire existing shared OTA engine differs only by the active interval constant name. Tests cover scheduler timing and wraparound, target isolation, duplicate debounce, queue/broadcast failure ordering and idempotency, browser visibility and terminal stop, database lost-wake waiting/dispatch expiry, receipt freshness and RPC permissions, plus existing authentication, diagnostics, deferred execution, telemetry and control tests. Firmware isolation tests inspect the actual worker/loop wiring; they are not physical PLC/network endurance tests.
 
 ## Exact files changed
 
