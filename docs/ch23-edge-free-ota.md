@@ -1,9 +1,133 @@
 # CH2/CH3 telemetry-piggyback OTA
 
-Prepared only. No SQL deployment, Edge deletion/deployment, release publication,
-OTA queue, controller command, flash, or merge accompanies this PR. CH1 is unchanged.
+The SQL migration, private PR20 provisioning and frontend are now live in production.
+The latest rollout record below supersedes earlier blocked-attempt records retained
+for audit. No Edge deletion/deployment, release publication, OTA queue, controller
+command, flash, or merge accompanied this task. CH1 is unchanged.
 This replaces PR19's embedded WSS worker; it does not establish the cause of the
 earlier CH2 reboot loop or claim that the replacement passed physical testing.
+
+## Latest production rollout — 2026-09-23
+
+**PRODUCTION HOSTED BACKEND/UI VALIDATION: PASS.**
+
+The current production website session was verified through Supabase Auth's getUser
+endpoint without exporting its bearer token. Only that exact owner's UUID was
+allowlisted. One config row contains a locally generated **bcrypt `$2a$`, cost 12**
+hash of the new independent PR20 code and Storage origin
+`https://eeobivvwjzakbweluwtm.supabase.co`. Exactly two device-key rows contain the
+unchanged working CH2/CH3 OTA HMAC keys. Counts and equality checks passed.
+The frontend/Vercel origin is deliberately not the Storage origin.
+
+Provisioning used bind parameters over a TLS-verified PostgreSQL session pooler,
+with the official Supabase CA. Direct database DNS is IPv6-only on this network.
+The effective backend session settings were explicitly verified: `log_statement=none`,
+parameter lengths for normal/error logs `0`, duration logging disabled,
+`pgaudit.log=none`, `pgaudit.log_parameter=off`, and auto-explain disabled. No secret
+SQL was submitted through Dashboard history. No global logging settings changed.
+
+Hosted unlock found a concrete compatibility issue: bcryptjs's default `$2b$`
+output passes its own verifier but this pgcrypto runtime does not verify it.
+A local reproduction confirmed `$2a$` interoperability. The same new code was
+rehash-provisioned locally using a `$2a$` salt, cost 12; no programming code or
+legacy secret was changed. One rejected attempt preceded the fix, then one correct
+hosted unlock passed. The resulting five-minute grant was left unused; the database
+was verified to store its SHA-256 hash rather than plaintext. No job was queued.
+
+| Hosted check | Result |
+|---|---|
+| Authenticated current owner / operator predicate | PASS / true |
+| Operators / config / HMAC counts | PASS: 1 / 1 / 2 |
+| New PR20 code bcrypt / correct-code unlock | PASS |
+| Authenticated private upload, `upsert:false` | PASS: HTTP 200 |
+| Authenticated stored-byte readback / exact SHA | PASS |
+| Anonymous normal private-object access | PASS: denied, HTTP 400 |
+| Signed URL | PASS: exact object, 1,800-second token lifetime |
+| Anonymous signed download / exact size and SHA | PASS: HTTP 200 |
+| UPDATE and upsert | PASS: RLS denial, HTTP 400 / Storage 403 |
+| DELETE | PASS: HTTP 200 with zero deleted rows; object still present and unchanged |
+| Test-only release approved / OTA job queued | NO / NO |
+| Production CH2 and CH3 programming pages | PASS: UPLOAD FIRMWARE and PROGRAM FIRMWARE present |
+| Valid CH2 metadata / wrong-target CH3 rejection | PASS / PASS |
+
+The intentionally retained immutable, **unapproved** test object is
+`chiller-firmware/ESP32-CH2-PLC/ch2-edge-free-test1/a1a15929e48487bb3cc19ca38e050248eb93e1092841ff084526f631e3a3f863.bin`:
+1,136,688 bytes, SHA-256
+`a1a15929e48487bb3cc19ca38e050248eb93e1092841ff084526f631e3a3f863`.
+There is no release row for this test version, so it is excluded from programming
+selection. No DELETE policy was weakened to clean up the object. Backend Storage
+tests ran in the authenticated production browser session; UI inspection then used
+the real deployed modal. `UPLOAD & APPROVE` and final programming were not pressed.
+The temporary browser file picker used for the API test was removed.
+
+Vercel production deployment:
+`BmibhV15yxuLoWgVwzKgViCoY4XE`, source `0dddb78`, promoted to
+`https://farmplast.vercel.app` at approximately **17:25:36 UTC / 13:25:36 New York**.
+Vercel rebuilt using production environment settings. Previous production deployment
+`BQAyLUJZUDRwptZPRn9r38ehNRoP` remains the frontend rollback reference. PR20 is unmerged.
+
+Visible-browser idle capture **17:27:54–17:30:53 UTC**, without truncation, recorded
+**0** `chiller-ota` calls, **0** WebSocket connections, and **0** firmware-status RPC
+reads. Ordinary telemetry UI reads continued. This establishes no five-second idle
+OTA status polling in that window. An earlier navigation capture was truncated and
+is not used as lossless evidence. Legacy physical firmware still calls Edge; total
+production Edge traffic is not zero.
+
+Hosted empty-readings probes (no PLC writes, receipts, registration or boot changes)
+returned legacy-compatible HTTP 200 and protocol-2 HTTP 200. Measured decoded bodies:
+legacy **70 bytes** (`content-encoding: br`, chunked, no Content-Length); no-job v2
+**11 bytes**, logical `{"o":null}`, Content-Length **11**, no content encoding.
+These are serialization checks, not a simulated physical telemetry cycle or a job
+manifest test. The v2 size confirms **63,360 response-body bytes/device/day** at
+5,760 telemetry posts, **126,720 bytes/day for two** continuously awake devices.
+Headers/TLS billing and active manifest/terminal sizes remain unmeasured; no billing
+claim is derived from the legacy decompressed response size.
+
+Added regressions cover frontend-origin rejection, a different Supabase project's
+signed URL rejection, and pgcrypto-compatible bcrypt format. **10/10 targeted
+database tests PASS.** No unapproved authenticated session was available for an
+additional real-account negative test; existing SQL/RLS regressions cover that role.
+
+![Real production CH2 inspection](images/pr20-production-valid-ch2.png)
+
+![Real production wrong-target rejection](images/pr20-production-wrong-target.png)
+
+Evidence lives in `C:/Users/Owner/Documents/farmplast/pr20-production-rollout/`:
+`provisioning-result.json`, `bcrypt-format-correction.json`, `provisioning-verified.json`,
+`hosted-storage-result.json`, `storage-immutability-result.json`,
+`response-shape-probe.json`, `production-ui-idle-network.json`, `post-ui-samples.json`.
+None contains the code, HMAC keys, signed URLs, session token or owner UUID.
+
+Connection/logging references: [Supabase PostgreSQL connections](https://supabase.com/docs/guides/database/connecting-to-postgres)
+and [PostgreSQL logging controls](https://www.postgresql.org/docs/15/runtime-config-logging.html).
+
+Post-deployment observation: **17:26:13–17:36:17 UTC / 13:26:13–13:36:17 New York**,
+**604.482 seconds, 41 samples**. Both controllers retained their original boot IDs
+and night firmware versions. All 15 active PLC point timestamps advanced on each
+controller, and multiple raw values/statuses changed. Maximum sampled telemetry
+age was **17.142s CH2 / 13.135s CH3**; maximum legacy sync age was **9.556s / 6.914s**.
+Active jobs stayed **0**, total jobs stayed **15**, failed-job count did not increase,
+and events stayed **173** throughout this window. Fresh visible legacy Edge
+invocations were all HTTP 200. The unused grant was verified expired naturally.
+See `post-ui-summary.json`; these are 15-second samples, not a lossless packet log.
+
+| Final result | Status |
+|---|---|
+| PR20 operator provisioned | YES |
+| New PR20 programming code hash provisioned | YES |
+| Supabase Storage origin provisioned | YES |
+| CH2 / CH3 HMAC provisioned, unchanged | YES / YES |
+| Hosted unlock/grant | PASS |
+| Storage upload/readback / SHA / private access / signed URL | PASS |
+| PR20 production UI deployed | YES |
+| CH2 / CH3 healthy after rollout | YES / YES |
+| PR20 new-flow Edge calls / WebSockets in verified idle window | 0 / 0 |
+| READY TO BUILD REAL EDGE-FREE CH2 IMAGE | YES |
+
+This readiness authorizes no flash or OTA job. Physical Edge-free firmware,
+manifest delivery during an actual job, and installation remain untested in this
+rollout. Legacy Edge remains deployed with all its existing secrets unchanged.
+PR20 remains draft/unmerged. No physical firmware changed.
 
 ## Baseline inspected
 
@@ -150,7 +274,9 @@ programming lifetime, rather than claiming RLS can constrain Storage's `expiresI
 
 ## Migration order and compatibility
 
-**Separate approval is required to perform any rollout; nothing below was executed.**
+The production execution records below identify completed steps. The owner's latest
+authorization uses independent PR20 operator/code credentials and preserves legacy
+Edge secrets; it does not authorize flashing or queueing firmware in this task.
 
 1. Resolve/record the installed hardware baseline separately. Confirm no active jobs
    and fresh PLC telemetry. Preserve old firmware, private configs, Edge source and
@@ -162,9 +288,13 @@ programming lifetime, rather than claiming RLS can constrain Storage's `expiresI
 3. Apply the SQL transaction once, after existing compact telemetry, base OTA,
    observability, failure diagnostics and PR19 wake migrations. Reapplication aborts
    safely rather than wrapping ingestion twice. No releases/jobs/events are deleted.
-4. Privately provision `ch23_ota_private.operators` with the **existing approved**
-   account UUIDs; config with the production origin and a bcrypt hash of the
-   **existing** programming code; device_keys with the **existing exact** CH2/CH3
+4. Privately provision `ch23_ota_private.operators` with only the current owner's
+   UUID verified by the authenticated production session's Auth getUser endpoint.
+   Use a new independently supplied PR20 four-digit programming code, hashed
+   locally with bcrypt cost 12–16. The code need not match the unknown legacy Edge
+   code. Set `config.origin` to **`https://eeobivvwjzakbweluwtm.supabase.co`**:
+   this is the project/Storage origin used to validate signed download URLs, never
+   the frontend/Vercel origin. Populate device_keys with the **existing exact** CH2/CH3
    HMAC keys. Use a privileged parameterized database connection/secret runner,
    with statement/parameter logging disabled. Do not place the clear code, keys or
    signed URLs in SQL Editor history, repository, shell arguments or reports. Do not
@@ -270,6 +400,195 @@ compiled CH3 app was rejected in the CH2 modal with approval disabled.
 ![CH2 upload preview, local fixture](images/ch23-firmware-upload.png)
 
 ![Wrong-target rejection, local fixture](images/ch23-firmware-wrong-target.png)
+
+## Hosted staging validation — 2026-09-23
+
+**HOSTED STAGING VALIDATION: FAIL — BLOCKED before execution.** This is an
+environment prerequisite failure, not an observed failure of the implementation.
+Branch `codex/ch23-edge-free-ota`, HEAD
+`0dddb788b9fa359c989b19fb842aae235887bf2b`; working tree was clean at intake.
+
+The authenticated Supabase dashboard exposes only the SimScope free organization.
+Its New Project page reports that organization members have reached the limit of
+two active free projects, and disables project creation. Existing projects are
+production Farmplast and unrelated Hvac; neither is an isolated staging target.
+Neither was changed or repurposed. No staging project was created, no migration
+was applied, and no credentials, releases or jobs were provisioned in this task.
+An isolated hosted project or available project capacity is required to resume.
+
+| Required hosted check | Result |
+|---|---|
+| Migration, private schema and locked SECURITY DEFINER search paths | NOT RUN |
+| Auth and unprovisioned fail-closed behavior | NOT RUN |
+| Storage upload/readback and stored SHA verification | NOT RUN |
+| Private bucket, operator RLS and immutable object negative tests | NOT RUN |
+| Programming code, rate limit, grant consumption and idempotent queue | NOT RUN |
+| Signed URL lifetime, isolated access and download SHA | NOT RUN |
+| No-job telemetry response and job manifest via telemetry | NOT RUN |
+| CH2/CH3 isolation and completion via new-boot telemetry | NOT RUN |
+| Actual hosted browser flow and screenshots | NOT RUN |
+| No-job / manifest / terminal HTTP body bytes and headers | NOT MEASURED |
+| Edge calls and Realtime connections during the hosted flow | NOT MEASURED — flow did not run |
+
+The egress figures above remain estimates, not hosted HTTP measurements. No hosted
+zero-call or zero-WebSocket result is claimed from an unexecuted flow.
+
+Independent offline recheck: both existing compile-test images remain 1,136,688
+bytes and match the SHA-256 values in `ch23-edge-free-build-results.json`.
+Literal scans of both images, both runtime `.ino` sources and `firmware/common`
+found none of `/functions/v1/chiller-ota`, `WebSocketsClient`, or
+`realtime/v1/websocket`. This supports static dependency removal only; it does not
+replace hosted traffic capture.
+
+**READY FOR PRODUCTION SCHEMA/UI ROLLOUT: NO.** All hosted gates remain pending.
+Production, legacy Edge Functions, physical controllers and PR merge state were
+left unchanged. Resume the complete hosted test sequence once an isolated staging
+project is available; the earlier local fixture results are not hosted evidence.
+
+## Earlier incomplete production attempt — 2026-09-23 16:24 UTC
+
+**PRODUCTION HOSTED BACKEND/UI VALIDATION: FAIL — rollout incomplete.**
+
+Production project: `eeobivvwjzakbweluwtm`. Exact source commit:
+`0dddb788b9fa359c989b19fb842aae235887bf2b`. The complete migration file was
+submitted unchanged and committed successfully. Verification at 16:24:45 UTC
+confirmed that the two public wrappers and private preserved ingest functions
+exist. Original function bodies match exactly after accounting only for the schema
+move. All 7 release IDs, 15 job IDs and 171 event IDs remain present and unchanged.
+Telemetry table columns are unchanged. Private schema access is denied to anon
+and authenticated; new SECURITY DEFINER functions have locked empty search_path.
+The two moved original functions retain their exact captured definitions/settings.
+
+Exact rollback definitions, ACLs, Storage policies/bucket settings, history IDs and
+device observations are preserved outside the repository at
+`C:/Users/Owner/Documents/farmplast/pr20-production-rollout/`.
+`before/restore-public-ingest.sql` is prepared but has not been executed.
+
+| Gate | Result |
+|---|---|
+| SQL migration and preservation checks | PASS |
+| Private provisioning | BLOCKED: existing code and exact operator allowlist unavailable locally |
+| Old CH2 / CH3 compatibility | PASS for observed 10m41s window; sampled evidence below |
+| Anonymous management rejection | PASS: HTTP 401, SQLSTATE 42501 |
+| Private schema not exposed through PostgREST | PASS: HTTP 406, PGRST106 |
+| Anonymous operator predicate | PASS: HTTP 200, `false` |
+| Anonymous Storage upload rejection | PASS: HTTP 400, Storage status 403 |
+| Approved operator upload / authenticated readback / SHA readback | NOT RUN |
+| Normal private-object read denial / non-operator / UPDATE / DELETE | NOT RUN |
+| Signed URL and programming-code/grant checks | NOT RUN |
+| Production Upload Firmware UI / wrong-target rejection | NOT RUN; frontend not promoted |
+| Actual no-job hosted response bytes | NOT MEASURED |
+
+The existing local `CH3_INGEST_DEVICE_SECRET` was rejected by production
+(`P0001`, invalid device credentials) during an empty-readings probe. This probe
+did not write PLC data, telemetry receipts, device registration or boot metadata.
+The protocol-2 probe was not sent after the legacy probe failed. The error response
+was 112 bytes; it is **not** a no-job response measurement. Do not substitute the
+local secret or modify the physical device. Natural physical CH3 ingestion still
+succeeds, so this is a diagnostic-credential blocker, not observed controller failure.
+
+Compatibility observation: **16:24:45–16:35:26 UTC (12:24:45–12:35:26 New York),
+10m41s**. Eight PLC/device snapshots plus the immediate post-commit verification
+showed fresh receipts and legacy sync, unchanged versions and boot IDs, changing
+PLC values, zero active jobs, 171 unchanged events and no increase in failed jobs.
+Maximum sampled telemetry age: CH2 **14.046s**, CH3 **14.733s**; maximum sampled
+legacy sync age: CH2 **11.773s**, CH3 **14.988s**. These are periodic samples, not
+a lossless record of every 15-second request. The 15 active raw/boolean PLC points
+advanced; six historical derived rows per device retained their preexisting
+September 11 / August 17 timestamps and are not claimed as fresh measurements.
+
+| Controller | Current version | Stable boot ID |
+|---|---|---|
+| CH2 | `ch2-secure-3-night1` | `e2319837abf270d627c437cb1f8cbfe4` |
+| CH3 | `ch3-secure-3-night1` | `05d8ec66600e4deb52b9a61d277cf261` |
+
+CH2 healthy after SQL rollout: **YES**. CH3 healthy after SQL rollout: **YES**.
+PLC active values updating: **YES**. Legacy OTA Edge path healthy: **YES** in
+observed sync state/invocations. Active OTA jobs: **0**. The requested additional
+15-minute post-frontend window has not started because frontend deployment is gated.
+
+Existing HMAC key fields are locally available, but their values have not been
+rotated or reprovisioned. The existing programming code and exact approved operator
+allowlist were requested via an ignored private file; no replacements were created.
+All new management RPCs remain fail-closed with empty private provisioning.
+`config.origin` expects the Supabase Storage origin, not the frontend website URL.
+The production website is `https://farmplast.vercel.app`.
+
+Vercel PR20 preview `BiM9koUM8cnozEsNUYz4mKyzGFiv` is Ready at `0dddb78`.
+It was not promoted because the backend/Storage gates must pass first. Existing
+production deployment `BQAyLUJZUDRwptZPRn9r38ehNRoP` at `eb3e3f5` is retained.
+The UI's combined upload/readback/approval action must not approve a compile-test
+image for physical programming; any resumed production test must keep that image
+unapproved or excluded from physical selection.
+
+Executed new-flow HTTP probes called only PostgREST and Storage: **0 Edge calls**
+from those probes, no WebSockets. This is not a completed browser-workflow capture.
+Legacy physical Edge calls continue and recent invocation rows show HTTP 200.
+No total-production zero-Edge claim is made. No release or OTA job was created,
+no test object was successfully uploaded, no controller was flashed or commanded,
+and legacy Edge code/secrets and PR merge state remain unchanged.
+
+**PRODUCTION PR20 BACKEND/UI: FAIL — incomplete.**
+**READY TO BUILD REAL EDGE-FREE CH2 IMAGE: NO.**
+
+## Private credential source audit — 2026-09-23 16:51 UTC
+
+A subsequent authorized audit searched ignored environment/header/config files,
+preserved firmware/recovery directories and deployment sources across the local
+Farmplast workspace, plus Supabase CLI configuration locations and process/user/
+machine deployment environment variables. Only names, format checks and equality
+results were reported. No secret values were printed or placed in SQL history.
+
+- Existing `CHILLER_OTA_OPERATOR_IDS`: **NOT FOUND**. Provisioning operators stopped;
+  no UUID was inferred from Auth users, jobs or administrative membership.
+- Existing `CHILLER_OTA_OPERATOR_CODE`: **NOT FOUND**. No code generated or changed;
+  no bcrypt was generated/provisioned without the original code.
+- CH2 and CH3 OTA HMAC keys: **FOUND**, format valid (at least 32 characters), in
+  ignored private JSON; both exactly match preserved working night firmware config.
+  Neither key was provisioned because the task requires all values first.
+- Frontend origin: `https://farmplast.vercel.app`. **Not provisioned**: the deployed
+  `config.origin` CHECK accepts a Supabase origin, and queue validation uses it to
+  validate Storage signed URLs. The requested website origin has a different role
+  and cannot be placed in that field without a reviewed code/schema change.
+- CH3 preserved firmware `DEVICE_SECRET` vs production: **MATCH** by SHA-256
+  equality evaluated in the database; neither plaintext value was returned.
+- CH3 ignored JSON ingest secret vs production: **MISMATCH before correction**.
+  Updated only that JSON field from the verified preserved firmware source; it now
+  matches. All other local JSON fields and production credentials remain unchanged.
+
+Read-only production snapshot at **16:51:07 UTC**: operators **0**, config rows **0**,
+private HMAC rows **0**, active jobs **0**, both devices have fresh sync and telemetry.
+No production write occurred in this audit. No privileged parameterized database
+connection was available in the inspected deployment configuration. Provisioning
+must not fall back to SQL Editor plaintext secrets. The requested five-minute
+post-provisioning observation was not started because provisioning did not occur.
+
+**Private provisioning COMPLETE: NO. READY TO DEPLOY PR20 UI: NO.**
+The exact existing operator allowlist is the first blocking credential; the existing
+code is also unrecovered. No credential rotation, Edge modification, firmware job,
+controller flash, frontend deployment or PR merge was performed.
+
+## Earlier independent PR20 preparation — before credentials were supplied
+
+The latest owner instruction supersedes the historical-operator/code recovery
+requirement in the preceding audit. Legacy Edge credentials remain unchanged.
+The currently authenticated production Farmplast session was verified against
+Supabase Auth's `/auth/v1/user` endpoint (the getUser endpoint), inside the browser.
+The returned exact user ID was saved only in the existing ignored private config
+as `PR20_OPERATOR_USER_ID`; it was not inferred from `auth.users` and was not
+provisioned yet. No session token was exported or saved.
+
+Pending owner-supplied private fields: `PR20_OPERATOR_CODE` (a string containing
+exactly four digits) and `PR20_DATABASE_URL` (an existing privileged parameterized
+PostgreSQL connection, without changing its password). Neither was available at
+inspection. No private database rows were written, no grant was requested, and
+Storage/UI rollout remains gated on provisioning and hosted checks.
+
+Added regression coverage rejects `https://farmplast.vercel.app` as config.origin
+and rejects signed URLs from both that frontend and another Supabase project.
+The configured Storage origin remains accepted by the successful queue regression.
+**Targeted database regression suite: 9/9 PASS.** These are local tests, not hosted
+provisioning or Storage validation.
 
 ## Changed implementation files
 

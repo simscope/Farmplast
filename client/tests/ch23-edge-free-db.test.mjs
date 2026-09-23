@@ -125,9 +125,28 @@ test('legacy telemetry remains compatible; no-job v2 response is compact and wro
  await admin()
 })
 
+test('configuration origin is Supabase Storage, never the frontend origin',async()=>{
+ await admin()
+ await assert.rejects(db.query('update ch23_ota_private.config set origin=$1',['https://farmplast.vercel.app']),/check constraint/)
+ assert.equal((await db.query('select origin from ch23_ota_private.config')).rows[0].origin,'https://test.supabase.co')
+})
+
+test('provisioned bcrypt must use the pgcrypto-compatible 2a format',async()=>{
+ await admin()
+ const h=(await db.query('select code_hash from ch23_ota_private.config')).rows[0].code_hash
+ assert.match(h,/^\$2a\$12\$/)
+ assert.equal((await db.query('select extensions.crypt($1,$2)=$2 ok',['1234',h])).rows[0].ok,true)
+ // A local bcrypt library can emit 2b, but this pgcrypto runtime does not
+ // accept that prefix. Provision a locally generated 2a hash of the same code.
+ const incompatible=h.replace(/^\$2a\$/,'$2b$')
+ assert.equal((await db.query('select extensions.crypt($1,$2)=$2 ok',['1234',incompatible])).rows[0].ok,false)
+})
+
 test('queue bounds URL scope/expiry, atomically consumes grant and is idempotent',async()=>{
  await asUser();const {grant}=await unlock(2)
  assert.equal(grant.length,64)
+ await assert.rejects(queue(grant,job,release,signed.replace('https://test.supabase.co','https://farmplast.vercel.app')),/Invalid signed object URL/)
+ await assert.rejects(queue(grant,job,release,signed.replace('https://test.supabase.co','https://other.supabase.co')),/Invalid signed object URL/)
  await assert.rejects(queue(grant,job,release,signed.replace('https://test.','https://attacker.')),/Invalid signed/)
  const long=url(device(2)+'/next/'+hash+'.bin',86400)
  await assert.rejects(queue(grant,job,release,long.signed,long.expiry),/expiry/)
