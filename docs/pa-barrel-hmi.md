@@ -31,3 +31,7 @@ Two screen composition and navigation, four silos / three mixers, source palette
 Scope: only /monitoring/pa/barrels presentation. Existing generic components, configs, adapters, contracts and tests preserved. No SQL, backend, firmware, telemetry or NJ changes.
 
 Mobile silo labels are enlarged relative to the source to remain readable in the two-column layout.
+
+## Farmplast presentation refinement
+
+The current web view uses the standard PA background, header and back link. Four panel-inspired silo illustrations appear above three compact, centered mixer feedback blocks. The standalone panel frame, duplicate screen heading, screen switching, RAW readout and command/recipe buttons have been removed. Source level colors/shapes and panelDisplay helpers remain unchanged. Desktop shows the whole process together; tablet uses two silo columns and mobile one. Mixer priority is operation, mode, assignment, then explicit fault feedback. This supersedes the earlier two-screen presentation description above; it adds no controls or telemetry.

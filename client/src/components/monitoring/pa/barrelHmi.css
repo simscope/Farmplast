@@ -1,36 +1,13 @@
-.pa-panel-page { min-height:100vh; padding:16px 24px; background:#0c1118; color:#f4f7fb; font-family:Arial,sans-serif; }
-.pa-panel-page * { box-sizing:border-box; }
-.pa-panel-toolbar { max-width:1280px; margin:0 auto 14px; display:flex; justify-content:space-between; align-items:center; gap:12px; flex-wrap:wrap; font-size:12px; color:#aeb9c6; }
-.pa-panel-toolbar a { color:#dce3ec; text-decoration:none; padding:8px 0; }
-.pa-panel { container-type:inline-size; max-width: min(1280px, calc((100svh - 100px) * 1.6)); margin:auto; background:#14191f; padding-bottom:1px; }
-.pa-panel-header { position:relative; height:8.2cqw; min-height:72px; }
-.pa-panel h1 { position:absolute; left:2.2%; top:1.4cqw; margin:0; font-size:3.75cqw; line-height:1.2; font-weight:500; }
-.pa-panel-link-state { position:absolute; left:51%; top:5.7cqw; margin:0; color:#aeb9c6; font-size:1.094cqw; }
-.pa-panel button { font-family:inherit; font-size:1.094cqw; border:0; border-radius:6px; color:#fff; background:#2196f3; }
-.pa-panel-header button { position:absolute; top:1.25cqw; right:2.2%; width:13.28%; height:4.375cqw; cursor:pointer; }
-.pa-panel-page :focus-visible { outline:3px solid #9bd1ff; outline-offset:3px; }
-.pa-panel-silo-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:2.34375%; padding:0 2.734375% 0 1.953125%; }
-.pa-panel svg { width:100%; display:block; font-family:Arial,sans-serif; fill:#f4f7fb; font-size:14px; }
-.pa-panel-mixers { background:#151a20; }
-.pa-panel-mixer-grid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:3.90625%; padding:1.17% 4.296875% 0 5.859375%; }
-.pa-panel-mixer { position:relative; min-width:0; }
-.pa-panel-mixer button { position:absolute; height:12.632%; width:36.111%; top:13.158%; cursor:not-allowed; }
-.pa-panel-mixer .pa-panel-start { left:7.778%; background:#238636; }
-.pa-panel-mixer .pa-panel-stop { left:49.444%; background:#c2412d; }
-.pa-panel-mixer .pa-panel-adjust { width:14.444%; height:8.421%; }
-.pa-panel button:disabled { opacity:.65; }
-.pa-panel-extra { font-size:12px; color:#aeb9c6; margin:8px 0; }
-.pa-panel-note { margin:1.4% 2.2%; font-size:11px; color:#aeb9c6; }
-@media(max-width:700px) {
- .pa-panel-page { padding:14px; }
- .pa-panel { max-width:100%; }
- .pa-panel-header { height:auto; min-height:116px; padding:12px; }
- .pa-panel h1 { position:static; font-size:clamp(20px,5cqw,32px); max-width:65%; }
- .pa-panel-link-state { position:static; font-size:11px; margin-top:12px; }
- .pa-panel-header button { top:12px; right:10px; width:30%; height:44px; font-size:11px; }
- .pa-panel-silo-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; padding:0 10px; }
- .pa-panel-mixer-grid { grid-template-columns:minmax(0,1fr); gap:16px; padding:0 10px; max-width:420px; margin:auto; }
- .pa-panel-mixer button { font-size:14px; }
- .pa-panel-note { margin:16px 10px; line-height:1.5; }
-}
-@media(max-width:700px) { .pa-panel .pa-panel-silo { font-size:22px; } }
+.pa-process { max-width:1440px; margin:0 auto; }
+.pa-process-silos { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:16px; }
+.pa-process-heading { display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+.pa-process-heading h2 { font-size:17px; font-weight:700; }
+.pa-process-silo svg { display:block; width:100%; height:clamp(230px,34vh,330px); margin:14px auto 10px; font-family:Arial,sans-serif; }
+.pa-process-level { display:flex; justify-content:center; align-items:center; gap:10px; flex-wrap:wrap; font-size:11px; color:#94a3b8; }
+.pa-process-level strong { color:#cbd5e1; font-size:11px; }
+.pa-process-mixers { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; max-width:1080px; margin:18px auto 0; }
+.pa-process-feedback { margin:12px 0 0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:12px; font-size:12px; }
+.pa-process-feedback dt { color:#94a3b8; margin-bottom:6px; }
+.pa-process-feedback dd { margin:0; color:#e2e8f0; overflow-wrap:anywhere; }
+@media(max-width:1000px) { .pa-process-silos { grid-template-columns:repeat(2,minmax(0,1fr)); } .pa-process-mixers { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:599px) { .pa-process-silos, .pa-process-mixers { grid-template-columns:minmax(0,1fr); } .pa-process-silo svg { height:280px; } }
