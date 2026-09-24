@@ -368,3 +368,74 @@ Validator record: C:/Users/Owner/Documents/farmplast/ch1-edgefree-2-validation.j
 
 No new forensic investigation or production/backend operation was performed.
 Physical validation of this image remains NOT RUN.
+
+## Authorized single v2 retry — FAILED / stopped, 2026-09-24
+
+Local v2 SHA matched a442dbe364042cc97e2429561c8e5d2b689ec1b30a87d488ff193b42830e6c72.
+Preflight CH1 ch1-ota-2 ONLINE, source boot dcbbe59384e5354697b691da329fb0f4,
+fresh telemetry, no active jobs. Twenty latest legacy ESP32HTTPClient POSTs
+18:41:54.316–18:43:34.750 UTC returned HTTP 200.
+
+V1 obsolete/non-selectable: YES. Only approved=false changed on its existing
+release c6326bda-16c1-492c-8118-7220621ed113 at 18:43:00 UTC. Its binary, failed
+job and events remain intact. Status excludes unapproved releases, queue requires
+approved, and publication rejects a revoked version. No v1 job was queued.
+
+The reused browser tab initially pointed to CH3. A local selection of the CH1
+image was correctly rejected there before upload; no upload/approval/queue or
+controller command was sent to CH3. The modal was cancelled and the exact CH1
+URL and ESP32-CH1 identity verified before any upload or programming operation.
+
+On CH1, UPLOAD & VERIFY passed: S3/ESP32-CH1, ch1-edgefree-2, 1,069,776 bytes,
+240,944-byte headroom, authenticated private readback and exact SHA. Explicit
+APPROVE RELEASE then performed its fresh readback.
+V2 release: 39cecd61-8780-42ea-aa81-d95819f20482, approved 18:45:41.924 UTC.
+Storage path: ESP32-CH1/ch1-edgefree-2/
+a442dbe364042cc97e2429561c8e5d2b689ec1b30a87d488ff193b42830e6c72.bin
+in private ch1-firmware. V2 remains approved; no automatic revocation occurred.
+
+Exactly one new job: 0a01adbe-fd46-41ee-aa81-43ffba454d3a.
+Source firmware ch1-ota-2; source boot dcbbe59384e5354697b691da329fb0f4.
+Actual recorded stages (UTC):
+
+| Timestamp | Event |
+| --- | --- |
+| 18:46:35.223 | authorized |
+| 18:46:46.130 | failed |
+
+Failure device_reported_failure, progress 0. Downloading/verifying/installing/
+rebooting/completed were NOT RECORDED. No phase is inferred from the reboot.
+CH1 returned on old ch1-ota-2, new boot eb42720448402a5a406d542e0b5f695b,
+protocol null. At 18:47:10.837 UTC, sync age 4.478 s, telemetry timestamp
+18:47:07 UTC, ONLINE. Desired/actual UI values remained present (AUTO, fan OFF,
+setpoint 85 F, D1=2, D2=5, HYST=1). Active jobs=0; total v2 jobs=1.
+
+The source-side first download still executes installed ch1-ota-2. Building
+deferred execution into the target does not patch that running legacy binary.
+No successful v2 boot or first v2 telemetry timestamp exists; the retry does
+not demonstrate that the deferred target code ran. Exact reset cause remains
+unestablished. No further retry or control commands were issued.
+
+- v2 upload/readback: PASS
+- v1 obsolete/non-selectable: YES
+- OTA: FAIL
+- authorized: YES
+- downloading/verifying/installing/rebooting: NOT RECORDED
+- completed: NO
+- firmware ch1-edgefree-2: NO
+- protocol 2: NO
+- new boot ID: YES, on old firmware
+- telemetry stable: fresh after failure; endurance stability NOT VALIDATED
+- unexpected reboot: YES, cause unknown
+- observation duration: stopped on failure; 10–15 minute post-v2 window not started
+- post-migration ESP32HTTPClient -> ch1-ota calls: N/A; no migration timestamp
+- browser ch1-ota calls: 0 observed response entries during attempt
+- CH1 EDGE-FREE PHASE A: FAIL
+- READY FOR CONTROL VALIDATION: NO
+- READY TO RETIRE ch1-ota: NO
+
+Evidence: local ch1-production-rollout/v2-preflight.json, v2-preflight-edge.json,
+v1-obsolete.json, v2-release-prequeue.json, v2-ota-result.json,
+v2-after-failure.json, v2-browser-responses.json. Secrets/signed URLs excluded.
+Legacy Edge remains deployed. No PLC/controller logic or CH2/CH3 firmware
+changes, no second new job, no PR merge.
