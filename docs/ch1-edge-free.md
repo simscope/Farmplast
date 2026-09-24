@@ -144,3 +144,103 @@ frontend deployment was performed during this checkpoint. No code was changed.
 To complete the requested hosted UI test without publication, upload/readback
 and approval need separate actions. No such UI change was made implicitly.
 No firmware, jobs, controller commands, Edge functions or CH2/CH3 were changed.
+
+## Completed split workflow and hosted validation — 2026-09-24
+
+This record supersedes the blocked frontend/upload checkpoint above.
+
+### Ancestry and deployment
+
+Production originally served 0d2989ddb2887fbcf49bd813390ae1a81733b5f2
+(codex/sacs-employee-sync), deployment 4qmALpv8MTML33E5HGQJVoDSE2wg.
+PR21 lacked three production commits (Safety layout and SACS sync). They were
+merged into the PR21 branch without conflicts before rollout. The production
+commit is now an ancestor; the client diff against it contains only CH1 changes
+and tests. Existing PR20 CH2/CH3, NJ, PA, Safety and SACS functionality is preserved.
+No pull request was merged.
+
+Final deployed code: ba6f6842a52ea9ff4822293fc218d576156fea1d.
+Production deployment: 3zJPEjSSc9N8xS2ZTRuq6sDxQwKV
+(https://farmplast-m72e1h5gx-andrei-simanenkas-projects.vercel.app),
+aliased to https://farmplast.vercel.app using the production environment.
+
+The first rollout (bc739ef / ER3whA5XV9pQajJyMhFGuwGPRTbD) exposed a
+PostgREST thenable .catch() bug in CH1 status loading. It incorrectly displayed
+OFFLINE while DB telemetry remained healthy. The previous frontend was restored,
+the RPC loader was corrected to await the thenable, and a regression test added.
+The corrected deployment now shows actual telemetry, firmware and requested state.
+
+### Split action contract and tests
+
+UPLOAD & VERIFY re-inspects the selection, uses upsert:false, downloads the exact
+private object and verifies size/SHA. It returns metadata without calling publish.
+VERIFIED — NOT APPROVED is followed by a separate APPROVE RELEASE button.
+Approval re-inspects the selection and re-downloads/re-hashes the stored object
+immediately before publication. File selection and modal remount clear verification.
+Existing immutable unapproved objects can be verified; no cleanup rights added.
+
+Full suite: 127/127 PASS (node --test --test-concurrency=1 tests/*.test.mjs).
+A parallel attempt exhausted local Node memory; the complete sequential rerun
+passed. Frontend build PASS; changed-file ESLint PASS. Isolated browser checks
+passed: no approval before verification; file change clears verified state;
+reopening starts empty; explicit second click alone triggers mocked publication
+after a fresh readback. No production publication was used for these tests.
+
+### Hosted UPLOAD & VERIFY only
+
+Local and authenticated Storage readback SHA-256:
+5e24f456524450fab3eca4a5089596a281b3c94413661b61d8cf6309e351bff2.
+Image: ESP32-CH1 / ESP32-S3 / ch1-edgefree-1 / 1,068,896 bytes /
+241,824-byte OTA headroom. Existing partition validation remains applicable;
+no rebuild was performed. Hosted inspection rejected real CH2 and CH3 binaries.
+
+Object: ch1-firmware/ESP32-CH1/ch1-edgefree-1/
+5e24f456524450fab3eca4a5089596a281b3c94413661b61d8cf6309e351bff2.bin.
+Upload and authenticated readback succeeded; UI displayed Stored bytes verified,
+SHA-256 verified and Release approved: NO. APPROVE RELEASE was never clicked
+in production. Releases=0, jobs=0 after upload.
+
+Privacy: bucket public=false; operator sees one exact object; anonymous DB role
+sees zero. Fresh uncached unauthenticated normal-object HTTP access returns 400;
+public-object URL returns 400. A first cache-enabled anonymous fetch reused the
+authenticated browser cache (200), so it was excluded from privacy proof; the
+cache-busted no-store request was denied. Operator UPDATE returns zero rows.
+DELETE RLS EXPLAIN yields One-Time Filter=false; direct DELETE additionally
+raises 42501 via Storage protection. SQL mutation probes were rolled back; no
+Storage DELETE API was executed and no object was removed. No RLS changes made.
+
+Captured browser response stream contained zero ch1_firmware_publish calls and
+zero /functions/v1/ calls. CH1 status uses direct RPC. No control command was sent.
+CH1/CH2/CH3 and NJ pages loaded; PA overview, barrels/mixers, machines, climate
+and chillers loaded with their existing not-configured/no-data states. Final
+CH1/PA browser error logs were empty.
+
+### Physical observation and result
+
+2026-09-24 14:04:14.407–14:09:15.300 UTC (5m00.893s), 11 DB samples.
+Firmware remained ch1-ota-2; boot stayed 8b87839536b88f5d70259449eb69adb1.
+Maximum observed sync age 2.085 seconds; oldest telemetry age 6.608 seconds.
+DS18B20-derived temperatures changed normally; CH1 ONLINE; requested state AUTO,
+fan OFF, setpoint 85 F, D1=2, D2=5, HYST=1 retained. This CH1 is GPIO/DS18B20,
+not a Panasonic PLC. Legacy ch1-ota health is supported by continuing old-firmware
+device sync. No active OTA jobs, no releases, no boot churn.
+
+Local detailed evidence: ch1-production-rollout/frontend-final-observation.json,
+hosted-upload-evidence.json, upload-privacy.json, split-tests.log and split-build.log.
+
+- ancestry safe: YES
+- split upload/approval implemented: YES
+- tests: 127/127
+- frontend deployed: YES
+- local binary SHA match: YES
+- hosted upload: PASS
+- hosted readback: PASS
+- stored SHA: PASS
+- private Storage: PASS (HTTP read + hosted role/RLS checks described above)
+- release approved: NO
+- physical CH1 healthy: YES
+- active OTA jobs: 0
+- READY TO APPROVE ch1-edgefree-1: YES (readiness only, approval not performed)
+
+No firmware publication, OTA queue, flash, physical command, Edge deletion,
+credential rotation, CH2/CH3 firmware change or PR merge was performed.
