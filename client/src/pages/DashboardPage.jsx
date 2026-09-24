@@ -19,6 +19,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/useAuth'
 import EmployeeModal from '../components/EmployeeModal'
 import PayrollReport from '../components/PayrollReport'
+import SacsLink from '../components/SacsLink'
 import { runEmployeeSyncTargets } from '../utils/employeeSyncTargets'
 import WorkersList from '../components/workers/WorkersList'
 import { useEmployeeList } from '../hooks/useEmployeeList'
@@ -2385,18 +2386,7 @@ export default function DashboardPage() {
                 <p className="text-xs text-slate-400">SACS</p>
               </div>
             </div>
-            {import.meta.env.VITE_SACS_ADMIN_URL ? (
-              <a
-                href={import.meta.env.VITE_SACS_ADMIN_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex w-fit shrink-0 items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
-              >
-                Open SACS
-              </a>
-            ) : (
-              <span className="text-sm text-slate-400">SACS link unavailable</span>
-            )}
+            <SacsLink className="inline-flex w-fit shrink-0 items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400" />
           </section>
         </div>
 

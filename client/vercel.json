@@ -1,6 +1,7 @@
 {
-  "functions": { "api/sync-sacs.js": { "maxDuration": 60 } },
+  "functions": { "api/sync-sacs.js": { "maxDuration": 60 }, "api/sacs-sso.js": { "maxDuration": 30 } },
   "rewrites": [
+    { "source": "/api/sacs-sso", "destination": "/api/sacs-sso" },
     { "source": "/api/sync-sacs", "destination": "/api/sync-sacs" },
     {
       "source": "/(.*)",
