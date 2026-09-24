@@ -81,12 +81,31 @@ The existing ten-minute CH1 install deadline is unchanged.
 - Browser fixture: pending until reported-state acknowledgement, real CH1 image
   inspection, rejection of real CH3 image, upload modal rendering: PASS. Fixture
   mocks both RPC and Storage; no physical commands or upload were sent.
-- Production SQL execution was rejected **before execution** by automatic approval
-  review, which requires explicit confirmation of the production authorization
-  changes. Owner confirmation requested. No workaround or indirect execution used.
-- SQL deployed: NO. UI deployed: NO. Image published: NO. OTA queued: NO.
-  Physical migration: NOT RUN. Edge functions removed: NO. Post-migration traffic:
-  NOT MEASURED. No readiness or retirement claim until measured.
+- Production migration and private provisioning: PASS, explicitly authorized by
+  owner, committed 2026-09-24 13:34:13 UTC at source commit
+  8024f9a55116b6c42ddab777ec5ba37fa12af3af.
+- Pre-change definitions/ACL and rollback SQL preserved in the local sibling
+  ch1-production-rollout directory. No rollback required.
+- One authenticated owner/operator and one config provisioned. Existing code
+  and device key preserved; bcrypt cost 13; Supabase Storage origin verified.
+  Operator and unlock tests passed; unlock transaction rolled back.
+- Seven legacy function definitions/ACL, existing table ACL/RLS, columns and
+  unrelated policies unchanged. Six CH1 Storage policies installed. Private
+  schema inaccessible directly to anon/authenticated; RPC grants verified.
+- Releases/jobs/events/commands remain zero; desired state unchanged. Control
+  compatibility verified through unchanged legacy functions/permissions and
+  prior tests; no physical control command or actuation test performed.
+- Checks through 13:39:45 UTC: nineteen telemetry points fresh, ONLINE true,
+  firmware ch1-ota-2, original boot ID unchanged, active OTA jobs zero.
+  Final legacy sync timestamps: 13:39:31.898, 13:39:36.570, 13:39:41.533 UTC.
+  Corresponding sync ages: 1.06, 2.96, 4.08 seconds. Telemetry advanced through
+  13:39:27, 13:39:37, 13:39:42 UTC. Continuing old-firmware device sync is the
+  evidence for legacy Edge health; Edge deployment/secrets were not changed.
+- SQL deployed YES; provisioning PASS; UI deployed NO; publication NO; OTA queued
+  NO; physical migration NOT RUN; Edge deletion NO. CH2/CH3 unchanged.
+- READY TO PUBLISH ch1-edgefree-1: NO through the required production upload UI.
+  Backend prerequisites passed. PR21 frontend rollout and hosted upload/readback
+  verification remain pending and are outside this authorization.
 
 ## Changed files
 
@@ -100,3 +119,28 @@ The existing ten-minute CH1 install deadline is unchanged.
   bounded signed URL and authenticated RPC workflow.
 - `client/tests/ch1-edge-free.test.mjs`, `ch1Ota.test.mjs`, `ch1-browser.jsx`:
   protocol/security regressions and isolated browser fixture.
+
+## Frontend/upload authorization checkpoint — 2026-09-24
+
+Stopped before production changes: the current CH1 upload UI has one
+UPLOAD & APPROVE action. Ch1FirmwareUpload.upload calls uploadAndApprove,
+which performs Storage upload with upsert:false, authenticated readback and
+SHA comparison, then immediately calls ch1_firmware_publish. There is no
+separate approval boundary. The owner's explicit stop condition for inseparable
+upload/approval therefore applies. No upload/publish RPC was executed, and no
+frontend deployment was performed during this checkpoint. No code was changed.
+
+- PR21 frontend deployed: NO.
+- Current production UI regression: NOT ASSESSED (no deployment).
+- Deployment ancestry: NOT VERIFIED; promotion remains gated.
+- CH1 Upload Firmware visible: NOT VERIFIED on production.
+- CH1 image detection / wrong-target rejection: NOT RUN on production.
+- Storage upload / authenticated readback / SHA match / private Storage enforcement:
+  NOT RUN in this checkpoint. Previous local fixture results are not hosted proof.
+- CH1 physical health / active OTA jobs: not re-sampled in this checkpoint;
+  previous SQL-rollout checks were healthy with zero active jobs.
+- READY TO PUBLISH ch1-edgefree-1: NO.
+
+To complete the requested hosted UI test without publication, upload/readback
+and approval need separate actions. No such UI change was made implicitly.
+No firmware, jobs, controller commands, Edge functions or CH2/CH3 were changed.

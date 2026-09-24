@@ -34,7 +34,7 @@ export async function rpc(client,name,args) {
   if(data?.error) throw new Error(({rate_limited:'Too many code attempts. Wait 15 minutes.',invalid_code:'Invalid programming code.',access_denied:'Operator access denied.'})[data.error]||'Request rejected.')
   return data
 }
-export async function uploadAndApprove(client,file,target,expected) {
+export async function uploadAndVerify(client,file,target,expected) {
   // Re-inspect the actual selected bytes; a stale modal cannot approve another file.
   const image=await inspectFirmware(file,target)
   if(image.sha256!==expected.sha256) throw new Error('Selected image changed. Select it again.')
@@ -49,6 +49,15 @@ export async function uploadAndApprove(client,file,target,expected) {
     if(error && !['409','400'].includes(String(error.statusCode))) throw new Error('Private firmware upload failed. No release approved.')
   }
   const {data:stored,error}=await bucket.download(image.storage_path)
+  if(error || !stored || stored.size!==image.size || await sha256(await stored.arrayBuffer())!==image.sha256)
+    throw new Error('Stored-byte SHA verification failed. No release approved.')
+  return image
+}
+export async function approveFirmware(client,file,target,verified) {
+  if(!verified) throw new Error('Verify the stored image before approval.')
+  const image=await inspectFirmware(file,target)
+  if(['device','version','sha256','size','storage_path'].some(k=>image[k]!==verified[k])) throw new Error('Verification is stale. Verify the selected image again.')
+  const {data:stored,error}=await client.storage.from(FIRMWARE_BUCKET).download(image.storage_path)
   if(error || !stored || stored.size!==image.size || await sha256(await stored.arrayBuffer())!==image.sha256)
     throw new Error('Stored-byte SHA verification failed. No release approved.')
   return rpc(client,'ch1_firmware_publish',{p_version:image.version,p_sha256:image.sha256,p_size:image.size,p_storage_path:image.storage_path,p_verified_sha256:image.sha256})
