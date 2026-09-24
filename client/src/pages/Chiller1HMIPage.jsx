@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import Ch1Programming from '../components/Ch1Programming'
+import {loadFirmwareStatus} from '../utils/ch1Firmware'
 import { commandOutcome } from '../utils/ch1CommandState.mjs'
 import useMonitoringPolling from '../hooks/useMonitoringPolling'
 import { POINT_DETAIL_COLUMNS } from '../utils/monitoringColumns'
@@ -905,7 +906,7 @@ export default function Chiller1HMIPage() {
       if (signal.aborted) return
       if (fetchError) throw fetchError
 
-      const controller=await supabase.rpc('ch1_firmware_status').abortSignal(signal).catch(error=>({error}))
+      const controller=await loadFirmwareStatus(supabase,signal)
       if(signal.aborted) return
       if(controller.error || controller.data?.error) setControlError('Controller API unavailable or operator sign-in required. Live telemetry remains available.')
       else {

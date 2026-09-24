@@ -76,3 +76,8 @@ export async function queueFirmware(client,{code,release,requestId}) {
   if(error || !data?.signedUrl) throw new Error('Could not create a bounded download URL. No job queued.')
   return rpc(client,'ch1_firmware_queue',{p_grant:grant,p_id:requestId,p_release:release.id,p_signed_url:data.signedUrl,p_signed_url_expires_at:signedUrlExpiry(data.signedUrl)})
 }
+
+export async function loadFirmwareStatus(client,signal) {
+  try {return await client.rpc('ch1_firmware_status').abortSignal(signal)}
+  catch(error) {return {error}}
+}
