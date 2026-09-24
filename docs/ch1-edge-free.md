@@ -312,3 +312,59 @@ Local evidence preserved in ch1-production-rollout: ota-preflight.json,
 ota-preflight-edge.json, ota-final-queue-gate.json, ota-release.json,
 ota-migration-result.json, ota-migration-failure.json, ota-browser-responses.json.
 No secrets or signed URL tokens are included in these captures.
+
+## CH1 deferred execution port — ch1-edgefree-2
+
+The PR21 source invoked otaRun directly from ch1ProcessResponse, before the
+ordinary pushTelemetry call returned. Its response JsonDocument and telemetry
+JSON/Strings were still alive. This is the same inline pre-download execution
+pattern addressed for CH2/CH3; it is a source-level finding, not a claim that
+the failed physical job's reset cause has been established. In current PR21,
+ch1Rpc already releases its HTTP/TLS locals before response processing, and
+ch1DeviceSync is report-only. No legacy idle sync was reintroduced.
+
+The port uses an owning pending OtaJob, otaQueueDecodedJob and ch1OtaRunPending.
+Setup and the scheduled telemetry loop call pushTelemetry first, then the
+pending runner after the entire telemetry function returns. The slot clears
+before otaRun; syncing, duplicate/current job and pending replacement are guarded.
+Stage reports cannot enqueue work or replay a consumed job.
+
+Six adapted regression tests execute the actual queue/runner statements and
+response tail, with mocked HTTP/JSON scope boundaries as in the CH2/CH3 tests.
+They verify owned manifest values, no inline run, scope destruction before run,
+setup/loop placement, single execution, duplicate suppression, syncing guard,
+invalid/absent/updating/disabled/not-ready cases and no additional idle sync.
+Full suite: 133/133 PASS; changed-test ESLint PASS.
+
+Seventeen function bodies were compared with the parent and remained unchanged:
+GPIO/sensor/output/AUTO logic, reset sequencing, payload push, manifest decoder,
+SHA/HMAC/download/install stages, inactive-slot and rollback logic, report-only
+sync and HTTPS RPC. No backend schema, credentials, URLs or timeout changes.
+The ignored private ota_config.h changed only the version to ch1-edgefree-2;
+existing production key and endpoint verified without exposing secret values.
+
+This new binary does not modify the code already running in ch1-ota-2; its
+deferred behavior takes effect only after this new firmware is installed.
+No retry, publication, queue, flash, Edge deletion or physical command was made.
+
+Build/validation completed: PASS. Source commit 9ad3070.
+Toolchain: ESP32 Arduino 3.3.8, esp32:esp32:esp32s3:CDCOnBoot=cdc, same
+production private configuration and library directories as ch1-edgefree-1.
+Bootloader and partition CSV are byte-identical to the preserved previous build.
+Partition binary SHA-256: 148b959cbff1c38aa8e1d5c0ba9d612c54997b945e56a63f41223eef650653a1.
+Version: ch1-edgefree-2; application .bin size: 1069776 bytes;
+OTA slot headroom: 240944 bytes (minimum 65,536).
+Application SHA-256: a442dbe364042cc97e2429561c8e5d2b689ec1b30a87d488ff193b42830e6c72.
+ESP32-S3 chip/model/device/version, checksum, appended SHA and partition gates
+PASS; runtime Edge references=0, WebSocket references=0.
+Artifact: C:/Users/Owner/Documents/farmplast/ch1-edgefree-2-real-build/Chiller1.ino.bin
+Validator record: C:/Users/Owner/Documents/farmplast/ch1-edgefree-2-validation.json
+
+- same pre-download inline execution bug present in CH1: YES (source pattern)
+- PR15 deferred pattern ported: YES
+- tests: 133/133
+- build: PASS
+- READY TO PUBLISH ch1-edgefree-2: YES (artifact gates only; no publication)
+
+No new forensic investigation or production/backend operation was performed.
+Physical validation of this image remains NOT RUN.
