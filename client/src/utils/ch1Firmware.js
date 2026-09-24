@@ -1,6 +1,7 @@
 export const OTA_SLOT_BYTES=1310720
 export const FIRMWARE_BUCKET='ch1-firmware'
 export const SIGNED_URL_SECONDS=1800
+export const requiresPhysicalMigration=device=>device?.version==='ch1-ota-2'
 const devices=['ESP32-CH1']
 export async function sha256(bytes) {
   return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),v=>v.toString(16).padStart(2,'0')).join('')
@@ -71,6 +72,10 @@ export function signedUrlExpiry(url) {
   return new Date(claims.exp*1000).toISOString()
 }
 export async function queueFirmware(client,{code,release,requestId}) {
+  // Recheck the live source before issuing any unlock, signed URL or queue RPC.
+  const status=await rpc(client,'ch1_firmware_status',{})
+  if(!status?.device || requiresPhysicalMigration(status.device))
+    throw new Error('PHYSICAL MIGRATION REQUIRED. Install ch1-edgefree-2 by USB once.')
   const {grant}=await rpc(client,'ch1_firmware_unlock',{p_code:code})
   const {data,error}=await client.storage.from(FIRMWARE_BUCKET).createSignedUrl(release.storage_path,SIGNED_URL_SECONDS)
   if(error || !data?.signedUrl) throw new Error('Could not create a bounded download URL. No job queued.')

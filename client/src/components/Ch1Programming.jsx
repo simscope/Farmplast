@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react'
 import { supabase } from '../lib/supabase'
-import {queueFirmware} from '../utils/ch1Firmware'
+import {queueFirmware,requiresPhysicalMigration} from '../utils/ch1Firmware'
 import Ch1FirmwareUpload from './Ch1FirmwareUpload'
 
 const button={padding:'12px 16px',borderRadius:12,border:'1px solid #64748b',background:'#0f172a',color:'#fff',cursor:'pointer',fontWeight:800}
@@ -14,11 +14,12 @@ export default function Ch1Programming({data,error,onRefresh}) {
   const latest=!observed || (submitted && submitted.id!==observed.id && Date.parse(submitted.created_at)>Date.parse(observed.created_at)) ? submitted : observed
   const active=latest && !['completed','failed'].includes(latest.status)
   const online=!!data?.device && Date.now()-Date.parse(data.device.last_seen)<120000
+  const physicalMigration=requiresPhysicalMigration(data?.device)
   const versions=data?.releases?.filter(r=>r.version!==data?.device?.version)||[]
   const selected=versions.find(r=>r.id===release)
   async function program(event) {
     event.preventDefault()
-    if(guard.current || active || !online || !selected) return
+    if(guard.current || active || !online || !selected || physicalMigration) return
     guard.current=true;setBusy(true);setMessage('')
     try {
       if(request.current?.release!==release) request.current={id:crypto.randomUUID(),release}
@@ -33,8 +34,9 @@ export default function Ch1Programming({data,error,onRefresh}) {
     <div style={{display:'flex',gap:16,flexWrap:'wrap',alignItems:'center'}}>
       <div>Firmware: <strong>{data?.device?.version||'Not registered'}</strong> {active && <>→ {latest.release?.version||selected?.version||'selected version'}</>}<br />Available: {versions[0]?.version||'No approved update'}<br />Last seen: {timestamp(data?.device?.last_seen)} · {online?'ONLINE':'OFFLINE'}</div>
       <button type="button" style={button} disabled={busy || !!active} onClick={()=>setUpload(true)}>UPLOAD FIRMWARE</button>
-      <button type="button" style={button} disabled={busy || !!active || !online || !versions.length} onClick={()=>{setOpen(true);setMessage('');setCode('')}}>{active?'PROGRAMMING…':'PROGRAM FIRMWARE'}</button>
+      <button type="button" style={button} disabled={busy || !!active || !online || !versions.length || physicalMigration} onClick={()=>{setOpen(true);setMessage('');setCode('')}}>{active?'PROGRAMMING…':'PROGRAM FIRMWARE'}</button>
     </div>
+    {physicalMigration && <p role="alert"><strong>PHYSICAL MIGRATION REQUIRED</strong><br />Current ch1-ota-2 cannot safely perform the first Internet OTA.<br />Install ch1-edgefree-2 by USB once.</p>}
     <p role="status">OTA: {labels[latest?.status||'idle']}</p>
     {active && <><progress aria-label="Firmware update progress" max="100" value={latest.progress||0} /> {latest.progress||0}%</>}
     <p>Last attempt: {timestamp(observed?.created_at)} · Last successful update: {timestamp(data?.last_successful_update?.updated_at)}</p>
@@ -48,7 +50,7 @@ export default function Ch1Programming({data,error,onRefresh}) {
         <p><label>Target version <select required value={release} disabled={busy} onChange={e=>{setRelease(e.target.value);request.current=null}}><option value="">Select firmware</option>{versions.map(r=><option key={r.id} value={r.id}>{r.version} · {r.size} bytes</option>)}</select></label></p>
         <p><label>Programming code <input autoFocus type="password" inputMode="numeric" autoComplete="off" maxLength={4} value={code} disabled={busy} onChange={e=>setCode(e.target.value)} /></label></p>
         <p role="alert">{message}</p>
-        <div style={{display:'flex',gap:12}}><button type="button" style={button} disabled={busy} onClick={()=>{setOpen(false);setCode('')}}>Cancel</button><button style={button} disabled={busy || !online || !selected || code.length!==4}>{busy?'AUTHORIZING…':'CONFIRM PROGRAMMING'}</button></div>
+        <div style={{display:'flex',gap:12}}><button type="button" style={button} disabled={busy} onClick={()=>{setOpen(false);setCode('')}}>Cancel</button><button style={button} disabled={busy || !online || !selected || code.length!==4 || physicalMigration}>{busy?'AUTHORIZING…':'CONFIRM PROGRAMMING'}</button></div>
       </form>
     </div>}
   </div>

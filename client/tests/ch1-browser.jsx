@@ -9,6 +9,7 @@ import {commandPatch} from '../../supabase/functions/ch1-ota/commands.mjs'
 const values={setpoint:85,d1:2,d2:5,hyst:1,auto:true,fan_enable:false,fan_30:false,fan_60:false}
 const actual={...values,online:true,cdw_out:80,cdw_in:78,chw_in:60,chw_out:55,comp1:true,comp2:false,alarm:false,stage30:false,stage60:false,reset:false}
 const state={desired:{values,revision:0},commands:[],device:{version:'test-1',last_seen:new Date().toISOString()},releases:[{id:'test-release',version:'test-2',size:1000000}],jobs:[]}
+if(new URLSearchParams(location.search).has('physical-migration')) state.device.version='ch1-ota-2'
 let offline=false
 const rows=()=>Object.entries(actual).map(([key,value])=>({asset_id:'test',asset_code:'CH-NJ-01',asset_name:'Chiller 1',asset_type:'chiller',point_id:key,point_code:'CH1_'+key.toUpperCase(),point_name:key,data_type:typeof value==='boolean'?'boolean':'number',value_boolean:typeof value==='boolean'?value:null,value_number:typeof value==='number'?value:null,updated_at:new Date().toISOString()}))
 supabase.from=()=>{const chain=new Proxy({}, {get:(_,key)=>key==='then'?(yes)=>Promise.resolve({data:rows(),error:null}).then(yes):()=>chain});return chain}
