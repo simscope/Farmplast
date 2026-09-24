@@ -8,7 +8,9 @@
 #include <math.h>
 #include <time.h>
 
-bool ch1DeviceSync(bool updating = false);
+bool ch1DeviceSync(bool updating = true);
+bool ch1PostTelemetry(JsonArray rows, String& response);
+bool ch1ProcessResponse(const String& response, bool updating);
 String ch1GatewayMetadata();
 void ch1TelemetryPublished();
 bool ch1ConsumeResetSequence(uint32_t sequence);
@@ -22,11 +24,7 @@ uint32_t ch1CommandRevision=0, ch1ResetSequence=0, ch1RequestedResetSequence=0, 
 // SUPABASE
 // ======================================================
 
-// DIRECT REST API — БЕЗ EDGE FUNCTION
-const char* TELEMETRY_LATEST_ENDPOINT = "/rest/v1/telemetry_latest?on_conflict=point_id";
-
-// View for settings/commands from frontend
-const char* VIEW_ENDPOINT = "/rest/v1/v_asset_points_latest";
+// Telemetry and desired control/OTA response share one authenticated RPC.
 
 // ======================================================
 // IDENTIFIERS
@@ -90,7 +88,6 @@ const bool ALARM_ACTIVE_WHEN_OPEN = false;
 // TIMERS
 // ======================================================
 const unsigned long SENSOR_READ_MS   = 2000;
-const unsigned long CLOUD_FETCH_MS   = 5000;
 const unsigned long CLOUD_PUSH_MS    = 5000;
 const unsigned long WIFI_RETRY_MS    = 10000;
 const unsigned long RESET_PULSE_MS   = 10000;   // 10 секунд
@@ -163,7 +160,6 @@ unsigned long resetPulseStartedAt = 0;
 // TIMESTAMP TRACKING
 // ======================================================
 unsigned long lastSensorReadAt   = 0;
-unsigned long lastCloudFetchAt   = 0;
 unsigned long lastCloudPushAt    = 0;
 unsigned long lastWifiRetryAt    = 0;
 unsigned long lastStatusPrintAt  = 0;
@@ -369,60 +365,6 @@ void readInputs() {
 // ======================================================
 // HTTP HELPERS
 // ======================================================
-bool httpGET(String url, String& response, int& httpCode) {
-  response = "";
-  httpCode = -1;
-
-  if (WiFi.status() != WL_CONNECTED) return false;
-
-  WiFiClientSecure client;
-  client.setInsecure();
-
-  HTTPClient http;
-  if (!http.begin(client, url)) {
-    Serial.println("HTTP GET begin failed");
-    return false;
-  }
-
-  http.setTimeout(15000);
-  http.addHeader("apikey", SUPABASE_ANON_KEY);
-  http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
-
-  httpCode = http.GET();
-  response = http.getString();
-  http.end();
-
-  return (httpCode >= 200 && httpCode < 300);
-}
-
-bool httpPOSTJson(String url, const String& payload, String& response, int& httpCode) {
-  response = "";
-  httpCode = -1;
-
-  if (WiFi.status() != WL_CONNECTED) return false;
-
-  WiFiClientSecure client;
-  client.setInsecure();
-
-  HTTPClient http;
-  if (!http.begin(client, url)) {
-    Serial.println("HTTP POST begin failed");
-    return false;
-  }
-
-  http.setTimeout(20000);
-  http.addHeader("Content-Type", "application/json");
-  http.addHeader("apikey", SUPABASE_ANON_KEY);
-  http.addHeader("Authorization", String("Bearer ") + SUPABASE_ANON_KEY);
-  http.addHeader("Prefer", "resolution=merge-duplicates,return=minimal");
-
-  httpCode = http.POST(payload);
-  response = http.getString();
-  http.end();
-
-  return (httpCode >= 200 && httpCode < 300);
-}
-
 // ======================================================
 // CLOUD FETCH
 // ======================================================
@@ -448,61 +390,6 @@ void parseCloudRow(JsonObject row) {
   } else if (pointCode == "CH1_RESET" && !row["value_boolean"].isNull()) {
     cloudResetCmd = row["value_boolean"].as<bool>();
   }
-}
-
-bool fetchCloudState() {
-  return ch1DeviceSync();
-}
-
-// Compatibility path used only when the combined device endpoint is not configured.
-bool fetchLegacyCloudState() {
-  String url = String(SUPABASE_URL) + VIEW_ENDPOINT +
-               "?asset_code=eq." + String(ASSET_CODE) +
-               "&select=point_code,value_number,value_boolean"
-               "&point_code=in.(CH1_SETPOINT,CH1_D1,CH1_D2,CH1_HYST,CH1_AUTO,"
-               "CH1_FAN_ENABLE,CH1_FAN_30,CH1_FAN_60,CH1_RESET)";
-
-  int httpCode = 0;
-  String response;
-
-  bool ok = httpGET(url, response, httpCode);
-
-  Serial.print("fetchCloudState HTTP=");
-  Serial.println(httpCode);
-
-  if (!ok) {
-    Serial.println("Cloud fetch failed.");
-    Serial.println(response);
-    return false;
-  }
-
-  DynamicJsonDocument doc(32768);
-  DeserializationError err = deserializeJson(doc, response);
-  if (err) {
-    Serial.print("JSON parse error fetchCloudState: ");
-    Serial.println(err.c_str());
-    Serial.println(response);
-    return false;
-  }
-
-  if (!doc.is<JsonArray>()) {
-    Serial.println("fetchCloudState: response is not array");
-    Serial.println(response);
-    return false;
-  }
-
-  JsonArray arr = doc.as<JsonArray>();
-  for (JsonObject row : arr) {
-    parseCloudRow(row);
-  }
-
-  Serial.println("Cloud state fetched.");
-  Serial.printf("SETPOINT=%.2f D1=%.2f D2=%.2f HYST=%.2f AUTO=%d\n",
-                cloudSetpoint, cloudD1, cloudD2, cloudHyst, cloudAuto);
-  Serial.printf("MANUAL FAN_EN=%d FAN30=%d FAN60=%d RESET_CMD=%d\n",
-                cloudManualFanEnable, cloudManualFan30, cloudManualFan60, cloudResetCmd);
-
-  return true;
 }
 
 // ======================================================
@@ -761,56 +648,15 @@ String buildTelemetryLatestPayload() {
 }
 
 bool pushTelemetry() {
-  if (WiFi.status() != WL_CONNECTED) {
-    Serial.println("pushTelemetry skipped: WiFi not connected");
-    return false;
-  }
-
-  String url = String(SUPABASE_URL) + TELEMETRY_LATEST_ENDPOINT;
+  if (WiFi.status() != WL_CONNECTED) return false;
   String payload = buildTelemetryLatestPayload();
-
-  if (payload.length() == 0) {
-    Serial.println("pushTelemetry FAILED: empty payload");
-    return false;
-  }
-
-  Serial.println("----- TELEMETRY_LATEST PAYLOAD START -----");
-  Serial.print("payload bytes=");
-  Serial.println(payload.length());
-  Serial.println(payload);
-  Serial.println("----- TELEMETRY_LATEST PAYLOAD END -------");
-
-  // Validate locally before POST so PGRST102 cannot be caused by malformed JSON.
-  DynamicJsonDocument verifyDoc(32768);
-  DeserializationError jsonErr = deserializeJson(verifyDoc, payload);
-
-  if (jsonErr || !verifyDoc.is<JsonArray>()) {
-    Serial.print("LOCAL JSON VALIDATION FAILED: ");
-    Serial.println(jsonErr.c_str());
-    return false;
-  }
-
-  Serial.println("LOCAL JSON VALIDATION OK");
-
+  JsonDocument rows;
+  if (!payload.length() || deserializeJson(rows,payload) || !rows.is<JsonArray>()) return false;
   String response;
-  int httpCode = 0;
-
-  bool ok = httpPOSTJson(url, payload, response, httpCode);
-
-  Serial.print("pushTelemetry HTTP=");
-  Serial.println(httpCode);
-  Serial.println("pushTelemetry response:");
-  Serial.println(response);
-
-  if (!ok) {
-    Serial.println("pushTelemetry FAILED");
-    return false;
-  }
-
-  // Keep the Codex OTA publish acknowledgement.
+  if (!ch1PostTelemetry(rows.as<JsonArray>(),response)) return false;
+  // Only an authenticated, valid ingestion response makes the new image healthy.
+  if (!ch1ProcessResponse(response,false)) return false;
   ch1TelemetryPublished();
-
-  Serial.println("pushTelemetry OK");
   return true;
 }
 
@@ -851,12 +697,10 @@ void setup() {
 
   onlineFlag = (WiFi.status() == WL_CONNECTED);
 
-  fetchCloudState();
   readTemperatures();
   readInputs();
-  updateOutputsLogic();
-  printStatus();
   pushTelemetry();
+  printStatus();
 }
 
 void loop() {
@@ -870,12 +714,6 @@ void loop() {
     lastSensorReadAt = now;
     readTemperatures();
     readInputs();
-    updateOutputsLogic();
-  }
-
-  if (now - lastCloudFetchAt >= CLOUD_FETCH_MS) {
-    lastCloudFetchAt = now;
-    fetchCloudState();
     updateOutputsLogic();
   }
 

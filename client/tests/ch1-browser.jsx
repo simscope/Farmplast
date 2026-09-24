@@ -1,5 +1,6 @@
 // Local-only UI fixture. All Supabase operations are replaced before rendering.
 import React from 'react'
+import '../src/index.css'
 import {createRoot} from 'react-dom/client'
 import {MemoryRouter} from 'react-router-dom'
 import {supabase} from '../src/lib/supabase'
@@ -24,6 +25,20 @@ const invoke=async(_,{body})=>{
  throw new Error('Unexpected fixture request')
 }
 Object.defineProperty(supabase,'functions',{value:{invoke}})
+// Block all real transports in this fixture, including the new RPC/Storage path.
+supabase.rpc=(name,args={})=>{
+ const body=name==='ch1_firmware_status'?{op:'status'}:
+  name==='ch1_command'?{op:'command',id:args.p_id,type:args.p_type,value:args.p_value,pin:args.p_pin}:
+  name==='ch1_firmware_unlock'?{op:'unlock',code:args.p_code}:
+  name==='ch1_firmware_queue'?{op:'queue',id:args.p_id}:null
+ const result=body?invoke('',{body}).then(r=>name==='ch1_firmware_queue'?{...r,data:r.data?.id}:r):Promise.resolve({error:{message:'Fixture RPC not implemented'}})
+ result.abortSignal=()=>result
+ return result
+}
+Object.defineProperty(supabase,'storage',{value:{from:()=>({
+ createSignedUrl:async()=>({data:{signedUrl:'https://fixture.invalid/object?token=e30.'+btoa(JSON.stringify({exp:2000000000}))+'.test'}}),
+ upload:async()=>({error:{statusCode:'403'}}),download:async()=>({error:{statusCode:'403'}}),
+})}})
 function simulate(action){
  if(action==='reported'){Object.assign(actual,values);for(const c of state.commands)c.status='applied'}
  else if(action==='offline'){offline=true;state.device.last_seen=new Date(0).toISOString()}

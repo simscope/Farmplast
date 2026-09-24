@@ -13,6 +13,9 @@
 #if CH1_OTA_ENABLED && !CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
 #error "CH1 OTA requires the rollback-enabled ESP32 core/bootloader configuration"
 #endif
+static const char ch1DeviceMarker[] = "CH1OTA_DEVICE=ESP32-CH1";
+static const char ch1ModelMarker[] = "CH1OTA_MODEL=CH1-ESP32S3-v1";
+static bool ch1HaveRevision=false;
 static const char ch1VersionMarker[] = "CH1OTA_VERSION=" CH1_OTA_VERSION;
 static Preferences otaPrefs;
 static bool otaReady=false, otaSyncing=false, otaBootCheck=false, otaTelemetryHealthy=false;
@@ -38,6 +41,8 @@ bool ch1ConsumeResetSequence(uint32_t sequence) {
 }
 String ch1GatewayMetadata() {
   JsonDocument doc;JsonObject gateway=doc["gateway"].to<JsonObject>();
+  gateway["protocol"]=2;gateway["status"]=otaPhase;gateway["progress"]=otaProgress;
+  gateway["device"]=ch1DeviceMarker+14;gateway["model"]=ch1ModelMarker+13;
   gateway["version"]=ch1VersionMarker+15;gateway["boot"]=otaBoot;gateway["job"]=otaJobId;
   gateway["command_revision"]=ch1CommandRevision;
   gateway["reset_sequence"]=ch1ReportedResetSequence;
@@ -105,7 +110,7 @@ static bool otaInstall(const OtaJob& job) {
     }
     // The ordinary loop is suspended during the transfer. This uses its SAME device
     // exchange, at the same interval, rather than starting another polling task/timer.
-    if(millis()-otaLastExchange>=CLOUD_FETCH_MS) ch1DeviceSync(true);
+    if(millis()-otaLastExchange>=CLOUD_PUSH_MS) ch1DeviceSync(true);
     delay(1);
   }
   uint8_t digest[32];mbedtls_sha256_finish(&sha,digest);mbedtls_sha256_free(&sha);http.end();
@@ -124,38 +129,48 @@ static void otaRun(const OtaJob& job) {
   otaPhase="failed";otaSave();ch1DeviceSync(true);
   // Failure automatically returns to the normal sensor/publish loop on the running image.
 }
-bool ch1DeviceSync(bool updating) {
-  if(!CH1_OTA_ENABLED) return updating ? false : fetchLegacyCloudState();
-  if(otaSyncing || WiFi.status()!=WL_CONNECTED || time(nullptr)<1700000000 || strlen(CH1_OTA_DEVICE_KEY)<32 || strlen(CH1_OTA_CA_PEM)<100) return false;
-  otaSyncing=true;otaLastExchange=millis();lastCloudFetchAt=otaLastExchange;
+static bool ch1Rpc(const char* endpoint,JsonDocument& doc,String& response) {
+  if(WiFi.status()!=WL_CONNECTED || time(nullptr)<1700000000 || strlen(CH1_OTA_DEVICE_KEY)<32 || strlen(CH1_OTA_CA_PEM)<100) return false;
+  doc["p_key"]=CH1_OTA_DEVICE_KEY;
+  String body;serializeJson(doc,body);
   WiFiClientSecure tls;tls.setCACert(CH1_OTA_CA_PEM);
   HTTPClient http;http.setTimeout(10000);http.setConnectTimeout(5000);
-  bool ok=http.begin(tls,String(SUPABASE_URL)+"/functions/v1/ch1-ota");
-  String response;
-  if(ok) {
-    http.addHeader("Content-Type","application/json");http.addHeader("apikey",SUPABASE_ANON_KEY);http.addHeader("x-ch1-device-key",CH1_OTA_DEVICE_KEY);
-    JsonDocument doc;doc["op"]="sync";doc["version"]=ch1VersionMarker+15;doc["boot"]=otaBoot;doc["job"]=otaJobId;doc["status"]=otaPhase;doc["progress"]=otaProgress;
-    String body;serializeJson(doc,body);int code=http.POST(body);
-    ok=code==200 && http.getSize()<=4096;
-    if(ok) {response=http.getString();ok=response.length()<=4096;}
+  if(!http.begin(tls,String(SUPABASE_URL)+endpoint)) return false;
+  http.addHeader("Content-Type","application/json");http.addHeader("apikey",SUPABASE_ANON_KEY);
+  int code=http.POST(body);bool ok=code==200 && http.getSize()<=4096;
+  if(ok) {response=http.getString();ok=response.length()<=4096;}
+  http.end();return ok;
+}
+bool ch1PostTelemetry(JsonArray rows,String& response) {
+  JsonDocument doc;doc["p_rows"]=rows;
+  otaLastExchange=millis();
+  return ch1Rpc("/rest/v1/rpc/ingest_ch1",doc,response);
+}
+bool ch1ProcessResponse(const String& response,bool updating) {
+  JsonDocument result;
+  if(deserializeJson(result,response) || !result["c"].is<JsonArray>() || result["c"].size()!=9 || !result["r"].is<uint32_t>()) return false;
+  JsonArray values=result["c"].as<JsonArray>();
+  for(int i=0;i<9;i++) if(i<4 ? (!values[i].is<float>() || !isfinite(values[i].as<float>())) : !values[i].is<bool>()) return false;
+  uint32_t revision=result["r"].as<uint32_t>();
+  if(!updating && (!ch1HaveRevision || revision>ch1CommandRevision)) {
+    otaApplyValues(values);ch1CommandRevision=revision;ch1HaveRevision=true;
+    ch1RequestedResetSequence=result["q"].is<uint32_t>()?result["q"].as<uint32_t>():ch1ResetSequence;
+    updateOutputsLogic(); // Same output implementation; apply immediately after the exchange.
   }
-  http.end();JsonDocument result;
-  ok=ok && !deserializeJson(result,response) && result["c"].is<JsonArray>();
-  if(ok) {
-    if(!updating) {
-      otaApplyValues(result["c"].as<JsonArray>());
-      ch1CommandRevision=result["r"]|uint32_t(0);
-      if(result["q"].is<uint32_t>()) ch1RequestedResetSequence=result["q"].as<uint32_t>();
-      else ch1RequestedResetSequence=ch1ResetSequence;
-      Serial.printf("DEVICE SYNC revision=%lu AUTO=%d FAN_EN=%d FAN30=%d FAN60=%d\n",(unsigned long)ch1CommandRevision,cloudAuto,cloudManualFanEnable,cloudManualFan30,cloudManualFan60);
-    }
-    String ack=result["a"]|"";
-    if((ack=="completed" || ack=="failed") && ack!=otaPhase && otaJobId.length()) {otaPhase=ack;otaProgress=ack=="completed"?100:otaProgress;otaSave();}
-  }
-  otaSyncing=false;
+  String ack=result["a"]|"";
+  if((ack=="completed" || ack=="failed") && ack!=otaPhase && otaJobId.length()) {otaPhase=ack;otaProgress=ack=="completed"?100:otaProgress;otaSave();}
   OtaJob job;
-  if(ok && !updating && result["o"].is<JsonObject>() && otaDecode(result["o"].as<JsonObject>(),job)) otaRun(job);
-  return ok;
+  if(CH1_OTA_ENABLED && !updating && result["o"].is<JsonObject>() && otaDecode(result["o"].as<JsonObject>(),job)) otaRun(job);
+  return true;
+}
+bool ch1DeviceSync(bool updating) {
+  // Bounded reports during an active OTA only. Never used by the ordinary loop.
+  if(!updating || otaSyncing || !otaJobId.length()) return false;
+  otaSyncing=true;otaLastExchange=millis();
+  JsonDocument metadata,doc;deserializeJson(metadata,ch1GatewayMetadata());doc["p_gateway"]=metadata["gateway"];
+  String response;bool ok=ch1Rpc("/rest/v1/rpc/ch1_ota_report",doc,response);
+  if(ok) ok=ch1ProcessResponse(response,true);
+  otaSyncing=false;return ok;
 }
 static void ch1OtaInit() {
   uint8_t boot[16];esp_fill_random(boot,sizeof(boot));otaBoot=otaHex(boot,sizeof(boot));

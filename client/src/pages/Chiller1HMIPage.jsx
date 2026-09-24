@@ -861,7 +861,7 @@ export default function Chiller1HMIPage() {
     setCommandMessage('Sending requested state…')
     try {
       const id=crypto.randomUUID()
-      const {data,error}=await supabase.functions.invoke('ch1-ota',{body:{op:'command',id,type:commandType,value:commandValue,pin},timeout:15000})
+      const {data,error}=await supabase.rpc('ch1_command',{p_id:id,p_type:commandType,p_value:commandValue??null,p_pin:pin??null})
       if(error || data?.error) {
         let detail=data?.error
         try {detail ||= (await error?.context?.json())?.error} catch { /* fallback */ }
@@ -905,7 +905,7 @@ export default function Chiller1HMIPage() {
       if (signal.aborted) return
       if (fetchError) throw fetchError
 
-      const controller=await supabase.functions.invoke('ch1-ota',{body:{op:'status'},signal,timeout:8000}).catch(error=>({error}))
+      const controller=await supabase.rpc('ch1_firmware_status').abortSignal(signal).catch(error=>({error}))
       if(signal.aborted) return
       if(controller.error || controller.data?.error) setControlError('Controller API unavailable or operator sign-in required. Live telemetry remains available.')
       else {
