@@ -439,3 +439,111 @@ v1-obsolete.json, v2-release-prequeue.json, v2-ota-result.json,
 v2-after-failure.json, v2-browser-responses.json. Secrets/signed URLs excluded.
 Legacy Edge remains deployed. No PLC/controller logic or CH2/CH3 firmware
 changes, no second new job, no PR merge.
+
+## 2026-09-24 — one-time USB migration package and remote retry lock
+
+Two failed attempts establish that installed `ch1-ota-2` is not an acceptable
+remote migration source. No further remote job was created. Target v2 remains
+approved; its deferred-execution fix cannot patch the currently running source.
+
+Production UI commit `443124fb645a97097d31bcd3a67c991ea3a07bd8` disables both
+PROGRAM FIRMWARE and an already-open confirmation form while CH1 reports
+`ch1-ota-2`, with the explicit PHYSICAL MIGRATION REQUIRED message. The queue
+helper also fetches fresh `ch1_firmware_status` before unlock/sign/queue and
+rejects this source (or missing device). Normal edge-free programming remains
+available. Upload and failed-job history remain visible. This is UI/client-flow
+protection, not a new database authorization rule; stale clients must reload.
+
+Ancestry was verified against actual production `ba6f684`, a HEAD ancestor.
+Only the CH1 client protection changed. Deployment
+`FAoLGAdBVeuox6QaRBATMTuaJnV1` is Ready/Production at farmplast.vercel.app,
+built from `443124f` at approximately 19:06 UTC. The live CH1 page visibly shows
+PROGRAM FIRMWARE disabled, v2 available, and the previous failure preserved.
+Prior production deployment `3zJPEjSSc9N8xS2ZTRuq6sDxQwKV` is the UI rollback
+reference; reverting to it would remove the migration lock and is not recommended.
+
+Validation: **137/137 tests PASS**, frontend build PASS, changed-file lint PASS.
+Four new tests cover unsafe/missing fresh source rejection before any mutation
+and normal protocol-2 queue behavior. An isolated browser fixture verified the
+disabled button, enabled upload, and normal programming for a safe source.
+No physical control or queue action was exercised.
+
+At 19:07:12.458 UTC, CH1 remained `ch1-ota-2`, boot ID
+`eb42720448402a5a406d542e0b5f695b` unchanged from preflight, last_seen
+19:07:09.671 UTC, active jobs **0**. UI showed ONLINE, live temperatures,
+requested AUTO / fan OFF / setpoint 85 F / D1 2 / D2 5 / HYST 1.
+v1 approved=false; v2 approved=true. Evidence:
+`ch1-production-rollout/usb-ui-post-deploy.json` (local, no credentials).
+
+### Local package — no write performed
+
+Folder: `C:/Users/Owner/Documents/farmplast/ch1-edgefree-2-usb-migration/`.
+Operator sheet: `README.md`; offline integrity check: `Verify-Package.ps1`;
+readback gate/recovery extraction: `Verify-Readback.ps1`; all-file SHA manifest:
+`SHA256SUMS.txt`. Binaries/private configuration remain outside Git.
+
+The exact app, bootloader and partitions were copied from the preserved real
+v2 build, without rebuilding. Arduino 3.3.8 boot_app0 also matches that build's
+merged image. All four binary ranges were compared byte-for-byte with the
+original merged artifact. Included installed esptool is 5.2.0.
+
+| Artifact | Bytes | SHA-256 |
+|---|---:|---|
+| Chiller1.ino.bin | 1069776 | a442dbe364042cc97e2429561c8e5d2b689ec1b30a87d488ff193b42830e6c72 |
+| Chiller1.ino.bootloader.bin | 19984 | ae308c48e138a0b77e816233eafab2cd5610268ed221ec371d53cfe4bdaa376d |
+| Chiller1.ino.partitions.bin | 3072 | 148b959cbff1c38aa8e1d5c0ba9d612c54997b945e56a63f41223eef650653a1 |
+| boot_app0.bin | 8192 | f94c5d786a7a8fab06ac5d10e33bf37711a6697636dc037559ea19cc410a17f0 |
+
+Offline image validation PASS: ESP32-S3, ESP32-CH1, ch1-edgefree-2, expected
+partition hash, checksum/appended SHA, no Edge/WSS references, **240944 bytes**
+OTA headroom. Full package SHA verification PASS.
+
+**Installed layout is not yet proven.** Saved old USB records are ch1-ota-3,
+not installed ch1-ota-2; neither flash size nor installed partition/bootloader
+compatibility can be inferred from those records. Package commands first read
+chip identity, flash ID/size, security information and partition table, then
+take two complete, matching private flash backups. The offline gate requires
+the exact expected partition table and matching bootloader; any difference
+stops for review. Its successful and rejecting paths were checked using a
+synthetic local fixture, not physical CH1 readback.
+
+Conditional least-destructive strategy: **app0 + OTA selector**, retaining
+bootloader, partitions, NVS and app1. App-only without selector handling could
+leave the old app1 selected. The normal package instructions write/verify app0
+first, then the exact matching OTA initialization image. A full bootloader /
+partition rewrite is not the selected procedure.
+
+| Write offset | Payload | Sectors affected, inclusive |
+|---|---|---|
+| 0x10000 | Chiller1.ino.bin (1069776 bytes) | 0x10000–0x115FFF, 262 sectors |
+| 0xE000 | boot_app0.bin (8192 bytes) | 0xE000–0xFFFF, 2 sectors |
+
+NVS 0x9000–0xDFFF and app1 0x150000–0x28FFFF are untouched. Full erase is
+unnecessary. The preserved full readback provides an exact local recovery
+source; the gate extracts only overwritten sectors for recovery. No exact
+installed recovery backup exists yet, so writing remains blocked. Backups and
+the target contain credentials and must remain private.
+
+The operator sheet contains conditional esptool commands, BOOT/RESET sequence,
+backup/recovery commands and future 10–15 minute acceptance procedure. Board
+sequence reference: [Waveshare FAQ](https://docs.waveshare.com/ESP32-S3-Relay-6CH/FAQ).
+Sector behavior: [Espressif commands](https://docs.espressif.com/projects/esptool/en/latest/esp32/esptool/basic-commands.html).
+No serial port was inspected/opened; no reboot or flash was performed.
+
+```yaml
+exact target binary SHA: PASS
+old/new partition compatibility: NEEDS READBACK
+full flash erase required: NO
+NVS preserved: YES # in the conditional plan; no write performed
+physical flash package ready: YES
+UI blocks remote OTA on ch1-ota-2: YES # verified in production
+tests: 137/137
+READY FOR USB MIGRATION: NO # actual layout, backup and physical access gate pending
+```
+
+After the future USB flash, require v2/protocol2, a new stable boot ID, ONLINE,
+fresh DS18B20 values, retained requested state, expected outputs, zero active
+jobs and 10–15 minutes stability. Starting at first valid v2 telemetry, require
+zero device/browser ch1-ota calls and normal ingest_ch1 without a second idle
+request. This acceptance has NOT run. Keep legacy Edge deployed; control
+validation and Edge retirement remain separate tasks.
