@@ -9,6 +9,7 @@ import {
   DownloadCloud,
   Loader2,
   BadgeCheck,
+  ShieldCheck,
   Zap,
   FileText,
   Printer,
@@ -18,6 +19,7 @@ import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/useAuth'
 import EmployeeModal from '../components/EmployeeModal'
 import PayrollReport from '../components/PayrollReport'
+import { runEmployeeSyncTargets } from '../utils/employeeSyncTargets'
 import WorkersList from '../components/workers/WorkersList'
 import { useEmployeeList } from '../hooks/useEmployeeList'
 import {
@@ -476,6 +478,8 @@ export default function DashboardPage() {
   const [error, setError] = useState('')
   const [zkLoading, setZkLoading] = useState(false)
   const [zkStatus, setZkStatus] = useState('')
+  const [sacsLoading, setSacsLoading] = useState(false)
+  const [sacsStatus, setSacsStatus] = useState('')
   const [activeZkAction, setActiveZkAction] = useState('')
   const [activeCommandId, setActiveCommandId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
@@ -792,6 +796,40 @@ export default function DashboardPage() {
     }
   }
 
+  async function runEmployeeSync(command, label, payload, actionKey = '') {
+    setSacsLoading(true)
+    setSacsStatus(`${label}: syncing...`)
+    try {
+      await runEmployeeSyncTargets(
+        () => runZktCommand(command, label, payload, loadEmployees, actionKey),
+        async () => {
+          try {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session) throw new Error('Sign in required')
+            const selection = payload.employee_id
+              ? { employee_id: payload.employee_id }
+              : { plant_location: payload.plant_location }
+            const response = await fetch('/api/sync-sacs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+              body: JSON.stringify(selection),
+              signal: AbortSignal.timeout(45000),
+            })
+            if (!response.ok) throw new Error('SACS unavailable')
+            const result = await response.json()
+            const failures = (result.results || []).filter(row => row.status === 'failed')
+              .map(row => `#${row.employee_number}: ${row.error}`).join('; ')
+            setSacsStatus(`${result.failed ? 'ERROR: ' : ''}${label}: ${result.synced} synced / ${result.failed} failed${failures ? ` — ${failures}` : ''}`)
+          } catch {
+            setSacsStatus(`ERROR: ${label}: SACS sync failed. Retry when the service is available.`)
+          }
+        }
+      )
+    } finally {
+      setSacsLoading(false)
+    }
+  }
+
   async function handleZkTest(plantLocation) {
     const label = getPlantLocationLabel(plantLocation)
     await runZktCommand(
@@ -805,11 +843,10 @@ export default function DashboardPage() {
 
   async function handleZkSyncEmployees(plantLocation) {
     const label = getPlantLocationLabel(plantLocation)
-    await runZktCommand(
+    await runEmployeeSync(
       'sync_employees',
       `SYNC ${label} EMPLOYEES`,
       buildZktPayloadForLocation(plantLocation),
-      loadEmployees,
       `sync-${label}`
     )
   }
@@ -852,11 +889,10 @@ export default function DashboardPage() {
   async function handleSyncEmployeeToZkt(employee) {
     const name = getFullName(employee)
 
-    await runZktCommand(
+    await runEmployeeSync(
       'sync_one_employee',
       `SYNC ZKT ${name}`,
-      buildZktPayloadForLocation(employee.plant_location, { employee_id: employee.id }),
-      loadEmployees
+      buildZktPayloadForLocation(employee.plant_location, { employee_id: employee.id })
     )
   }
 
@@ -2200,7 +2236,7 @@ export default function DashboardPage() {
               <div className="grid grid-flow-col grid-rows-2 gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2">
               <button
                 onClick={() => handleZkTest('NJ')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('test-NJ', <Zap size={15} />)}
@@ -2209,7 +2245,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkTest('PA')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('test-PA', <Zap size={15} />)}
@@ -2218,7 +2254,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkSyncEmployees('NJ')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('sync-NJ', <UploadCloud size={15} />)}
@@ -2227,7 +2263,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkSyncEmployees('PA')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('sync-PA', <UploadCloud size={15} />)}
@@ -2236,7 +2272,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkVerifyEmployees('NJ')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('verify-NJ', <BadgeCheck size={15} />)}
@@ -2245,7 +2281,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkVerifyEmployees('PA')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('verify-PA', <BadgeCheck size={15} />)}
@@ -2254,7 +2290,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkPullLogs('NJ')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('pull-NJ', <DownloadCloud size={15} />)}
@@ -2263,7 +2299,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkPullLogs('PA')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('pull-PA', <DownloadCloud size={15} />)}
@@ -2299,6 +2335,12 @@ export default function DashboardPage() {
             </div>
           </div>
 
+          {sacsStatus ? (
+            <div role="status" className={`mt-3 rounded-lg border px-3 py-2 text-xs ${sacsStatus.startsWith('ERROR:') ? 'border-amber-500/30 bg-amber-500/10 text-amber-200' : 'border-cyan-500/20 bg-cyan-500/10 text-cyan-200'}`}>
+              SACS: {sacsStatus}
+            </div>
+          ) : null}
+
           {zkStatus ? (
             <div
               className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
@@ -2333,7 +2375,30 @@ export default function DashboardPage() {
           ) : null}
         </div>
 
-        <PayrollReport employees={employees} />
+        <div className="mb-3 grid items-start gap-3 md:grid-cols-[minmax(0,3fr)_minmax(228px,1fr)]">
+          <PayrollReport employees={employees} />
+          <section className={`${cardClass} flex min-w-0 flex-wrap items-center justify-between gap-3 p-3`} aria-labelledby="safety-title">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={22} className="shrink-0 text-emerald-300" aria-hidden="true" />
+              <div>
+                <h2 id="safety-title" className="text-base font-bold text-white">Safety</h2>
+                <p className="text-xs text-slate-400">SACS</p>
+              </div>
+            </div>
+            {import.meta.env.VITE_SACS_ADMIN_URL ? (
+              <a
+                href={import.meta.env.VITE_SACS_ADMIN_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex w-fit shrink-0 items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400"
+              >
+                Open SACS
+              </a>
+            ) : (
+              <span className="text-sm text-slate-400">SACS link unavailable</span>
+            )}
+          </section>
+        </div>
 
         <WorkersList
           cardClass={cardClass}
@@ -2374,7 +2439,7 @@ export default function DashboardPage() {
           setSearch={setSearch}
           toggleAllVisibleChecks={toggleAllVisibleChecks}
           toggleSelectedCheck={toggleSelectedCheck}
-          zkLoading={zkLoading}
+          zkLoading={zkLoading || sacsLoading}
         />
 
         <EmployeeModal
