@@ -1,5 +1,6 @@
 // Local-only UI fixture. All Supabase operations are replaced before rendering.
 import React from 'react'
+import '../src/index.css'
 import {createRoot} from 'react-dom/client'
 import {MemoryRouter} from 'react-router-dom'
 import {supabase} from '../src/lib/supabase'
@@ -8,6 +9,7 @@ import {commandPatch} from '../../supabase/functions/ch1-ota/commands.mjs'
 const values={setpoint:85,d1:2,d2:5,hyst:1,auto:true,fan_enable:false,fan_30:false,fan_60:false}
 const actual={...values,online:true,cdw_out:80,cdw_in:78,chw_in:60,chw_out:55,comp1:true,comp2:false,alarm:false,stage30:false,stage60:false,reset:false}
 const state={desired:{values,revision:0},commands:[],device:{version:'test-1',last_seen:new Date().toISOString()},releases:[{id:'test-release',version:'test-2',size:1000000}],jobs:[]}
+if(new URLSearchParams(location.search).has('physical-migration')) state.device.version='ch1-ota-2'
 let offline=false
 const rows=()=>Object.entries(actual).map(([key,value])=>({asset_id:'test',asset_code:'CH-NJ-01',asset_name:'Chiller 1',asset_type:'chiller',point_id:key,point_code:'CH1_'+key.toUpperCase(),point_name:key,data_type:typeof value==='boolean'?'boolean':'number',value_boolean:typeof value==='boolean'?value:null,value_number:typeof value==='number'?value:null,updated_at:new Date().toISOString()}))
 supabase.from=()=>{const chain=new Proxy({}, {get:(_,key)=>key==='then'?(yes)=>Promise.resolve({data:rows(),error:null}).then(yes):()=>chain});return chain}
@@ -24,6 +26,20 @@ const invoke=async(_,{body})=>{
  throw new Error('Unexpected fixture request')
 }
 Object.defineProperty(supabase,'functions',{value:{invoke}})
+// Block all real transports in this fixture, including the new RPC/Storage path.
+supabase.rpc=(name,args={})=>{
+ const body=name==='ch1_firmware_status'?{op:'status'}:
+  name==='ch1_command'?{op:'command',id:args.p_id,type:args.p_type,value:args.p_value,pin:args.p_pin}:
+  name==='ch1_firmware_unlock'?{op:'unlock',code:args.p_code}:
+  name==='ch1_firmware_queue'?{op:'queue',id:args.p_id}:null
+ const result=body?invoke('',{body}).then(r=>name==='ch1_firmware_queue'?{...r,data:r.data?.id}:r):Promise.resolve({error:{message:'Fixture RPC not implemented'}})
+ result.abortSignal=()=>result
+ return result
+}
+Object.defineProperty(supabase,'storage',{value:{from:()=>({
+ createSignedUrl:async()=>({data:{signedUrl:'https://fixture.invalid/object?token=e30.'+btoa(JSON.stringify({exp:2000000000}))+'.test'}}),
+ upload:async()=>({error:{statusCode:'403'}}),download:async()=>({error:{statusCode:'403'}}),
+})}})
 function simulate(action){
  if(action==='reported'){Object.assign(actual,values);for(const c of state.commands)c.status='applied'}
  else if(action==='offline'){offline=true;state.device.last_seen=new Date(0).toISOString()}

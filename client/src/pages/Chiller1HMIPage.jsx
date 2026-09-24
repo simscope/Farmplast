@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import Ch1Programming from '../components/Ch1Programming'
+import {loadFirmwareStatus} from '../utils/ch1Firmware'
 import { commandOutcome } from '../utils/ch1CommandState.mjs'
 import useMonitoringPolling from '../hooks/useMonitoringPolling'
 import { POINT_DETAIL_COLUMNS } from '../utils/monitoringColumns'
@@ -861,7 +862,7 @@ export default function Chiller1HMIPage() {
     setCommandMessage('Sending requested state…')
     try {
       const id=crypto.randomUUID()
-      const {data,error}=await supabase.functions.invoke('ch1-ota',{body:{op:'command',id,type:commandType,value:commandValue,pin},timeout:15000})
+      const {data,error}=await supabase.rpc('ch1_command',{p_id:id,p_type:commandType,p_value:commandValue??null,p_pin:pin??null})
       if(error || data?.error) {
         let detail=data?.error
         try {detail ||= (await error?.context?.json())?.error} catch { /* fallback */ }
@@ -905,7 +906,7 @@ export default function Chiller1HMIPage() {
       if (signal.aborted) return
       if (fetchError) throw fetchError
 
-      const controller=await supabase.functions.invoke('ch1-ota',{body:{op:'status'},signal,timeout:8000}).catch(error=>({error}))
+      const controller=await loadFirmwareStatus(supabase,signal)
       if(signal.aborted) return
       if(controller.error || controller.data?.error) setControlError('Controller API unavailable or operator sign-in required. Live telemetry remains available.')
       else {
