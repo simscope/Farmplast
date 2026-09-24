@@ -13,8 +13,8 @@ export function createSacsSso({secret,url,adminUrl,allowedUserIds,clientForToken
       if (error || !data?.user) return reply(401,'unauthorized');
       // Immutable server allowlist AND database role; never trust user_metadata or UI fallback.
       if (!allowed.has(data.user.id)) return reply(403,'forbidden');
-      const {data:profile,error:pError}=await client.from('profiles').select('id,role').eq('id',data.user.id).single();
-      if (pError || profile?.id !== data.user.id || profile.role !== 'admin') return reply(403,'forbidden');
+      const {data:isAdmin,error:pError}=await client.rpc('can_use_sacs_sso');
+      if (pError || isAdmin !== true) return reply(403,'forbidden');
       const response=await fetchImpl(url,{method:'POST',headers:{'Content-Type':'application/json','x-farmplast-sso-secret':secret},body:JSON.stringify({source_user_id:data.user.id}),signal:AbortSignal.timeout(15000)});
       if (!response.ok) return reply(502,'sso_unavailable');
       const result=await response.json();

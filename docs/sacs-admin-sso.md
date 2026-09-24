@@ -6,6 +6,11 @@ verifies Auth, database `admin` role, and `SACS_SSO_ALLOWED_USER_IDS`. It sends 
 the verified source UUID to the fixed SACS issuer, authenticated using the
 dedicated server-only `SACS_FARMPLAST_SSO_SECRET`.
 
+Apply `supabase/farmplast_sacs_sso.sql` before deploying the Farmplast server.
+`can_use_sacs_sso()` is a narrowly scoped SECURITY DEFINER read of `auth.uid()`;
+it returns only a boolean and accepts no caller-supplied identity. Farmplast
+profiles remain protected by their existing RLS and are not exposed to browsers.
+
 Configure production server variables `SACS_SSO_ISSUER_URL` (SACS Edge Function
 `farmplast-sso/issue`), `SACS_SSO_ALLOWED_USER_IDS`, and the shared secret.
 Reuse `VITE_SACS_ADMIN_URL` to validate the returned HTTPS handoff origin.
