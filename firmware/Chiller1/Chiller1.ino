@@ -700,6 +700,7 @@ void setup() {
   readTemperatures();
   readInputs();
   pushTelemetry();
+  ch1OtaRunPending(); // All telemetry HTTP/TLS/JSON locals have been destroyed.
   printStatus();
 }
 
@@ -720,6 +721,7 @@ void loop() {
   if (now - lastCloudPushAt >= CLOUD_PUSH_MS) {
     lastCloudPushAt = now;
     pushTelemetry();
+    ch1OtaRunPending(); // Run only after the entire telemetry exchange returns.
   }
 
   if (now - lastStatusPrintAt >= PRINT_STATUS_MS) {

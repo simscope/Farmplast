@@ -1,5 +1,6 @@
 #pragma once
 #include <Preferences.h>
+#include <utility>
 #include <esp_ota_ops.h>
 #include <mbedtls/md.h>
 #include <mbedtls/sha256.h>
@@ -23,6 +24,8 @@ static String otaJobId, otaTarget, otaPhase="idle", otaPrevious, otaBoot;
 static int otaProgress=0;
 static unsigned long otaBootStarted=0, otaLastExchange=0;
 struct OtaJob { String id,version,sha,url; uint32_t size; int64_t expires; };
+static OtaJob otaPendingJob{};
+static bool otaPending=false;
 
 static String otaHex(const uint8_t* bytes,size_t count) {
   const char* digits="0123456789abcdef"; String value;value.reserve(count*2);
@@ -129,6 +132,19 @@ static void otaRun(const OtaJob& job) {
   otaPhase="failed";otaSave();ch1DeviceSync(true);
   // Failure automatically returns to the normal sensor/publish loop on the running image.
 }
+static void otaQueueDecodedJob(OtaJob& job) {
+  if(otaPending || job.id==otaJobId || !otaReady) return;
+  // Own the decoded Strings; no response/JsonDocument references survive.
+  otaPendingJob=std::move(job);
+  otaPending=true;
+}
+static void ch1OtaRunPending() {
+  if(!otaPending || otaSyncing) return;
+  OtaJob job=std::move(otaPendingJob);
+  otaPendingJob=OtaJob{};
+  otaPending=false; // Consume before stage reports/failure; never replay this job.
+  otaRun(job);
+}
 static bool ch1Rpc(const char* endpoint,JsonDocument& doc,String& response) {
   if(WiFi.status()!=WL_CONNECTED || time(nullptr)<1700000000 || strlen(CH1_OTA_DEVICE_KEY)<32 || strlen(CH1_OTA_CA_PEM)<100) return false;
   doc["p_key"]=CH1_OTA_DEVICE_KEY;
@@ -160,7 +176,7 @@ bool ch1ProcessResponse(const String& response,bool updating) {
   String ack=result["a"]|"";
   if((ack=="completed" || ack=="failed") && ack!=otaPhase && otaJobId.length()) {otaPhase=ack;otaProgress=ack=="completed"?100:otaProgress;otaSave();}
   OtaJob job;
-  if(CH1_OTA_ENABLED && !updating && result["o"].is<JsonObject>() && otaDecode(result["o"].as<JsonObject>(),job)) otaRun(job);
+  if(CH1_OTA_ENABLED && !updating && result["o"].is<JsonObject>() && otaDecode(result["o"].as<JsonObject>(),job)) otaQueueDecodedJob(job);
   return true;
 }
 bool ch1DeviceSync(bool updating) {
