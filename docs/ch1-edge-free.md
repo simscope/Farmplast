@@ -244,3 +244,71 @@ hosted-upload-evidence.json, upload-privacy.json, split-tests.log and split-buil
 
 No firmware publication, OTA queue, flash, physical command, Edge deletion,
 credential rotation, CH2/CH3 firmware change or PR merge was performed.
+
+## First authorized Internet migration — FAILED / stopped, 2026-09-24
+
+This result supersedes readiness for the first physical migration. Exactly one
+job was submitted using production PROGRAM FIRMWARE / CONFIRM PROGRAMMING.
+No retry, control command, code change, Edge deletion or additional job followed.
+
+Preflight: ch1-ota-2, boot 8b87839536b88f5d70259449eb69adb1, fresh telemetry,
+zero active jobs. Immediately before queue (15:10:14.700 UTC), sync age 2.162 s,
+telemetry age 5.701 s. The latest twenty observed legacy ESP32HTTPClient POSTs
+(15:05:50.450–15:07:26.678 UTC) all returned HTTP 200.
+Storage was reverified through UPLOAD & VERIFY, followed by explicit APPROVE
+RELEASE, which performs another readback/SHA check.
+
+Release ID: c6326bda-16c1-492c-8118-7220621ed113.
+Approved/created: 2026-09-24 15:08:53.731 UTC.
+Version: ch1-edgefree-1; model CH1-ESP32S3-v1; size 1,068,896 bytes.
+SHA-256: 5e24f456524450fab3eca4a5089596a281b3c94413661b61d8cf6309e351bff2.
+Storage: ch1-firmware/ESP32-CH1/ch1-edgefree-1/
+5e24f456524450fab3eca4a5089596a281b3c94413661b61d8cf6309e351bff2.bin.
+Release remains approved; no automatic revocation was performed. Its separate
+CH1 catalog/model is not usable by CH2/CH3; matching CH23 release rows = 0.
+
+Job ID: d26eff14-4a81-44f0-8ca9-b835a8be8774.
+Source version: ch1-ota-2. Source boot: 8b87839536b88f5d70259449eb69adb1.
+
+Actual database event sequence (UTC):
+
+| Time | Event | Job |
+| --- | --- | --- |
+| 15:10:25.876 | code_attempt | none |
+| 15:10:27.141 | authorized | d26eff14-4a81-44f0-8ca9-b835a8be8774 |
+| 15:10:38.005 | failed | d26eff14-4a81-44f0-8ca9-b835a8be8774 |
+
+Failure: device_reported_failure, progress 0. No manifest-delivered, downloading,
+verifying, installing or rebooting event was recorded in this event table.
+Their occurrence is not inferred. Root cause / installation stage is UNKNOWN.
+
+CH1 reconnected on ch1-ota-2 with boot dcbbe59384e5354697b691da329fb0f4.
+A reboot is observed; crash/reset/rollback cause is not established remotely.
+At 15:11:08.240 UTC device sync was fresh, telemetry at 15:11:04 UTC; UI ONLINE,
+AUTO, fan OFF, requested values retained. This is recovery on the old firmware,
+not successful edge-free migration. Protocol remains null (not protocol 2).
+
+Per the failure stop condition, the 10–15 minute Phase A observation was not
+started. No successful ch1-edgefree-1 timestamp exists, so a post-migration Edge
+window cannot be defined and zero device Edge traffic cannot be claimed.
+Browser capture during this attempt observed zero /functions/v1/ responses.
+
+- release approved: YES
+- Internet OTA: FAIL
+- new firmware reported: NO
+- new boot ID: YES (old firmware)
+- telemetry resumed: YES (old firmware)
+- PLC data stable: NOT APPLICABLE; CH1 GPIO/DS18B20 telemetry fresh after failure
+- unexpected reboot: YES; reason unknown
+- observation duration: stopped on failure; Phase A not started
+- active jobs after failure: 0 (one total job, failed)
+- post-migration ESP32HTTPClient -> ch1-ota calls: NOT APPLICABLE / NOT PROVEN
+- separate CH1 idle Edge requests observed post-migration: NOT APPLICABLE
+- CH1 EDGE-FREE PHASE A: FAIL (migration failed)
+- READY FOR CH1 CONTROL VALIDATION: NO
+- READY TO RETIRE ch1-ota: NO
+
+Local evidence preserved in ch1-production-rollout: ota-preflight.json,
+ota-preflight-edge.json, ota-final-queue-gate.json, ota-release.json,
+ota-migration-result.json, ota-migration-failure.json, ota-browser-responses.json.
+No secrets or signed URL tokens are included in these captures.
