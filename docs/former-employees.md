@@ -4,7 +4,121 @@ Status: **NOT RELEASED. Archive, Terminate, Rehire and Number Reuse remain OFF u
 Current security/recovery/live-baseline evidence: [Phase 7](former-employees-phase7.md)
 and [role remediation](former-employees-security-remediation.md). No new audit phase.
 
-## Final release blockers — 2026-10-11, no new development phase
+## Archive-only production release — GO for owner approval
+
+**Archive Read-Only: GO (prepared, NOT DEPLOYED).** Terminate, Rehire and Number
+Reuse remain **OFF / NO-GO**. This supersedes the earlier archive NO-GO that used
+full firmware-recovery and live-terminal gates. The owner explicitly narrowed the
+release gates; global backup policy and the open full-recovery issue are unchanged.
+No deployment, production migration or flag enable was authorized or performed.
+
+### Required limited-release gates
+
+| Gate | Result / evidence |
+|---|---|
+| SACS Security | **CLOSED**: actual provider DELETE, absent role/OID and live SSO in security report / f799057 |
+| PostgreSQL restore | **PASS retained**: PostgreSQL 17.6 complete logical restore, 1180/1180 TOC, 96 original table counts/checksums, 59 RLS policies, roles/grants/extensions, isolated cron/network and rollback proof in phase7-recovery-proof.json |
+| Archive migrations | **PASS**: archive-only two-migration restore preserved original data and old functions; latest flag guard's independent Rehire change was separately validated on native PG17.11 in the existing 11-check run at 18:11:07Z; archive gating path is unchanged |
+| Archive application tests | **PASS retained**: existing archive/profile/search/filter/UUID/history and Desktop/Mobile checks; no archive frontend change requires repetition |
+| Read-only permissions | **PASS retained**: admin protected route, RLS/DB-gated archive RPC, inactive-profile write handlers disabled; legacy data permissions and advanced OFF guards verified in existing tests/restore |
+| Production compatibility | **PASS fresh at 19:18:25.978Z**: production deployment/structure unchanged, UUID/count/checksum baseline match; limited-release SACS correction below |
+
+Fresh production is READY deployment **dpl_APkGU5PYBFc6tkRLQNVqp8iJNhCq**,
+source **4b7573a6d105cbfd61a035e0c31c3f324a4a165b**, project
+**prj_MrDRpm3roDmNC7V2E0vKJIVkvm8x / farmplast**. The fresh DB comparison matches
+all 178 functions, 119 relations, 11 schemas, 27 default ACLs, 293 constraints,
+20 triggers and 6 event triggers from the previously restored source snapshot.
+Archive/flags/lifecycle allocation tables and migration ledger are absent;
+therefore apply only the two unapplied archive migrations, not a blanket db push.
+Data remains 65 employees = 57 Active + 8 Former; all Employees/Payments/Payroll/
+Deductions/Attendance/ZKT historical aggregate checksums match earlier evidence.
+
+### Independence and minimal scope correction
+
+The archive list, employee cards, employment periods, payroll and attendance
+history use read-only queries by immutable Employee UUID. Viewing the archive
+executes no employee UPDATE/INSERT/DELETE, terminal command, identity reassignment
+or payroll processor. Main Employees/WorkersList filter Active only. Archive
+search, plant/position filters and sort operate on fetched rows.
+
+Firmware buckets are not archive dependencies. Existing card photos use only
+public **employee-photos**: all **5** nonempty Former-photo URLs read successfully
+at **19:18:46.680Z** and match their stored recovery SHA-256. No private firmware
+object was accessed or Storage policy changed. The 12 private firmware objects,
+service-config/secret recovery and live NJ/PA evidence remain open under the wider
+recovery/advanced-action work; they do not prevent this independent read-only UI.
+
+A concrete scope leak was found: the prepared branch had broadened the existing
+SACS bulk-sync employee population. For this archive-only candidate,
+`client/server/sacsSync.mjs` and its tests were restored exactly from current
+production SHA. This preserves the old active/ZKT-enabled population and response
+contract; advanced bulk-sync improvements are deferred and remain recoverable in
+prior commit f70bedc. Existing SACS SSO server/API files are unchanged from
+production. No SACS deployment/credential/configuration change is required.
+
+Verification specifically required for that source correction: **4/4 SACS sync
+tests PASS**, focused lint PASS, **production build PASS**. Existing nonblocking
+MICR font warning remains. Other passed suites were not rerun. Advanced APIs remain
+flag-gated and no lifecycle/identity/reuse migrations or Bridge updates are part
+of the archive release. Existing Bridge processors/functions are preserved.
+
+Fresh private metadata/data/photo evidence resides outside Git in
+`reports/archive-only-release-private/`; no employee records or credentials are
+included in this document. Product source correction and this document are the
+only tracked changes for this release preparation.
+
+### Exact authorized sequence — do not execute before new owner confirmation
+
+1. Owner confirms deployment of the resulting archive-only candidate SHA on
+   **codex/former-employees**. Re-read current production SHA/schema; if changed,
+   evaluate only that drift. Capture a **new pre-release full logical database
+   backup**, SHA-256/TOC and restore availability, using the existing pinned
+   Farmplast read-only backup procedure into a fresh private output directory.
+   Do not overwrite Phase 7 backup or call its partial firmware package complete.
+2. On the verified Farmplast administrative connection, apply from repo root:
+
+```powershell
+psql 'service=farmplast-approved-production' -X -v ON_ERROR_STOP=1 -f supabase/former_employees.sql
+psql 'service=farmplast-approved-production' -X -v ON_ERROR_STOP=1 -f supabase/employee_archive_feature_flags.sql
+psql 'service=farmplast-approved-production' -X -v ON_ERROR_STOP=1 -c 'SELECT flag,enabled FROM public.employee_feature_flags ORDER BY flag'
+```
+
+The libpq service is an administrator-configured example, not a credential created
+here. Existing pinned direct access is already verified; use that approved method
+if executing through the existing private helper. After each migration compare
+original rows/UUIDs/history and legacy function definitions. Four flags must be OFF.
+3. Use the accepted candidate checkout/client and the verified existing Vercel
+   Farmplast project/team; deploy staged production without assigning the domain:
+
+```powershell
+vercel deploy --prod --skip-domain
+# Inspect returned deployment ID, source SHA, READY/build logs; smoke-test OFF state.
+vercel promote '<VERIFIED-STAGED-PRODUCTION-DEPLOYMENT>'
+```
+
+These are prepared commands, not evidence of a configured local CLI link. The
+existing authenticated Vercel connector provides the corresponding deployment
+workflow; never deploy to a newly guessed project or blindly push the branch into
+an automatic deployment. Confirm alias/source SHA after promotion.
+4. Enable only Archive Read-Only through the existing Phase 5 guarded transaction
+   (four expected rows/all OFF), then require archive=true and terminate/rehire/
+   reuse=false. Validate `/employees/former` shows all 8 Former profiles, all
+   existing cards/histories read under admin permissions, search/filter/sort and
+   Active-only primary roster. Recheck Payroll/Attendance unchanged, existing
+   Farmplast → SACS SSO, application errors and advanced controls absent.
+5. If acceptance fails, disable archive and roll back the application to the
+   immediately verified previous READY deployment. Retain additive schema and new
+   legitimate rows; never restore an older backup over current production data.
+   No Bridge restart, terminal/biometric action or firmware Storage change.
+
+**Deployment readiness: ready for explicit owner confirmation; execution stopped.**
+This GO is candidate readiness for the limited archive release, not a claim that
+production acceptance has run or that full-system firmware recovery is complete.
+No new phase/report/project was created.
+
+---
+
+## Historical full-recovery blockers — superseded for archive-only scope
 
 **Archive Read-Only: NO-GO. Employee Actions: OFF / NO-GO. Number Reuse: OFF / NO-GO.**
 SACS temporary-role incident is CLOSED, with actual removal/live SSO evidence in
