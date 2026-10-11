@@ -7,9 +7,10 @@ the other target. Existing ZKT queue/protocol logic is unchanged.
 The browser POSTs a selected employee UUID or NJ/PA plant to `/api/sync-sacs` with
 its Farmplast access token. The Vercel function validates the user with Supabase
 and reads allowlisted employee fields under that user's existing RLS permissions.
-It does not trust browser-supplied employee data. Bulk uses active, ZKT-enabled
-employees from the selected plant and skips missing ZKT user IDs/names, matching
-bridge eligibility. A single selected inactive employee is still sent to SACS so
+It does not trust browser-supplied employee data. Bulk uses all active employees
+from the selected plant, including employees without ZKT enrollment. Every
+acknowledgement must identify a unique UUID from the submitted roster.
+A single selected inactive employee is still sent to SACS so
 it can be deactivated even if ZKT rejects that sync.
 
 Server environment variables:
@@ -29,7 +30,7 @@ cannot signal a new identity to either system. Number reuse with a new UUID is
 supported; the old SACS identity is archived without moving its history.
 
 The first reconciliation includes the complete Farmplast roster, not only the
-ZKT-eligible subset. Ongoing bulk actions intentionally retain existing ZKT scope.
+ZKT-eligible subset. Ongoing bulk actions use the complete active plant roster.
 Use single sync for inactive employees after deactivation. Missing phones remain
 missing; the integration does not invent login numbers or replace them with IDs.
 

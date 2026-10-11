@@ -107,7 +107,9 @@ begin
    if old.active is true and new.active is not true then perform public.employee_require_feature('employee_terminate'); end if;
    if old.active is not true and new.active is true then perform public.employee_require_feature('employee_rehire'); end if;
    if (new.termination_date,new.termination_reason,new.termination_notes) is distinct from (old.termination_date,old.termination_reason,old.termination_notes) then
-     perform public.employee_require_feature('employee_terminate');
+     -- Rehire clears termination metadata as part of its own guarded action.
+     perform public.employee_require_feature(case when old.active is not true and new.active is true
+       then 'employee_rehire' else 'employee_terminate' end);
    end if;
    if new.employee_number is distinct from old.employee_number then perform public.employee_require_feature('employee_number_reuse'); end if;
  end if;

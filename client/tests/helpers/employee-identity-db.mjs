@@ -3,10 +3,10 @@ import { PGlite } from '@electric-sql/pglite'
 export const admin='00000000-0000-0000-0000-000000000001'
 export const peter='00000000-0000-0000-0000-000000000003'
 export const robert='00000000-0000-0000-0000-000000000004'
-export async function identityDb() {
-  return initializeIdentityDb(new PGlite())
+export async function identityDb(options) {
+  return initializeIdentityDb(new PGlite(),options)
 }
-export async function initializeIdentityDb(db) {
+export async function initializeIdentityDb(db,{archiveFirst=false}={}) {
   await db.exec(`do $$ declare r text; begin foreach r in array array['authenticated','anon','service_role'] loop
     if not exists(select 1 from pg_roles where rolname=r) then execute format('create role %I',r); end if;end loop;end $$;
     alter role service_role bypassrls;
@@ -32,7 +32,10 @@ export async function initializeIdentityDb(db) {
     create function process_zkt_attendance_to_work_logs() returns jsonb language sql as $$ select '{}'::jsonb $$;
     create function rebuild_zkt_work_logs() returns jsonb language sql as $$ select '{}'::jsonb $$;
     set test.uid='${admin}';`)
-  for (const name of ['former_employees.sql','zkt_event_identity.sql','employee_lifecycle.sql']) {
+  const migrations=archiveFirst
+    ? ['former_employees.sql','employee_archive_feature_flags.sql','zkt_event_identity.sql','employee_lifecycle.sql','employee_release_gates.sql']
+    : ['former_employees.sql','zkt_event_identity.sql','employee_lifecycle.sql']
+  for (const name of migrations) {
     await db.exec(await readFile(new URL(`../../../supabase/${name}`,import.meta.url),'utf8'))
   }
   await db.exec('create trigger trg_employee_work_logs_manual_edit before update on employee_work_logs for each row execute function mark_employee_work_log_manual_edit()')

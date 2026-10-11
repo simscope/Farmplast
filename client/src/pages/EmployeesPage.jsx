@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import EmployeeNumberSuggestion from '../components/EmployeeNumberSuggestion'
 import { supabase } from '../lib/supabase'
 import useEmployeeFeatureFlags from '../hooks/useEmployeeFeatureFlags'
+import {deliverEmployeeIntegrations} from '../utils/deliverEmployeeIntegrations'
 import {
   EMPLOYEE_PHOTO_BUCKET,
   compressEmployeePhoto,
@@ -710,11 +711,16 @@ export default function EmployeesPage() {
         zkt_synced_at: null,
       }
 
-      const { data: created, error } = await supabase.from('employees').insert([payload]).select('employee_number').single()
+      const { data: created, error } = await supabase.from('employees').insert([payload]).select('id,employee_number').single()
 
       if (error) throw error
 
-      setMessage(allocationReady ? `Employee #${created.employee_number} added. ZKT and SACS provisioning is pending.` : `Employee #${created.employee_number} added.`)
+      let deliveryNotice=''
+      if(hasAllocator&&flags.employee_rehire){
+        try{await deliverEmployeeIntegrations(created.id,{getSession:()=>supabase.auth.getSession()});deliveryNotice=' SACS identity synchronized. Terminal provisioning is pending.'}
+        catch(err){deliveryNotice=` ${err.message}`}
+      }
+      setMessage(`Employee #${created.employee_number} added.${deliveryNotice|| (allocationReady?' ZKT and SACS provisioning is pending.':'')}`)
       setForm(initialForm)
       await loadEmployees()
     } catch (err) {
@@ -1233,13 +1239,13 @@ export default function EmployeesPage() {
                             ZKT card
                           </button>
 
-                          <button
+                          {flags.employee_terminate && <button
                             type="button"
                             style={secondaryButtonStyle}
                             onClick={() => handleToggleActive(employee)}
                           >
                             Terminate Employee
-                          </button>
+                          </button>}
                         </div>
                       </td>
                     </tr>

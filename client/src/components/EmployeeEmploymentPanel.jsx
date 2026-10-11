@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/useAuth'
 import useEmployeeFeatureFlags from '../hooks/useEmployeeFeatureFlags'
+import {deliverEmployeeIntegrations} from '../utils/deliverEmployeeIntegrations'
 
 export default function EmployeeEmploymentPanel({ employee, onChanged }) {
   const { flags } = useEmployeeFeatureFlags()
@@ -23,6 +24,9 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
   const [refresh, setRefresh] = useState(0)
   const isAdmin = profile?.role === 'admin'
   const actionEnabled = employee?.active===true ? flags.employee_terminate : flags.employee_rehire
+  const rehireAwaitingRelease = employee?.active!==true && !flags.employee_number_reuse &&
+    (!reservations.some(row=>row.employee_number===employee?.employee_number&&row.released_at) ||
+      reservations.some(row=>row.employee_number===employee?.employee_number&&!row.released_at))
 
   useEffect(() => {
     let cancelled = false
@@ -57,16 +61,13 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
   if (!employee || !isAdmin || !flags.former_employees_archive_readonly) return null
 
   async function deliverIntegrations() {
-    const session=await supabase.auth.getSession()
-    const response=await fetch('/api/employee-integrations',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.data?.session?.access_token}`},body:JSON.stringify({employee_id:employee.id})})
-    if(!response.ok)throw Error('Profile saved. SACS delivery is pending; the employee number remains protected.')
-    const result=await response.json()
-    if(result.results.some(row=>row.status!=='succeeded'))throw Error('Profile saved. SACS acknowledgement is pending or uncertain; review integration status before retrying.')
+    await deliverEmployeeIntegrations(employee.id,{getSession:()=>supabase.auth.getSession()})
   }
   async function openAction() {
     if (!actionEnabled) return
     setAction(employee.active === true?'terminate':'rehire');setDate('');setReason('');setNotes('');setError('')
     if(employee.active!==true){
+      if(!flags.employee_number_reuse){setSuggestion(employee.employee_number);return}
       const result=await supabase.rpc('next_available_employee_number')
       if(result.error)setError(result.error.message);else setSuggestion(result.data)
     }
@@ -95,19 +96,20 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
   return <section className="my-4 rounded-xl border border-slate-700 bg-slate-900 p-4 no-print">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="font-bold">Employment history · {employee.active === true ? 'Active' : 'Former Employee'}</h2>
-      <button type="button" disabled={!actionEnabled || !ready || busy || blockers.length > 0}
+      {actionEnabled && <button type="button" disabled={!ready || busy || blockers.length > 0 || (lifecycleReady && rehireAwaitingRelease)}
         className="rounded-lg border border-cyan-500 px-3 py-2 disabled:opacity-40"
         onClick={openAction}>
         {employee.active === true ? 'Terminate Employee' : 'Rehire'}
-      </button>
+      </button>}
     </div>
+    {actionEnabled&&lifecycleReady&&rehireAwaitingRelease&&<p className="mt-2 text-sm text-amber-200">Rehire retains the previous number while Number Reuse is OFF. Terminal absence and SACS deactivation must be confirmed first.</p>}
     {employee.active !== true && <p className="mt-2 text-sm text-slate-300">Original Employee Number: {employee.employee_number} · Termination Date: {employee.termination_date || 'Not recorded'}</p>}
     {employee.termination_reason && <p className="mt-2">Reason: {employee.termination_reason}</p>}
     {employee.termination_notes && <p className="mt-2 whitespace-pre-wrap">Notes: {employee.termination_notes}</p>}
     {error && <p role="alert" className="mt-3 text-red-300">{error}</p>}
     {notice && <p role="status" className="mt-3 text-amber-200">{notice}</p>}
     {flags.employee_terminate&&lifecycleReady&&employee.active!==true&&!employee.termination_date&&<button className="mt-3 rounded border border-slate-600 px-3 py-2" onClick={()=>{setAction('reconcile');setDate('');setNotes('')}}>Record confirmed termination date</button>}
-    {reservations.length>0&&<p className="mt-3 text-sm text-slate-300">Number reservations: {reservations.map(row=>`#${row.employee_number} — ${row.released_at?'device release confirmed':'reserved'}`).join(' · ')}. Reuse remains subject to the release gate.</p>}
+    {reservations.length>0&&<p className="mt-3 text-sm text-slate-300">Number reservations: {reservations.map(row=>`#${row.employee_number} — ${row.released_at?'terminal absence and SACS confirmed':'reserved'}`).join(' · ')}. Disabled terminal accounts retain biometrics; an authorized operator must remove the old account before retrying its absence verification. Reuse remains subject to the release gate.</p>}
     {operations.length>0&&<div className="mt-3 overflow-x-auto"><h3 className="font-semibold">Integration status</h3><table className="w-full text-left text-sm"><thead><tr>{['Period','System','Action','Status','Details'].map(label=><th key={label} className="p-2">{label}</th>)}</tr></thead><tbody>{operations.map(job=><tr key={job.id} className="border-t border-slate-700"><td className="p-2">{job.period_id}</td><td className="p-2">{job.target}</td><td className="p-2">{job.action}</td><td className="p-2">{job.status}</td><td className="p-2">{job.error||job.finished_at||'Awaiting acknowledgement'}</td></tr>)}</tbody></table>
       <button type="button" disabled={busy||(!flags.employee_terminate&&!flags.employee_rehire)} className="mt-2 rounded border border-slate-600 px-3 py-2" onClick={async()=>{
         setBusy(true);try{const result=await supabase.rpc('retry_employee_integrations',{p_employee_id:employee.id});if(result.error)throw result.error;await deliverIntegrations();await onChanged?.()}catch(err){setNotice(err.message)}finally{setRefresh(value=>value+1);setBusy(false)}

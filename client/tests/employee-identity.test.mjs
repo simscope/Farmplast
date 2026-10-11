@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import {readFile} from 'node:fs/promises'
 import { identityDb, mapping, ingest, peter, robert } from './helpers/employee-identity-db.mjs'
 const event=(timestamp,mode=0,user='3')=>({deviceUserId:user,userId:user,timestamp,inOutMode:mode,verifyMode:1,workCode:0})
 
@@ -76,18 +77,27 @@ test('archive completes offline, reservation waits for both verified devices, re
       const op=(await db.query('select id,device_key from employee_integration_operations where target=$1 and action=\'disable\'',[target])).rows[0]
       await db.exec("set test.role='service_role'")
       const job=(await db.query('select claim_employee_integration($1,$2) job',[op.id,op.device_key])).rows[0].job
-      await db.query('select finish_employee_integration($1,$2,$3)',[op.id,job.claim_token,JSON.stringify({ok,serialNumber:serial,userId:'3',enabled:false,readBackVerified:ok})])
+      await db.query('select finish_employee_integration($1,$2,$3)',[op.id,job.claim_token,JSON.stringify({ok,serialNumber:serial,userId:'3',enabled:false,readBackVerified:ok,state:'absent'})])
     }
     await ack('NJ','NJ-SERIAL')
     assert.equal((await db.query('select released_at from employee_number_reservations')).rows[0].released_at,null)
     await ack('PA','WRONG')
     assert.equal((await db.query('select released_at from employee_number_reservations')).rows[0].released_at,null)
     await ack('PA','PA-SERIAL')
+    assert.equal((await db.query('select released_at from employee_number_reservations')).rows[0].released_at,null)
+    const sacs=(await db.query("select id from employee_integration_operations where target='SACS' and action='disable'")).rows[0]
+    const job=(await db.query('select claim_employee_integration($1,null) job',[sacs.id])).rows[0].job
+    await db.query('select finish_employee_integration($1,$2,$3)',[sacs.id,job.claim_token,JSON.stringify({ok:true,source_employee_id:peter,is_active:false})])
     assert.ok((await db.query('select released_at from employee_number_reservations')).rows[0].released_at)
     await db.exec("set test.role='authenticated'")
+    await db.exec(await readFile(new URL('../../supabase/employee_release_gates.sql',import.meta.url),'utf8'))
+    await db.exec('update employee_release_config set actions_enabled=true')
+    await db.exec(await readFile(new URL('../../supabase/employee_archive_feature_flags.sql',import.meta.url),'utf8'))
+    await db.exec("update employee_feature_flags set enabled=true where flag='employee_rehire'")
     await db.query("select change_employee_employment($1,'rehire','2025-02-01')",[peter])
     const person=(await db.query('select id,employee_number,active from employees where id=$1',[peter])).rows[0]
-    assert.equal(person.id,peter);assert.equal(person.employee_number,1);assert.equal(person.active,true)
+    assert.equal(person.id,peter);assert.equal(person.employee_number,3);assert.equal(person.active,true)
+    assert.equal((await db.query("select employee_feature_enabled('employee_number_reuse') enabled")).rows[0].enabled,false)
     assert.equal((await db.query('select count(*)::int n from employee_employment_periods where employee_id=$1',[peter])).rows[0].n,2)
   } finally {await db.close()}
 })
@@ -140,7 +150,7 @@ test('provisioning excludes unknown retained terminal accounts and refuses incom
     await assert.rejects(db.query("insert into employees(active,first_name,last_name,plant_location) values(true,'New','Person','NJ')"),/complete NJ\/PA/)
     await db.exec("update zkt_identity_devices set inventory_verified=true where device_key='pa'")
     const row=(await db.query("insert into employees(active,first_name,last_name,plant_location) values(true,'New','Person','NJ') returning employee_number,zkt_user_id")).rows[0]
-    assert.equal(row.employee_number,1);assert.equal(row.zkt_user_id,4)
+    assert.equal(row.employee_number,4);assert.equal(row.zkt_user_id,4)
   }finally{await db.close()}
 })
 
@@ -168,5 +178,61 @@ test('service worker can ingest through RPC but cannot rewrite mappings, reserva
     await assert.rejects(db.query("update zkt_identifier_history set evidence='forged'"),/permission denied/)
     await db.exec('reset role')
     await assert.rejects(db.query('update zkt_identity_principals set terminal_user_id=99'),/immutable/)
+  }finally{await db.close()}
+})
+
+test('same numeric terminal number passes to a new UUID only after absence and SACS ACK; late events and saved history keep the old owner',async()=>{
+  const db=await identityDb()
+  const acknowledge=async(employee,target,action,state='absent')=>{
+    await db.exec("set test.role='service_role'")
+    const op=(await db.query('select id,device_key,terminal_user_id from employee_integration_operations where employee_id=$1 and target=$2 and action=$3 order by period_id desc limit 1',[employee,target,action])).rows[0]
+    const job=(await db.query('select claim_employee_integration($1,$2) job',[op.id,op.device_key])).rows[0].job
+    // Physical commissioning happened at 08:00 NY on this synthetic hire day;
+    // today's import date must not move ownership of these historical punches.
+    if(action==='activate')await db.query("update employee_integration_operations set claimed_at='2025-01-02T13:00Z' where id=$1",[op.id])
+    const result=target==='SACS'?{ok:true,source_employee_id:employee,is_active:action==='activate'}:
+      {ok:true,serialNumber:`${target}-SERIAL`,userId:op.terminal_user_id,enabled:action==='activate',readBackVerified:true,state}
+    await db.query('select finish_employee_integration($1,$2,$3)',[op.id,job.claim_token,JSON.stringify(result)])
+  }
+  try{
+    await db.exec("insert into employees(employee_number,active,hire_date,plant_location,first_name,last_name) values(1,true,'2024-01-01','NJ','One','Test'),(2,true,'2024-01-01','NJ','Two','Test')")
+    await mapping(db,'nj',peter,'2024-01-01T05:00Z')
+    await db.query("insert into employee_payments(employee_id,amount) values($1,140)",[peter])
+    await db.query("insert into employee_work_logs(employee_id,work_date,time_in,time_out,approved,reg_hours,labor_amount) values($1,'2024-06-01','08:00','16:00',true,7,140)",[peter])
+    const history=(await db.query('select * from employee_work_logs')).rows
+    await db.query("select change_employee_employment($1,'terminate','2025-01-01')",[peter])
+    await acknowledge(peter,'NJ','disable','disabled')
+    await acknowledge(peter,'PA','disable')
+    await acknowledge(peter,'SACS','disable')
+    assert.equal((await db.query('select released_at from employee_number_reservations where employee_id=$1',[peter])).rows[0].released_at,null)
+    await db.exec("set test.role='authenticated'")
+    await db.query('select retry_employee_integrations($1)',[peter])
+    await acknowledge(peter,'NJ','disable')
+    assert.ok((await db.query('select released_at from employee_number_reservations where employee_id=$1',[peter])).rows[0].released_at)
+    await db.exec("set test.role='authenticated';update employee_number_config set reuse_enabled=true")
+    const person=(await db.query("insert into employees(id,active,hire_date,plant_location,first_name,last_name) values($1,true,'2025-01-02','NJ','New','Test') returning employee_number,zkt_user_id",[robert])).rows[0]
+    assert.deepEqual(person,{employee_number:3,zkt_user_id:3})
+    assert.equal((await db.query('select count(*)::int n from employee_work_logs where employee_id=$1',[robert])).rows[0].n,0)
+    await acknowledge(robert,'NJ','activate')
+    await ingest(db,'nj',[event('2025-01-01 08:00:00'),event('2025-01-02 04:00:00'),event('2025-01-02 08:00:00')])
+    await ingest(db,'nj',[event('2025-01-01 08:00:00')])
+    const ownership=(await db.query("select e.raw->>'timestamp' stamp,o.employee_id from zkt_event_ownership o join zkt_identity_events e on e.id=o.event_id order by stamp")).rows
+    assert.deepEqual(ownership,[{stamp:'2025-01-01 08:00:00',employee_id:peter},{stamp:'2025-01-02 08:00:00',employee_id:robert}])
+    assert.equal((await db.query("select count(*)::int n from zkt_identity_review r join zkt_identity_events e on e.id=r.event_id where e.raw->>'timestamp'='2025-01-02 04:00:00'")).rows[0].n,1,'A punch before safe commissioning must not transfer to the new owner')
+    assert.deepEqual((await db.query('select * from employee_work_logs')).rows,history)
+    assert.equal((await db.query('select employee_id from employee_payments')).rows[0].employee_id,peter)
+    assert.equal((await db.query('select count(*)::int n from employees')).rows[0].n,4)
+  }finally{await db.close()}
+})
+
+test('legacy different ZKT ID remains reserved without renumbering the working employee',async()=>{
+  const db=await identityDb()
+  try{
+    // Model an existing legacy account before release; no real terminal changes.
+    await db.exec("set farmplast.employee_lifecycle='on';update employees set zkt_user_id=1;update employee_employment_periods set terminal_user_id=1;set farmplast.employee_lifecycle='off'")
+    await assert.rejects(db.query("insert into employees(employee_number,active,first_name,last_name,plant_location) values(1,true,'New','Test','NJ')"),/retained terminal account/)
+    const created=(await db.query("insert into employees(active,first_name,last_name,plant_location) values(true,'New','Test','NJ') returning employee_number,zkt_user_id")).rows[0]
+    assert.deepEqual(created,{employee_number:2,zkt_user_id:2})
+    assert.deepEqual((await db.query('select employee_number,zkt_user_id from employees where id=$1',[peter])).rows[0],{employee_number:3,zkt_user_id:1})
   }finally{await db.close()}
 })

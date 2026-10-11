@@ -53,3 +53,18 @@ test('archive switch preserves ordinary creation and processors; advanced enable
     await assert.rejects(db.query('select list_former_employees()'),/archive is OFF/)
   }finally{await db.close()}
 })
+
+test('archive-first rollout can add lifecycle later without bypassing independent OFF flags',async()=>{
+  const db=await identityDb({archiveFirst:true})
+  try{
+    await assert.rejects(db.query("select change_employee_employment($1,'terminate','2025-01-01')",[peter]),/employee_terminate.*OFF/)
+    await assert.rejects(db.exec("insert into employees(active,first_name,last_name,plant_location) values(true,'Auto','Test','NJ')"),/employee_number_reuse.*OFF/)
+    await db.exec("insert into employees(employee_number,active,hire_date,first_name,last_name,plant_location) values(10,true,current_date,'Manual','Test','NJ')")
+    await db.exec("update employee_feature_flags set enabled=true where flag in ('former_employees_archive_readonly','employee_terminate','employee_rehire')")
+    await db.query("select change_employee_employment($1,'terminate','2025-01-01')",[peter])
+    assert.equal((await db.query('select count(*)::int n from list_former_employees()')).rows[0].n,1)
+    await assert.rejects(db.query("select change_employee_employment($1,'rehire','2025-02-01')",[peter]),/previous number to be safely released/)
+    assert.equal((await db.query('select active from employees where id=$1',[peter])).rows[0].active,false)
+    assert.equal((await db.query("select enabled from employee_feature_flags where flag='employee_number_reuse'")).rows[0].enabled,false)
+  }finally{await db.close()}
+})

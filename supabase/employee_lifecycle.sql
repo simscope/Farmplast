@@ -13,12 +13,19 @@ alter table public.zkt_bridge_commands add constraint zkt_bridge_commands_comman
   ('test','sync_employees','verify_employees','pull_attendance','delete_employee_from_zkt','sync_one_employee','verify_one_employee','identity_disable_employee','identity_activate_employee'));
 alter table public.employee_employment_periods add column terminal_user_id integer;
 update public.employee_employment_periods p set terminal_user_id=coalesce(e.zkt_user_id,e.employee_number) from public.employees e where e.id=p.employee_id;
--- Never give another person an old terminal account with retained biometrics.
+-- Preserve the first terminal identity as history; ownership over time lives
+-- in zkt_identifier_history. A number can belong to successive UUIDs only
+-- after verified absence of the old account on every terminal.
 create table public.zkt_identity_principals (
   employee_id uuid primary key references public.employees(id) on delete restrict,
-  terminal_user_id integer not null unique check(terminal_user_id>0)
+  terminal_user_id integer not null check(terminal_user_id>0)
 );
 insert into public.zkt_identity_principals select id,coalesce(zkt_user_id,employee_number) from public.employees;
+do $$ begin
+  if exists(select 1 from public.zkt_identity_principals group by terminal_user_id having count(*)>1) then
+    raise exception 'Existing terminal identities require reconciliation before lifecycle migration';
+  end if;
+end $$;
 create trigger zkt_principals_immutable before update or delete on public.zkt_identity_principals
 for each row execute function public.zkt_immutable_record();
 create table public.employee_number_config (
@@ -66,14 +73,17 @@ begin
   if c.maximum is null then raise exception 'Terminal employee number range must be verified and configured'; end if;
   -- Number of occupied values bounds the search; do not generate billions of rows.
   select min(n)::integer into candidate from generate_series(c.minimum::bigint,
-    least(c.maximum::bigint,c.minimum::bigint+(select count(*) from public.employee_number_reservations))) n
-  where not exists(select 1 from public.employee_number_reservations r where r.employee_number=n and (r.released_at is null or not c.reuse_enabled));
+    least(c.maximum::bigint,c.minimum::bigint+2*(select count(*) from public.employee_number_reservations)+(select count(*) from public.zkt_reserved_terminal_identifiers))) n
+  where not exists(select 1 from public.employee_number_reservations r where r.employee_number=n and (r.released_at is null or not c.reuse_enabled))
+    and not exists(select 1 from public.zkt_reserved_terminal_identifiers r where r.terminal_user_id::numeric=n)
+    and not exists(select 1 from public.employee_number_reservations r join public.employee_employment_periods p on p.id=r.period_id
+      where p.terminal_user_id=n and (r.released_at is null or not c.reuse_enabled));
   if candidate is null then raise exception 'No safely available employee numbers in configured range'; end if;
   return candidate;
 end $$;
 create function public.allocate_employee_insert() returns trigger
 language plpgsql security definer set search_path=public,pg_temp as $$
-declare c public.employee_number_config%rowtype; terminal_id integer;
+declare c public.employee_number_config%rowtype;
 begin
   if not public.employee_archive_admin() then raise exception 'Admin access required' using errcode='42501'; end if;
   perform pg_advisory_xact_lock(736261,2);
@@ -86,15 +96,15 @@ begin
   if new.employee_number<c.minimum or (c.maximum is not null and new.employee_number>c.maximum) then raise exception 'Employee number outside configured range'; end if;
   if exists(select 1 from public.employee_number_reservations where employee_number=new.employee_number and (released_at is null or not c.reuse_enabled)) then
     raise exception 'Employee number remains reserved; refresh the suggested number' using errcode='23505'; end if;
+  if exists(select 1 from public.zkt_reserved_terminal_identifiers where terminal_user_id::numeric=new.employee_number) then
+    raise exception 'Employee number belongs to a reserved terminal account'; end if;
+  if exists(select 1 from public.employee_number_reservations r join public.employee_employment_periods p on p.id=r.period_id
+      where p.terminal_user_id=new.employee_number and (r.released_at is null or not c.reuse_enabled)) then
+    raise exception 'Employee number belongs to a retained terminal account'; end if;
   if not exists(select 1 from public.zkt_identity_devices where plant_location='NJ') or not exists(select 1 from public.zkt_identity_devices where plant_location='PA')
     or exists(select 1 from public.zkt_identity_devices where not verified or not inventory_verified) then
     raise exception 'Verified complete NJ/PA terminal inventories required before provisioning a new identity'; end if;
-  select min(n)::integer into terminal_id from generate_series(1::bigint,least(coalesce(c.maximum,2147483647)::bigint,1+(select count(*) from public.zkt_identity_principals)+(select count(*) from public.zkt_identifier_history)+(select count(*) from public.zkt_reserved_terminal_identifiers))) n
-    where not exists(select 1 from public.zkt_identity_principals where terminal_user_id=n)
-      and not exists(select 1 from public.zkt_identifier_history where terminal_user_id::numeric=n)
-      and not exists(select 1 from public.zkt_reserved_terminal_identifiers where terminal_user_id::numeric=n);
-  if terminal_id is null then raise exception 'No never-used terminal user IDs available in verified range'; end if;
-  new.zkt_user_id:=terminal_id;
+  new.zkt_user_id:=new.employee_number;
   -- Provisioning is recorded and acknowledged separately from profile creation.
   new.zkt_enabled:=false;
   return new;
@@ -135,7 +145,7 @@ end $$;
 
 create or replace function public.change_employee_employment(p_employee_id uuid,p_action text,p_date date,p_reason text default null,p_notes text default null) returns uuid
 language plpgsql security definer set search_path=public,pg_temp as $$
-declare e public.employees%rowtype; pid bigint; previous_end date; assigned integer;
+declare e public.employees%rowtype; pid bigint; previous_end date; assigned integer; reuse_allowed boolean:=true;
 begin
   if not public.employee_archive_admin() then raise exception 'Admin access required' using errcode='42501'; end if;
   perform pg_advisory_xact_lock(736261,2);
@@ -165,11 +175,27 @@ begin
     if previous_end>=p_date then raise exception 'Rehire must follow prior termination'; end if;
     if exists(select 1 from public.employee_integration_operations where employee_id=e.id and target='SACS' and status='running') then raise exception 'SACS synchronization in progress; retry after acknowledgement'; end if;
     update public.employee_integration_operations set status='superseded' where employee_id=e.id and target='SACS' and status in ('pending','failed');
-    assigned:=public.next_available_employee_number();
+    if to_regclass('public.employee_feature_flags') is not null then
+      reuse_allowed:=public.employee_feature_enabled('employee_number_reuse');
+    end if;
+    if not reuse_allowed then
+      -- Rehire can be released independently of cross-person number reuse.
+      -- Keep this person's last number only after its transition is confirmed.
+      assigned:=e.employee_number;
+      if not exists(select 1 from public.employee_number_reservations where employee_id=e.id and employee_number=assigned and released_at is not null)
+        or exists(select 1 from public.employee_number_reservations where employee_number=assigned and released_at is null)
+        or exists(select 1 from public.employees where active is true and employee_number=assigned)
+        or exists(select 1 from public.zkt_reserved_terminal_identifiers where terminal_user_id::numeric=assigned)
+        or exists(select 1 from public.employee_number_reservations r join public.employee_employment_periods p on p.id=r.period_id where p.terminal_user_id=assigned and r.released_at is null) then
+        raise exception 'Rehire with number reuse OFF requires the previous number to be safely released and still available';
+      end if;
+    else
+      assigned:=public.next_available_employee_number();
+    end if;
     perform set_config('farmplast.employee_lifecycle','on',true);
-    update public.employees set active=true,employee_number=assigned,hire_date=p_date,termination_date=null,termination_reason=null,termination_notes=null,zkt_enabled=false,zkt_sync_status='pending' where id=e.id;
+    update public.employees set active=true,employee_number=assigned,zkt_user_id=assigned,hire_date=p_date,termination_date=null,termination_reason=null,termination_notes=null,zkt_enabled=false,zkt_sync_status='pending' where id=e.id;
     insert into public.employee_employment_periods(employee_id,employee_number,hire_date,position,company_id,plant_location,hourly_rate,notes,terminal_user_id)
-      values(e.id,assigned,p_date,e.position,e.company_id,e.plant_location,e.hourly_rate,nullif(trim(p_notes),''),coalesce(e.zkt_user_id,e.employee_number)) returning id into pid;
+      values(e.id,assigned,p_date,e.position,e.company_id,e.plant_location,e.hourly_rate,nullif(trim(p_notes),''),assigned) returning id into pid;
     insert into public.employee_number_reservations values(pid,e.id,assigned,null,now());
     perform public.queue_employee_integrations(pid,'activate');
   end if;
@@ -282,21 +308,26 @@ begin
     result=p_result,error=case when coalesce(ok,false) then null else 'No verified acknowledgement; number remains reserved' end,finished_at=now() where id=j.id;
   if not coalesce(ok,false) then return; end if;
   if j.target<>'SACS' and j.action='disable' then
-    update public.zkt_identifier_history set valid_to=now() where device_key=j.device_key and employee_id=j.employee_id and period_id=j.period_id and valid_to is null;
+    update public.zkt_identifier_history set valid_to=(select (termination_date+1)::timestamp at time zone 'America/New_York' from public.employee_employment_periods where id=j.period_id)
+      where device_key=j.device_key and employee_id=j.employee_id and period_id=j.period_id and valid_to is null;
   elsif j.target<>'SACS' and j.action='activate' then
     select * into strict e from public.employees where id=j.employee_id;
     insert into public.zkt_identifier_history(device_key,terminal_user_id,employee_id,period_id,valid_from,evidence,shift_type,hourly_rate,default_lunch_hours,processing_verified)
-      values(j.device_key,j.terminal_user_id,j.employee_id,j.period_id,j.claimed_at,'SDK read-back acknowledgement '||j.id,coalesce(e.shift_type,'day'),coalesce(e.hourly_rate,0),coalesce(e.default_lunch_hours,1),true);
+      values(j.device_key,j.terminal_user_id,j.employee_id,j.period_id,
+        greatest(j.claimed_at,(select hire_date::timestamp at time zone 'America/New_York' from public.employee_employment_periods where id=j.period_id)),
+        'SDK read-back acknowledgement '||j.id,coalesce(e.shift_type,'day'),coalesce(e.hourly_rate,0),coalesce(e.default_lunch_hours,1),true);
     if e.active is true and e.employee_number=(select employee_number from public.employee_employment_periods where id=j.period_id)
       and not exists(select 1 from public.employee_integration_operations where period_id=j.period_id and action='activate' and target<>'SACS' and status<>'succeeded') then
       update public.employees set zkt_enabled=true,zkt_sync_status='verified_sdk',zkt_synced_at=now() where id=e.id;
     end if;
   end if;
   -- Every configured terminal in BOTH plants must have acknowledged this period.
-  if j.action='disable' and exists(select 1 from public.zkt_identity_devices where plant_location='NJ' and verified)
+  if j.action='disable' and exists(select 1 from public.employee_integration_operations
+      where period_id=j.period_id and action='disable' and target='SACS' and status='succeeded')
+    and exists(select 1 from public.zkt_identity_devices where plant_location='NJ' and verified)
     and exists(select 1 from public.zkt_identity_devices where plant_location='PA' and verified)
     and not exists(select 1 from public.zkt_identity_devices device where not device.verified or not device.inventory_verified or not exists(select 1 from public.employee_integration_operations x
-      where x.period_id=j.period_id and x.action='disable' and x.device_key=device.device_key and x.status='succeeded')) then
+      where x.period_id=j.period_id and x.action='disable' and x.device_key=device.device_key and x.status='succeeded' and x.result->>'state'='absent')) then
     update public.employee_number_reservations set released_at=now() where period_id=j.period_id and released_at is null;
   end if;
 end $$;
@@ -324,6 +355,15 @@ begin
   for p in select id from public.employee_employment_periods where employee_id=p_employee_id and termination_date is not null loop
     perform public.queue_employee_integrations(p.id,'disable');
   end loop;
+  -- After an operator removes the old account/biometrics, the existing retry
+  -- action requests a fresh SDK inventory proof. Never retry a released number:
+  -- its current terminal account may already belong to another person.
+  update public.employee_integration_operations op set status='failed'
+    where employee_id=p_employee_id and action='disable' and target<>'SACS' and status='succeeded'
+      and result->>'state' is distinct from 'absent'
+      and exists(select 1 from public.employee_number_reservations r where r.period_id=op.period_id and r.released_at is null)
+      and not exists(select 1 from public.employees e where e.active is true and
+        (e.employee_number=op.terminal_user_id::integer or e.zkt_user_id=op.terminal_user_id::integer));
   for j in select * from public.employee_integration_operations where employee_id=p_employee_id and target<>'SACS' and status='failed' loop
     if not exists(select 1 from public.zkt_bridge_commands where payload->>'operation_id'=j.id::text and status in ('pending','pending_pa','running')) then
       insert into public.zkt_bridge_commands(command,payload,status) values('identity_'||j.action||'_employee',

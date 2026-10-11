@@ -22,7 +22,7 @@ test('disable requires read-back serial/user/state proof; uncertain SDK outcome 
   const result=await dispatch(command,{cfg:cfg('NJ'),db,sdk:async request=>{assert.equal(request.user.userId,'3');return {ok:true,serialNumber:'NJ-SERIAL',userId:'3',enabled:false,readBackVerified:true}}});
   assert.equal(result.ok,true);assert.equal(outcomes.at(-1).enabled,false);
 });
-test('activation uses permanent terminal principal rather than reused employee number',async()=>{
+test('activation uses the claimed period terminal ID, preserving existing legacy jobs',async()=>{
   let uploaded;
   const result=await dispatch({command:'identity_activate_employee',payload:{operation_id:'job',device_key:'pa',plant_location:'PA'}},{cfg:cfg('PA'),db:{
     claimIntegration:async()=>({id:'job',claim_token:'claim',employee_id:'employee',action:'activate',terminal_user_id:'101',target:'PA'}),

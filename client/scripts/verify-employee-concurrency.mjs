@@ -126,6 +126,28 @@ try{
     await a.query('commit')
     assert.equal((await admission).error?.code,'42501')
     checks.push('waiting admission rechecks enabled after concurrent OFF commit and fails closed')
+
+    // Exercise the safety transition with native PostgreSQL, not only PGlite.
+    await a.query("update employee_release_config set actions_enabled=true; update employee_feature_flags set enabled=true where flag in ('employee_terminate','employee_rehire')")
+    await a.query("select change_employee_employment($1,'terminate','2025-01-01')",[first.id])
+    await assert.rejects(a.query("select change_employee_employment($1,'rehire','2025-02-01')",[first.id]),/previous number to be safely released/)
+    const acknowledge=async(target,state='absent')=>{
+      await b.query("set test.role='service_role'")
+      const op=(await b.query("select id,device_key,terminal_user_id from employee_integration_operations where employee_id=$1 and action='disable' and target=$2 order by period_id desc limit 1",[first.id,target])).rows[0]
+      const job=(await b.query('select claim_employee_integration($1,$2) job',[op.id,op.device_key])).rows[0].job
+      const result=target==='SACS'?{ok:true,source_employee_id:first.id,is_active:false}:
+        {ok:true,serialNumber:`${target}-SERIAL`,userId:op.terminal_user_id,enabled:false,readBackVerified:true,state}
+      await b.query('select finish_employee_integration($1,$2,$3)',[op.id,job.claim_token,JSON.stringify(result)])
+    }
+    await acknowledge('NJ','disabled');await acknowledge('PA');await acknowledge('SACS')
+    assert.equal((await a.query('select released_at from employee_number_reservations where employee_id=$1',[first.id])).rows[0].released_at,null)
+    await a.query('select retry_employee_integrations($1)',[first.id])
+    await acknowledge('NJ')
+    await a.query("update employee_feature_flags set enabled=false where flag='employee_terminate'")
+    await a.query("select change_employee_employment($1,'rehire','2025-02-01')",[first.id])
+    assert.deepEqual((await a.query('select id,employee_number,zkt_user_id,active from employees where id=$1',[first.id])).rows[0],{id:first.id,employee_number:1,zkt_user_id:1,active:true})
+    assert.equal((await a.query("select enabled from employee_feature_flags where flag='employee_number_reuse'")).rows[0].enabled,false)
+    checks.push('native PG reserves disabled biometric account until all absence/SACS ACKs; Rehire works independently with Terminate and Reuse OFF')
   }
 
   const report={verified_at:new Date().toISOString(),engine:system.version,mode:'loopback disposable PostgreSQL, synthetic records only',checks}

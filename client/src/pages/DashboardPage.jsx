@@ -19,6 +19,9 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/useAuth'
+import useEmployeeFeatureFlags from '../hooks/useEmployeeFeatureFlags'
+import { employeeNumberForSave } from '../utils/employeeNumber'
+import { deliverEmployeeIntegrations } from '../utils/deliverEmployeeIntegrations'
 import EmployeeModal from '../components/EmployeeModal'
 import PayrollReport from '../components/PayrollReport'
 import SacsLink from '../components/SacsLink'
@@ -442,6 +445,7 @@ function buildTaxProfilePayload(form, employeeId) {
 
 export default function DashboardPage() {
   const { signOut, role } = useAuth()
+  const { flags } = useEmployeeFeatureFlags()
 
   const emptyForm = {
     id: null,
@@ -985,7 +989,7 @@ export default function DashboardPage() {
       const fullName = `${form.first_name || ''} ${form.last_name || ''}`.trim()
 
       const payload = {
-        employee_number: form.id ? Number(form.employee_number) : null,
+        employee_number: employeeNumberForSave(form, flags.employee_number_reuse),
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim() || null,
         phone: form.phone.trim() || null,
@@ -1054,9 +1058,14 @@ export default function DashboardPage() {
         }
       }
 
-      await rebuildZktWorkLogs()
+      let deliveryNotice=''
+      if(!form.id&&savedEmployeeId&&flags.employee_rehire){
+        try{await deliverEmployeeIntegrations(savedEmployeeId,{getSession:()=>supabase.auth.getSession()});deliveryNotice='SACS identity synchronized. Terminal provisioning is tracked separately.'}
+        catch(err){deliveryNotice=`ERROR: ${err.message}`}
+      }
       closeModal()
       await loadEmployees()
+      if(deliveryNotice)setSacsStatus(deliveryNotice)
     } catch (err) {
       console.error('handleSave error:', err)
       setError(err.message || 'Failed to save employee')
@@ -1072,28 +1081,6 @@ export default function DashboardPage() {
   async function rebuildZktWorkLogs() {
     const { error } = await supabase.rpc('process_zkt_attendance_to_work_logs')
     if (error) throw error
-
-    const { data: employeesWithLunch, error: employeesError } = await supabase
-      .from('employees')
-      .select('id, default_lunch_hours')
-
-    if (employeesError) throw employeesError
-
-    const lunchUpdateResults = await Promise.all(
-      (employeesWithLunch || []).map((employeeRow) =>
-        supabase
-          .from('employee_work_logs')
-          .update({
-            lunch_hours: normalizeDefaultLunchHours(employeeRow.default_lunch_hours),
-          })
-          .eq('employee_id', employeeRow.id)
-          .eq('source', 'zkt')
-          .or('manually_edited.is.null,manually_edited.eq.false')
-      )
-    )
-
-    const lunchUpdateError = lunchUpdateResults.find((result) => result.error)?.error
-    if (lunchUpdateError) throw lunchUpdateError
   }
 
   async function handleShiftChange(employeeId, shiftType) {
@@ -2446,6 +2433,7 @@ export default function DashboardPage() {
           setForm={setForm}
           saving={saving}
           isEditing={isEditing}
+          automaticAllocation={flags.employee_number_reuse}
         />
       </div>
     </div>

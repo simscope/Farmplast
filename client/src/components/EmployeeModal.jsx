@@ -77,6 +77,7 @@ export default function EmployeeModal({
   setForm,
   saving,
   isEditing,
+  automaticAllocation = false,
 }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -529,13 +530,16 @@ export default function EmployeeModal({
                   type="number"
                   className={inputClass}
                   value={form.employee_number}
-                  readOnly
+                  readOnly={Boolean(form.id) || automaticAllocation}
+                  required={!automaticAllocation}
+                  min="1"
+                  step="1"
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, employee_number: e.target.value }))
                   }
-                  placeholder="Employee number"
+                  placeholder={automaticAllocation ? 'Allocated automatically' : 'Unused employee number'}
                 />
-                {!form.id && <EmployeeNumberSuggestion />}
+                {!form.id && automaticAllocation && <EmployeeNumberSuggestion />}
               </div>
 
               <div>
