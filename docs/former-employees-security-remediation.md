@@ -1,5 +1,152 @@
 # SACS temporary role remediation
 
+## Authorized execution — 2026-10-11
+
+**Execution: BLOCKED — PRIVILEGED SACS ADMINISTRATIVE ACCESS REQUIRED.**
+**SACS SECURITY INCIDENT: OPEN. Owner authorization: GRANTED.**
+Base/application commit: `f70bedccd368eb2a1c86f4354e5a36ab8f208bf7`.
+Documentation commit: `git log -1 --format=%H -- docs/former-employees-security-remediation.md`.
+Evidence window: **18:27:52–18:29:04 UTC**. DDL execution timestamp: **none**.
+
+The owner explicitly authorized NOLOGIN, PASSWORD NULL and REVOKE postgres for
+`cli_login_postgres`, OID **26135**, only in SACS, and confirmed that no external
+clients use this role. This supersedes the historical authorization blocker below.
+No additional authorization is being requested for these three operations.
+Read first: this report, Phase 7 and `docs/former-employees.md`.
+
+### Fresh preflight
+
+Verified target: pinned Supabase SACS project **`kbooijfblzzdxvpjzbsh`**,
+database **postgres**, database OID **5**. Both SACS markers exist:
+`public.farmplast_sync_config` and `public.sync_farmplast_employee(jsonb)`.
+Existing Credential Manager management token stayed in memory; no linked CLI,
+new login role or authentication change was used.
+
+| Check | Fresh actual result |
+|---|---|
+| Role name / OID | cli_login_postgres / 26135; matches approval |
+| LOGIN / password verifier present | true / true; boolean only |
+| Expiry | 2026-10-11T14:21:45.488091Z; not incident closure |
+| Role attributes | NOINHERIT; SUPER/CREATEROLE/CREATEDB/REPLICATION/BYPASSRLS false; connection limit -1 |
+| Membership direction | postgres (16388) granted to cli_login_postgres (26135) |
+| Membership options / grantor | ADMIN=false, INHERIT=false, SET=true / supabase_admin |
+| Active sessions / parent memberships / shared dependencies | 0 / 0 / 0; full stats visibility confirmed |
+| Owned relations / functions / schemas / databases | 0 / 0 / 0 / 0 |
+| Explicit relation / function ACL references | 0 / 0 |
+| Effective direct privileges | SELECT 6 relations; DELETE cron.job_run_details; EXECUTE 4450 functions; PUBLIC/default privileges remain distinct from explicit grants |
+| Internal references | cron CLI username/references, routine/config/database-role-config references all 0 |
+| External clients | Owner explicitly confirmed none; not independently audited as all external services |
+| SSO DB functions | issue_farmplast_sso and consume_farmplast_sso owned by postgres, SECURITY DEFINER; no temporary-role reference |
+| SSO permissions | service_role issue/consume true; anon issue, authenticated direct consume/read codes false |
+
+The existing Farmplast SSO implementation validates its existing user/session and
+uses the HTTP SACS endpoint with its integration secret. The inspected DB functions
+execute as postgres, not cli_login_postgres. These source/catalog checks support
+independence from the temporary role; they are not a fresh interactive SSO test.
+
+### Exact execution blocker and stop condition
+
+A **SELECT-only** probe of the documented Management API
+`POST /v1/projects/kbooijfblzzdxvpjzbsh/database/query` with `read_only=false`
+returned current_user=session_user=**postgres**. No DDL was submitted. Fresh
+capability evidence at **18:28:38.977107Z**:
+
+- postgres SUPERUSER=false, CREATEROLE=true;
+- `pg_has_role(current_user,'supabase_admin','SET')` = **false**;
+- supabase_admin SUPERUSER=true and is the actual membership grantor;
+- the current actor has no membership granting it that grantor authority.
+
+CREATEROLE alone is not proof of authority to remove this grant. The approved
+script explicitly uses `REVOKE postgres FROM cli_login_postgres GRANTED BY
+supabase_admin`; executing under the observed actor does not meet its grantor
+permission requirement. Removing GRANTED BY, granting privileges, or trying
+individual ALTER commands would not be a safe substitute for the approved atomic
+procedure. No such workaround was attempted.
+[PostgreSQL 17 REVOKE permissions](https://www.postgresql.org/docs/17/sql-revoke.html),
+[Supabase query endpoint](https://supabase.com/docs/reference/api/v1-run-a-query).
+
+The example administrator-managed libpq service from the historical report is not
+configured in the three standard user service-file paths inspected. No existing
+privileged SACS connection was established. The read-only endpoint's actor is
+supabase_read_only_user and also cannot SET the grantor. Both discovered methods
+therefore fail the required execution capability check.
+
+**Actual operations: ALTER ROLE 0; REVOKE 0. Transaction: NOT SUBMITTED.**
+There is no partial failure or committed operation, and no retry or rollback was
+performed. The final independent read-only sample **18:29:04.597901Z** confirms
+OID 26135 still LOGIN=true, verifier_present=true, the same postgres membership,
+0 sessions, 0 owned objects and 0 shared dependencies.
+
+### Data and SSO verification
+
+Fresh SACS baseline **18:28:39.930459Z**:
+
+| Dataset | Count | Aggregate MD5 |
+|---|---|---|
+| Employees | 74 | 39309c7ef19850447fde1a1d9a1b22d5 |
+| Safety daily_sessions | 1 | c65a16e2ebcb7c440ddf99cf96db21ee |
+| Completed assignments table | 0 | d41d8cd98f00b204e9800998ecf8427e |
+
+Fresh Farmplast baseline **18:28:51.409866Z**: Employees 65 (57 Active / 8 Former),
+payments 987, payroll checks 1544, deductions 242, work logs 5665, attendance 10578.
+Every count/checksum matches the previous recorded baseline. No records were
+modified. Source roles, ownership and policies were not modified; a complete new
+other-role checksum was not collected and is not claimed as a post-change test.
+
+Latest recorded successful SSO remains **15:59:46.214176Z**, with **0 recorded
+failures** in the queried preceding three-hour window. This is existing baseline
+evidence, not post-remediation PASS. Because execution was stopped before DDL,
+no post-change interactive SSO, service-connection or error-window test occurred.
+The incident cannot be CLOSED on this evidence.
+
+Private evidence, outside Git and without credential values:
+`reports/former-employees-security-remediation-private/authorized-preflight.json`,
+`authorized-admin-probe.json`, `authorized-admin-capabilities.json`,
+`authorized-sacs-baseline.json`, `authorized-farmplast-baseline.json`,
+`authorized-final-role.json`. Existing SQL queries supplied role/data evidence.
+No implementation or infrastructure contract changed; product tests were not rerun.
+
+### One required owner action
+
+**Have the SACS Supabase administrator/provider execute the existing guarded script
+using an approved privileged connection able to act as the actual grantor
+supabase_admin.** Do not grant Codex additional database roles or create another
+CLI login as a workaround. The owner authorization already covers the three
+operations; the missing item is administrative execution capability.
+
+After provisioning an administrator-managed, pinned libpq service (the name below
+is a placeholder, not an existing verified connection), use from this checkout:
+
+```powershell
+psql 'service=sacs-approved-security-admin' -X -v ON_ERROR_STOP=1 -v owner_authorized=yes -v external_inventory_confirmed=yes -v expected_role_oid=26135 -f docs/operations/sacs-temporary-role-remediation.sql
+```
+
+The administrator must rerun preflight immediately before execution. The script
+checks identity, dependencies, sessions, grants and internal references again,
+executes only the three authorized DDL operations, and checks all postconditions
+before COMMIT. Expected result: the same role/OID exists, NOLOGIN, verifier absent,
+postgres membership absent, no unexpected sessions. Return the sanitized UTC
+transaction result and boolean postconditions, never passwords or verifiers.
+Then verify the existing authorized Farmplast → SACS SSO, fresh error window and
+service connections, and compare fresh pre/post Employees/Payroll/Attendance/
+Safety aggregates. Only that complete evidence can close the incident.
+
+Before COMMIT any guard or SQL error requires transaction rollback and stop.
+After COMMIT do not restore LOGIN, credentials or membership automatically; a
+failed SSO requires explicit authorization for any security-sensitive recovery.
+No deployment, migration, feature flag, employee, Payroll, Attendance, ZKT or SACS
+Safety change was performed. **Stopped with incident OPEN for the exact
+administrative-access blocker above.**
+
+---
+
+## Historical preparation — superseded authorization status
+
+The following preserves the earlier audit. Its AWAITING OWNER AUTHORIZATION
+statements describe the earlier task only; the current disposition is above.
+
+### Earlier remediation preparation
+
 Дата: **2026-10-11**, preflight evidence **17:02–17:12 UTC**.
 Branch: `codex/former-employees`; base **`7add4bcdb3dbf677a06b610fdd273bf87557b21e`**.
 Commit отчёта: `git log -1 --format=%H -- docs/former-employees-security-remediation.md`.
