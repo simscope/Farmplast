@@ -528,6 +528,7 @@ export default function EmployeeModal({
                   type="number"
                   className={inputClass}
                   value={form.employee_number}
+                  readOnly={Boolean(form.id)}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, employee_number: e.target.value }))
                   }
@@ -616,6 +617,7 @@ export default function EmployeeModal({
                   type="date"
                   className={inputClass}
                   value={form.hire_date}
+                  readOnly={Boolean(form.id)}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, hire_date: e.target.value }))
                   }
@@ -817,6 +819,7 @@ export default function EmployeeModal({
                 <select
                   className={inputClass}
                   value={form.active ? 'true' : 'false'}
+                  disabled={Boolean(form.id)}
                   onChange={(e) => setForm((prev) => ({ ...prev, active: e.target.value === 'true' }))}
                 >
                   <option value="true">Active</option>

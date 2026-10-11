@@ -12,6 +12,7 @@ const MonitoringNJPage = lazy(() => import('./pages/MonitoringNJPage'))
 const MonitoringPAPage = lazy(() => import('./pages/MonitoringPAPage'))
 const MonitoringPASectionPage = lazy(() => import('./pages/MonitoringPASectionPage'))
 const EmployeesPage = lazy(() => import('./pages/EmployeesPage'))
+const FormerEmployeesPage = lazy(() => import('./pages/FormerEmployeesPage'))
 const EmployeeDetailsPage = lazy(() => import('./pages/EmployeeDetailsPage'))
 const EmployeePayStubPage = lazy(() => import('./pages/EmployeePayStubPage'))
 const Chiller1HMIPage = lazy(() => import('./pages/Chiller1HMIPage'))
@@ -84,6 +85,15 @@ export default function App() {
             element={
               <ProtectedRoute roles={['admin']}>
                 <EmployeesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/employees/former"
+            element={
+              <ProtectedRoute roles={['admin']}>
+                <FormerEmployeesPage />
               </ProtectedRoute>
             }
           />

@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import {
   EMPLOYEE_PHOTO_BUCKET,
@@ -505,6 +506,7 @@ export default function EmployeesPage() {
       const { data, error } = await supabase
         .from('employees')
         .select('*')
+        .eq('active', true)
         .order('employee_number', { ascending: true })
 
       if (error) throw error
@@ -765,23 +767,7 @@ export default function EmployeesPage() {
   }
 
   async function handleToggleActive(employee) {
-    try {
-      setError('')
-      setMessage('')
-
-      const { error } = await supabase
-        .from('employees')
-        .update({ active: !employee.active })
-        .eq('id', employee.id)
-
-      if (error) throw error
-
-      setMessage(`Employee ${employee.employee_number} status updated`)
-      await loadEmployees()
-    } catch (err) {
-      console.error('handleToggleActive error:', err)
-      setError(err.message || 'Failed to update employee status')
-    }
+    window.location.assign(`/employees/${employee.id}#employment-history`)
   }
 
   const stats = useMemo(() => {
@@ -822,7 +808,8 @@ export default function EmployeesPage() {
             >
               Payroll / Accounting
             </p>
-            <h1 style={titleStyle}>Employees</h1>
+            <h1 style={titleStyle}>Active Employees</h1>
+            <Link to="/employees/former" style={{ color: '#22d3ee' }}>Former Employees</Link>
             <p style={subtitleStyle}>
               Add workers, assign employee numbers, configure photos, and set ZKT user data.
             </p>
@@ -831,7 +818,7 @@ export default function EmployeesPage() {
 
         <div style={statGridStyle}>
           <div style={statCardStyle}>
-            <div style={statLabelStyle}>Total employees</div>
+            <div style={statLabelStyle}>Active Employees</div>
             <div style={statValueStyle}>{stats.total}</div>
           </div>
 
@@ -1230,7 +1217,7 @@ export default function EmployeesPage() {
                             style={secondaryButtonStyle}
                             onClick={() => handleToggleActive(employee)}
                           >
-                            {employee.active ? 'Disable' : 'Enable'}
+                            Terminate Employee
                           </button>
                         </div>
                       </td>

@@ -1058,18 +1058,7 @@ export default function DashboardPage() {
   }
 
   async function handleDelete(id) {
-    const ok = window.confirm('Delete this employee from database?')
-    if (!ok) return
-
-    try {
-      setError('')
-      const { error } = await supabase.from('employees').delete().eq('id', id)
-      if (error) throw error
-      await loadEmployees()
-    } catch (err) {
-      console.error('handleDelete error:', err)
-      setError(err.message || 'Failed to delete employee')
-    }
+    window.location.assign(`/employees/${id}#employment-history`)
   }
 
   async function rebuildZktWorkLogs() {

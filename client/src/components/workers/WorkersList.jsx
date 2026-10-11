@@ -387,6 +387,8 @@ export default function WorkersList({
                       </div>
 
                       <button
+                        title="Terminate Employee"
+                        aria-label="Terminate Employee"
                         onClick={() => handleDelete(employee.id)}
                         className="rounded-lg border border-red-500/30 bg-red-600/10 px-2 py-1.5 text-red-300 transition hover:bg-red-600/20"
                       >
@@ -603,7 +605,7 @@ export default function WorkersList({
                   onClick={() => handleDelete(employee.id)}
                   className="rounded-lg border border-red-500/30 bg-red-600/10 px-3 py-2 text-xs font-semibold text-red-300"
                 >
-                  Delete DB
+                  Terminate Employee
                 </button>
               </div>
             </div>

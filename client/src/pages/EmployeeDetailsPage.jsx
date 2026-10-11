@@ -25,6 +25,7 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import EmployeeEmploymentPanel from '../components/EmployeeEmploymentPanel'
 import {
   calculatePayrollTotals,
   normalizePayrollRow,
@@ -304,7 +305,7 @@ function buildEmployeeEditForm(employee = {}, profile = {}) {
     default_lunch_hours: String(normalizeDefaultLunchHours(employee.default_lunch_hours)),
     plant_location: normalizePlantLocation(employee.plant_location),
     shift_type: normalizeShiftType(employee.shift_type),
-    active: employee.active !== false,
+    active: employee.active === true,
     exclude_from_payroll_report: employee.exclude_from_payroll_report === true,
     hire_date: employee.hire_date || '',
     employer_form: employee.employer_form || 'W2',
@@ -779,7 +780,7 @@ export default function EmployeeDetailsPage() {
         default_lunch_hours: normalizeDefaultLunchHours(editEmployeeForm.default_lunch_hours),
         plant_location: normalizePlantLocation(editEmployeeForm.plant_location),
         shift_type: normalizeShiftType(editEmployeeForm.shift_type),
-        active: editEmployeeForm.active !== false,
+        active: editEmployeeForm.active === true,
         exclude_from_payroll_report: editEmployeeForm.exclude_from_payroll_report === true,
         hire_date: editEmployeeForm.hire_date || null,
         employer_form: editEmployeeForm.employer_form || null,
@@ -1680,6 +1681,10 @@ export default function EmployeeDetailsPage() {
       `}</style>
 
       <div className="mx-auto max-w-[1800px] px-3 py-4 sm:px-4 lg:px-5">
+        <Link to="/employees/former" className="text-cyan-300 no-print">Former Employees</Link>
+        <div id="employment-history">
+          <EmployeeEmploymentPanel employee={employee} onChanged={loadPage} />
+        </div>
         <div className="mb-4 flex flex-wrap gap-2 no-print">
           <Link
             to="/dashboard"
@@ -2514,6 +2519,7 @@ export default function EmployeeDetailsPage() {
                     <input
                       type="number"
                       value={editEmployeeForm.employee_number}
+                      readOnly
                       onChange={(e) => updateEditEmployeeForm('employee_number', e.target.value)}
                       className={employeeEditInput}
                       disabled={savingEmployee}
@@ -2576,6 +2582,7 @@ export default function EmployeeDetailsPage() {
                     <input
                       type="date"
                       value={editEmployeeForm.hire_date}
+                      readOnly
                       onChange={(e) => updateEditEmployeeForm('hire_date', e.target.value)}
                       className={employeeEditInput}
                       disabled={savingEmployee}
