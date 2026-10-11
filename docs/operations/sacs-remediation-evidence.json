@@ -1,0 +1,342 @@
+{
+  "status": "AWAITING OWNER AUTHORIZATION",
+  "incident_status": "OPEN",
+  "production_mutations_executed": 0,
+  "preflight": {
+    "role": {
+      "oid": "26135",
+      "name": "cli_login_postgres",
+      "login": true,
+      "inherit": false,
+      "create_db": false,
+      "superuser": false,
+      "bypass_rls": false,
+      "create_role": false,
+      "replication": false,
+      "valid_until": "2026-10-11T14:21:45.488091+00:00",
+      "connection_limit": -1,
+      "verifier_present": true
+    },
+    "logging": {
+      "log_statement": "ddl",
+      "log_connections": "off",
+      "log_destination": "csvlog",
+      "logging_collector": "on",
+      "log_disconnections": "off"
+    },
+    "database": "postgres",
+    "readonly": "on",
+    "cron_jobs": {
+      "total": 1,
+      "cli_user": 0,
+      "role_references": 0
+    },
+    "audit_user": "supabase_read_only_user",
+    "checked_at": "2026-10-11T17:10:40.159319+00:00",
+    "memberships": [
+      {
+        "set": true,
+        "role": "postgres",
+        "admin": false,
+        "member": "cli_login_postgres",
+        "grantor": "supabase_admin",
+        "inherit": false,
+        "role_oid": "16388",
+        "member_oid": "26135"
+      }
+    ],
+    "database_oid": "5",
+    "sacs_markers": {
+      "sync": true,
+      "config": true
+    },
+    "owned_objects": {
+      "schemas": 0,
+      "databases": 0,
+      "functions": 0,
+      "relations": 0
+    },
+    "execute_functions": 4450,
+    "active_connections": 0,
+    "can_read_all_stats": true,
+    "parent_memberships": 0,
+    "shared_dependencies": 0,
+    "postgres_stats_reset": null,
+    "role_config_references": 0,
+    "effective_direct_tables": [
+      {
+        "delete": false,
+        "insert": false,
+        "schema": "extensions",
+        "select": true,
+        "update": false,
+        "relation": "pg_stat_statements_info",
+        "truncate": false
+      },
+      {
+        "delete": false,
+        "insert": false,
+        "schema": "extensions",
+        "select": true,
+        "update": false,
+        "relation": "pg_stat_statements",
+        "truncate": false
+      },
+      {
+        "delete": true,
+        "insert": false,
+        "schema": "cron",
+        "select": true,
+        "update": false,
+        "relation": "job_run_details",
+        "truncate": false
+      },
+      {
+        "delete": false,
+        "insert": false,
+        "schema": "cron",
+        "select": true,
+        "update": false,
+        "relation": "job",
+        "truncate": false
+      },
+      {
+        "delete": false,
+        "insert": false,
+        "schema": "extensions",
+        "select": true,
+        "update": false,
+        "relation": "tap_funky",
+        "truncate": false
+      },
+      {
+        "delete": false,
+        "insert": false,
+        "schema": "extensions",
+        "select": true,
+        "update": false,
+        "relation": "pg_all_foreign_keys",
+        "truncate": false
+      }
+    ],
+    "routine_role_references": 0,
+    "oldest_current_connection": null,
+    "audit_user_can_set_grantor": false,
+    "explicit_function_acl_entries": 0,
+    "explicit_relation_acl_entries": 0,
+    "database_role_config_references": 0,
+    "audit_log_current_user_key_references": 0
+  },
+  "provider_role_history": {
+    "end": "2026-10-11T17:03:28Z",
+    "response": {
+      "result": []
+    },
+    "start": "2026-10-11T13:00:00Z"
+  },
+  "provider_log_coverage": {
+    "end": "2026-10-11T17:09:10Z",
+    "response": {
+      "result": [
+        {
+          "alter_role_events": 0,
+          "connection_related_events": 0,
+          "create_role_events": 0,
+          "first_recorded": "2026-10-11T14:19:58.718000",
+          "last_recorded": "2026-10-11T16:06:33.948000",
+          "recorded_events": 15,
+          "role_user_events": 0,
+          "source": "postgres_logs"
+        }
+      ]
+    },
+    "start": "2026-10-11T13:00:00Z"
+  },
+  "source_configuration": {
+    "sacs": {
+      "files_read": 83,
+      "role_literal_references": 0,
+      "values_returned": false
+    },
+    "farmplast": {
+      "files_read": 94,
+      "role_literal_references": 0,
+      "values_returned": false
+    },
+    "bridge_candidate": {
+      "files_read": 10,
+      "role_literal_references": 0,
+      "values_returned": false
+    },
+    "historical_bridge": {
+      "files_read": 1,
+      "role_literal_references": 0,
+      "values_returned": false
+    },
+    "sacs-employee-sync/frontend": {
+      "files_read": 1,
+      "role_literal_references": 0,
+      "values_returned": false
+    },
+    "former-employees/client": {
+      "files_read": 2,
+      "role_literal_references": 0,
+      "values_returned": false
+    },
+    "historical_env_6": {
+      "files_read": 2,
+      "role_literal_references": 0,
+      "values_returned": false
+    },
+    "historical_env_7": {
+      "files_read": 1,
+      "role_literal_references": 0,
+      "values_returned": false
+    }
+  },
+  "live_bridge_configuration_checked": false,
+  "external_inventory_complete": false,
+  "vercel_metadata_refresh": "BLOCKED: connector scope 403; local CLI unavailable",
+  "sacs_prechange_baseline": {
+    "safety": {
+      "count": 1,
+      "checksum": "c65a16e2ebcb7c440ddf99cf96db21ee"
+    },
+    "readonly": "on",
+    "employees": {
+      "count": 74,
+      "checksum": "39309c7ef19850447fde1a1d9a1b22d5"
+    },
+    "checked_at": "2026-10-11T17:12:45.325316+00:00",
+    "assignments": {
+      "count": 0,
+      "checksum": "d41d8cd98f00b204e9800998ecf8427e"
+    },
+    "sso_permissions": {
+      "anon_issue": false,
+      "service_role_issue": true,
+      "service_role_consume": true,
+      "authenticated_consume": false,
+      "authenticated_read_codes": false
+    },
+    "sso_last_success": "2026-10-11T15:59:46.214176+00:00",
+    "sso_recent_failures": 0
+  },
+  "farmplast_prechange_baseline": {
+    "payments": {
+      "count": 987,
+      "checksum": "a20a17c1d75e2c83fc3c08fa0447d223"
+    },
+    "readonly": "on",
+    "employees": {
+      "count": 65,
+      "active": 57,
+      "former": 8,
+      "checksum": "8644ec508b1a54a8b8d799cb7267a526"
+    },
+    "work_logs": {
+      "count": 5665,
+      "checksum": "fef6857847be32bebca0a93e26a818b7"
+    },
+    "attendance": {
+      "count": 10578,
+      "checksum": "5bb47e1433b6b39e6fd6c22ea622a489"
+    },
+    "checked_at": "2026-10-11T17:10:54.275043+00:00",
+    "deductions": {
+      "count": 242,
+      "checksum": "45a609982543393e0bba933c5be1f326"
+    },
+    "payroll_checks": {
+      "count": 1544,
+      "checksum": "1e05fb90b34361c27a2f26b39e22380e"
+    }
+  },
+  "farmplast_comparison_to_phase7": {
+    "employees": {
+      "count_match": true,
+      "checksum_match": true
+    },
+    "payments": {
+      "count_match": true,
+      "checksum_match": true
+    },
+    "payroll_checks": {
+      "count_match": true,
+      "checksum_match": true
+    },
+    "deductions": {
+      "count_match": true,
+      "checksum_match": true
+    },
+    "work_logs": {
+      "count_match": true,
+      "checksum_match": true
+    },
+    "attendance": {
+      "count_match": true,
+      "checksum_match": true
+    }
+  },
+  "guard_rehearsal": {
+    "postgres_version": "17.11",
+    "loopback_port": 55591,
+    "tests": [
+      {
+        "name": "no-authorization",
+        "pass": true,
+        "production": false
+      },
+      {
+        "name": "unconfirmed-external-inventory",
+        "pass": true,
+        "production": false
+      },
+      {
+        "name": "wrong-role-oid",
+        "pass": true,
+        "production": false
+      },
+      {
+        "name": "owned-object-dependency",
+        "pass": true,
+        "production": false
+      },
+      {
+        "name": "unexpected-membership",
+        "pass": true,
+        "production": false
+      },
+      {
+        "name": "scheduled-job-use",
+        "pass": true,
+        "production": false
+      },
+      {
+        "name": "changed-membership-grantor",
+        "pass": true,
+        "production": false
+      },
+      {
+        "name": "active-connection",
+        "pass": true,
+        "production": false
+      },
+      {
+        "name": "approved-unused-role",
+        "pass": true,
+        "production": false
+      }
+    ],
+    "history_fixture_checksum_unchanged": true,
+    "production_operations_executed": 0,
+    "state": {
+      "oid": "16387",
+      "login": false,
+      "verifier": false,
+      "memberships": 0
+    },
+    "state_is_synthetic_not_production": true
+  },
+  "production_post_change_verified": false
+}
