@@ -54,10 +54,12 @@ test('readiness and admin permissions fail closed; existing manager cannot read 
   const db = await fixture()
   try {
     await db.exec('set role authenticated')
+    assert.deepEqual((await db.query('select employee_archive_capabilities() capabilities')).rows[0].capabilities,{lifecycle:false,identity:false})
     assert.equal((await db.query('select employee_lifecycle_blockers() blockers')).rows[0].blockers.length, 4)
     await assert.rejects(db.query("select change_employee_employment($1,'terminate','2025-01-01')", [employee]), /blocked/)
     await assert.rejects(db.query('update employee_lifecycle_readiness set attendance_history_verified=true'), /permission denied/)
     await db.exec(`set test.uid='${manager}'`)
+    await assert.rejects(db.query('select employee_archive_capabilities()'), /Admin/)
     assert.deepEqual((await db.query('select id from employees')).rows.map(row => row.id), [employee])
     assert.deepEqual((await db.query('select id from v_employee_current_presence')).rows.map(row => row.id), [employee])
     assert.equal((await db.query('select * from employee_employment_periods')).rows.length, 0)

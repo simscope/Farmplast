@@ -488,6 +488,7 @@ export default function EmployeeDetailsPage() {
   const defaultPayrollPeriod = getPayrollWeekRange('last')
 
   const [employee, setEmployee] = useState(null)
+  const archiveReadOnly = employee?.active !== true
   const [taxProfile, setTaxProfile] = useState(null)
   const [logs, setLogs] = useState([])
   const [payments, setPayments] = useState([])
@@ -714,6 +715,7 @@ export default function EmployeeDetailsPage() {
   }
 
   function openEditEmployeeModal() {
+    if (archiveReadOnly) return
     setError('')
     setSuccess('')
     setEditEmployeeForm(buildEmployeeEditForm(employee || {}, taxProfile || {}))
@@ -731,6 +733,7 @@ export default function EmployeeDetailsPage() {
   }
 
   async function handleSaveEmployeeDetails(event) {
+    if (archiveReadOnly) { event.preventDefault(); return }
     event.preventDefault()
 
     if (!employee?.id) return
@@ -903,6 +906,7 @@ export default function EmployeeDetailsPage() {
   }
 
   function addRow() {
+    if (archiveReadOnly) return
     setLogs((prev) => [
       buildEmptyRow(
         employee?.default_lunch_hours
@@ -1170,6 +1174,7 @@ export default function EmployeeDetailsPage() {
   }
 
   async function saveChangedRows() {
+    if (archiveReadOnly) return
     try {
       setSaving(true)
       setError('')
@@ -1233,6 +1238,7 @@ export default function EmployeeDetailsPage() {
   }
 
   async function deleteRow(row) {
+    if (archiveReadOnly) return
     try {
       setError('')
       setSuccess('')
@@ -1261,6 +1267,7 @@ export default function EmployeeDetailsPage() {
   }
 
   async function rebuildRowFromZkt(row) {
+    if (archiveReadOnly) return
     try {
       setError('')
       setSuccess('')
@@ -1459,6 +1466,7 @@ export default function EmployeeDetailsPage() {
     [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || '—'
 
   async function handleOpenPrintModal() {
+    if (archiveReadOnly) return
     try {
       setPaying(true)
       setError('')
@@ -1558,6 +1566,7 @@ export default function EmployeeDetailsPage() {
   }
 
   async function handleSaveAndPrint() {
+    if (archiveReadOnly) return
     try {
       setPaying(true)
       setError('')
@@ -1699,6 +1708,7 @@ export default function EmployeeDetailsPage() {
 
           <button
             onClick={addRow}
+            disabled={archiveReadOnly}
             className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500"
           >
             <Plus size={16} />
@@ -1745,6 +1755,7 @@ export default function EmployeeDetailsPage() {
 
           <button
             onClick={handleOpenPrintModal}
+            disabled={archiveReadOnly}
             className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20"
           >
             <Printer size={16} />
@@ -1793,6 +1804,7 @@ export default function EmployeeDetailsPage() {
                       <button
                         type="button"
                         onClick={openEditEmployeeModal}
+                        disabled={archiveReadOnly}
                         className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20"
                       >
                         <Edit3 size={15} />
@@ -2339,7 +2351,7 @@ export default function EmployeeDetailsPage() {
                         <div className="flex gap-1">
                           <button
                             onClick={saveChangedRows}
-                            disabled={saving}
+                            disabled={archiveReadOnly || saving}
                             className="rounded-lg bg-cyan-600 px-2 py-2 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
                           >
                             Save All
@@ -2347,6 +2359,7 @@ export default function EmployeeDetailsPage() {
 
                           <button
                             onClick={() => rebuildRowFromZkt(row)}
+                            disabled={archiveReadOnly}
                             className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-2 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20"
                             title="Rebuild this day from ZKT punches"
                           >
@@ -2355,6 +2368,7 @@ export default function EmployeeDetailsPage() {
 
                           <button
                             onClick={() => deleteRow(row)}
+                            disabled={archiveReadOnly}
                             className="rounded-lg border border-red-500/30 bg-red-600/10 px-2 py-2 text-red-300 transition hover:bg-red-600/20"
                           >
                             <Trash2 size={14} />

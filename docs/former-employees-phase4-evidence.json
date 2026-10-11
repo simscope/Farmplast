@@ -1,0 +1,106 @@
+{
+  "restore_tables": 96,
+  "restore_policies": 59,
+  "restore_policies_match": true,
+  "original_counts": {
+    "employees": 65,
+    "active": 57,
+    "former": 8
+  },
+  "source_roles_isolated": [
+    {
+      "role": "authenticated",
+      "login": false
+    },
+    {
+      "role": "anon",
+      "login": false
+    },
+    {
+      "role": "service_role",
+      "login": false
+    },
+    {
+      "role": "postgres",
+      "login": false
+    },
+    {
+      "role": "supabase_admin",
+      "login": false
+    }
+  ],
+  "steps": [
+    {
+      "migration": "former_employees.sql",
+      "sha256": "6ef40ea7eff739bcb6b644af9b8a539658f3fffa1fc4a7d60dde814d9fe2fd70",
+      "preserved_tables": 96,
+      "counts": {
+        "employees": 65,
+        "active": 57,
+        "former": 8
+      }
+    },
+    {
+      "migration": "zkt_event_identity.sql",
+      "sha256": "28d2dadec46b3a030625f8f483884b38818f7ffcad7e11d1c314d5b64ac7bfb8",
+      "preserved_tables": 96,
+      "counts": {
+        "employees": 66,
+        "active": 58,
+        "former": 8
+      }
+    },
+    {
+      "migration": "employee_lifecycle.sql",
+      "sha256": "88fd81aa72160a3a35b8e5b4796be9e43633317370494227415a3a12d487f7a5",
+      "preserved_tables": 96,
+      "counts": {
+        "employees": 66,
+        "active": 58,
+        "former": 8
+      }
+    },
+    {
+      "migration": "employee_release_gates.sql",
+      "sha256": "38fc66ef7f09d061c78ba4eaff8e9f9861f594a73b36d12aad6cdc4c7fb7fb90",
+      "preserved_tables": 96,
+      "counts": {
+        "employees": 66,
+        "active": 58,
+        "former": 8
+      }
+    }
+  ],
+  "catalog_objects_before": {
+    "functions": 178,
+    "triggers": 20,
+    "event_triggers": 6,
+    "rls_tables": 66,
+    "constraints_unvalidated": 1
+  },
+  "archive_admin_57_8": true,
+  "archive_unprivileged_no_former": true,
+  "archive_failure_simulation": "Application version rollback; additive schema retained",
+  "archive_rollback_preserves_post_migration_employee": true,
+  "full_failure_simulation": "Disable actions and reuse; retain forward-compatible schema; refuse legacy Bridge processor rollback",
+  "full_rollback_preserved_tables": 96,
+  "full_rollback_post_employee_preserved": true,
+  "final_counts": {
+    "employees": 66,
+    "active": 58,
+    "former": 8
+  },
+  "employment_periods": 66,
+  "identity_ownership": 0,
+  "identity_review": 10578,
+  "cron_launch_active_jobs": "off",
+  "cron_run_rows_unchanged": true,
+  "dump_sha256": "45570234629a01a3e9f2d92faf3762fc216f05ceb324f2c6f99b743c7ac2fab9",
+  "full_rollback_post_attendance_payment_preserved": true,
+  "sources": {
+    "pg_cron": "9490f9cc9803f75105f2f7d89839a998f011f8d8",
+    "vault": "6e0cd916242d922a646e4d611cc215e09dd429f4"
+  },
+  "postgres_version": "postgres (PostgreSQL) 17.6",
+  "network_policy": "deny-all before restore; no exposed ports"
+}

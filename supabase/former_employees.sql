@@ -12,6 +12,18 @@ as $$ select exists(select 1 from public.profiles where id = auth.uid() and role
 revoke all on function public.employee_archive_admin() from public;
 grant execute on function public.employee_archive_admin() to authenticated;
 
+-- Archive viewing needs only this migration. Do not require device/reuse tables.
+create function public.employee_archive_capabilities() returns jsonb
+language plpgsql stable security definer set search_path=public,pg_temp as $$
+begin
+  if not public.employee_archive_admin() then raise exception 'Admin access required' using errcode='42501'; end if;
+  return jsonb_build_object(
+    'lifecycle',to_regclass('public.employee_number_config') is not null and to_regclass('public.employee_integration_operations') is not null,
+    'identity',to_regclass('public.zkt_event_ownership') is not null and to_regclass('public.zkt_identity_review') is not null);
+end $$;
+revoke all on function public.employee_archive_capabilities() from public,anon;
+grant execute on function public.employee_archive_capabilities() to authenticated;
+
 -- Restrictive policies intersect the existing permissive policies.
 create policy employee_archive_read on public.employees as restrictive
 for select to authenticated using (active is true or public.employee_archive_admin());

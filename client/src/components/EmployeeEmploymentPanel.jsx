@@ -13,6 +13,7 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   const [ready, setReady] = useState(false)
+  const [lifecycleReady, setLifecycleReady] = useState(false)
   const [operations, setOperations] = useState([])
   const [reservations, setReservations] = useState([])
   const [suggestion, setSuggestion] = useState(null)
@@ -24,12 +25,17 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
     let cancelled = false
     if (!employee?.id || !isAdmin) return
     setReady(false)
-    Promise.all([
+    supabase.rpc('employee_archive_capabilities').then(capabilities => {
+      if(capabilities.error)throw capabilities.error
+      const lifecycle=capabilities.data?.lifecycle===true
+      if (!cancelled) setLifecycleReady(lifecycle)
+      return Promise.all([
       supabase.from('employee_employment_periods').select('*').eq('employee_id', employee.id).order('id'),
       supabase.rpc('employee_lifecycle_blockers'),
-      supabase.from('employee_integration_operations').select('id,period_id,action,target,status,error,finished_at').eq('employee_id',employee.id).order('period_id'),
-      supabase.from('employee_number_reservations').select('period_id,employee_number,released_at').eq('employee_id',employee.id),
-    ]).then(([history, readiness, jobs, numbers]) => {
+      lifecycle ? supabase.from('employee_integration_operations').select('id,period_id,action,target,status,error,finished_at').eq('employee_id',employee.id).order('period_id') : Promise.resolve({data:[]}),
+      lifecycle ? supabase.from('employee_number_reservations').select('period_id,employee_number,released_at').eq('employee_id',employee.id) : Promise.resolve({data:[]}),
+      ])
+    }).then(([history, readiness, jobs, numbers]) => {
       if (cancelled) return
       if (history.error || readiness.error || jobs.error || numbers.error) {
         setError(history.error?.message || readiness.error?.message || jobs.error?.message || numbers.error?.message)
@@ -95,7 +101,7 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
     {employee.termination_notes && <p className="mt-2 whitespace-pre-wrap">Notes: {employee.termination_notes}</p>}
     {error && <p role="alert" className="mt-3 text-red-300">{error}</p>}
     {notice && <p role="status" className="mt-3 text-amber-200">{notice}</p>}
-    {employee.active!==true&&!employee.termination_date&&<button className="mt-3 rounded border border-slate-600 px-3 py-2" onClick={()=>{setAction('reconcile');setDate('');setNotes('')}}>Record confirmed termination date</button>}
+    {lifecycleReady&&employee.active!==true&&!employee.termination_date&&<button className="mt-3 rounded border border-slate-600 px-3 py-2" onClick={()=>{setAction('reconcile');setDate('');setNotes('')}}>Record confirmed termination date</button>}
     {reservations.length>0&&<p className="mt-3 text-sm text-slate-300">Number reservations: {reservations.map(row=>`#${row.employee_number} — ${row.released_at?'device release confirmed':'reserved'}`).join(' · ')}. Reuse remains subject to the release gate.</p>}
     {operations.length>0&&<div className="mt-3 overflow-x-auto"><h3 className="font-semibold">Integration status</h3><table className="w-full text-left text-sm"><thead><tr>{['Period','System','Action','Status','Details'].map(label=><th key={label} className="p-2">{label}</th>)}</tr></thead><tbody>{operations.map(job=><tr key={job.id} className="border-t border-slate-700"><td className="p-2">{job.period_id}</td><td className="p-2">{job.target}</td><td className="p-2">{job.action}</td><td className="p-2">{job.status}</td><td className="p-2">{job.error||job.finished_at||'Awaiting acknowledgement'}</td></tr>)}</tbody></table>
       <button type="button" disabled={busy} className="mt-2 rounded border border-slate-600 px-3 py-2" onClick={async()=>{

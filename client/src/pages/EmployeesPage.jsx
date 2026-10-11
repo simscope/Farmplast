@@ -498,6 +498,8 @@ export default function EmployeesPage() {
   const [uploadingId, setUploadingId] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
+  const [allocationReady,setAllocationReady]=useState(false)
+  const [capabilitiesLoaded,setCapabilitiesLoaded]=useState(false)
 
   async function loadEmployees() {
     try {
@@ -524,6 +526,14 @@ export default function EmployeesPage() {
 
   useEffect(() => {
     loadEmployees()
+    let cancelled=false
+    supabase.rpc('employee_archive_capabilities').then(result=>{
+      if(cancelled)return
+      if(result.error){setError(result.error.message);return}
+      setAllocationReady(result.data?.lifecycle===true)
+      setCapabilitiesLoaded(true)
+    }).catch(err=>{if(!cancelled)setError(err.message)})
+    return()=>{cancelled=true}
   }, [])
 
   function handleChange(event) {
@@ -659,10 +669,12 @@ export default function EmployeesPage() {
       }
 
       const employeeNumber = Number(form.employee_number)
+      if(!capabilitiesLoaded)throw new Error('Employee schema verification is pending')
+      if(!allocationReady && (!Number.isSafeInteger(employeeNumber)||employeeNumber<1))throw new Error('A positive employee number is required')
       const fullName = `${form.first_name || ''} ${form.last_name || ''}`.trim()
 
       const payload = {
-        employee_number: null,
+        employee_number: allocationReady ? null : employeeNumber,
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         phone: form.phone.trim() || null,
@@ -696,7 +708,7 @@ export default function EmployeesPage() {
 
       if (error) throw error
 
-      setMessage(`Employee #${created.employee_number} added. ZKT and SACS provisioning is pending.`)
+      setMessage(allocationReady ? `Employee #${created.employee_number} added. ZKT and SACS provisioning is pending.` : `Employee #${created.employee_number} added.`)
       setForm(initialForm)
       await loadEmployees()
     } catch (err) {
@@ -861,11 +873,11 @@ export default function EmployeesPage() {
                   type="number"
                   name="employee_number"
                   value={form.employee_number}
-                  readOnly
+                  readOnly={allocationReady || !capabilitiesLoaded}
                   onChange={handleChange}
-                  placeholder="Allocated automatically"
+                  placeholder={allocationReady ? 'Allocated automatically' : 'Unused employee number'}
                 />
-                <EmployeeNumberSuggestion key={employees.length} />
+                {allocationReady && <EmployeeNumberSuggestion key={employees.length} />}
               </div>
 
               <div style={fieldStyle}>

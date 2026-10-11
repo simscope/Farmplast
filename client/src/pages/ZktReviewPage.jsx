@@ -9,8 +9,12 @@ export default function ZktReviewPage(){
   const [loading,setLoading]=useState(true)
   useEffect(()=>{
     let cancelled=false
-    supabase.from('zkt_identity_review').select('event_id,reason,created_at,zkt_identity_events(device_key,terminal_user_id,local_timestamp,legacy_raw_id,zkt_event_ownership(employee_id))')
-      .order('event_id',{ascending:false}).range(page*100,page*100+99).then(result=>{
+    supabase.rpc('employee_archive_capabilities').then(capabilities=>{
+      if(capabilities.error)throw capabilities.error
+      if(capabilities.data?.identity!==true)throw new Error('ZKT identity review is not enabled for this release')
+      return supabase.from('zkt_identity_review').select('event_id,reason,created_at,zkt_identity_events(device_key,terminal_user_id,local_timestamp,legacy_raw_id,zkt_event_ownership(employee_id))')
+      .order('event_id',{ascending:false}).range(page*100,page*100+99)
+    }).then(result=>{
         if(cancelled)return
         setError(result.error?.message||'');setRows(result.data||[]);setLoading(false)
       }).catch(err=>{if(!cancelled){setError(err.message);setLoading(false)}})
