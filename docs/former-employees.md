@@ -4,6 +4,131 @@ Status: **NOT RELEASED. Archive, Terminate, Rehire and Number Reuse remain OFF u
 Current security/recovery/live-baseline evidence: [Phase 7](former-employees-phase7.md)
 and [role remediation](former-employees-security-remediation.md). No new audit phase.
 
+## Final release blockers — 2026-10-11, no new development phase
+
+**Archive Read-Only: NO-GO. Employee Actions: OFF / NO-GO. Number Reuse: OFF / NO-GO.**
+SACS temporary-role incident is CLOSED, with actual removal/live SSO evidence in
+[the existing security report](former-employees-security-remediation.md), commit
+`f79905708e27f2a75df4ec42f9c704687d9dfd47`. Security was not re-audited here.
+No production Storage, employee, Safety, ZKT, flag or deployment mutation occurred.
+No previously passed regression suites were repeated.
+
+### Check 1 — private Storage: BLOCKED — FARMPLAST DOWNLOAD ACCESS REQUIRED
+
+Fresh read-only Farmplast inventory at **2026-10-11T19:10:39.678Z** confirms all
+**12 missing private payloads**, unchanged IDs/paths/metadata/update times from
+Phase 7: **ch1-firmware 2**, **chiller-firmware 10**, total metadata size
+**13,622,592 bytes**. Full storage inventory remains 67 objects. Exact object IDs,
+bucket paths and metadata are kept outside Git in owner-only NTFS directory
+`reports/final-release-storage-private/missing-objects.private.json`.
+Original bucket/path structure is preserved in the inventory; no private bucket
+was made public and no production object/policy was changed.
+
+Attempt to obtain the existing Farmplast service-role download credential in
+memory using authenticated Management API
+`GET /v1/projects/eeobivvwjzakbweluwtm/api-keys` returned **HTTP 403**.
+No credential was returned or printed and no object download ran. Existing
+Supabase browser session also could not open Farmplast Storage and redirected
+to Organizations, which exposes only simscopeinc's SACS/servicescope projects.
+This is an actual Farmplast-access blocker; SACS API access does not cover it.
+
+**Result: downloaded 0/12, payload SHA-256 NOT VERIFIED, private restore NOT RUN.**
+No filesystem copy is labelled a complete Storage API recovery. The existing
+partial recovery archive is unchanged and remains INCOMPLETE.
+
+Required owner action: provide approved authenticated download access to these
+12 objects in **Farmplast project eeobivvwjzakbweluwtm**, or securely deliver the
+12 files plus exact bucket/path manifest to owner-controlled private storage.
+Do not paste service keys into chat/Git. An existing properly scoped secure token
+with `api_gateway_keys_secret_read` can retrieve the existing key; direct object
+download authorization is also sufficient. No key creation/rotation is needed.
+After access: download read-only, verify actual byte sizes, compute SHA-256,
+store an encrypted/private recovery package preserving bucket/path structure,
+restore into an explicitly isolated private Storage target, re-download/hash all
+12 and verify unauthenticated access is denied. No target with production keys
+or webhooks may be used. Return real payload/restore evidence before PASS.
+Other previously recorded service-config/secret recovery gaps in Phase 7 remain
+unverified; retrieving 12 blobs alone must not be called full recovery PASS.
+
+### Check 2 — live ZKT NJ/PA: BLOCKED — OPERATOR BASELINE REQUIRED
+
+Approved NJ read-only remote command:
+
+```powershell
+ssh -o BatchMode=yes -o StrictHostKeyChecking=yes -o ConnectTimeout=8 farmplast-zkt hostname
+```
+
+Actual result: **exit 255**, connection timed out to pinned NJ host
+100.91.162.96 port 22. Existing approved SSH configuration has only the NJ
+farmplast-zkt host; an approved PA endpoint has not been provided. No alternative
+hosts were guessed, services restarted or terminal SDK/biometrics invoked.
+Therefore service/version/latest sync/pending queue/error state is **UNKNOWN**
+for both sites; a remote timeout is not proof the running Bridge itself failed.
+
+**One precise operator instruction, on EACH actual NJ/PA Bridge computer:**
+copy the existing [phase7-zkt-baseline.ps1](operations/phase7-zkt-baseline.ps1),
+choose its actual plant, and run locally:
+
+```powershell
+# NJ computer:
+powershell -NoProfile -File .\phase7-zkt-baseline.ps1 -Plant NJ > .\zkt-NJ-baseline.json
+# PA computer:
+powershell -NoProfile -File .\phase7-zkt-baseline.ps1 -Plant PA > .\zkt-PA-baseline.json
+```
+
+Return both JSON files and confirm last successful sync/received event, current
+terminal connectivity, backlog and errors from existing logs/observation.
+If paths/service name are not detected, use the script's existing -ServiceName,
+-InstallDir, -LogFile, -QueueFile parameters with the actual installed paths.
+Do not bypass execution policy. No restart, sync trigger, user deletion, biometric
+change or number reassignment is required. UNKNOWN candidates are not a PASS.
+
+### Concrete production sequence — prepared, NOT AUTHORIZED OR EXECUTED
+
+After both checks and outstanding recovery/contract prerequisites pass, obtain
+separate owner release approval. Pin approved application SHA, current production
+SHA/deployment and rollback target, verified Farmplast libpq service and Vercel
+project/team. Existing example service names are not provisioned credentials;
+this checkout has no verified client/.vercel/project.json link, so verify the
+correct existing project before any CLI deployment. Do not deploy a random HEAD.
+
+1. Verify fresh release backup/recovery availability and current drift. Revalidate
+   a changed candidate migration only if its contract differs from the accepted
+   restore proof; do not repeat unrelated passed tests.
+2. Confirm the following two migrations are not applied already. Apply only these
+   archive-compatible migrations from repository root, preserving data:
+
+```powershell
+psql 'service=farmplast-approved-production' -X -v ON_ERROR_STOP=1 -f supabase/former_employees.sql
+psql 'service=farmplast-approved-production' -X -v ON_ERROR_STOP=1 -f supabase/employee_archive_feature_flags.sql
+psql 'service=farmplast-approved-production' -X -v ON_ERROR_STOP=1 -c 'SELECT flag,enabled FROM public.employee_feature_flags ORDER BY flag'
+```
+
+3. Verify historical counts/UUID links/RLS after each migration; confirm all four
+   flags OFF. From client/, with the accepted SHA and verified Vercel project:
+
+```powershell
+vercel deploy --prod --skip-domain
+# Verify returned staged deployment SHA/READY, archive OFF, Employees/Payroll/SSO.
+vercel promote '<VERIFIED-STAGED-PRODUCTION-DEPLOYMENT>'
+```
+
+4. Verify production version, then enable **only** Archive Read-Only using the
+   existing guarded transaction in Phase 5 section 8; it checks four flag rows
+   and all OFF before setting former_employees_archive_readonly=true. Other
+   three flags must remain false. Validate all 8 archived cards under existing
+   permissions, Active view, Payroll/Attendance, existing SSO and both live Bridges.
+5. On critical regression disable the archive and revert to the newly verified
+   previous deployment. Retain additive schema/new records. Never restore an old
+   backup over legitimate newer production data or drop migrations automatically.
+
+Terminate/Rehire need their own real integration/ACK and status reconciliation
+checks. Number Reuse additionally needs actual safe biometric/account absence,
+UUID mapping and all-device release ACK evidence. Neither is enabled by this
+archive rollout. **Stop here; no deployment authorization was received.**
+
+---
+
 ## Completed implementation and controlled release
 
 - Dashboard retains the admin Former Employees link beside Add employee. Active
