@@ -38,6 +38,8 @@ export async function initializeIdentityDb(db) {
   await db.exec('create trigger trg_employee_work_logs_manual_edit before update on employee_work_logs for each row execute function mark_employee_work_log_manual_edit()')
   await db.exec(`insert into zkt_identity_devices(device_key,plant_location,serial_number,verified,inventory_verified) values('nj','NJ','NJ-SERIAL',true,true),('pa','PA','PA-SERIAL',true,true);
     update employee_number_config set maximum=100;
+    -- Explicitly authorize synthetic core lifecycle fixtures only.
+    update employee_release_config set actions_enabled=true;
     grant usage on schema auth,public to service_role;
     grant select on employee_integration_operations,zkt_identity_devices,employees to service_role;`)
   return db

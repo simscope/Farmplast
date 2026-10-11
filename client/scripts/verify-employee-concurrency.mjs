@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict'
 import {createRequire} from 'node:module'
 import {resolve} from 'node:path'
-import {writeFile} from 'node:fs/promises'
+import {writeFile,readFile} from 'node:fs/promises'
 import {initializeIdentityDb,admin,peter} from '../tests/helpers/employee-identity-db.mjs'
 const runtime=resolve(process.argv[2]||'../../reports/phase2-postgres-runtime')
 const require=createRequire(`${runtime}/package.json`)
@@ -31,6 +31,12 @@ const observed=promise=>promise.then(value=>({value}),error=>({error}))
 try{
   await a.connect();await b.connect()
   await initializeIdentityDb({exec:sql=>a.query(sql),query:(sql,values)=>a.query(sql,values)})
+  await a.query(await readFile(new URL('../../supabase/employee_release_gates.sql',import.meta.url),'utf8'))
+  await assert.rejects(a.query("select change_employee_employment($1,'terminate','2025-01-01')",[peter]),/gate is OFF/)
+  await assert.rejects(a.query('update employee_number_config set reuse_enabled=true'),/eight current/)
+  // Enable only synthetic lifecycle fixtures in this guarded disposable cluster.
+  await a.query('update employee_release_config set actions_enabled=true')
+  checks.push('real PostgreSQL release migration defaults OFF and rejects lifecycle/reuse without confirmations')
   for(const client of [a,b])await client.query(`set test.uid='${admin}';set test.role='authenticated'`)
 
   await begin(a)
@@ -89,6 +95,16 @@ try{
   await waiting(a);await b.query('commit')
   assert.match((await rehire).error?.message||'',/SACS synchronization in progress/)
   checks.push('concurrent SACS claim versus rehire cannot send a delayed inactive write after rehire')
+
+  // Release shutdown uses allocation lock -> config row lock, as lifecycle does.
+  await begin(b)
+  await b.query('select pg_advisory_xact_lock(736261,2)')
+  const stopped=observed(a.query("select change_employee_employment($1,'rehire','2025-05-01')",[peter]))
+  await waiting(a)
+  await b.query('update employee_release_config set actions_enabled=false')
+  await b.query('commit')
+  assert.match((await stopped).error?.message||'',/gate is OFF/)
+  checks.push('concurrent release shutdown uses consistent lock order and prevents a waiting lifecycle operation')
 
   const report={verified_at:new Date().toISOString(),engine:system.version,mode:'loopback disposable PostgreSQL, synthetic records only',checks}
   await writeFile(resolve(runtime,'concurrency-verification.local.json'),JSON.stringify(report,null,2))

@@ -71,7 +71,12 @@ try{
   const admin=data.profiles.find(row=>row.role==='admin')
   assert.ok(admin,'Production admin required for offline processing verification')
   await db.exec(`set test.uid=${lit(admin.id)}`)
-  for(const name of ['former_employees.sql','zkt_event_identity.sql','employee_lifecycle.sql'])await db.exec(await readFile(new URL(`../../supabase/${name}`,import.meta.url),'utf8'))
+  for(const name of ['former_employees.sql','zkt_event_identity.sql','employee_lifecycle.sql','employee_release_gates.sql']) {
+    await db.exec(await readFile(new URL(`../../supabase/${name}`,import.meta.url),'utf8'))
+    if(name==='employee_lifecycle.sql')assert.equal((await db.query('select actions_enabled from employee_release_config')).rows[0].actions_enabled,false)
+  }
+  assert.equal((await db.query('select actions_enabled from employee_release_config')).rows[0].actions_enabled,false)
+  assert.equal((await db.query('select reuse_enabled from employee_number_config')).rows[0].reuse_enabled,false)
   await db.query('select process_zkt_attendance_to_work_logs()')
   const after=await digests()
   assert.deepEqual(after,before,'Migration or processing changed an original record')

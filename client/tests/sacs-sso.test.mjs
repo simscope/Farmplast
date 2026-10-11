@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import {createSacsSso} from '../server/sacsSso.mjs';
 import {readFile} from 'node:fs/promises';
 import {PGlite} from '@electric-sql/pglite';
-const id='57c30096-b35b-4d16-9796-0b1d14da7e30', code='a'.repeat(64);
+const id='00000000-0000-0000-0000-000000000001', code='a'.repeat(64);
 function fixture({user={id},profile={id,role:'admin'},target=`https://sacs.test/auth/farmplast?code=${code}`}={}) {
  let calls=0;
  const run=createSacsSso({secret:'server-only',url:'https://issuer.test/issue',adminUrl:'https://sacs.test/admin/company',allowedUserIds:id,

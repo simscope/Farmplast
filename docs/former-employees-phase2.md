@@ -1,5 +1,9 @@
 # Former Employees — Phase 2: implementation, verification and release procedure
 
+Phase 3 supersedes this release procedure: [former-employees-phase3.md](former-employees-phase3.md).
+Terminate/Rehire now default OFF, including between migrations; reuse additionally
+requires eight current confirmations. Do not use the Phase 2 enable command alone.
+
 Дата: 11 октября 2026. Ветка: `codex/former-employees`, продолжение
 `f586e52ee6ae75393d736b223c4b76c04ee1a776`.
 

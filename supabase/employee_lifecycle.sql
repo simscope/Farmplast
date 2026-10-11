@@ -1,5 +1,13 @@
 -- Apply after zkt_event_identity.sql. Reuse remains OFF pending release validation.
 begin;
+-- Keep actions OFF even between this migration and the Phase 3 release gates.
+create table public.employee_release_config (
+  singleton boolean primary key default true check(singleton),
+  actions_enabled boolean not null default false
+);
+insert into public.employee_release_config default values;
+alter table public.employee_release_config enable row level security;
+revoke all on public.employee_release_config from public,anon,authenticated,service_role;
 alter table public.zkt_bridge_commands drop constraint zkt_bridge_commands_command_check;
 alter table public.zkt_bridge_commands add constraint zkt_bridge_commands_command_check check(command in
   ('test','sync_employees','verify_employees','pull_attendance','delete_employee_from_zkt','sync_one_employee','verify_one_employee','identity_disable_employee','identity_activate_employee'));
@@ -127,6 +135,9 @@ language plpgsql security definer set search_path=public,pg_temp as $$
 declare e public.employees%rowtype; pid bigint; previous_end date; assigned integer;
 begin
   if not public.employee_archive_admin() then raise exception 'Admin access required' using errcode='42501'; end if;
+  perform pg_advisory_xact_lock(736261,2);
+  perform 1 from public.employee_release_config where singleton and actions_enabled for share;
+  if not found then raise exception 'Terminate/Rehire release gate is OFF'; end if;
   if p_action is null or p_action not in ('terminate','rehire') or p_date is null or p_date>(now() at time zone 'America/New_York')::date then raise exception 'Invalid employment action/date'; end if;
   perform pg_advisory_xact_lock(736261,2);
   select * into strict e from public.employees where id=p_employee_id for update;
@@ -285,7 +296,10 @@ create or replace function public.employee_lifecycle_blockers() returns text[]
 language plpgsql stable security definer set search_path=public,pg_temp as $$
 begin
   if not public.employee_archive_admin() then raise exception 'Admin access required' using errcode='42501'; end if;
-  -- Archiving never waits for hardware. The reservation and operation ledger do.
+  if not exists(select 1 from public.employee_release_config where singleton and actions_enabled) then
+    return array['Terminate/Rehire release gate is OFF'];
+  end if;
+  -- Once explicitly released, archiving never waits for hardware.
   return '{}'::text[];
 end $$;
 

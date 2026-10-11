@@ -26,6 +26,7 @@ try {
       user: { id, email: 'test@example.invalid', user_metadata: { role: 'admin' } } }))
   }, { id })
   const requests = []
+  let actionsEnabled = true
   await context.route('https://archive-test.supabase.co/**', async route => {
     const url = new URL(route.request().url())
     requests.push(`${route.request().method()} ${url.pathname}${url.search}`)
@@ -36,7 +37,7 @@ try {
       else data = url.searchParams.get('active') === 'eq.true' ? [active] : [former]
     } else if (url.pathname.endsWith('/employee_work_logs')) data = [{ id: 1, employee_id: former.id, work_date: '2024-12-31', time_in: '08:00', time_out: '16:00', approved: true, reg_hours: 8, labor_amount: 160 }]
     else if (url.pathname.endsWith('/employee_employment_periods')) data = [{ id: 1, employee_id: former.id, employee_number: 3, hire_date: '2024-01-01', termination_date: '2025-01-01', position: 'Operator', plant_location: 'NJ', hourly_rate: 20 }]
-    else if (url.pathname.endsWith('/rpc/employee_lifecycle_blockers')) data = []
+    else if (url.pathname.endsWith('/rpc/employee_lifecycle_blockers')) data = actionsEnabled ? [] : ['Terminate/Rehire release gate is OFF']
     else if (url.pathname.endsWith('/rpc/next_available_employee_number')) data = 1
     else if (url.pathname.endsWith('/employee_number_reservations')) data = [{period_id:1,employee_number:3,released_at:null}]
     else if (url.pathname.endsWith('/employee_integration_operations')) data = [{id:'operation-nj',period_id:1,action:'disable',target:'NJ',status:'pending'},{id:'operation-pa',period_id:1,action:'disable',target:'PA',status:'failed',error:'Terminal unavailable; number reserved'}]
@@ -83,6 +84,11 @@ try {
   await page.getByRole('button',{name:'Rehire',exact:true}).click()
   await page.getByText(/Suggested Employee Number: 1/).waitFor()
   await page.getByRole('button',{name:'Cancel',exact:true}).click()
+  actionsEnabled = false
+  await page.reload()
+  await page.getByText('Terminate/Rehire release gate is OFF',{exact:true}).waitFor()
+  assert.equal(await page.getByRole('button',{name:'Rehire',exact:true}).isEnabled(),false)
+  await page.getByText('Retained safety check',{exact:true}).waitFor()
   assert.ok(requests.some(value => value.includes(`employee_id=eq.${former.id}`)), 'History must be fetched by UUID')
   await page.getByRole('link',{name:'Review unresolved ZKT events'}).click()
   await page.getByRole('heading',{name:'ZKT Attendance Review'}).waitFor()
