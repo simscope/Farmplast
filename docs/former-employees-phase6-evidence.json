@@ -1,4 +1,6 @@
 {
+  "release_recovery_gate": "BLOCKED: database ACL/settings, extension ownership and external credential/config recovery not fully rehearsed",
+  "scope": "logical PostgreSQL rows/schema/object ACLs/non-login role attributes/memberships and archive rollback; not full managed-platform recovery",
   "dump_sha256": "4ff748b41c9d0ca7a9fe543b6af89a62c7d3dbf4e8bf6190594cf2988fa618c7",
   "structure": {
     "functions": {
