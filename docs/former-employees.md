@@ -1,3 +1,18 @@
+## Authorized CLI deployment attempt — FAILED / rolled back (2026-10-11)
+
+Vercel CLI 63.1.2 `whoami --format json` authenticated as sandrvlad-9915, with team andrei-simanenkas-projects. Explicit project inspection succeeded for prj_MrDRpm3roDmNC7V2E0vKJIVkvm8x, root client, Node 24.x, Vite. No local .vercel/project.json or repo.json exists. The connected MCP identity is the same user, but list_teams returned empty and scoped project GET returned HTTP 403. CLI access works; the exact MCP token restriction versus membership visibility cause cannot be established from available evidence. No tokens were printed or new project created.
+
+Production before release remained dpl_APkGU5PYBFc6tkRLQNVqp8iJNhCq / 4b7573a6d105cbfd61a035e0c31c3f324a4a165b. Existing migration/history preflight passed at 19:40:56 UTC; migrations were NOT reapplied.
+
+CLI POST /v13/deployments with explicit team/project and git ref fe03b94297451d26c684c834a1486206aba159c8 created dpl_AmFJimYWAepqZfPGr8kpVsA61YNi, https://farmplast-pprwi4hdu-andrei-simanenkas-projects.vercel.app. Vercel reported READY, exact gitSource SHA, and assigned farmplast.vercel.app. Only former_employees_archive_readonly was enabled briefly; all three actions remained OFF.
+
+Acceptance FAILED: refreshed existing authenticated production browser displayed the previous dashboard without Former Employees navigation; direct /employees/former returned that dashboard. New deployment metadata alone is insufficient to establish served application behavior. Root cause (served build versus browser/cache/configuration) remains unresolved; no speculative fix or second deployment was attempted.
+
+Archive was immediately disabled. `npx --yes vercel@63.1.2 rollback dpl_APkGU5PYBFc6tkRLQNVqp8iJNhCq --scope andrei-simanenkas-projects --yes --timeout 30s` succeeded. Production API confirmed previous deployment READY and old SHA. Vercel rollback stops automatic domain assignment; any next release must deliberately verify/promote the intended deployment.
+
+Post-rollback database verification at 19:43:00 UTC: all four flags OFF, 57 Active / 8 Former, 65 employment periods; original Employees, payments, payroll checks, deductions, work logs and attendance checksums unchanged. Admin qualification, archive-OFF denial, nonadmin 57-only access and anonymous RPC denial verified. Existing Payroll report rendered. Live Farmplast Open SACS reached /admin/company and Company Admin Panel without a password prompt after rollback. No employee, Safety, ZKT, firmware Storage or SSO configuration changes were performed.
+
+Result: FAILED; safe previous application restored. Remaining blocker is the discrepancy between approved deployment metadata and observed UI, requiring investigation before any renewed release. Private CLI request/status/rollback evidence is outside Git in reports/authorized-archive-release-private. No new phase was created.
 # Former Employees — staged implementation and release blockers
 
 Status: **NOT RELEASED. Archive, Terminate, Rehire and Number Reuse remain OFF until their separately authorized rollout.**
@@ -641,3 +656,4 @@ Existing unrelated monitoring/firmware checkouts were not modified.
 
 Production application: https://farmplast.vercel.app/dashboard
 **New production deployment URL: none — release safety conditions are unmet.**
+
