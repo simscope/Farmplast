@@ -1,10 +1,12 @@
 {
   "functions": {
     "api/sync-sacs.js": { "maxDuration": 60 },
+    "api/sacs-sso.js": { "maxDuration": 30 },
     "api/employee-integrations.js": { "maxDuration": 60 },
     "api/employee-safety-history.js": { "maxDuration": 60 }
   },
   "rewrites": [
+    { "source": "/api/sacs-sso", "destination": "/api/sacs-sso" },
     { "source": "/api/sync-sacs", "destination": "/api/sync-sacs" },
     { "source": "/api/employee-integrations", "destination": "/api/employee-integrations" },
     { "source": "/api/employee-safety-history", "destination": "/api/employee-safety-history" },
