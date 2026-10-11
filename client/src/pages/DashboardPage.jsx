@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Link } from 'react-router-dom'
 import {
   LayoutDashboard,
+  Archive,
   LogOut,
   Plus,
   RefreshCw,
@@ -439,7 +441,7 @@ function buildTaxProfilePayload(form, employeeId) {
 }
 
 export default function DashboardPage() {
-  const { signOut } = useAuth()
+  const { signOut, role } = useAuth()
 
   const emptyForm = {
     id: null,
@@ -2309,6 +2311,16 @@ export default function DashboardPage() {
                 <Plus size={15} />
                 Add employee
               </button>
+
+              {role === 'admin' && (
+                <Link
+                  to="/employees/former"
+                  className="inline-flex items-center gap-2 rounded-lg border border-slate-500/40 bg-slate-500/10 px-3 py-2 text-sm font-medium text-slate-200 transition hover:bg-slate-500/20"
+                >
+                  <Archive size={15} />
+                  Former Employees
+                </Link>
+              )}
 
               <button
                 type="button"
