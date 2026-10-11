@@ -1,5 +1,94 @@
 # SACS temporary role remediation
 
+## Management API cleanup — awaiting deletion authorization
+
+**Current status: READY FOR OWNER DELETE AUTHORIZATION; incident OPEN.**
+Fresh evidence **2026-10-11 18:52:36–18:52:49 UTC**. Management API access is
+available. DELETE requests and production changes performed: **0**. Previous
+approval covers NOLOGIN/PASSWORD NULL/REVOKE, not deletion. The older direct-SQL
+privilege blocker below does not establish a provider API cleanup blocker.
+
+### Official request — prepared, NOT EXECUTED
+
+```http
+DELETE https://api.supabase.com/v1/projects/kbooijfblzzdxvpjzbsh/cli/login-role
+Authorization: Bearer <existing secure Supabase Management API token>
+```
+
+No body or single-role selector is documented. Actual token stays in memory,
+never in Git, shell arguments or logs. The experimental/Beta endpoint requires
+OAuth `database:write` or fine-grained-token `database_write`; documented success
+is HTTP 200, `{"message":"ok"}`.
+[Official endpoint](https://supabase.com/docs/reference/api/v1-delete-login-roles).
+Authenticated project GET and database audits succeeded; DELETE-specific token
+permission is not proven by those reads and will not be tested through an
+unauthorized mutation. If an authorized request returns 401/403, an owner-approved
+SACS Management API token with the stated write permission is required.
+
+Supabase documents removal of the temporary role **and CLI read-only counterparts**:
+[managed cleanup guidance](https://supabase.com/docs/guides/troubleshooting/permission-denied-when-deleting-the-cli_login_postgres-role-808bae).
+Treat this as project-level CLI login-role cleanup; it cannot be scoped to one OID
+through a documented request parameter.
+
+### Verified project and deletion scope
+
+`GET /v1/projects/kbooijfblzzdxvpjzbsh`: **HTTP 200**, timestamp
+18:52:49.5915698Z, id **kbooijfblzzdxvpjzbsh**, name **sacs-main**, region
+**us-east-2**, status **ACTIVE_HEALTHY**. Farmplast is not the target.
+Read-only database evidence: postgres, OID **5**, both SACS markers present,
+full statistics visibility. At **18:52:36.720326Z**, the entire inventory queried
+with `starts_with(rolname,'cli_login_')` contained **exactly one role**:
+
+| Check | Actual result |
+|---|---|
+| Name / OID | cli_login_postgres / 26135 |
+| LOGIN / verifier present | true / true; boolean only |
+| Other CLI login roles, including read-only counterparts | **0** |
+| Active sessions | **0** |
+| Owned relations / functions / schemas / databases | **0 / 0 / 0 / 0** |
+| Shared dependencies / parent memberships | **0 / 0** |
+| Explicit relation / function ACL references | **0 / 0** |
+| Cron / routine / role-config / DB-config usage references | **0 / 0 / 0 / 0** |
+| Membership | postgres; grantor supabase_admin; ADMIN=false, INHERIT=false, SET=true |
+
+No observed database dependency or use prevents preparation. The owner's previous
+explicit confirmation that no external clients use this role remains applicable;
+this is owner evidence, not an independent audit of every external service.
+Existing source/catalog SSO independence checks below remain applicable. No fresh
+interactive SSO or post-deletion verification is claimed.
+Private sanitized evidence outside Git:
+`reports/former-employees-security-remediation-private/cli-delete-project.json`,
+`cli-delete-inventory.json`, `cli-delete-inventory.sql`.
+
+### Execution after separate approval
+
+1. Obtain explicit owner authorization for the **Management API DELETE of SACS
+   CLI login roles**, currently only cli_login_postgres OID 26135.
+2. Immediately repeat project identity, complete CLI-role inventory, sessions,
+   ownership, dependencies and internal-use checks. Stop without DELETE if a new
+   related role appears, expected name/OID changes or any safety condition fails.
+3. Capture fresh read-only Employees/Payroll/Attendance/Safety and non-target
+   role/ownership baselines. Send the prepared request once using the existing
+   secure token. Do not invoke CLI commands that provision a new temporary role.
+   Do not retry errors/ambiguous responses automatically; inspect actual state.
+4. Verify no role exists with name cli_login_postgres or OID 26135, and the full
+   `cli_login_` inventory is empty. Compare non-target roles, ownership and data
+   against fresh baselines, explaining legitimate concurrent changes.
+5. Verify existing authorized Farmplast → SACS passwordless SSO, ordinary
+   Farmplast authentication, service connections and fresh authentication errors.
+   No accounts, Safety completions or employee changes. Mark CLOSED only after
+   actual removal and successful checks; missing SSO evidence leaves OPEN.
+6. Do not recreate roles/credentials automatically on regression. Stop and obtain
+   separate authorization for corrective mutations. No deployment or ZKT changes.
+
+**One required owner action:** explicitly authorize DELETE for SACS project
+`kbooijfblzzdxvpjzbsh`, with the currently verified role cli_login_postgres OID
+26135 and stop-on-scope-change guards. The earlier authorization does not cover
+role deletion. **Stopped before DELETE.** Only this existing report was updated;
+no new phase or report was created. Product tests were not rerun for documentation.
+
+---
+
 ## Authorized execution — 2026-10-11
 
 **Execution: BLOCKED — PRIVILEGED SACS ADMINISTRATIVE ACCESS REQUIRED.**
