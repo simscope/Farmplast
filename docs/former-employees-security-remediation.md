@@ -1,5 +1,112 @@
 # SACS temporary role remediation
 
+## Final authorized cleanup — executed 2026-10-11
+
+**SACS SECURITY INCIDENT: CLOSED.** The temporary CLI role was deleted through
+its official Supabase Management API endpoint, and the existing Farmplast → SACS
+passwordless SSO succeeded after deletion. This disposition supersedes all
+historical OPEN / awaiting-authorization statements preserved below.
+Application/base commit: `dfdb0fe9963c18d7c0b56a743892c424dc751372`.
+Documentation commit: `git log -1 --format=%H -- docs/former-employees-security-remediation.md`.
+
+### Owner approval and immediate guarded preflight
+
+The owner explicitly authorized **one DELETE request** to
+`/v1/projects/kbooijfblzzdxvpjzbsh/cli/login-role`, conditional on the unchanged
+single-role inventory and zero sessions, ownership or dependencies. Approval
+was for provider-managed deletion, distinct from the earlier three SQL operations.
+
+Immediately before DELETE, authenticated project GET verified id
+**kbooijfblzzdxvpjzbsh**, name **sacs-main**. Read-only SQL at
+**18:56:07.048784Z** verified database postgres OID **5**, both SACS markers,
+full statistics visibility, and exactly one `cli_login_` role:
+**cli_login_postgres, OID 26135**. LOGIN/verifier were present. Other CLI roles=0;
+active sessions=0; owned relations/functions/schemas/databases=0/0/0/0;
+shared dependencies=0; parent memberships=0; explicit relation/function ACL
+references=0/0; cron/routine/role-config/DB-config references=0/0/0/0.
+Membership remained postgres, grantor supabase_admin, ADMIN=false,
+INHERIT=false, SET=true. External non-use confirmation from the owner remains
+applicable. The execution helper checked these conditions and stopped on mismatch.
+
+### Exact production operation and response
+
+```http
+DELETE https://api.supabase.com/v1/projects/kbooijfblzzdxvpjzbsh/cli/login-role
+Authorization: Bearer <existing management token held only in memory>
+```
+
+**Requests attempted: 1.** Started **18:56:07.6118461Z**; completed
+**18:56:08.0460186Z**. Response **HTTP 200**, `{"message":"ok"}`.
+No request body, automatic retry, SQL DROP/ALTER/REVOKE, grant change or CLI
+provisioning command was used. A private attempt marker was recorded before
+sending to prevent accidental repeat execution. The previous CLI-role SQL
+remediation transaction was not executed.
+
+### Post-change verification — actual results
+
+| Check | Result / evidence |
+|---|---|
+| CLI role removal | **PASS**: complete `cli_login_` inventory empty at 18:56:13.614203Z |
+| Exact name and OID absent | **PASS**: name count=0, OID 26135 count=0 at 18:57:12.512501Z |
+| Former-role sessions | **0** at final check |
+| Other role attributes / non-target memberships | **Unchanged aggregate checksums** |
+| Relation/function/schema/database ownership | **Unchanged aggregate checksum** |
+| Farmplast authentication / Payroll display | Existing authenticated dashboard reloaded successfully; Employees and Payroll report visible; no login form |
+| Live Farmplast → SACS SSO | **PASS**: existing Open SACS control opened `/auth/farmplast`, then `/admin/company`, showing Company Admin Panel for Farmplast |
+| SSO DB audit | **1 success after deletion**, timestamp **18:56:22.979883Z**; **0 failures after deletion** at 18:57:12.512501Z |
+| Existing SSO permissions | Unchanged: service_role issue/consume allowed; anon issue and authenticated direct consume/read-codes denied |
+| Provider error log sample | No returned matching postgres/supavisor/pgbouncer error/authentication-failure events in **18:56:08–18:57:13Z**; bounded recorded-log evidence, not proof of all future/external service health |
+
+Fresh pre/post count + aggregate MD5 checks matched for **all nine datasets**:
+
+- Farmplast Employees **65 = 57 Active + 8 Former**; payments **987**;
+  payroll checks **1544**; deductions **242**; work logs **5665**;
+  ZKT attendance **10578**.
+- SACS Employees across companies **74**; Safety daily_sessions **1**;
+  completed-assignment table **0**.
+
+SACS company UI still displays 65 total / 58 Active / 7 Inactive. The previously
+known one-employee status discrepancy was not corrected; exact employee-table
+checksums match before/after deletion. The cleanup did not modify records or
+resolve that separate synchronization issue.
+
+The newly issued/consumed one-time SSO code and successful auth audit are normal
+side effects of the explicitly authorized SSO verification. No application SSO
+configuration, credentials, authorization or implementation was changed.
+Observed live SSO, authenticated app and Management API/read-only DB connections
+work. Current physical NJ/PA Bridge connectivity was not tested or changed;
+closure here concerns the temporary-role incident, not a production release GO.
+
+### Evidence and stop
+
+Private files remain outside Git under
+`reports/former-employees-security-remediation-private/`:
+
+- `delete-execution-result.json`, `.attempt.json`, `.preflight.json`;
+- `delete-execution-role-after.json`, `delete-execution-final.json`;
+- `delete-execution-catalog-before.json`, `delete-execution-catalog-after.json`;
+- `delete-execution-sacs-before.json`, `delete-execution-sacs-after.json`;
+- `delete-execution-farmplast-before.json`, `delete-execution-farmplast-after.json`;
+- `delete-execution-provider-logs.json`, `delete-execution-sso.png`.
+
+Evidence contains boolean verifier presence only; no token, password verifier,
+connection secret or employee record was written to Git or this report.
+`git diff --check` verifies the documentation change. Product tests were not rerun:
+no application code or infrastructure contract was changed.
+
+No Employees, Payroll, Attendance, Safety Records, ZKT/Bridge or feature flags
+were modified. No Farmplast/SACS deployment or schema migration was performed.
+No rollback or role recreation was necessary. **Stopped after authorized cleanup,
+verification and this existing report update.** Avoid linked CLI commands that
+recreate temporary login roles; future remediation mutations need their own scope.
+
+---
+
+## Historical preparation and execution blockers
+
+The following records earlier evidence and decisions. Its OPEN / awaiting-approval
+statuses are historical; the final completed disposition is above.
+
 ## Management API cleanup — awaiting deletion authorization
 
 **Current status: READY FOR OWNER DELETE AUTHORIZATION; incident OPEN.**
