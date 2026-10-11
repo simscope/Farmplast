@@ -28,6 +28,7 @@ import { supabase } from '../lib/supabase'
 import EmployeeEmploymentPanel from '../components/EmployeeEmploymentPanel'
 import EmployeeSafetyHistory from '../components/EmployeeSafetyHistory'
 import EmployeeZktHistory from '../components/EmployeeZktHistory'
+import useEmployeeFeatureFlags from '../hooks/useEmployeeFeatureFlags'
 import {
   calculatePayrollTotals,
   normalizePayrollRow,
@@ -485,6 +486,7 @@ function PrintPreviewModal({
 
 export default function EmployeeDetailsPage() {
   const { id } = useParams()
+  const { flags, loading: flagsLoading } = useEmployeeFeatureFlags()
   const defaultPayrollPeriod = getPayrollWeekRange('last')
 
   const [employee, setEmployee] = useState(null)
@@ -638,6 +640,14 @@ export default function EmployeeDetailsPage() {
         setPayments([])
         setError('Employee not found')
         return
+      }
+
+      if (employeeData.active !== true) {
+        const availability = await supabase.rpc('employee_feature_flags_status')
+        if (availability.error || availability.data?.former_employees_archive_readonly !== true) {
+          setEmployee(null); setLogs([]); setPayments([])
+          throw Error('Former Employees archive is disabled.')
+        }
       }
 
       setEmployee(employeeData)
@@ -1679,6 +1689,7 @@ export default function EmployeeDetailsPage() {
     )
   }, [totals.filteredForView, periodStart, periodEnd, employee])
 
+  if (employee && archiveReadOnly && (flagsLoading || !flags.former_employees_archive_readonly)) return <p className="p-6 text-white">{flagsLoading ? 'Checking archive availability…' : 'Former Employees archive is disabled.'}</p>
   return (
     <div className="min-h-screen bg-[#020817] text-white print:bg-white print:text-black">
       <style>{`

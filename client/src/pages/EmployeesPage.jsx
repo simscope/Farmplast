@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import EmployeeNumberSuggestion from '../components/EmployeeNumberSuggestion'
 import { supabase } from '../lib/supabase'
+import useEmployeeFeatureFlags from '../hooks/useEmployeeFeatureFlags'
 import {
   EMPLOYEE_PHOTO_BUCKET,
   compressEmployeePhoto,
@@ -488,6 +489,7 @@ function safeFileName(name) {
 }
 
 export default function EmployeesPage() {
+  const { flags } = useEmployeeFeatureFlags()
   const [form, setForm] = useState(initialForm)
   const [zktForm, setZktForm] = useState(initialZktForm)
   const [zktModalOpen, setZktModalOpen] = useState(false)
@@ -498,7 +500,8 @@ export default function EmployeesPage() {
   const [uploadingId, setUploadingId] = useState('')
   const [message, setMessage] = useState('')
   const [error, setError] = useState('')
-  const [allocationReady,setAllocationReady]=useState(false)
+  const [hasAllocator,setAllocationReady]=useState(false)
+  const allocationReady=hasAllocator&&flags.employee_number_reuse
   const [capabilitiesLoaded,setCapabilitiesLoaded]=useState(false)
 
   async function loadEmployees() {
@@ -529,7 +532,10 @@ export default function EmployeesPage() {
     let cancelled=false
     supabase.rpc('employee_archive_capabilities').then(result=>{
       if(cancelled)return
-      if(result.error){setError(result.error.message);return}
+      if(result.error){
+        if(['PGRST202','42883'].includes(result.error.code)){setAllocationReady(false);setCapabilitiesLoaded(true);return}
+        setError(result.error.message);return
+      }
       setAllocationReady(result.data?.lifecycle===true)
       setCapabilitiesLoaded(true)
     }).catch(err=>{if(!cancelled)setError(err.message)})
@@ -822,7 +828,7 @@ export default function EmployeesPage() {
               Payroll / Accounting
             </p>
             <h1 style={titleStyle}>Active Employees</h1>
-            <Link to="/employees/former" style={{ color: '#22d3ee' }}>Former Employees</Link>
+            {flags.former_employees_archive_readonly&&<Link to="/employees/former" style={{ color: '#22d3ee' }}>Former Employees</Link>}
             <p style={subtitleStyle}>
               Add workers, assign employee numbers, configure photos, and set ZKT user data.
             </p>

@@ -11,14 +11,15 @@ const q=value=>`"${value.replaceAll('"','""')}"`
 const lit=value=>`'${String(value).replaceAll("'","''")}'`
 const hash=value=>createHash('sha256').update(JSON.stringify(value)).digest('hex')
 let db,engine='offline PGlite'
+const archiveRelease=process.argv.includes('--archive-release')
 if(process.argv.includes('--postgres')){
-  const runtime=resolve('../../reports/phase2-postgres-runtime')
-  const require=createRequire(`${runtime}/package.json`),{Client}=require('pg')
-  const options={host:'127.0.0.1',port:55439,user:'phase2_local',database:'postgres',connectionTimeoutMillis:5000}
+  const runtime=resolve(archiveRelease?'../../reports/phase5-postgres-runtime':'../../reports/phase2-postgres-runtime')
+  const require=createRequire(`${resolve('../../reports/phase2-postgres-runtime')}/package.json`),{Client}=require('pg')
+  const options={host:'127.0.0.1',port:archiveRelease?55441:55439,user:archiveRelease?'phase5_local':'phase2_local',database:'postgres',connectionTimeoutMillis:5000}
   const control=new Client(options);await control.connect()
   try{
     const system=(await control.query("select current_user,current_setting('data_directory') directory,version() version")).rows[0]
-    assert.equal(system.current_user,'phase2_local');assert.equal(resolve(system.directory).toLowerCase(),resolve(runtime,'data').toLowerCase())
+    assert.equal(system.current_user,options.user);assert.equal(resolve(system.directory).toLowerCase(),resolve(runtime,'data').toLowerCase())
     engine=system.version.split(' on ')[0]
     const database=`phase2_snapshot_${Date.now()}`
     await control.query(`create database ${database}`)
@@ -71,6 +72,49 @@ try{
   const admin=data.profiles.find(row=>row.role==='admin')
   assert.ok(admin,'Production admin required for offline processing verification')
   await db.exec(`set test.uid=${lit(admin.id)}`)
+  if(archiveRelease){
+    const contracts=(await db.query("select p.oid::regprocedure::text name,pg_get_functiondef(p.oid) definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and (p.proname like '%zkt%' or p.proname='can_use_sacs_sso') order by 1")).rows
+    for(const name of ['former_employees.sql','employee_archive_feature_flags.sql'])await db.exec(await readFile(new URL(`../../supabase/${name}`,import.meta.url),'utf8'))
+    assert.deepEqual(await digests(),before)
+    assert.deepEqual((await db.query("select p.oid::regprocedure::text name,pg_get_functiondef(p.oid) definition from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='public' and (p.proname like '%zkt%' or p.proname='can_use_sacs_sso') order by 1")).rows,contracts)
+    assert.equal((await db.query('select count(*)::int n from employee_feature_flags where enabled')).rows[0].n,0)
+    await db.exec('grant usage on schema public,auth to authenticated,anon; grant select,insert on employees to authenticated; set role authenticated')
+    await assert.rejects(db.query('select list_former_employees()'),/archive is OFF/)
+    assert.equal((await db.query('select count(*)::int n from employee_employment_periods')).rows[0].n,0)
+    await assert.rejects(db.exec("update employee_feature_flags set enabled=true"),error=>error.code==='42501')
+    const active=data.employees.find(e=>e.active===true)
+    await assert.rejects(db.query("select change_employee_employment($1,'terminate',current_date)",[active.id]),/feature flag .* OFF/)
+    await assert.rejects(db.query("select change_employee_employment_pre_flags($1,'terminate',current_date)",[active.id]),error=>error.code==='42501')
+    await db.exec("reset role; update employee_feature_flags set enabled=true where flag='former_employees_archive_readonly'; set role authenticated")
+    assert.equal((await db.query('select count(*)::int n from list_former_employees()')).rows[0].n,8)
+    assert.equal((await db.query('select count(*)::int n from employee_employment_periods')).rows[0].n,65)
+    await db.exec("set test.uid='00000000-0000-4000-8000-000000000099'")
+    await assert.rejects(db.query('select list_former_employees()'),/Admin access/)
+    assert.equal((await db.query('select count(*)::int n from employees where active is not true')).rows[0].n,0)
+    await db.exec('reset role; set role anon')
+    await assert.rejects(db.query('select list_former_employees()'),error=>error.code==='42501')
+    await db.exec(`reset role; set test.uid=${lit(admin.id)}; update employee_feature_flags set enabled=false`)
+    await assert.rejects(db.exec("update employee_feature_flags set enabled=true where flag='employee_terminate'"),/separately verified/)
+    await assert.rejects(db.exec("update employee_feature_flags set enabled=true where flag='employee_rehire'"),/separately verified/)
+    await assert.rejects(db.exec("update employee_feature_flags set enabled=true where flag='employee_number_reuse'"),/separately verified/)
+    const synthetic='00000000-0000-4000-8000-000000000098'
+    await db.exec('set role authenticated')
+    await db.query("insert into employees(id,employee_number,first_name,last_name,active,hire_date,plant_location) values($1,10000,'Synthetic','Phase5',true,current_date,'NJ')",[synthetic])
+    await db.exec('reset role')
+    const after=await digests()
+    for(const name of names.filter(n=>n!=='employees'))assert.deepEqual(after[name],before[name])
+    const restored=(await db.query(`select ${originalColumns.employees} from employees where id<>$1`,[synthetic])).rows
+    assert.equal(hash(restored.sort((a,b)=>JSON.stringify(a).localeCompare(JSON.stringify(b)))),before.employees.sha256)
+    assert.equal((await db.query('select count(*)::int n from employees where id=$1',[synthetic])).rows[0].n,1)
+    assert.equal((await db.query('select count(*)::int n from employee_employment_periods where employee_id=$1',[synthetic])).rows[0].n,1)
+    await db.exec('set role authenticated')
+    await assert.rejects(db.query('select list_former_employees()'),/archive is OFF/)
+    assert.equal((await db.query('select count(*)::int n from employees where active is true')).rows[0].n,58)
+    await db.exec('reset role')
+    const report={passed:true,engine,mode:'scoped source-history replay; not full-dump restore',verified_at:new Date().toISOString(),tables_preserved:names.length,source_counts:{active:57,former:8},flags_default_off:true,permissions:true,legacy_contracts_preserved:contracts.length,ordinary_creation:true,rollback:'flags OFF; additive schema retained; post-migration employee/period preserved',original_tables:before}
+    await writeFile(join(directory,'phase5-archive-verification.private.json'),JSON.stringify(report,null,2))
+    console.log(JSON.stringify({...report,original_tables:undefined}))
+  }else{
   for(const name of ['former_employees.sql','zkt_event_identity.sql','employee_lifecycle.sql','employee_release_gates.sql']) {
     await db.exec(await readFile(new URL(`../../supabase/${name}`,import.meta.url),'utf8'))
     if(name==='employee_lifecycle.sql')assert.equal((await db.query('select actions_enabled from employee_release_config')).rows[0].actions_enabled,false)
@@ -89,4 +133,5 @@ try{
   const report={source_audit_at:manifest.checked_at,verified_at:new Date().toISOString(),mode:`${engine}; production untouched`,counts,original_tables:after,original_policies_preserved:manifest.policies.length}
   await writeFile(join(directory,process.argv.includes('--postgres')?'postgres-migration-verification.local.json':'offline-migration-verification.local.json'),JSON.stringify(report,null,2))
   console.log(JSON.stringify({passed:true,engine,counts,tables_preserved:names.length,policies_preserved:manifest.policies.length}))
+  }
 }finally{await db.close()}

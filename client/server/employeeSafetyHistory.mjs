@@ -12,6 +12,8 @@ export function createSafetyHistoryReader({clientForToken,secret,url,fetchImpl=f
       if(auth.error||!auth.data?.user)return {status:401,body:{error:'unauthorized'}}
       const admin=await client.rpc('employee_archive_admin')
       if(admin.error||admin.data!==true)return {status:403,body:{error:'admin_required'}}
+      const flags=await client.rpc('employee_feature_flags_status')
+      if(flags.error||flags.data?.former_employees_archive_readonly!==true)return {status:403,body:{error:'archive_disabled'}}
       const employee=await client.from('employees').select('id').eq('id',body.employee_id).maybeSingle()
       if(employee.error)return {status:502,body:{error:'employee_lookup_failed'}}
       if(!employee.data)return {status:404,body:{error:'employee_not_found'}}

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
+import useEmployeeFeatureFlags from '../hooks/useEmployeeFeatureFlags'
 
 function duration(employee) {
   if (!employee.hire_date || !employee.termination_date) return 'Not recorded'
@@ -9,6 +10,7 @@ function duration(employee) {
 }
 
 export default function FormerEmployeesPage() {
+  const { flags, loading: flagsLoading } = useEmployeeFeatureFlags()
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -19,12 +21,13 @@ export default function FormerEmployeesPage() {
   const [direction, setDirection] = useState(1)
   useEffect(() => {
     let cancelled = false
+    if (flagsLoading || !flags.former_employees_archive_readonly) { setEmployees([]); return }
     async function load() {
       try {
         // PostgREST's default row cap must not silently truncate the archive.
         const all = []
         for (let start = 0; ; start += 500) {
-          const result = await supabase.from('employees').select('*').or('active.eq.false,active.is.null').order('id').range(start, start + 499)
+          const result = await supabase.rpc('list_former_employees',{p_offset:start,p_limit:500})
           if (result.error) throw result.error
           all.push(...(result.data || []))
           if ((result.data || []).length < 500) break
@@ -42,7 +45,7 @@ export default function FormerEmployeesPage() {
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [flagsLoading, flags.former_employees_archive_readonly])
   const rows = useMemo(() => employees.filter(employee => {
     const text = `${employee.employee_number} ${employee.first_name || ''} ${employee.last_name || ''}`.toLowerCase()
     return text.includes(search.trim().toLowerCase()) && (!plant || employee.plant_location === plant) && (!position || employee.position === position)
@@ -51,6 +54,8 @@ export default function FormerEmployeesPage() {
     const value = row => sort === 'name' ? `${row.last_name || ''} ${row.first_name || ''}` : String(row[sort] || '')
     return value(a).localeCompare(value(b), undefined, { numeric: true }) * direction
   }), [employees, search, plant, position, sort, direction])
+  if (flagsLoading) return <p className="p-6 text-white">Checking archive availability…</p>
+  if (!flags.former_employees_archive_readonly) return <div className="p-6 text-white"><p>Former Employees archive is disabled.</p><Link to="/employees" className="text-cyan-300">Employees</Link></div>
   return <div className="min-h-screen bg-[#020817] text-white"><main className="mx-auto max-w-[1800px] px-3 py-6 sm:px-6">
     <nav className="mb-4 flex gap-4"><Link to="/dashboard" className="text-cyan-300">Dashboard</Link><Link to="/employees" className="text-cyan-300">Employees</Link></nav>
     <h1 className="text-2xl font-bold">Former Employees</h1>
@@ -71,7 +76,7 @@ export default function FormerEmployeesPage() {
         <td className="p-3">{employee.hire_date || 'Not recorded'}</td><td className="p-3">{employee.termination_date || 'Not recorded'}</td>
         <td className="p-3">{duration(employee)}</td><td className="p-3">{employee.last_work_date || 'Not recorded'}</td>
         <td className="p-3">{employee.termination_date ? 'Terminated' : 'Inactive'}</td>
-        <td className="whitespace-nowrap p-3"><Link className="text-cyan-300" to={`/employees/${employee.id}`}>View</Link><Link className="ml-4 text-cyan-300" to={`/employees/${employee.id}#employment-history`}>Rehire</Link></td>
+        <td className="whitespace-nowrap p-3"><Link className="text-cyan-300" to={`/employees/${employee.id}`}>View</Link>{flags.employee_rehire&&<Link className="ml-4 text-cyan-300" to={`/employees/${employee.id}#employment-history`}>Rehire</Link>}</td>
       </tr>)}</tbody>
     </table></div>
     {!loading && !error && rows.length === 0 && <p className="mt-4 text-slate-300">No former employees match these filters.</p>}

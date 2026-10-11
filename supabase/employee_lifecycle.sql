@@ -78,7 +78,10 @@ begin
   if not public.employee_archive_admin() then raise exception 'Admin access required' using errcode='42501'; end if;
   perform pg_advisory_xact_lock(736261,2);
   select * into strict c from public.employee_number_config where singleton;
-  if new.employee_number is null then new.employee_number:=public.next_available_employee_number(); end if;
+  if new.employee_number is null then
+    if to_regclass('public.employee_feature_flags') is not null then perform public.employee_require_feature('employee_number_reuse'); end if;
+    new.employee_number:=public.next_available_employee_number();
+  end if;
   if c.maximum is null then raise exception 'Terminal employee number range must be verified and configured'; end if;
   if new.employee_number<c.minimum or (c.maximum is not null and new.employee_number>c.maximum) then raise exception 'Employee number outside configured range'; end if;
   if exists(select 1 from public.employee_number_reservations where employee_number=new.employee_number and (released_at is null or not c.reuse_enabled)) then
@@ -235,6 +238,12 @@ language plpgsql security definer set search_path=public,pg_temp as $$
 declare j public.employee_integration_operations%rowtype;
 begin
   if auth.role() is distinct from 'service_role' then raise exception 'Service access required' using errcode='42501'; end if;
+  -- If Phase 5 flags are installed, closed actions cannot start new deliveries.
+  -- Finish remains available for an already claimed operation's truthful ACK.
+  if to_regclass('public.employee_feature_flags') is not null then
+    select * into strict j from public.employee_integration_operations where id=p_operation_id;
+    perform public.employee_require_feature(case j.action when 'disable' then 'employee_terminate' else 'employee_rehire' end);
+  end if;
   perform pg_advisory_xact_lock(736261,2);
   perform pg_advisory_xact_lock(736261,3);
   if exists(select 1 from public.employee_integration_operations op where op.id=p_operation_id and op.action='activate'
@@ -308,6 +317,9 @@ language plpgsql security definer set search_path=public,pg_temp as $$
 declare p record; j record;
 begin
   if not public.employee_archive_admin() then raise exception 'Admin access required' using errcode='42501'; end if;
+  if to_regclass('public.employee_feature_flags') is not null then
+    perform public.employee_require_feature(case when (select active from public.employees where id=p_employee_id) is true then 'employee_rehire' else 'employee_terminate' end);
+  end if;
   perform pg_advisory_xact_lock(736261,2);
   for p in select id from public.employee_employment_periods where employee_id=p_employee_id and termination_date is not null loop
     perform public.queue_employee_integrations(p.id,'disable');

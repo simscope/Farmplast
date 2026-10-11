@@ -1,8 +1,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/useAuth'
+import useEmployeeFeatureFlags from '../hooks/useEmployeeFeatureFlags'
 
 export default function EmployeeEmploymentPanel({ employee, onChanged }) {
+  const { flags } = useEmployeeFeatureFlags()
   const { profile } = useAuth()
   const [periods, setPeriods] = useState([])
   const [blockers, setBlockers] = useState([])
@@ -20,10 +22,11 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
   const [notice, setNotice] = useState('')
   const [refresh, setRefresh] = useState(0)
   const isAdmin = profile?.role === 'admin'
+  const actionEnabled = employee?.active===true ? flags.employee_terminate : flags.employee_rehire
 
   useEffect(() => {
     let cancelled = false
-    if (!employee?.id || !isAdmin) return
+    if (!employee?.id || !isAdmin || !flags.former_employees_archive_readonly) return
     setReady(false)
     supabase.rpc('employee_archive_capabilities').then(capabilities => {
       if(capabilities.error)throw capabilities.error
@@ -49,9 +52,9 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
       setReady(true)
     }).catch(err => { if (!cancelled) setError(err.message) })
     return () => { cancelled = true }
-  }, [employee?.id, employee?.active, isAdmin, refresh])
+  }, [employee?.id, employee?.active, isAdmin, refresh, flags.former_employees_archive_readonly])
 
-  if (!employee || !isAdmin) return null
+  if (!employee || !isAdmin || !flags.former_employees_archive_readonly) return null
 
   async function deliverIntegrations() {
     const session=await supabase.auth.getSession()
@@ -61,6 +64,7 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
     if(result.results.some(row=>row.status!=='succeeded'))throw Error('Profile saved. SACS acknowledgement is pending or uncertain; review integration status before retrying.')
   }
   async function openAction() {
+    if (!actionEnabled) return
     setAction(employee.active === true?'terminate':'rehire');setDate('');setReason('');setNotes('');setError('')
     if(employee.active!==true){
       const result=await supabase.rpc('next_available_employee_number')
@@ -70,6 +74,7 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
 
   async function submit(event) {
     event.preventDefault()
+    if (action==='reconcile' ? !flags.employee_terminate : !actionEnabled) return
     if (!window.confirm(`${action === 'reconcile' ? 'Record confirmed termination date for' : action === 'terminate' ? 'Terminate' : 'Rehire'} ${employee.first_name} ${employee.last_name} on ${date}? Employment and payroll history will be retained.`)) return
     setBusy(true)
     setError('')
@@ -90,7 +95,7 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
   return <section className="my-4 rounded-xl border border-slate-700 bg-slate-900 p-4 no-print">
     <div className="flex flex-wrap items-center justify-between gap-3">
       <h2 className="font-bold">Employment history · {employee.active === true ? 'Active' : 'Former Employee'}</h2>
-      <button type="button" disabled={!ready || busy || blockers.length > 0}
+      <button type="button" disabled={!actionEnabled || !ready || busy || blockers.length > 0}
         className="rounded-lg border border-cyan-500 px-3 py-2 disabled:opacity-40"
         onClick={openAction}>
         {employee.active === true ? 'Terminate Employee' : 'Rehire'}
@@ -101,10 +106,10 @@ export default function EmployeeEmploymentPanel({ employee, onChanged }) {
     {employee.termination_notes && <p className="mt-2 whitespace-pre-wrap">Notes: {employee.termination_notes}</p>}
     {error && <p role="alert" className="mt-3 text-red-300">{error}</p>}
     {notice && <p role="status" className="mt-3 text-amber-200">{notice}</p>}
-    {lifecycleReady&&employee.active!==true&&!employee.termination_date&&<button className="mt-3 rounded border border-slate-600 px-3 py-2" onClick={()=>{setAction('reconcile');setDate('');setNotes('')}}>Record confirmed termination date</button>}
+    {flags.employee_terminate&&lifecycleReady&&employee.active!==true&&!employee.termination_date&&<button className="mt-3 rounded border border-slate-600 px-3 py-2" onClick={()=>{setAction('reconcile');setDate('');setNotes('')}}>Record confirmed termination date</button>}
     {reservations.length>0&&<p className="mt-3 text-sm text-slate-300">Number reservations: {reservations.map(row=>`#${row.employee_number} — ${row.released_at?'device release confirmed':'reserved'}`).join(' · ')}. Reuse remains subject to the release gate.</p>}
     {operations.length>0&&<div className="mt-3 overflow-x-auto"><h3 className="font-semibold">Integration status</h3><table className="w-full text-left text-sm"><thead><tr>{['Period','System','Action','Status','Details'].map(label=><th key={label} className="p-2">{label}</th>)}</tr></thead><tbody>{operations.map(job=><tr key={job.id} className="border-t border-slate-700"><td className="p-2">{job.period_id}</td><td className="p-2">{job.target}</td><td className="p-2">{job.action}</td><td className="p-2">{job.status}</td><td className="p-2">{job.error||job.finished_at||'Awaiting acknowledgement'}</td></tr>)}</tbody></table>
-      <button type="button" disabled={busy} className="mt-2 rounded border border-slate-600 px-3 py-2" onClick={async()=>{
+      <button type="button" disabled={busy||(!flags.employee_terminate&&!flags.employee_rehire)} className="mt-2 rounded border border-slate-600 px-3 py-2" onClick={async()=>{
         setBusy(true);try{const result=await supabase.rpc('retry_employee_integrations',{p_employee_id:employee.id});if(result.error)throw result.error;await deliverIntegrations();await onChanged?.()}catch(err){setNotice(err.message)}finally{setRefresh(value=>value+1);setBusy(false)}
       }}>Retry pending integrations</button></div>}
     {blockers.length > 0 && <div className="mt-3 text-sm text-amber-200">

@@ -25,12 +25,14 @@ test('SACS history resolves archived source UUID and cannot transfer sessions on
   }finally{await db.close()}
 })
 test('history proxy rejects manager and caller-selected company; verifies upstream durable identity',async()=>{
-  let isAdmin=true,calls=0
-  const client={auth:{getUser:async()=>({data:{user:{id:source}}})},rpc:async()=>({data:isAdmin}),from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:{id:source}})})})})}
+  let isAdmin=true,archiveEnabled=true,calls=0
+  const client={auth:{getUser:async()=>({data:{user:{id:source}}})},rpc:async name=>({data:name==='employee_feature_flags_status'?{former_employees_archive_readonly:archiveEnabled}:isAdmin}),from:()=>({select:()=>({eq:()=>({maybeSingle:async()=>({data:{id:source}})})})})}
   const read=createSafetyHistoryReader({clientForToken:()=>client,secret:'x'.repeat(32),url:'https://sacs.invalid/history',fetchImpl:async(_url,options)=>{calls++;assert.equal(JSON.parse(options.body).source_employee_id,source);return Response.json({source_employee_id:source,records:[],assignments:[],group_assignments:[],next_offset:null})}})
   assert.equal((await read({method:'POST',body:{employee_id:source}})).status,401)
   assert.equal((await read({method:'POST',authorization:'Bearer test',body:{employee_id:source,company_id:company}})).status,400)
   isAdmin=false;assert.equal((await read({method:'POST',authorization:'Bearer test',body:{employee_id:source}})).status,403);assert.equal(calls,0)
+  isAdmin=true;archiveEnabled=false;assert.equal((await read({method:'POST',authorization:'Bearer test',body:{employee_id:source}})).body.error,'archive_disabled');assert.equal(calls,0)
+  archiveEnabled=true
   isAdmin=true;assert.equal((await read({method:'POST',authorization:'Bearer test',body:{employee_id:source}})).status,200)
   const bad=createSafetyHistoryReader({clientForToken:()=>client,secret:'x'.repeat(32),url:'https://sacs.invalid/history',fetchImpl:async()=>Response.json({source_employee_id:replacement,records:[],assignments:[],group_assignments:[]})})
   assert.equal((await bad({method:'POST',authorization:'Bearer test',body:{employee_id:source}})).status,502)

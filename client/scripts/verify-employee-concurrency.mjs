@@ -5,13 +5,14 @@ import {resolve} from 'node:path'
 import {writeFile,readFile} from 'node:fs/promises'
 import {initializeIdentityDb,admin,peter} from '../tests/helpers/employee-identity-db.mjs'
 const runtime=resolve(process.argv[2]||'../../reports/phase2-postgres-runtime')
+const phase5=process.argv.includes('--phase5')
 const require=createRequire(`${runtime}/package.json`)
 const {Client}=require('pg')
-const options={host:'127.0.0.1',port:55439,user:'phase2_local',database:'postgres',connectionTimeoutMillis:5000}
+const options={host:'127.0.0.1',port:phase5?55441:55439,user:phase5?'phase5_local':'phase2_local',database:'postgres',connectionTimeoutMillis:5000}
 const control=new Client(options)
 await control.connect()
 const system=(await control.query("select current_user, current_setting('data_directory') directory,version() version")).rows[0]
-assert.equal(system.current_user,'phase2_local')
+assert.equal(system.current_user,options.user)
 assert.equal(resolve(system.directory).toLowerCase(),resolve(runtime,'data').toLowerCase(),'Only the disposable cluster is permitted')
 const name=`phase2_verify_${Date.now()}`
 await control.query(`create database ${name}`)
@@ -106,8 +107,29 @@ try{
   assert.match((await stopped).error?.message||'',/gate is OFF/)
   checks.push('concurrent release shutdown uses consistent lock order and prevents a waiting lifecycle operation')
 
+  if(phase5){
+    await a.query(await readFile(new URL('../../supabase/employee_archive_feature_flags.sql',import.meta.url),'utf8'))
+    await a.query("update employee_feature_flags set enabled=true where flag='employee_terminate'")
+    await begin(b)
+    await b.query("select employee_require_feature('employee_terminate')")
+    const disabling=observed(a.query("update employee_feature_flags set enabled=false where flag='employee_terminate'"))
+    await waiting(a)
+    await b.query('commit')
+    assert.equal((await disabling).error,undefined)
+    await assert.rejects(b.query("select employee_require_feature('employee_terminate')"),error=>error.code==='42501')
+    checks.push('feature shutdown waits for the in-flight feature row lock, then denies subsequent requests')
+    await a.query("update employee_feature_flags set enabled=true where flag='employee_terminate'")
+    await begin(a)
+    await a.query("update employee_feature_flags set enabled=false where flag='employee_terminate'")
+    const admission=observed(b.query("select employee_require_feature('employee_terminate')"))
+    await waiting(b)
+    await a.query('commit')
+    assert.equal((await admission).error?.code,'42501')
+    checks.push('waiting admission rechecks enabled after concurrent OFF commit and fails closed')
+  }
+
   const report={verified_at:new Date().toISOString(),engine:system.version,mode:'loopback disposable PostgreSQL, synthetic records only',checks}
-  await writeFile(resolve(runtime,'concurrency-verification.local.json'),JSON.stringify(report,null,2))
+  await writeFile(resolve(runtime,phase5?'phase5-concurrency-verification.local.json':'concurrency-verification.local.json'),JSON.stringify(report,null,2))
   console.log(JSON.stringify({passed:true,checks:checks.length,engine:system.version.split(' on ')[0]}))
 }finally{
   await Promise.allSettled([a.query('rollback'),b.query('rollback')])
