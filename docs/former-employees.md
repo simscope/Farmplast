@@ -4,6 +4,104 @@ Status: **NOT RELEASED. Archive, Terminate, Rehire and Number Reuse remain OFF u
 Current security/recovery/live-baseline evidence: [Phase 7](former-employees-phase7.md)
 and [role remediation](former-employees-security-remediation.md). No new audit phase.
 
+## Authorized production release — STOPPED / FAILED (2026-10-11)
+
+**Outcome: FAILED — Vercel deployment access blocked (HTTP 403).** The owner
+approved deployment of **fe03b94297451d26c684c834a1486206aba159c8**. Preparation GO
+below remains a candidate decision; it must not be mistaken for successful release.
+No new phase/report was created. Stop state: all four feature flags **OFF**, old
+production application still READY, additive archive schema retained safely.
+
+### Completed and verified
+
+1. Verified approved clean checkout, unchanged production deployment/source and
+   fresh database structural/history preflight at **19:28:47 UTC**.
+2. Created new full logical database backup from a consistent read-only snapshot:
+   **19:29:48.982Z**, **96 tables**, **2,134,164 bytes**, pg_dump=0, TOC check=0.
+   SHA-256 **e407949153c309ece9a6b98f11984a0587fe7fc4247e3594cb9caeab44c2470b**.
+   Private path: `reports/authorized-archive-release-private/farmplast-full.dump`.
+   Earlier complete PG17 restore proof remains applicable to unchanged source
+   schema; the fresh release dump itself was not restored again in this attempt.
+   Firmware payloads/service-secret recovery remain a separate incomplete package.
+3. Published only the approved commit to origin/codex/former-employees (no force).
+4. Applied and committed exactly these archive migrations on pinned Farmplast:
+
+| Migration | UTC applied | SHA-256 |
+|---|---|---|
+| supabase/former_employees.sql | 19:31:25.559Z | 6ef40ea7eff739bcb6b644af9b8a539658f3fffa1fc4a7d60dde814d9fe2fd70 |
+| supabase/employee_archive_feature_flags.sql | 19:31:26.036Z | 79c278158f36e3003a3931431f2174befea8e493b85c6682a661fc093472f98e |
+
+After each migration, original Employee fields, Payments/Payroll/Deductions,
+Attendance/work logs and ZKT history counts/checksums matched. New nullable
+termination columns were omitted only when comparing original Employee fields.
+Original public function definitions remain unchanged. Employment-period seeding
+created **65 new period records**, without modifying the original employee rows.
+
+### Deployment failure and safe state
+
+The authenticated Vercel connector attempted **POST /v13/deployments** for
+project **prj_MrDRpm3roDmNC7V2E0vKJIVkvm8x**, team
+**team_NIjpwKMloxCE7B4LtV0s0IXe**, target production, GitHub repo id 1179346713,
+exact approved commit, Vite/client root. It returned **HTTP 403 forbidden**:
+not authorized to access scope **andrei-simanenkas-projects**.
+Request ID: `cle1:sfo1::r77qh-1791747104135-2e41b6125357`.
+No deployment ID was created by this request. No unchanged retry or different
+team/project was attempted. Available mapped CLI fallback was checked: vercel/vc
+not installed, no existing CLI auth files in inspected standard user paths.
+No reauthentication, token retrieval, project-link change or scope escalation
+was attempted. No application rollback was necessary because promotion/deployment
+never changed the serving production version.
+
+Reinspection confirmed production remains:
+
+- URL: **https://farmplast.vercel.app**;
+- deployment **dpl_APkGU5PYBFc6tkRLQNVqp8iJNhCq**, READY;
+- deployed SHA **4b7573a6d105cbfd61a035e0c31c3f324a4a165b**;
+- approved **fe03b94297451d26c684c834a1486206aba159c8** is **NOT DEPLOYED**.
+
+Final read-only DB verification at **19:33:21 UTC**:
+
+| Verification | Result |
+|---|---|
+| Employees | **57 Active + 8 Former = 65** |
+| former_employees_archive_readonly | **OFF** |
+| employee_terminate | **OFF** |
+| employee_rehire | **OFF** |
+| employee_number_reuse | **OFF** |
+| Original Employees/Payments/Payroll/Deductions/Attendance/ZKT aggregates | **All unchanged** |
+| Admin identity/RPC with archive OFF | Admin recognized; archive call denied as expected |
+| Nonadmin | SELECT sees 57 Active; archive RPC denied |
+| Anonymous archive RPC | EXECUTE permission false |
+| Archive toolbar/page/all-card production acceptance | **NOT RUN / NOT RELEASED**, old application still serves |
+| Existing Farmplast → SACS passwordless SSO after migrations | **PASS**, existing Open SACS flow reached /admin/company without password entry |
+| SSO audit | Fresh success **19:33:45.903239Z**, recent recorded failures **0** |
+| SACS Employees/Safety/Assignments | Counts/checksums unchanged: **74 / 1 / 0** |
+
+UI archive acceptance, Active-only primary roster rollout and new-version error
+checks must be completed after an actually successful deployment; prior local
+tests are not substituted for those production checks.
+
+### Only prerequisite for resuming the authorized release
+
+Provide an existing authenticated Vercel connection/CLI session with **deployment
+permission for andrei-simanenkas-projects / farmplast**, or have that team's owner
+perform the exact approved deployment. Do not paste credentials into chat/Git.
+The owner release authorization is already granted; no new approval of the same
+scope is needed. After access is restored: recheck serving version and four OFF
+flags, deploy **the approved fe03b94 commit**; do not rerun these already committed
+non-idempotent migrations. Verify new SHA/READY before enabling only archive, then
+finish the authorized acceptance checks. On failure leave/disable archive OFF and
+use only the prepared application rollback; retain database schema and history.
+
+Private evidence directory: `reports/authorized-archive-release-private/`, including
+backup/TOC/catalog, migration-result.json, original-field history baseline,
+stopped-verification.json and sacs-after-stopped-sso.json. No credentials or
+personal records were copied to Git/report. Production employees/numbers,
+Payroll/Attendance/Safety records, SSO configuration, ZKT/Bridge/biometrics and
+firmware Storage were not changed. **Stopped after recording FAILED.**
+
+---
+
 ## Archive-only production release — GO for owner approval
 
 **Archive Read-Only: GO (prepared, NOT DEPLOYED).** Terminate, Rehire and Number
