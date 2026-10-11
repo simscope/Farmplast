@@ -1,0 +1,126 @@
+{
+  "date": "2026-10-11",
+  "implementation_commit": "c164137ca30b353078a14b2888c7d886be02a06e",
+  "production_mutations": false,
+  "production_deployment": "NOT RUN",
+  "production_commit": "4b7573a6d105cbfd61a035e0c31c3f324a4a165b",
+  "source_counts": {
+    "total": 65,
+    "active": 57,
+    "former": 8
+  },
+  "backup": {
+    "checked_at": "2026-10-11T15:03:00.521Z",
+    "table_count": 96,
+    "dump_exit": 0,
+    "bytes": 2134074,
+    "sha256": "85fd5e9ecc2cd40d4400357f6fdeca8c85da779a568b708c78468c491576f032",
+    "toc_exit": 0,
+    "full_fresh_dump_restore": "NOT RUN; prior full restore Phase 4 PASS"
+  },
+  "drift": {
+    "tables": 96,
+    "identical": 91,
+    "changed": [
+      {
+        "schema": "public",
+        "table": "ch1_ota_device",
+        "count": 1
+      },
+      {
+        "schema": "public",
+        "table": "ch2_latest",
+        "count": 21
+      },
+      {
+        "schema": "public",
+        "table": "chiller_ota_devices",
+        "count": 2
+      },
+      {
+        "schema": "public",
+        "table": "chiller_ota_receipts",
+        "count": 2
+      },
+      {
+        "schema": "public",
+        "table": "telemetry_latest",
+        "count": 42
+      }
+    ],
+    "all_schema_policies": 59,
+    "extensions_unchanged": true,
+    "public_functions_unchanged": true
+  },
+  "archive_replay": {
+    "passed": true,
+    "engine": "PostgreSQL 17.6",
+    "mode": "scoped source-history replay; not full-dump restore",
+    "verified_at": "2026-10-11T15:24:39.024Z",
+    "tables_preserved": 9,
+    "source_counts": {
+      "active": 57,
+      "former": 8
+    },
+    "flags_default_off": true,
+    "permissions": true,
+    "legacy_contracts_preserved": 10,
+    "ordinary_creation": true,
+    "rollback": "flags OFF; additive schema retained; post-migration employee/period preserved"
+  },
+  "concurrency": {
+    "engine": "PostgreSQL 17.6 on x86_64-windows, compiled by msvc-19.44.35213, 64-bit",
+    "verified_at": "2026-10-11T15:28:13.443Z",
+    "checks": [
+      "real PostgreSQL release migration defaults OFF and rejects lifecycle/reuse without confirmations",
+      "two real sessions serialize create and allocate distinct smallest numbers/principals",
+      "in-flight work-log INSERT cannot open a shift after termination commits",
+      "concurrent rehire versus create cannot claim the same HR number",
+      "termination waits for concurrent open shift and then refuses to archive",
+      "termination waits for concurrent draft payroll and refuses to archive",
+      "concurrent SACS claim versus rehire cannot send a delayed inactive write after rehire",
+      "concurrent release shutdown uses consistent lock order and prevents a waiting lifecycle operation",
+      "feature shutdown waits for the in-flight feature row lock, then denies subsequent requests",
+      "waiting admission rechecks enabled after concurrent OFF commit and fails closed"
+    ]
+  },
+  "tests": {
+    "application": 147,
+    "bridge": 19,
+    "build": "PASS",
+    "lint": {
+      "errors": 0,
+      "baseline_warnings": 6
+    },
+    "desktop_mobile": "PASS synthetic",
+    "browser_page_errors": 0
+  },
+  "security": {
+    "role": "cli_login_postgres",
+    "verifier_present": true,
+    "password_expired": true,
+    "login": true,
+    "can_set_postgres": true,
+    "owned_relations": 0,
+    "shared_dependencies": 0,
+    "active_connections": 0,
+    "disposition": "OPEN"
+  },
+  "sacs": {
+    "source_uuid_matches": 65,
+    "status_mismatch": 1,
+    "live_sso": "PENDING"
+  },
+  "flags": {
+    "former_employees_archive_readonly": false,
+    "employee_terminate": false,
+    "employee_rehire": false,
+    "employee_number_reuse": false
+  },
+  "decisions": {
+    "archive_candidate": "GO technical",
+    "archive_production": "NO-GO / STOP BEFORE DEPLOYMENT",
+    "employee_actions": "NO-GO",
+    "number_reuse": "NO-GO"
+  }
+}
