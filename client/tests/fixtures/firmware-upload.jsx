@@ -5,7 +5,7 @@ import FirmwareUpload from '../../src/components/FirmwareUpload'
 import '../../src/index.css'
 let stored
 const localClient={storage:{from:()=>({upload:async(_path,file)=>{stored=file;return {}},download:async()=>({data:stored})})},rpc:async name=>({data:name==='chiller_firmware_status'?{releases:[]}:'local-release'})}
-function Fixture() {
+export function Fixture() {
  const [open,setOpen]=useState(false),[approved,setApproved]=useState(false)
  return <main className="min-h-screen bg-slate-950 p-8 text-white">
   <p className="mb-8 text-amber-300">LOCAL TEST FIXTURE · CH2 · NO BACKEND CONNECTION</p>

@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
+import EmployeeNumberSuggestion from '../components/EmployeeNumberSuggestion'
 import { supabase } from '../lib/supabase'
 import {
   EMPLOYEE_PHOTO_BUCKET,
@@ -461,7 +462,7 @@ function getZktStatusText(status) {
 }
 
 function buildZktPreview(form) {
-  const employeeNumber = Number(form.employee_number || 0)
+  const employeeNumber = Number(form.zkt_user_id || 0)
 
   const fullName = `${form.first_name || ''} ${form.last_name || ''}`
     .trim()
@@ -556,7 +557,7 @@ export default function EmployeesPage() {
       first_name: employee.first_name || '',
       last_name: employee.last_name || '',
       zkt_enabled: employee.zkt_enabled ?? true,
-      zkt_user_id: employee.employee_number ?? '',
+      zkt_user_id: employee.zkt_user_id ?? employee.employee_number ?? '',
       zkt_name: fullName.slice(0, 24),
       zkt_password: employee.zkt_password || '',
       zkt_card_number: employee.zkt_card_number ?? '',
@@ -653,15 +654,15 @@ export default function EmployeesPage() {
       setMessage('')
       setError('')
 
-      if (!form.employee_number || !form.first_name || !form.last_name) {
-        throw new Error('Employee number, first name and last name are required')
+      if (!form.first_name || !form.last_name) {
+        throw new Error('First name and last name are required')
       }
 
       const employeeNumber = Number(form.employee_number)
       const fullName = `${form.first_name || ''} ${form.last_name || ''}`.trim()
 
       const payload = {
-        employee_number: employeeNumber,
+        employee_number: null,
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim(),
         phone: form.phone.trim() || null,
@@ -691,11 +692,11 @@ export default function EmployeesPage() {
         zkt_synced_at: null,
       }
 
-      const { error } = await supabase.from('employees').insert([payload])
+      const { data: created, error } = await supabase.from('employees').insert([payload]).select('employee_number').single()
 
       if (error) throw error
 
-      setMessage('Employee added successfully. ZKT settings created.')
+      setMessage(`Employee #${created.employee_number} added. ZKT and SACS provisioning is pending.`)
       setForm(initialForm)
       await loadEmployees()
     } catch (err) {
@@ -716,7 +717,7 @@ export default function EmployeesPage() {
 
       if (!zktForm.id) throw new Error('Employee ID is missing')
 
-      const employeeNumber = Number(zktForm.employee_number)
+      const employeeNumber = Number(zktForm.zkt_user_id)
       const fullName = `${zktForm.first_name || ''} ${zktForm.last_name || ''}`.trim()
 
       if (zktForm.zkt_enabled && !employeeNumber) {
@@ -854,15 +855,17 @@ export default function EmployeesPage() {
           <form onSubmit={handleSubmit}>
             <div style={gridStyle}>
               <div style={fieldStyle}>
-                <label style={labelStyle}>Employee number *</label>
+                <label style={labelStyle}>Employee number</label>
                 <input
                   style={inputStyle}
                   type="number"
                   name="employee_number"
                   value={form.employee_number}
+                  readOnly
                   onChange={handleChange}
-                  placeholder="101"
+                  placeholder="Allocated automatically"
                 />
+                <EmployeeNumberSuggestion key={employees.length} />
               </div>
 
               <div style={fieldStyle}>
@@ -1281,7 +1284,7 @@ export default function EmployeesPage() {
                         name="zkt_user_id"
                         value={zktPreview.userId}
                         readOnly
-                        placeholder="Auto from employee number"
+                        placeholder="Permanent terminal identity"
                       />
                     </div>
 

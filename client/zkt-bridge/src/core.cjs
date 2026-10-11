@@ -52,7 +52,13 @@ function config(env) {
   const ip = env.ZKT_IP;
   if (!ip || net.isIP(ip) !== 4)
     throw fail("ZKT_IP must be an explicit IPv4 address", "CONFIG");
+  const plant = env.ZKT_PLANT_LOCATION || 'NJ';
+  if (!['NJ','PA'].includes(plant)) throw fail('Invalid ZKT_PLANT_LOCATION','CONFIG');
+  const deviceKey = env.ZKT_IDENTITY_DEVICE_KEY || '';
+  const serialNumber = env.ZKT_EXPECTED_SERIAL_NUMBER || '';
+  if (Boolean(deviceKey) !== Boolean(serialNumber)) throw fail('Device identity key and expected serial must be configured together','CONFIG');
   return {
+    plant, deviceKey, serialNumber,
     ip,
     port: number("ZKT_PORT", 4370, 1, 65535),
     machine: number("ZKT_MACHINE_NUMBER", 1),
@@ -101,9 +107,9 @@ function employeePayload(emp) {
     enabled: true,
   };
 }
-function validate(command) {
+function validate(command, plant = 'NJ') {
   if (
-    !["test", "sync_one_employee", "pull_attendance"].includes(command.command)
+    !["test", "sync_one_employee", "pull_attendance", "identity_disable_employee", "identity_activate_employee"].includes(command.command)
   )
     throw fail(
       `Unknown command: ${String(command.command)}`,
@@ -112,8 +118,9 @@ function validate(command) {
   const p = command.payload || {};
   if (typeof p !== "object" || Array.isArray(p))
     throw fail("payload must be an object", "PAYLOAD");
-  if (p.plant_location && p.plant_location !== "NJ")
-    throw fail("Candidate NJ bridge refuses non-NJ payload", "PLANT");
+  if (p.plant_location && p.plant_location !== plant)
+    throw fail(`Bridge refuses non-${plant} payload (different plant)`, "PLANT");
+  if (command.command.startsWith('identity_') && !p.operation_id) throw fail('Integration operation ID required','PAYLOAD');
   if (command.command === "sync_one_employee" && !(p.employee_id || p.id))
     throw fail("sync_one_employee requires payload.employee_id", "PAYLOAD");
   return p;
@@ -263,7 +270,7 @@ async function dispatch(
   command,
   { db, sdk, cfg, signal, log = () => {}, now = () => Date.now() },
 ) {
-  const payload = validate(command);
+  const payload = validate(command, cfg.plant || 'NJ');
   check(signal);
   const context = {
     command_id: command.id,
@@ -280,6 +287,7 @@ async function dispatch(
         port: cfg.port,
         machine: cfg.machine,
         user,
+        expectedSerialNumber: cfg.serialNumber,
       },
       { signal, timeoutMs: cfg.childMs },
     );
@@ -290,6 +298,28 @@ async function dispatch(
     return r;
   };
   if (command.command === "test") return callSdk();
+  if (command.command.startsWith('identity_')) {
+    if (!cfg.deviceKey || payload.device_key !== cfg.deviceKey) throw fail('Verified device key required','DEVICE');
+    const job = await db.claimIntegration(payload.operation_id,cfg.deviceKey,signal);
+    let result;
+    try {
+      if (job.action === 'activate') {
+        const emp = await db.employee(job.employee_id,signal);
+        if (!emp.active || String(emp.zkt_user_id) !== job.terminal_user_id) throw fail('Stale employee activation','IDENTITY');
+        result = await callSdk(employeePayload({...emp,zkt_enabled:true}));
+      } else {
+        result = await callSdk({userId:job.terminal_user_id,enabled:false});
+      }
+      if (result.serialNumber !== cfg.serialNumber || result.readBackVerified !== true || String(result.userId) !== job.terminal_user_id || result.enabled !== (job.action==='activate')) {
+        throw fail('Device acknowledgement did not verify requested identity/state','IDENTITY');
+      }
+    } catch(e) {
+      await db.finishIntegration(job.id,job.claim_token,{ok:false,error:'Device outcome unverified; number remains reserved'},AbortSignal.timeout(15000));
+      throw e;
+    }
+    await db.finishIntegration(job.id,job.claim_token,result,signal);
+    return {ok:true,operation_id:job.id,employee_id:job.employee_id,target:job.target,serialNumber:result.serialNumber,readBackVerified:true,enabled:result.enabled};
+  }
   if (command.command === "sync_one_employee") {
     const id = payload.employee_id || payload.id;
     const emp = await db.employee(id, signal);
@@ -325,6 +355,18 @@ async function dispatch(
   }
   const result = await callSdk();
   const logs = Array.isArray(result.logs) ? result.logs : [];
+  if (cfg.deviceKey) {
+    if (result.serialNumber !== cfg.serialNumber) throw fail('Attendance serial identity mismatch','IDENTITY');
+    let owned=0,review=0;
+    // All returned events are retained, including delayed/old/malformed rows.
+    // The DB handles local clock/DST validation and historical ownership.
+    for(let start=0;start<logs.length;start+=cfg.batch){
+      const accepted=await db.identityAttendance(cfg.deviceKey,result.serialNumber,logs.slice(start,start+cfg.batch),signal);
+      owned+=accepted.owned;review+=accepted.review;
+    }
+    const processed=await db.processAttendance(signal);
+    return {ok:true,message:'Attendance imported with permanent device/employee identity',total:logs.length,owned,review,processed};
+  }
   const rows = logs
     .map((raw) => ({
       employee_number: Number(raw.deviceUserId || raw.userId),

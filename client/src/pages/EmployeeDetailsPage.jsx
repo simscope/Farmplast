@@ -26,6 +26,8 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import EmployeeEmploymentPanel from '../components/EmployeeEmploymentPanel'
+import EmployeeSafetyHistory from '../components/EmployeeSafetyHistory'
+import EmployeeZktHistory from '../components/EmployeeZktHistory'
 import {
   calculatePayrollTotals,
   normalizePayrollRow,
@@ -322,7 +324,7 @@ function buildEmployeeEditForm(employee = {}, profile = {}) {
   }
 }
 
-function buildEmptyRow(downtimeEnabled = true, defaultLunchHours = 1) {
+function buildEmptyRow(defaultLunchHours = 1) {
   return {
     id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     work_date: toLocalDateString(new Date()),
@@ -903,7 +905,6 @@ export default function EmployeeDetailsPage() {
   function addRow() {
     setLogs((prev) => [
       buildEmptyRow(
-        employee?.downtime_enabled !== false,
         employee?.default_lunch_hours
       ),
       ...prev,
@@ -1683,8 +1684,10 @@ export default function EmployeeDetailsPage() {
       <div className="mx-auto max-w-[1800px] px-3 py-4 sm:px-4 lg:px-5">
         <Link to="/employees/former" className="text-cyan-300 no-print">Former Employees</Link>
         <div id="employment-history">
-          <EmployeeEmploymentPanel employee={employee} onChanged={loadPage} />
+          <EmployeeEmploymentPanel key={`employment-${id}`} employee={employee} onChanged={loadPage} />
         </div>
+        <EmployeeSafetyHistory key={`safety-${id}`} employeeId={id} />
+        <EmployeeZktHistory key={`attendance-${id}`} employeeId={id} />
         <div className="mb-4 flex flex-wrap gap-2 no-print">
           <Link
             to="/dashboard"
@@ -2897,6 +2900,7 @@ export default function EmployeeDetailsPage() {
                       <input
                         type="number"
                         value={editEmployeeForm.zkt_user_id}
+                        readOnly
                         onChange={(e) => updateEditEmployeeForm('zkt_user_id', e.target.value)}
                         className={employeeEditInput}
                         disabled={savingEmployee}

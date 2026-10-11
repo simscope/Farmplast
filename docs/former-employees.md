@@ -1,6 +1,8 @@
 # Former Employees — staged implementation and release blockers
 
-Status: **NOT RELEASED; number reuse and employment mutations remain blocked.**
+Status: **NOT RELEASED; production reuse remains disabled. Phase 2 candidate implements lifecycle operations independently of hardware.**
+Current results and deployment procedure: [Phase 2 report](former-employees-phase2.md).
+The remaining sections preserve the Phase 1 audit and its historical test results.
 Audit performed October 11, 2026 (America/New_York). No production employee,
 attendance, payroll, training, terminal, or schema data was changed.
 

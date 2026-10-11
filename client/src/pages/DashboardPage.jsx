@@ -523,6 +523,11 @@ export default function DashboardPage() {
       )
       .on(
         'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'zkt_event_ownership' },
+        () => loadEmployees()
+      )
+      .on(
+        'postgres_changes',
         { event: '*', schema: 'public', table: 'employees' },
         () => loadEmployees()
       )
@@ -955,7 +960,7 @@ export default function DashboardPage() {
   async function handleSave(e) {
     e.preventDefault()
 
-    if (form.employee_number === '' || Number.isNaN(Number(form.employee_number))) {
+    if (form.id && (form.employee_number === '' || Number.isNaN(Number(form.employee_number)))) {
       setError('Employee number is required')
       return
     }
@@ -965,7 +970,7 @@ export default function DashboardPage() {
       return
     }
 
-    if (form.zkt_enabled && !form.zkt_user_id) {
+    if (form.id && form.zkt_enabled && !form.zkt_user_id) {
       setError('ZKT user ID is required when ZKT enabled')
       return
     }
@@ -977,7 +982,7 @@ export default function DashboardPage() {
       const fullName = `${form.first_name || ''} ${form.last_name || ''}`.trim()
 
       const payload = {
-        employee_number: Number(form.employee_number),
+        employee_number: form.id ? Number(form.employee_number) : null,
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim() || null,
         phone: form.phone.trim() || null,

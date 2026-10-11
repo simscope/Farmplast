@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { X, Upload, Loader2, Trash2, FileText, Printer } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import EmployeeNumberSuggestion from './EmployeeNumberSuggestion'
 import {
   EMPLOYEE_PHOTO_BUCKET,
   compressEmployeePhoto,
@@ -528,12 +529,13 @@ export default function EmployeeModal({
                   type="number"
                   className={inputClass}
                   value={form.employee_number}
-                  readOnly={Boolean(form.id)}
+                  readOnly
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, employee_number: e.target.value }))
                   }
                   placeholder="Employee number"
                 />
+                {!form.id && <EmployeeNumberSuggestion />}
               </div>
 
               <div>
@@ -1009,6 +1011,7 @@ export default function EmployeeModal({
                   type="number"
                   className={inputClass}
                   value={form.zkt_user_id}
+                  readOnly
                   onChange={(e) => setForm((prev) => ({ ...prev, zkt_user_id: e.target.value }))}
                   placeholder="Usually same as employee number"
                 />

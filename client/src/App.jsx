@@ -13,6 +13,7 @@ const MonitoringPAPage = lazy(() => import('./pages/MonitoringPAPage'))
 const MonitoringPASectionPage = lazy(() => import('./pages/MonitoringPASectionPage'))
 const EmployeesPage = lazy(() => import('./pages/EmployeesPage'))
 const FormerEmployeesPage = lazy(() => import('./pages/FormerEmployeesPage'))
+const ZktReviewPage = lazy(() => import('./pages/ZktReviewPage'))
 const EmployeeDetailsPage = lazy(() => import('./pages/EmployeeDetailsPage'))
 const EmployeePayStubPage = lazy(() => import('./pages/EmployeePayStubPage'))
 const Chiller1HMIPage = lazy(() => import('./pages/Chiller1HMIPage'))
@@ -106,6 +107,8 @@ export default function App() {
               </ProtectedRoute>
             }
           />
+
+          <Route path="/employees/zkt-review" element={<ProtectedRoute roles={['admin']}><ZktReviewPage /></ProtectedRoute>} />
 
           <Route
             path="/employees/:id"

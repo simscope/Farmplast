@@ -12,6 +12,10 @@ $answer = $null
 try {
     $zk = New-Object -ComObject zkemkeeper.ZKEM
     if (!$zk.Connect_Net($ip, $port)) { throw 'ZKT SDK Connect_Net failed' }
+    $identitySerial=''
+    if ([string]$request.expectedSerialNumber -ne '') {
+        if (!$zk.GetSerialNumber($machine,[ref]$identitySerial) -or $identitySerial -ne [string]$request.expectedSerialNumber) { throw 'Terminal serial identity mismatch' }
+    }
     try { $zk.EnableDevice($machine, $false) | Out-Null; $disabled = $true } catch {}
     switch ([string]$request.operation) {
         'test' {
@@ -22,13 +26,43 @@ try {
             try { $zk.GetFirmwareVersion($machine,[ref]$firmware) | Out-Null } catch {}
             $answer=@{ok=$true;message='ZKT official SDK connection OK';device=@{ip=$ip;port=$port;machine=$machine};info=@{userCount=$users;logCount=$logs;serialNumber=$serial;firmware=$firmware}}
         }
-        'sync_one_employee' {
+        { $_ -in @('sync_one_employee','identity_activate_employee') } {
             $u=$request.user; $card=$true
             if ([string]$u.cardNo -ne '') { try { $card=$zk.SetStrCardNumber([string]$u.cardNo) } catch { $card=$false } }
             $set=$zk.SSR_SetUserInfo($machine,[string]$u.userId,[string]$u.name,[string]$u.password,[int]$u.privilege,[bool]$u.enabled)
             $refresh=$false; try { $refresh=$zk.RefreshData($machine) } catch {}
             $code=0; if(!$set){try{$zk.GetLastError([ref]$code)|Out-Null}catch{}}
             $answer=@{ok=[bool]$set;message=$(if($set){'SSR_SetUserInfo OK'}else{'SSR_SetUserInfo failed'});errorCode=$code;user=@{userId=$u.userId;name=$u.name;passwordSet=([string]$u.password -ne '');privilege=$u.privilege;cardNo=$u.cardNo;enabled=$u.enabled};sdk=@{cardResult=[bool]$card;setResult=[bool]$set;refreshResult=[bool]$refresh}}
+            if ([string]$request.operation -eq 'identity_activate_employee') {
+                $name='';$password='';$privilege=0;$enabled=$false
+                $read=$zk.SSR_GetUserInfo($machine,[string]$u.userId,[ref]$name,[ref]$password,[ref]$privilege,[ref]$enabled)
+                $answer=@{ok=([bool]$set -and [bool]$read -and [bool]$enabled);userId=[string]$u.userId;enabled=[bool]$enabled;readBackVerified=[bool]$read;serialNumber=$identitySerial}
+            }
+        }
+        'identity_disable_employee' {
+            if (!$zk.EnableDevice($machine,$false)) { throw 'Terminal could not be locked for identity verification' }
+            $disabled=$true
+            $id=[string]$request.user.userId
+            $name='';$password='';$privilege=0;$enabled=$false
+            $found=$zk.SSR_GetUserInfo($machine,$id,[ref]$name,[ref]$password,[ref]$privilege,[ref]$enabled)
+            if ($found) {
+                if (!$zk.SSR_EnableUser($machine,$id,$false)) { throw 'SSR_EnableUser failed' }
+                $zk.RefreshData($machine) | Out-Null
+                $enabled=$true
+                $read=$zk.SSR_GetUserInfo($machine,$id,[ref]$name,[ref]$password,[ref]$privilege,[ref]$enabled)
+                $answer=@{ok=([bool]$read -and !$enabled);userId=$id;enabled=[bool]$enabled;readBackVerified=[bool]$read;serialNumber=$identitySerial;state='disabled'}
+            } else {
+                # A failed single-user lookup is not proof of absence. Require a
+                # successful full inventory with matching device count instead.
+                $expected=0;$countAfter=0
+                if (!$zk.GetDeviceStatus($machine,2,[ref]$expected) -or !$zk.ReadAllUserID($machine)) { throw 'Cannot verify complete terminal inventory' }
+                $count=0;$present=$false;$enroll=''
+                while ($zk.SSR_GetAllUserInfo($machine,[ref]$enroll,[ref]$name,[ref]$password,[ref]$privilege,[ref]$enabled)) {
+                    $count++;if ($enroll -eq $id) {$present=$true};if ($count -gt 100000) {throw 'Invalid terminal inventory count'}
+                }
+                if (!$zk.GetDeviceStatus($machine,2,[ref]$countAfter) -or $count -ne $expected -or $countAfter -ne $expected -or $present) { throw 'Terminal absence not verified' }
+                $answer=@{ok=$true;userId=$id;enabled=$false;readBackVerified=$true;serialNumber=$identitySerial;state='absent';inventoryCount=$count}
+            }
         }
         'pull_attendance' {
             $rows=New-Object 'System.Collections.Generic.List[object]'
@@ -46,6 +80,7 @@ try {
         }
         default { throw 'Unknown SDK operation' }
     }
+    if ($identitySerial -ne '' -and !$answer.ContainsKey('serialNumber')) { $answer.serialNumber=$identitySerial }
 } catch {
     $code=0;if($zk){try{$zk.GetLastError([ref]$code)|Out-Null}catch{}}
     $answer=@{ok=$false;error=$_.Exception.Message;errorCode=$code;device=@{ip=$ip;port=$port;machine=$machine}}
