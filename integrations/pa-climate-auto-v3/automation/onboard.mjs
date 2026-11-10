@@ -1,0 +1,189 @@
+#!/usr/bin/env node
+/* Farmplast Climate automatic ESP32 onboarding. Does NOT start or install a server.
+ * Requires existing MSI gateway to mount server/createClimateHandler().
+ * Credentials stay on MSI; no fabricated hostname, private keys, or insecure TLS.
+ */
+import fs from 'node:fs';
+import path from 'node:path';
+import os from 'node:os';
+import crypto from 'node:crypto';
+import {spawnSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import {loadConfig} from '../server/config.mjs';
+
+const MODEL = 'PA-ESP32-WROOM32E-N4-R1';
+const VERSION = 'pa-climate-msi-2.0.0';
+const BOARD = 'esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,PartitionScheme=default';
+const SCRIPT = fileURLToPath(import.meta.url);
+const ROOT = path.resolve(path.dirname(SCRIPT),'..');
+
+export function parseArgs(args) {
+  const optionNames=new Set(['--config','--port','--zone','--arduino-cli','--esptool','--source','--backup-dir','--device']);
+  const flags=new Set(['--preflight','--confirm-new','--verify']);
+  const out={};
+  for(let i=0;i<args.length;i++) {
+    const k=args[i];
+    if(flags.has(k)) { out[k.slice(2)] = true; continue; }
+    if(!optionNames.has(k)||!args[i+1]||args[i+1].startsWith('--'))throw Error(`Unknown or incomplete argument: ${k}`);
+    out[k.slice(2)] = args[++i];
+  }
+  return out;
+}
+export function parseMac(output) {
+  const m=String(output).match(/(?:MAC(?: address)?|Base MAC)\s*:\s*((?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2})/i);
+  if(!m)throw Error('ESP32 MAC address not found; use an official ESP32 esptool and check the USB serial adapter');
+  return 'PA-CLIM-'+m[1].replace(/[:-]/g,'').toUpperCase();
+}
+export function nextZone(zones) {
+  if(!Array.isArray(zones))throw Error('MSI API did not return the zone list');
+  const used=new Set(zones.map(z=>z.id));
+  for(let n=1;n<10000;n++) {const id=`pa-zone-${n}`;if(!used.has(id))return id;}
+  throw Error('No free zone IDs');
+}
+export function provisioningPayload(c, wifi, endpoint, caPem) {
+  if(!c||!/^[A-Za-z0-9_-]{1,64}$/.test(c.device_id||'') ||
+      !/^[A-Za-z0-9_-]{1,64}$/.test(c.zone_id||'')||
+      typeof c.device_token!=='string'||c.device_token.length<32 ||
+      !/^[a-f0-9]{64}$/i.test(c.ota_hmac_key||''))throw Error('Incomplete server-issued device credentials');
+  const u=new URL(endpoint);
+  if(u.protocol!=='https:'||u.username||u.password||!['/v1/exchange','/climate/v1/exchange'].includes(u.pathname)||u.search||u.hash)throw Error('Cloud endpoint must be the validated HTTPS exchange URL');
+  if(!/^.{1,32}$/s.test(wifi.ssid)||typeof wifi.password!=='string'||wifi.password.length<8||wifi.password.length>63)throw Error('Wi-Fi SSID/password missing or invalid');
+  if(!caPem.includes('-----BEGIN CERTIFICATE-----')||caPem.length>3600)throw Error('Validated CA PEM is required');
+  return {device_id:c.device_id,ssid:wifi.ssid,password:wifi.password,
+    exchange_url:endpoint,token:c.device_token,ota_hmac_key:c.ota_hmac_key,root_ca_pem:caPem};
+}
+export function localApiBase(config) {
+  const s=config.CLIMATE_LOCAL_BASE_URL;
+  if(!s)throw Error('Climate route is not connected to the EXISTING MSI HTTP gateway (CLIMATE_LOCAL_BASE_URL missing). No extra service will be started.');
+  let u;try {u=new URL(s);}catch {throw Error('Invalid local API URL');}
+  if(u.protocol!=='http:'||!['127.0.0.1','localhost','[::1]'].includes(u.hostname)||u.username||u.password||u.search||u.hash)throw Error('Local API URL must use HTTP on loopback only');
+  if(u.pathname!=='/' && !/^\/[a-z0-9/_-]+$/i.test(u.pathname))throw Error('Unsupported API mount path');
+  return u.origin+(u.pathname==='/'?'':u.pathname.replace(/\/$/,''));
+}
+function spawn(cmd,args,options={}) {
+  const r=spawnSync(cmd,args,{encoding:'utf8',windowsHide:true,timeout:options.timeout??180000,...options});
+  if(r.error||r.status!==0) {
+    const message=String(r.stderr||r.stdout||r.error?.message||'').slice(-950);
+    throw Error(`${path.basename(cmd)} failed: ${message.replace(/(?:Bearer |device_token|ota_hmac_key)[^\n]{0,120}/gi,'[sensitive redacted]')}`);
+  }
+  return String(r.stdout||'')+'\n'+String(r.stderr||'');
+}
+function esptool(cmd,port,verb,args=[],timeout=90000){
+  let error;
+  for(const sub of [verb.replaceAll('_','-'),verb.replaceAll('-','_')]) {
+    try{return spawn(cmd,['--chip','esp32','--port',port,sub,...args],{timeout})}catch(e){error=e;}
+  }
+  throw error;
+}
+function ensureFileParent(file) {fs.mkdirSync(path.dirname(file),{recursive:true});}
+function writePrivate(file,value) {ensureFileParent(file);fs.writeFileSync(file,value,{flag:'wx',mode:0o600});}
+async function call(base,key,method,route,data){
+  const url=base+route;
+  const res=await fetch(url,{method,headers:{Authorization:`Bearer ${key}`,...(data?{'Content-Type':'application/json'}:{})},body:data?JSON.stringify(data):undefined,signal:AbortSignal.timeout(10000),cache:'no-store'});
+  const body=await res.json().catch(()=>({error:'Invalid JSON response'}));
+  if(!res.ok)throw Error(`Existing MSI API HTTP ${res.status}: ${body.error||'request failed'}`);
+  return body;
+}
+export async function preflight(config){
+  const base=localApiBase(config);
+  if(typeof config.CLIMATE_ADMIN_KEY!=='string'||config.CLIMATE_ADMIN_KEY.length<40)throw Error('Climate admin key is not provisioned on MSI');
+  if(!config.PUBLIC_ORIGIN||!/^https:\/\/[A-Za-z0-9.-]+(?::443)?(?:\/climate)?$/.test(config.PUBLIC_ORIGIN))throw Error('Validated PUBLIC_ORIGIN HTTPS is not configured on MSI; no fake endpoint will be used');
+  if(!config.CA_PEM_FILE||!fs.existsSync(config.CA_PEM_FILE))throw Error('Validated root CA PEM is not configured on MSI; no setInsecure()');
+  const ca=fs.readFileSync(config.CA_PEM_FILE,'utf8');
+  if(!ca.includes('-----BEGIN CERTIFICATE-----')||ca.length>20000)throw Error('Invalid root CA file');
+  const health=await fetch(base+'/healthz',{signal:AbortSignal.timeout(5000),cache:'no-store'});
+  if(!health.ok||(await health.json()).status!=='ok')throw Error('Existing MSI climate route not reachable');
+  const zones=(await call(base,config.CLIMATE_ADMIN_KEY,'GET','/v1/admin/zones')).zones;
+  return {base,zones,ca};
+}
+async function main() {
+  const a=parseArgs(process.argv.slice(2));
+  if(!a.config)throw Error('Pass --config <existing MSI climate config>');
+  const config=loadConfig(a.config);
+  const {base,zones,ca}=await preflight(config);
+  if(a.preflight){console.log('READY: existing MSI gateway has the climate API, HTTPS/CA and credentials. No changes made.');return;}
+  if(a.verify) {
+    if(!a.device||!/^PA-CLIM-[0-9A-F]{12}$/.test(a.device))throw Error('Invalid device ID for verification');
+    for(let i=0;i<10;i++){
+      const current=(await call(base,config.CLIMATE_ADMIN_KEY,'GET','/v1/admin/zones')).zones;
+      if(current.some(z=>z.device_id===a.device&&z.online&&z.reported?.firmware===VERSION)){
+        console.log('ONLINE VERIFIED: MSI received authenticated telemetry from '+a.device);return;
+      }
+      await new Promise(r=>setTimeout(r,5000));
+    }
+    throw Error('Device not yet ONLINE after provisioning; verify PA Wi-Fi and actual HTTPS ingress');
+  }
+  if(!a['confirm-new'])throw Error('Physical confirmation required: run the Windows Add-ESP32.ps1 wizard');
+  const port=a.port;
+  if(!port||!/^COM\d{1,3}$/i.test(port))throw Error('Connect a single USB–UART and supply its COM port');
+  const arduino=a['arduino-cli'];const esp=a.esptool;
+  if(!arduino||!esp||!fs.existsSync(arduino)||!fs.existsSync(esp))throw Error('Arduino CLI or Espressif esptool executable not found');
+  const wifi={ssid:process.env.PA_ONBOARD_WIFI_SSID,password:process.env.PA_ONBOARD_WIFI_PASSWORD};
+  if(!wifi.ssid||!wifi.password)throw Error('Wi-Fi credentials must come from local Windows secure prompt, not command arguments');
+  const dev=parseMac(esptool(esp,port,'read_mac'));
+  const exists=zones.find(z=>z.device_id===dev);
+  if(exists?.online)throw Error(`${dev} is ONLINE in ${exists.id}. Refusing to overwrite an operating controller.`);
+  const zone=a.zone||nextZone(zones);
+  if(!/^pa-zone-[1-9][0-9]*$/.test(zone))throw Error('Zone ID must be pa-zone-N');
+  if(zones.some(z=>z.id===zone&&z.device_id!==dev))throw Error(`Zone ${zone} already assigned to another device`);
+  if(exists&&exists.id!==zone)throw Error(`Device already assigned to ${exists.id}`);
+  const provisionDir=path.join(config.DATA_DIR,'provisioning',dev);
+  const secretFile=path.join(provisionDir,'device-secrets.json');
+  let credentials;
+  if(fs.existsSync(secretFile)) {
+    credentials=JSON.parse(fs.readFileSync(secretFile,'utf8'));
+    if(credentials.device_id!==dev||credentials.zone_id!==zone)throw Error('Existing private provisioning belongs to another device/zone');
+  } else {
+    if(exists)throw Error('Device already registered, but its original local secret is missing; refusing to rotate silently');
+    credentials=await call(base,config.CLIMATE_ADMIN_KEY,'POST','/v1/admin/devices',{
+      device_id:dev,zone_id:zone,model:MODEL
+    });
+    writePrivate(secretFile,JSON.stringify(credentials,null,2)+'\n');
+  }
+  const endpoint=config.PUBLIC_ORIGIN+'/v1/exchange';
+  const payload=provisioningPayload(credentials,wifi,endpoint,ca);
+  const work=fs.mkdtempSync(path.join(os.tmpdir(),'fp-climate-onboard-'));
+  const sketch=path.join(work,'FarmplastClimate');
+  const build=path.join(work,'build');
+  fs.mkdirSync(sketch);fs.mkdirSync(build);
+  const source=path.resolve(a.source||path.join(ROOT,'firmware','FarmplastClimate'));
+  for(const name of ['FarmplastClimate.ino','ClimateLogic.h','device_config.h'])fs.copyFileSync(path.join(source,name),path.join(sketch,name));
+  const backupPath=path.join(path.resolve(a['backup-dir']||path.join(config.DATA_DIR,'backups')),dev+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.bin');
+  ensureFileParent(backupPath);
+  try {
+    // Mandatory complete 4-MB backup BEFORE any write; a failure cannot erase old firmware.
+    console.log(`Backing up the existing 4 MB flash on ${port}; never erasing without a backup...`);
+    esptool(esp,port,'read_flash',['0x0','0x400000',backupPath],240000);
+    if(!fs.existsSync(backupPath)||fs.statSync(backupPath).size!==0x400000)throw Error('Flash backup incomplete; upload cancelled');
+    console.log(`Backup saved privately: ${backupPath}`);
+    console.log('Compiling ESP32-WROOM-32E firmware (relay remains LOCKED)...');
+    spawn(arduino,['compile','--fqbn',BOARD,'--output-dir',build,sketch],{timeout:300000});
+    const binary=path.join(build,'FarmplastClimate.ino.bin');
+    if(!fs.existsSync(binary)||fs.statSync(binary).size<256||fs.statSync(binary).size>1310720)throw Error('Application binary missing or too large for the selected OTA partition');
+    const contents=fs.readFileSync(binary);
+    if(!contents.includes(Buffer.from(`PA_CLIMATE_FW_MODEL=${MODEL}\0`)) ||
+       !contents.includes(Buffer.from(`PA_CLIMATE_FW_VERSION=${VERSION}\0`)))
+       throw Error('Built image lacks the expected model/version markers');
+    const digest=crypto.createHash('sha256').update(contents).digest('hex');
+    const releasesDir=path.join(config.DATA_DIR,'universal-builds');
+    fs.mkdirSync(releasesDir,{recursive:true});
+    const releasePath=path.join(releasesDir,digest+'.bin');
+    if(!fs.existsSync(releasePath))fs.writeFileSync(releasePath,contents,{flag:'wx',mode:0o600});
+    console.log(`Shared OTA-compatible image saved privately on MSI: ${releasePath}`);
+    console.log(`Uploading ${VERSION} to new controller ${dev} on ${port}...`);
+    spawn(arduino,['upload','--port',port,'--fqbn',BOARD,'--input-dir',build,sketch],{timeout:240000});
+    // The SAME application binary can be used for every device and OTA update.
+    // Individual secrets are provisioned to NVS over the locally attached USB port.
+    const pendingPath=path.join(provisionDir,'pending-provision.json');
+    if(fs.existsSync(pendingPath))fs.rmSync(pendingPath);
+    writePrivate(pendingPath,JSON.stringify(payload));
+    console.log(`FLASH WRITTEN: universal ${VERSION} on ${dev}; heat relay LOCKED.`);
+    console.log(`FP_PROVISION_FILE=${pendingPath}`); // file PATH only, no credentials
+    console.log('Waiting for local serial provisioner; the firmware contains NO per-device credentials.');
+  }finally{
+    // Remove temporary universal source/build artifacts from TEMP after upload.
+    fs.rmSync(work,{recursive:true,force:true});
+  }
+}
+const direct=process.argv[1]&&path.resolve(process.argv[1])===SCRIPT;
+if(direct)main().catch(e=>{console.error('STOP (no silent bypass): '+e.message);process.exitCode=1;});
