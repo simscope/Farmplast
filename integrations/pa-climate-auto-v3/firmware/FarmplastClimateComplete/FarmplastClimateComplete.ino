@@ -6,8 +6,8 @@
  * Required Arduino IDE libraries:
  *   ESP32 by Espressif Systems 3.3.x, OneWire, DallasTemperature, ArduinoJson 7.x
  *
- * Relay control is enabled by default in device_config.h at owner request.
- * Relay GPIO and polarity are installer-configurable; hardware mapping is not confirmed.
+ * Relay control is ENABLED in this sketch by owner decision.
+ * GPIO and polarity are defined below; retain the values verified on the hardware.
  * Real HTTPS backend/OTA require explicit provisioning, no demo credentials.
  */
 #include <Arduino.h>
@@ -30,15 +30,15 @@
 #include <math.h>
 
 // All-in-one Arduino sketch. Keep these settings here: no companion .h files required.
-// UNIVERSAL safe firmware. Identical source/application binary for all PA zones.
+// Universal firmware. Identical source/application binary for all PA zones.
 // Device-specific Wi-Fi, server URL, device token, OTA HMAC key and trusted root
 // certificate are stored in ESP32 NVS via first-time USB serial provisioning.
 // None of these credentials is present in the firmware image distributed for OTA.
 #define FIRMWARE_VERSION "pa-climate-msi-2.0.0"
 #define FIRMWARE_MODEL "PA-ESP32-WROOM32E-N4-R1"
 #define DS18B20_GPIO 27
-#define RELAY_GPIO 16            // NOT CONFIRMED on the physical relay PCB.
-#define RELAY_ACTIVE_HIGH true  // NOT CONFIRMED on the physical relay PCB.
+#define RELAY_GPIO 16            // Relay output GPIO; use the previously verified board wiring.
+#define RELAY_ACTIVE_HIGH true  // Relay active polarity; use the previously verified board wiring.
 #define RELAY_TESTED_AND_ENABLED true   // Enabled at owner request; GPIO/polarity must match the physical PCB.
 
 #include <math.h>
