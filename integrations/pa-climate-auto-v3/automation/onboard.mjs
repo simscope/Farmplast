@@ -60,6 +60,27 @@ export function localApiBase(config) {
   if(u.pathname!=='/' && !/^\/[a-z0-9/_-]+$/i.test(u.pathname))throw Error('Unsupported API mount path');
   return u.origin+(u.pathname==='/'?'':u.pathname.replace(/\/$/,''));
 }
+export function remoteApiBase(config) {
+  const u=new URL(config.CLIMATE_HTTPS_BASE_URL);
+  if(u.protocol!=='https:'||u.port&&u.port!=='443'||u.username||u.password||u.pathname!=='/climate'||u.search||u.hash)throw Error('Workstation requires the verified MSI HTTPS /climate endpoint');
+  if(config.PUBLIC_ORIGIN!==u.origin+'/climate')throw Error('Public exchange and workstation origins must match');
+  return u.origin+'/climate';
+}
+export function privateCredentials(file,value) {
+  if(process.platform!=='win32')throw Error('Workstation credentials require Windows DPAPI');
+  const encrypt=value!==undefined;
+  const script=encrypt
+    ? '$s=[Console]::In.ReadToEnd() | ConvertTo-SecureString -AsPlainText -Force; $s | ConvertFrom-SecureString'
+    : '$s=[Console]::In.ReadToEnd() | ConvertTo-SecureString; $p=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($s); try {[Console]::Write([Runtime.InteropServices.Marshal]::PtrToStringBSTR($p))} finally {[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($p)}';
+  const result=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command',script],{input:encrypt?JSON.stringify(value):fs.readFileSync(file,'utf8'),encoding:'utf8',windowsHide:true,timeout:10000,env:{...process.env,PSModulePath:path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','Modules')}});
+  if(result.status!==0||result.error) {
+    const e=Error('Windows DPAPI operation failed; no plaintext fallback');
+    if(/CryptographicException/.test(result.stderr||''))e.code='DPAPI_UNAVAILABLE';
+    throw e;
+  }
+  if(encrypt)writePrivate(file,result.stdout.trim());
+  else return JSON.parse(result.stdout);
+}
 function spawn(cmd,args,options={}) {
   const r=spawnSync(cmd,args,{encoding:'utf8',windowsHide:true,timeout:options.timeout??180000,...options});
   if(r.error||r.status!==0) {
@@ -85,28 +106,30 @@ async function call(base,key,method,route,data){
   return body;
 }
 export async function preflight(config){
-  const base=localApiBase(config);
-  if(typeof config.CLIMATE_ADMIN_KEY!=='string'||config.CLIMATE_ADMIN_KEY.length<40)throw Error('Climate admin key is not provisioned on MSI');
+  const remote=!!config.CLIMATE_HTTPS_BASE_URL;
+  const base=remote?remoteApiBase(config):localApiBase(config);
+  const key=remote?process.env.PA_WORKSTATION_TOKEN:config.CLIMATE_ADMIN_KEY;
+  if(typeof key!=='string'||key.length<(remote?30:40))throw Error('MSI or workstation authentication is not provisioned');
   if(!config.PUBLIC_ORIGIN||!/^https:\/\/[A-Za-z0-9.-]+(?::443)?(?:\/climate)?$/.test(config.PUBLIC_ORIGIN))throw Error('Validated PUBLIC_ORIGIN HTTPS is not configured on MSI; no fake endpoint will be used');
   if(!config.CA_PEM_FILE||!fs.existsSync(config.CA_PEM_FILE))throw Error('Validated root CA PEM is not configured on MSI; no setInsecure()');
   const ca=fs.readFileSync(config.CA_PEM_FILE,'utf8');
   if(!ca.includes('-----BEGIN CERTIFICATE-----')||ca.length>20000)throw Error('Invalid root CA file');
   const health=await fetch(base+'/healthz',{signal:AbortSignal.timeout(5000),cache:'no-store'});
   if(!health.ok||(await health.json()).status!=='ok')throw Error('Existing MSI climate route not reachable');
-  const zones=(await call(base,config.CLIMATE_ADMIN_KEY,'GET','/v1/admin/zones')).zones;
-  return {base,zones,ca};
+  const zones=(await call(base,key,'GET',remote?'/workstation/zones':'/v1/admin/zones')).zones;
+  return {base,zones,ca,key,remote};
 }
 async function main() {
   const a=parseArgs(process.argv.slice(2));
   if(!a.config)throw Error('Pass --config <existing MSI climate config>');
   const config=loadConfig(a.config);
-  const {base,zones,ca}=await preflight(config);
+  const {base,zones,ca,key,remote}=await preflight(config);
   if(a.preflight){console.log('READY: existing MSI gateway has the climate API, HTTPS/CA and credentials. No changes made.');return;}
   if(a.verify) {
     if(!a.device||!/^PA-CLIM-[0-9A-F]{12}$/.test(a.device))throw Error('Invalid device ID for verification');
     for(let i=0;i<10;i++){
-      const current=(await call(base,config.CLIMATE_ADMIN_KEY,'GET','/v1/admin/zones')).zones;
-      if(current.some(z=>z.device_id===a.device&&z.online&&z.reported?.firmware===VERSION)){
+      const current=(await call(base,key,'GET',remote?'/workstation/zones':'/v1/admin/zones')).zones;
+      if(current.some(z=>z.device_id===a.device&&z.online&&(z.reported?.firmware??z.firmware)===VERSION)){
         console.log('ONLINE VERIFIED: MSI received authenticated telemetry from '+a.device);return;
       }
       await new Promise(r=>setTimeout(r,5000));
@@ -123,22 +146,23 @@ async function main() {
   const dev=parseMac(esptool(esp,port,'read_mac'));
   const exists=zones.find(z=>z.device_id===dev);
   if(exists?.online)throw Error(`${dev} is ONLINE in ${exists.id}. Refusing to overwrite an operating controller.`);
-  const zone=a.zone||nextZone(zones);
+  const zone=a.zone||exists?.id||nextZone(zones);
   if(!/^pa-zone-[1-9][0-9]*$/.test(zone))throw Error('Zone ID must be pa-zone-N');
   if(zones.some(z=>z.id===zone&&z.device_id!==dev))throw Error(`Zone ${zone} already assigned to another device`);
   if(exists&&exists.id!==zone)throw Error(`Device already assigned to ${exists.id}`);
   const provisionDir=path.join(config.DATA_DIR,'provisioning',dev);
-  const secretFile=path.join(provisionDir,'device-secrets.json');
+  const secretFile=path.join(provisionDir,remote?'device-secrets.dpapi':'device-secrets.json');
   let credentials;
   if(fs.existsSync(secretFile)) {
-    credentials=JSON.parse(fs.readFileSync(secretFile,'utf8'));
+    credentials=remote?privateCredentials(secretFile):JSON.parse(fs.readFileSync(secretFile,'utf8'));
     if(credentials.device_id!==dev||credentials.zone_id!==zone)throw Error('Existing private provisioning belongs to another device/zone');
   } else {
     if(exists)throw Error('Device already registered, but its original local secret is missing; refusing to rotate silently');
-    credentials=await call(base,config.CLIMATE_ADMIN_KEY,'POST','/v1/admin/devices',{
+    credentials=await call(base,key,'POST',remote?'/workstation/devices':'/v1/admin/devices',{
       device_id:dev,zone_id:zone,model:MODEL
     });
-    writePrivate(secretFile,JSON.stringify(credentials,null,2)+'\n');
+    if(remote)privateCredentials(secretFile,credentials);
+    else writePrivate(secretFile,JSON.stringify(credentials,null,2)+'\n');
   }
   const endpoint=config.PUBLIC_ORIGIN+'/v1/exchange';
   const payload=provisioningPayload(credentials,wifi,endpoint,ca);

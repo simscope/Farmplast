@@ -561,6 +561,10 @@ void maybeConfirmOta() {
 
 void setup() {
   Serial.begin(115200);
+  // Real references retain both identity strings under linker --gc-sections.
+  // __attribute__((used)) alone only protects compilation, not final linking.
+  Serial.println(PA_CLIMATE_BUILD_VERSION);
+  Serial.println(PA_CLIMATE_BUILD_MODEL);
   delay(250);
   nv.begin("fpclimate", false);
   uint8_t mac[6] = {0};

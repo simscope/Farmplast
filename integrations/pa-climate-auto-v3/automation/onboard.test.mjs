@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseArgs,parseMac,nextZone,provisioningPayload,localApiBase} from './onboard.mjs';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import {parseArgs,parseMac,nextZone,provisioningPayload,localApiBase,remoteApiBase,privateCredentials} from './onboard.mjs';
 
 test('MAC -> stable per-device ID, no serial port index used as identity',()=>{
  assert.equal(parseMac('Connecting...\nMAC: 1a:2b:3c:4d:5e:6f\n'),'PA-CLIM-1A2B3C4D5E6F');
@@ -29,4 +32,19 @@ test('Real per-device provisioning rejects empty/cloud-unsafe values',()=>{
 test('Argument parser rejects unsupported overrides',()=>{
  assert.deepEqual(parseArgs(['--config','file.env','--preflight']),{config:'file.env',preflight:true});
  assert.throws(()=>parseArgs(['--unsafe-bypass']));
+});
+
+test('Factory workstation requires HTTPS and identical exchange origin without MSI master key',()=>{
+  const c={CLIMATE_HTTPS_BASE_URL:'https://factory.example/climate',PUBLIC_ORIGIN:'https://factory.example/climate'};
+  assert.equal(remoteApiBase(c),'https://factory.example/climate');
+  for(const base of ['http://factory.example/climate','https://factory.example/climate-local','https://user:pass@factory.example/climate','https://factory.example:8443/climate','https://factory.example/climate?x=1'])assert.throws(()=>remoteApiBase({...c,CLIMATE_HTTPS_BASE_URL:base}));
+  assert.throws(()=>remoteApiBase({...c,PUBLIC_ORIGIN:'https://other.example/climate'}));
+});
+
+test('Factory device credentials persist with real Windows DPAPI, without plaintext tokens',{skip:process.platform!=='win32'},t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fp-dpapi-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const file=path.join(dir,'device.dpapi'),value={device_token:'SYNTHETIC-token-for-DPAPI-test',zone_id:'test-zone'};
+  try {privateCredentials(file,value);}catch(e){if(e.code==='DPAPI_UNAVAILABLE'){t.skip('Windows DPAPI denied access in this execution context; factory user verification required');return;}throw e;}
+  assert.equal(fs.readFileSync(file,'utf8').includes(value.device_token),false);
+  assert.deepEqual(privateCredentials(file),value);
 });

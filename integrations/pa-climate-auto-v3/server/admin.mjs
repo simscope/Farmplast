@@ -29,7 +29,7 @@ if(command==='init'){
 }
 const config=loadConfig(process.env.CLIMATE_CONFIG_FILE);
 const base=config.CLIMATE_LOCAL_BASE_URL;
-if(!base||!/^http:\/\/(127\.0\.0\.1|localhost)(:[0-9]+)?\/climate$/.test(base))throw Error('Attach /climate route to existing MSI HTTP service and set CLIMATE_LOCAL_BASE_URL first');
+if(!base||!/^http:\/\/(127\.0\.0\.1|localhost)(:[0-9]+)?\/climate(?:-local)?$/.test(base))throw Error('Attach climate route to existing MSI HTTP service and set CLIMATE_LOCAL_BASE_URL first');
 const endpoint=base+'/v1/admin';
 const api=async (method,apiPath,body,extraHeaders={})=>{
   const r=await fetch(endpoint+apiPath,{method,headers:{Authorization:'Bearer '+config.CLIMATE_ADMIN_KEY,...extraHeaders},body,

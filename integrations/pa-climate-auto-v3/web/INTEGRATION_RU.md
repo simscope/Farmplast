@@ -17,9 +17,9 @@
 
 Vercel environment (только server-side значения):
 
-- `PA_CLIMATE_MSI_BASE_URL`: реальный HTTPS hostname MSI (публичный путь через Cloudflare Tunnel) без пути;
-- `PA_CLIMATE_MSI_ADMIN_KEY`: значение `CLIMATE_ADMIN_KEY` из защищённого `E:\SimScopeData\Farmplast\Climate\climate.env` (не из браузера);
-- `PA_CLIMATE_ALLOWED_USER_IDS`: UUID допущенных операторов через запятую;
+- `PA_CLIMATE_MSI_BASE_URL`: действительный HTTPS endpoint MSI с путём `/climate`; адрес не угадывать;
+- Административный ключ MSI не передаётся Vercel или браузеру. Прокси передаёт существующий пользовательский JWT в `/climate/operator/*`; MSI повторно проверяет JWT и allowlist.
+- `PA_CLIMATE_ALLOWED_USER_IDS`: UUID допущенных операторов через запятую; по умолчанию используется существующий `SACS_SSO_ALLOWED_USER_IDS` этого проекта;
 - `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`: существующие, использовать для проверки JWT, не менять.
 
 Ни одно значение не должно попасть в `VITE_*` или JS клиента, кроме уже публичного anon key.

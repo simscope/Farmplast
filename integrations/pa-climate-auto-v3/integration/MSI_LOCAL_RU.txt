@@ -1,0 +1,27 @@
+Состояние установки 10 ноября 2026
+
+MSI работает только сервером. ESP32 по USB подключается к заводскому Windows-компьютеру.
+Существующий gateway: supabase-envoy, 127.0.0.1:18000 -> 8000 в существующем контейнере.
+Climate выполняется внутри существующего MAIN worker supabase-edge-functions (Deno), через createClimateHandler и Fetch-адаптер. Новых процессов-серверов, контейнеров, служб, таблиц и портов нет.
+
+GET /climate/healthz: 200. POST /climate/v1/exchange: индивидуальный device bearer.
+GET /climate/v1/firmware/<sha256>: только действующая подписанная ссылка для доставленного OTA job.
+GET/POST /climate/v1/admin/*: всегда 404, даже с правильным admin key.
+/climate/operator/*: проверка существующего Farmplast JWT через Supabase Auth + UUID allowlist из существующего SACS_SSO_ALLOWED_USER_IDS проекта Farmplast. Регистрация устройств и выдача их секретов через этот браузерный API запрещены.
+/climate-local/v1/admin/*: только локальное управление с закрытым admin key. Этот namespace запрещено включать в публичный HTTPS ingress.
+/climate/workstation/*: одноразовый enrollment ticket, затем отзывная ограниченная учётная запись заводского установщика. Доступны регистрация новых устройств и проверка ONLINE; управление отоплением и OTA недоступно. pa-zone-1 зарезервирована.
+
+Конфигурация: E:\SimScopeData\Farmplast\Climate\climate.env, CLIMATE_LOCAL_BASE_URL=http://127.0.0.1:18000/climate-local. PUBLIC_ORIGIN оставлен пустым, поскольку действующий HTTPS ingress без Tailscale не найден и адрес не предоставлен. OTA job без него отвергается.
+Файловое хранение: E:\SimScopeData\Farmplast\Climate\data — junction на существующий bind mount E:\SimScopeData\Supabase\deployment\volumes\functions\main\climate\data. JSON-состояние, телеметрия NDJSON, .bin на диске MSI; SQLite/Supabase-таблицы не добавлялись.
+Код runtime: deployment\volumes\functions\main\climate\module. Изменения main/index.ts и Envoy lds.template.yaml сохранены отдельными patch-файлами рядом с этим отчётом. Оригиналы: E:\SimScopeData\Farmplast\Climate\integration-backup.
+Откат интеграции: вернуть оба оригинальных файла из integration-backup и перезапустить только существующие supabase-edge-functions и supabase-envoy. Данные Climate не удалять.
+
+Проверки: Node suite — 13 PASS, 0 FAIL, 1 SKIP (Windows DPAPI возвращает CryptographicException/Access denied в контексте Codex). Реальный gateway — 27 HTTP-проверок + 4 после рестарта; только программная имитация, тестовые устройства/релизы удалены. Старые Auth и hello дают 200. Каталог таблиц Supabase сохранил fingerprint c05dfa8dd58139060fe6e417c0bf55f2; SQL-записи не выполнялись. PID 18177 отсутствует.
+Реальная сборка кандидата на установленном ESP32 core 3.2.0 принята API как release pa-climate-msi-2.0.0, 1065696 bytes, SHA256 6380505729159f201f6ae05a1e78fcc1aca2c2c2b3017ce387154764f5470b03. Исправлено удаление identity markers линкером. Ни одной платы не обновляли; relay false. Заводской мастер запрашивает core 3.3.8, эта версия здесь не проверена.
+
+Заводской установщик: automation/Install-Workstation.ps1 + Auto-Add-ESP32.ps1. Инструменты загружаются с официальных HTTPS endpoint с SHA256-проверкой, индивидуальные данные сохраняются DPAPI, SSID определяется из подключённого Wi-Fi, пароль спрашивается первый раз, COM выбирается только при нескольких, физически новая плата подтверждается словом NEW. Никаких ручных .ino/URL/CA/SQL/JSON-токенов. Полный flash backup 4 MB перед записью; индивидуальный NVS по USB.
+После настройки настоящего HTTPS: node E:\SimScopeData\Farmplast\Climate\module\automation\package-workstation.mjs E:\SimScopeData\Farmplast\Climate\climate.env. Он проверяет публичный healthz и создаёт отдельный ZIP с одноразовым 10-минутным enrollment ticket, без админского ключа MSI. Повторные запуски уже зарегистрированного рабочего компьютера используют DPAPI. Сейчас рабочий ZIP не выдан, чтобы не включать выдуманный URL.
+Будущий ingress должен пропускать только перечисленные публичные climate-маршруты, исключать /climate-local и все прочие приложения MSI; MSI admin key не должен передаваться ingress/browser/Vercel.
+
+Сайт: подготовлен и проверен JWT-прокси web/api-pa-climate-msi.js; он не использует MSI admin key. Production не изменён. Восстановлены 313 файлов текущего CLI-deploy; 34 файла отсутствуют из-за обрезки ответа Vercel. Для сохранения PIN/разметки нужна полная актуальная source-копия. Старую GitHub main не выдавать за production.
+Физически не подтверждены: два DS18B20 и их отказы, реле, Wi-Fi loss, реальный ACK/перезапуск ESP32, подписанный OTA и recovery после неудачной прошивки. DPAPI нужно проверить в пользовательском сеансе заводского ПК. GO НЕ ВЫДАН.

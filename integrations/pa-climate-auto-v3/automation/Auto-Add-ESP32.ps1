@@ -1,4 +1,4 @@
-# One-button onboarding for a NEW ESP32 board on an already integrated MSI server.
+# Run on the FACTORY Windows workstation; MSI remains the remote server.
 # This script NEVER starts a second HTTP server, Docker container, or Windows service.
 param(
   [string]$Config = 'E:\SimScopeData\Farmplast\Climate\climate.env',
@@ -7,6 +7,7 @@ param(
   [switch]$ResetWifi
 )
 $ErrorActionPreference='Stop'
+if($PSVersionTable.PSEdition -eq 'Desktop'){$env:PSModulePath="$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules;"+$env:PSModulePath}
 $node=(Get-Command node -ErrorAction Stop).Source
 $script=Join-Path $PSScriptRoot 'onboard.mjs'
 if(-not (Test-Path $Config)){throw "MSI module configuration not found: $Config. Run Install-MSI.ps1 to STAGE files first (no new server)."}
@@ -65,12 +66,6 @@ $arduino=Find-Executable 'arduino-cli.exe' @(
 )
 if(-not $arduino){$c=Get-Command arduino-cli -ErrorAction SilentlyContinue;if($c){$arduino=$c.Source}}
 if(-not $arduino){throw 'Arduino CLI not installed/found. Arduino IDE 2 may contain arduino-cli.exe. No flashing attempted.'}
-$esptool=Find-Executable 'esptool.exe' @()
-if(-not $esptool){
-  $dir=Join-Path $env:LOCALAPPDATA 'Arduino15\packages\esp32\tools\esptool_py'
-  if(Test-Path $dir){$esptool=Get-ChildItem -Path $dir -Recurse -Filter esptool.exe -File -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName}
-}
-if(-not $esptool){throw 'Espressif esptool.exe not found in Arduino ESP32 core. No flashing attempted.'}
 
 # Detect USB–UART port; ask only if more than one is connected.
 if(-not $Port){
@@ -100,7 +95,10 @@ if(Test-Path $wifiFile){
   $ssid=[string]$saved.ssid
   $password=ConvertTo-SecureString -String ([string]$saved.dpapi)
 }else{
-  $ssid=Read-Host 'Enter Pennsylvania 2.4 GHz Wi-Fi SSID (only first time)'
+  $wlan=netsh wlan show interfaces | Out-String
+  $connected=@([regex]::Matches($wlan,'(?m)^\s*SSID\s*:\s*(.+?)\s*$') | ForEach-Object {$_.Groups[1].Value.Trim()} | Select-Object -Unique)
+  if($connected.Count -ne 1){throw 'Connect this workstation to the Pennsylvania Wi-Fi before first setup; exactly one connected WLAN is required.'}
+  $ssid=$connected[0]
   $password=Read-Host -AsSecureString 'Enter Wi-Fi password (stored with Windows DPAPI)'
   New-Item -ItemType Directory -Path $wifiDir -Force | Out-Null
   @{ssid=$ssid;dpapi=($password | ConvertFrom-SecureString)} | ConvertTo-Json | Set-Content -Path $wifiFile -Encoding UTF8
@@ -113,10 +111,10 @@ if($ssid.Length -lt 1 -or $ssid.Length -gt 32 -or $plain.Length -lt 8 -or $plain
 & $arduino core list | Out-Null
 if($LASTEXITCODE -ne 0){throw 'Arduino CLI core list failed'}
 $coreJson=(& $arduino core list --format json | Out-String)
-if($coreJson -notmatch 'esp32:esp32'){
+if($coreJson -notmatch 'esp32:esp32' -or $coreJson -notmatch '3\.3\.8'){
   Write-Host 'Installing official Espressif ESP32 core 3.3.8...'
-  & $arduino core update-index; if($LASTEXITCODE -ne 0){throw 'Arduino core index download failed'}
-  & $arduino core install 'esp32:esp32@3.3.8'; if($LASTEXITCODE -ne 0){throw 'ESP32 core installation failed'}
+  & $arduino core update-index --additional-urls 'https://espressif.github.io/arduino-esp32/package_esp32_index.json'; if($LASTEXITCODE -ne 0){throw 'Arduino core index download failed'}
+  & $arduino core install 'esp32:esp32@3.3.8' --additional-urls 'https://espressif.github.io/arduino-esp32/package_esp32_index.json'; if($LASTEXITCODE -ne 0){throw 'ESP32 core installation failed'}
 }
 $libJson=(& $arduino lib list --format json | Out-String)
 if($LASTEXITCODE -ne 0){throw 'Arduino library list failed'}
@@ -126,6 +124,13 @@ foreach($lib in @('OneWire','DallasTemperature','ArduinoJson')){
     & $arduino lib install $lib; if($LASTEXITCODE -ne 0){throw "Failed to install Arduino library $lib"}
   }
 }
+$esptool=Find-Executable 'esptool.exe' @()
+if(-not $esptool){
+  $dir=Join-Path $env:LOCALAPPDATA 'Arduino15\packages\esp32\tools\esptool_py'
+  if(Test-Path $dir){$esptool=Get-ChildItem -Path $dir -Recurse -Filter esptool.exe -File -ErrorAction SilentlyContinue | Sort-Object FullName -Descending | Select-Object -First 1 -ExpandProperty FullName}
+}
+if(-not $esptool){throw 'Espressif esptool.exe not found in Arduino ESP32 core. No flashing attempted.'}
+
 $env:PA_ONBOARD_WIFI_SSID=$ssid
 $env:PA_ONBOARD_WIFI_PASSWORD=$plain
 $plain=$null

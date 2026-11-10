@@ -27,16 +27,6 @@ if(-not (Test-Path $configFile)) {
   & $node (Join-Path $destination 'server\admin.mjs') init $configFile
   if($LASTEXITCODE -ne 0) {throw 'Could not initialize private module config'}
 }
-$launcher=@'
-$ErrorActionPreference='Stop'
-$root=Split-Path -Parent $MyInvocation.MyCommand.Path
-& powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root 'module\automation\Auto-Add-ESP32.ps1') -Config (Join-Path $root 'climate.env') @args
-'@
-Set-Content -Path (Join-Path $DataDir 'Add-ESP32.ps1') -Value $launcher -Encoding UTF8
-$cmdContent='@echo off'+"`r`n"+'powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Add-ESP32.ps1"'+"`r`n"+'pause'+"`r`n"
-Set-Content -Path (Join-Path $DataDir 'Add-ESP32.cmd') -Value $cmdContent -Encoding Ascii
-Write-Host ''
-Write-Host 'READY: module sources staged in the EXISTING MSI data folder.' -ForegroundColor Green
-Write-Host 'NO server, scheduled task, container, database, or open port was created.'
-Write-Host 'Before onboarding, the existing MSI gateway must mount /climate (read integration\INTEGRATION_MSI_RU.md).'
-Write-Host "When integrated: powershell -NoProfile -ExecutionPolicy Bypass -File `"$(Join-Path $DataDir 'Add-ESP32.ps1')`""
+Write-Host 'MSI module staged only. Factory USB onboarding runs on the factory Windows workstation.'
+Write-Host 'After real HTTPS ingress is configured, package the workstation installer with module/automation/package-workstation.mjs.'
+Write-Host 'No server, service, container, database or port created.'

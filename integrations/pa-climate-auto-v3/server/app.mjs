@@ -2,6 +2,7 @@ import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import { ClimateStore, secureEqual, sha256, hmac, validateId } from './storage.mjs';
 
 const json = (res, code, value) => {

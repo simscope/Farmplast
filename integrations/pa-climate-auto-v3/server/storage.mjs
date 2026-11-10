@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { Buffer } from 'node:buffer';
 
 const empty = () => ({ schema: 1, devices: {}, zones: {}, releases: {}, jobs: {} });
 const idPattern = /^[A-Za-z0-9_-]{1,64}$/;
@@ -30,7 +31,7 @@ export class ClimateStore {
     if(!fs.existsSync(this.file)) this.persist();
   }
   persist() {
-    const tmp=this.file+'.'+process.pid+'.tmp';
+    const tmp=this.file+'.'+crypto.randomUUID()+'.tmp';
     fs.writeFileSync(tmp,JSON.stringify(this.state,null,2)+'\n',{flag:'wx',mode:0o600});
     fs.renameSync(tmp,this.file);
   }
@@ -75,7 +76,7 @@ export class ClimateStore {
     if(body.sensor_count!==n || !Number.isInteger(body.revision) || body.revision<0 || typeof body.heat!=='boolean') throw Error('Invalid sensor/status fields');
     const average=n===2?(body.sensor_1_f+body.sensor_2_f)/2:n===1?(body.sensor_1_f??body.sensor_2_f):null;
     if(average===null ? body.temperature_f!==null : body.temperature_f===null||Math.abs(average-body.temperature_f)>0.25) throw Error('Average inconsistent with sensors');
-    if(!['AUTO','MANUAL','OFF'].includes(body.mode)||!versionPattern.test(body.firmware)||!validateId(body.boot_id))throw Error('Invalid runtime fields');
+    if(!['AUTO','MANUAL','OFF'].includes(body.mode)||typeof body.firmware!=='string'||!versionPattern.test(body.firmware)||!validateId(body.boot_id)||typeof body.target_f!=='number'||!Number.isFinite(body.target_f)||body.target_f<45||body.target_f>90)throw Error('Invalid runtime fields');
     const now=new Date().toISOString();
     const record={at:now,device_id:device.device_id,zone_id:device.zone_id,firmware:body.firmware,model:body.model,boot_id:body.boot_id,
       sensor_1_f:body.sensor_1_f,sensor_2_f:body.sensor_2_f,temperature_f:average,sensor_count:n,
@@ -93,7 +94,9 @@ export class ClimateStore {
       const d=Object.values(this.state.devices).find(x=>x.zone_id===z.id);
       const t=d?.last_telemetry??null;
       const online=!!t && now-Date.parse(t.at)<60000;
+      const acknowledged=online&&t.revision===z.desired.revision&&t.mode===z.desired.mode&&Math.abs(t.target_f-z.desired.target_f)<0.01;
       return {id:z.id,name:z.name,device_id:d?.device_id??null,online,
+        command_ack:{revision:z.desired.revision,acknowledged,status:!online?'offline':acknowledged?'applied':'pending'},
         desired:z.desired,reported:online?t:null,last_seen:d?.last_seen??null};
     });
   }
