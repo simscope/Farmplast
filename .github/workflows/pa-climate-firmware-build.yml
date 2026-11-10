@@ -74,7 +74,7 @@ jobs:
           candidates=list(Path('build/pa-climate-standalone').glob('*.ino.bin'))
           assert len(candidates)==1, f'Unexpected standalone build output: {candidates}'
           data=candidates[0].read_bytes()
-          assert data[:1]==b'\\xE9', 'Invalid ESP32 application'
+          assert data[0]==0xE9, 'Invalid ESP32 application'
           assert len(data)<=0x140000, 'Standalone image exceeds OTA slot'
           assert b'PA_CLIMATE_FW_MODEL=PA-ESP32-WROOM32E-N4-R1' in data
           assert b'PA_CLIMATE_FW_VERSION=pa-climate-msi-2.0.0' in data
