@@ -5,8 +5,8 @@
  * Required Arduino IDE libraries:
  *   ESP32 by Espressif Systems 3.3.x, OneWire, DallasTemperature, ArduinoJson 7.x
  *
- * SAFE COMMISSIONING: RELAY_TESTED_AND_ENABLED is FALSE in device_config.h.
- * No mains/HVAC circuits may be connected during initial tests.
+ * Relay control is enabled by default in device_config.h at owner request.
+ * Relay GPIO and polarity are installer-configurable; hardware mapping is not confirmed.
  * Real HTTPS backend/OTA require explicit provisioning, no demo credentials.
  */
 #include <Arduino.h>
@@ -579,6 +579,8 @@ void setup() {
   bootNonce = esp_random();
   Serial.printf("Farmplast PA Climate v%s | %s | model %s\n",
      FIRMWARE_VERSION, deviceId.c_str(), FIRMWARE_MODEL);
+  Serial.println(PA_CLIMATE_BUILD_VERSION);
+  Serial.println(PA_CLIMATE_BUILD_MODEL);
   Serial.println("One ESP32, two DS18B20, one heating relay");
   if (!RELAY_TESTED_AND_ENABLED) Serial.println("RELAY LOCKED (test commissioning): no relay pin is driven");
   if (RELAY_TESTED_AND_ENABLED) {
@@ -605,7 +607,7 @@ void setup() {
   lastDiscovery = millis();
   requestSample();
   if (isProvisioned) { connectWifi(); initializeClock(); }
-  else Serial.println("PA_PROVISION_READY: connect USB–UART and run Add-ESP32 on MSI");
+  else Serial.println("PA_PROVISION_READY: USB-UART provisioning uses Windows workstation; MSI is network server");
   Serial.println("READY: two sensors average; local control survives Wi-Fi outage");
 }
 
