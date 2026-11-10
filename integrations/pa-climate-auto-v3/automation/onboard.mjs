@@ -177,7 +177,7 @@ async function main() {
     const pendingPath=path.join(provisionDir,'pending-provision.json');
     if(fs.existsSync(pendingPath))fs.rmSync(pendingPath);
     writePrivate(pendingPath,JSON.stringify(payload));
-    console.log(`FLASH WRITTEN: universal ${VERSION} on ${dev}; heat relay LOCKED.`);
+    console.log(`FLASH WRITTEN: universal ${VERSION} on ${dev}; relay behavior follows device_config.h.`);
     console.log(`FP_PROVISION_FILE=${pendingPath}`); // file PATH only, no credentials
     console.log('Waiting for local serial provisioner; the firmware contains NO per-device credentials.');
   }finally{
