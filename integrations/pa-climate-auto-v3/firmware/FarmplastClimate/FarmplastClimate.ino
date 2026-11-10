@@ -575,6 +575,8 @@ void setup() {
   bootNonce = esp_random();
   Serial.printf("Farmplast PA Climate v%s | %s | model %s\n",
      FIRMWARE_VERSION, deviceId.c_str(), FIRMWARE_MODEL);
+  Serial.println(PA_CLIMATE_BUILD_VERSION);
+  Serial.println(PA_CLIMATE_BUILD_MODEL);
   Serial.println("One ESP32, two DS18B20, one heating relay");
   if (!RELAY_TESTED_AND_ENABLED) Serial.println("RELAY LOCKED (test commissioning): no relay pin is driven");
   if (RELAY_TESTED_AND_ENABLED) {
