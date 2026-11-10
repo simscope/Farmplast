@@ -5,8 +5,8 @@
  * Required Arduino IDE libraries:
  *   ESP32 by Espressif Systems 3.3.x, OneWire, DallasTemperature, ArduinoJson 7.x
  *
- * SAFE COMMISSIONING: RELAY_TESTED_AND_ENABLED is FALSE in device_config.h.
- * No mains/HVAC circuits may be connected during initial tests.
+ * Relay control is enabled by default in device_config.h at owner request.
+ * Relay GPIO and polarity are installer-configurable; hardware mapping is not confirmed.
  * Real HTTPS backend/OTA require explicit provisioning, no demo credentials.
  */
 #include <Arduino.h>
