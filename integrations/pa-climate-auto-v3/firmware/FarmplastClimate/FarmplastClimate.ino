@@ -603,7 +603,7 @@ void setup() {
   lastDiscovery = millis();
   requestSample();
   if (isProvisioned) { connectWifi(); initializeClock(); }
-  else Serial.println("PA_PROVISION_READY: connect USB–UART and run Add-ESP32 on MSI");
+  else Serial.println("PA_PROVISION_READY: USB-UART provisioning uses Windows workstation; MSI is network server");
   Serial.println("READY: two sensors average; local control survives Wi-Fi outage");
 }
 
