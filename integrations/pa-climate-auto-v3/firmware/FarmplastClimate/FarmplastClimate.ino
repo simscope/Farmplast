@@ -44,7 +44,7 @@ constexpr uint32_t WIFI_RETRY_MS = 12000;
 constexpr uint32_t MIN_RELAY_INTERVAL_MS = 60000;
 constexpr float TEMPERATURE_MIN_F = -40.0f;
 constexpr float TEMPERATURE_MAX_F = 176.0f;
-constexpr float TARGET_MIN_F = 45.0f;
+constexpr float TARGET_MIN_F = 40.0f;
 constexpr float TARGET_MAX_F = 90.0f;
 constexpr float HYSTERESIS_F = 2.0f;
 constexpr float DIFFERENCE_WARNING_F = 5.0f;
@@ -512,6 +512,13 @@ void cloudExchange() {
   tx["sensor_difference"] = current.disagreement;
   tx["revision"] = revisionApplied;
   tx["last_ota_job"] = lastOtaJob;
+#if defined(CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE) && CONFIG_BOOTLOADER_APP_ROLLBACK_ENABLE
+  tx["rollback_enabled"] = true;
+  tx["ota_boot_validated"] = !nv.getBool("newota", false);
+#else
+  tx["rollback_enabled"] = false;
+  tx["ota_boot_validated"] = false;
+#endif
   tx["uptime_s"] = millis() / 1000;
 
   String serialized;

@@ -42,7 +42,7 @@ export function createClimateHandler({dir,adminKey,publicOrigin='',allowAdmin=tr
         const pending=Object.values(store.state.jobs).find(j=>j.device_id===device.device_id&&['queued','delivered'].includes(j.status));
         // OTA completion is recognized from real post-reboot telemetry, not the download response.
         for(const job of Object.values(store.state.jobs))if(job.device_id===device.device_id && ['queued','delivered'].includes(job.status) &&
-          telemetry.last_ota_job===job.id && telemetry.firmware===job.version && telemetry.boot_id!==job.previous_boot_id && telemetry.sensor_count>=1) {
+          telemetry.last_ota_job===job.id && telemetry.firmware===job.version && telemetry.boot_id!==job.previous_boot_id && telemetry.sensor_count>=1 && telemetry.rollback_enabled && telemetry.ota_boot_validated) {
           job.status='completed';job.completed_at=new Date().toISOString();store.persist();
         }
         if(pending && pending.status!=='completed' && publicBase) {
@@ -110,6 +110,7 @@ export function createClimateHandler({dir,adminKey,publicOrigin='',allowAdmin=tr
           if(Object.values(store.state.jobs).some(j=>j.device_id===device.device_id&&['queued','delivered'].includes(j.status)))return bad(res,409,'Device already has active OTA');
           const t=device.last_telemetry;
           if(!t||Date.now()-Date.parse(t.at)>60000||t.sensor_count===0||t.heat)return bad(res,409,'Device must be recently online, sensors valid, heating off');
+          if(!t.rollback_enabled)return bad(res,409,'Controller must report bootloader rollback support');
           const id=crypto.randomUUID();
           store.state.jobs[id]={id,device_id:device.device_id,sha256:release.sha256,version:release.version,model:release.model,status:'queued',created_at:new Date().toISOString(),previous_boot_id:t.boot_id};
           store.persist();return json(res,201,{job_id:id,status:'queued'});

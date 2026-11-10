@@ -1,0 +1,64 @@
+{
+  "functions": {
+    "api/sync-sacs.js": {
+      "maxDuration": 60
+    },
+    "api/sacs-sso.js": {
+      "maxDuration": 30
+    },
+    "api/employee-integrations.js": {
+      "maxDuration": 60
+    },
+    "api/employee-safety-history.js": {
+      "maxDuration": 60
+    },
+    "api/pa-climate-device.js": {
+      "maxDuration": 30
+    },
+    "api/pa-climate-msi.js": {
+      "maxDuration": 30
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/climate/:path*",
+      "destination": "/api/pa-climate-device?route=:path*"
+    },
+    {
+      "source": "/api/pa-climate-msi",
+      "destination": "/api/pa-climate-msi"
+    },
+    {
+      "source": "/api/pa-climate-device",
+      "destination": "/api/pa-climate-device"
+    },
+    {
+      "source": "/api/pa-climate/sample",
+      "destination": "/api/pa-zone1"
+    },
+    {
+      "source": "/api/pa-zone1",
+      "destination": "/api/pa-zone1"
+    },
+    {
+      "source": "/api/sacs-sso",
+      "destination": "/api/sacs-sso"
+    },
+    {
+      "source": "/api/sync-sacs",
+      "destination": "/api/sync-sacs"
+    },
+    {
+      "source": "/api/employee-integrations",
+      "destination": "/api/employee-integrations"
+    },
+    {
+      "source": "/api/employee-safety-history",
+      "destination": "/api/employee-safety-history"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}

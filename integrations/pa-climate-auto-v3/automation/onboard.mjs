@@ -129,12 +129,12 @@ async function main() {
     if(!a.device||!/^PA-CLIM-[0-9A-F]{12}$/.test(a.device))throw Error('Invalid device ID for verification');
     for(let i=0;i<10;i++){
       const current=(await call(base,key,'GET',remote?'/workstation/zones':'/v1/admin/zones')).zones;
-      if(current.some(z=>z.device_id===a.device&&z.online&&(z.reported?.firmware??z.firmware)===VERSION)){
+      if(current.some(z=>z.device_id===a.device&&z.online&&(z.reported?.firmware??z.firmware)===VERSION&&(z.reported?.sensor_count??z.sensor_count)===2&&z.command_ack?.acknowledged)){
         console.log('ONLINE VERIFIED: MSI received authenticated telemetry from '+a.device);return;
       }
       await new Promise(r=>setTimeout(r,5000));
     }
-    throw Error('Device not yet ONLINE after provisioning; verify PA Wi-Fi and actual HTTPS ingress');
+    throw Error('Provisioning finished, but MSI has not confirmed the expected firmware, both sensors and the initial command ACK');
   }
   if(!a['confirm-new'])throw Error('Physical confirmation required: run the Windows Add-ESP32.ps1 wizard');
   const port=a.port;
@@ -144,6 +144,7 @@ async function main() {
   const wifi={ssid:process.env.PA_ONBOARD_WIFI_SSID,password:process.env.PA_ONBOARD_WIFI_PASSWORD};
   if(!wifi.ssid||!wifi.password)throw Error('Wi-Fi credentials must come from local Windows secure prompt, not command arguments');
   const dev=parseMac(esptool(esp,port,'read_mac'));
+  if(dev==='PA-CLIM-70D38CA99B20')throw Error('Existing PA Climate 1.2.0 Zone 1 is protected. This installer is for new controllers only.');
   const exists=zones.find(z=>z.device_id===dev);
   if(exists?.online)throw Error(`${dev} is ONLINE in ${exists.id}. Refusing to overwrite an operating controller.`);
   const zone=a.zone||exists?.id||nextZone(zones);
@@ -189,6 +190,9 @@ async function main() {
        !contents.includes(Buffer.from(`PA_CLIMATE_FW_VERSION=${VERSION}\0`)))
        throw Error('Built image lacks the expected model/version markers');
     const digest=crypto.createHash('sha256').update(contents).digest('hex');
+    const uploaded=await fetch(base+(remote?'/workstation/releases':'/v1/admin/releases'),{method:'POST',headers:{Authorization:'Bearer '+key,'Content-Type':'application/octet-stream','X-Firmware-Model':MODEL,'X-Firmware-Version':VERSION},body:contents,redirect:'error',signal:AbortSignal.timeout(30000)});
+    const release=await uploaded.json().catch(()=>({}));
+    if(!uploaded.ok||release.sha256!==digest)throw Error('MSI did not confirm the universal firmware release; no USB write attempted');
     const releasesDir=path.join(config.DATA_DIR,'universal-builds');
     fs.mkdirSync(releasesDir,{recursive:true});
     const releasePath=path.join(releasesDir,digest+'.bin');

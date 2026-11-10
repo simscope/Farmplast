@@ -9,6 +9,27 @@ $root=Join-Path $env:LOCALAPPDATA 'Farmplast\PAClimate'
 New-Item -ItemType Directory -Path $root -Force | Out-Null
 & icacls $root /inheritance:r /grant:r "${env:USERNAME}:(OI)(CI)F" '*S-1-5-18:(OI)(CI)F' | Out-Null
 if($LASTEXITCODE -ne 0){throw 'Cannot protect workstation files'}
+# Enrollment ticket is used once. The scoped workstation credential stays DPAPI encrypted.
+# Fail before consuming a ticket if this Windows user cannot use DPAPI.
+$probe=ConvertTo-SecureString 'Farmplast DPAPI preflight' -AsPlainText -Force
+$encryptedProbe=$probe | ConvertFrom-SecureString
+$null=ConvertTo-SecureString $encryptedProbe
+$probe=$null;$encryptedProbe=$null
+$credentialFile=Join-Path $root 'workstation.dpapi'
+if(-not (Test-Path -LiteralPath $credentialFile)) {
+  $reply=Invoke-RestMethod -Uri ($bootstrap.public_origin+'/workstation/enroll') -Method Post -ContentType 'application/json' -Body (@{ticket=$bootstrap.ticket}|ConvertTo-Json -Compress)
+  if(-not $reply.workstation_token){throw 'MSI workstation enrollment failed'}
+  $private=@{origin=$bootstrap.public_origin;token=$reply.workstation_token}|ConvertTo-Json -Compress
+  ConvertTo-SecureString $private -AsPlainText -Force | ConvertFrom-SecureString | Set-Content -LiteralPath $credentialFile -Encoding ASCII
+  $reply=$null;$private=$null
+}
+$secure=Get-Content -LiteralPath $credentialFile -Raw | ConvertTo-SecureString
+$ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
+try{$saved=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)|ConvertFrom-Json}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
+if($saved.origin -ne $bootstrap.public_origin){throw 'Saved workstation belongs to a different MSI endpoint'}
+$config=Join-Path $root 'workstation.env'
+@("DATA_DIR=$root", "CLIMATE_HTTPS_BASE_URL=$($bootstrap.public_origin)", "PUBLIC_ORIGIN=$($bootstrap.public_origin)", "CA_PEM_FILE=") | Set-Content -LiteralPath $config -Encoding UTF8
+
 $tools=Join-Path $root 'tools'
 New-Item -ItemType Directory -Path $tools -Force | Out-Null
 # Retrieve official tools over Windows-validated TLS and check their published SHA256.
@@ -44,21 +65,6 @@ if(-not (Get-Command arduino-cli -ErrorAction SilentlyContinue)) {
   }
   $env:PATH=$cli+';'+$env:PATH
 }
-# Enrollment ticket is used once. The scoped workstation credential stays DPAPI encrypted.
-$credentialFile=Join-Path $root 'workstation.dpapi'
-if(-not (Test-Path -LiteralPath $credentialFile)) {
-  $reply=Invoke-RestMethod -Uri ($bootstrap.public_origin+'/workstation/enroll') -Method Post -ContentType 'application/json' -Body (@{ticket=$bootstrap.ticket}|ConvertTo-Json -Compress)
-  if(-not $reply.workstation_token){throw 'MSI workstation enrollment failed'}
-  $private=@{origin=$bootstrap.public_origin;token=$reply.workstation_token}|ConvertTo-Json -Compress
-  ConvertTo-SecureString $private -AsPlainText -Force | ConvertFrom-SecureString | Set-Content -LiteralPath $credentialFile -Encoding ASCII
-  $reply=$null;$private=$null
-}
-$secure=Get-Content -LiteralPath $credentialFile -Raw | ConvertTo-SecureString
-$ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-try{$saved=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)|ConvertFrom-Json}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
-if($saved.origin -ne $bootstrap.public_origin){throw 'Saved workstation belongs to a different MSI endpoint'}
-$config=Join-Path $root 'workstation.env'
-@("DATA_DIR=$root", "CLIMATE_HTTPS_BASE_URL=$($bootstrap.public_origin)", "PUBLIC_ORIGIN=$($bootstrap.public_origin)", "CA_PEM_FILE=") | Set-Content -LiteralPath $config -Encoding UTF8
 $env:PA_WORKSTATION_TOKEN=$saved.token
 try {
   & (Join-Path $PSScriptRoot 'Auto-Add-ESP32.ps1') -Config $config

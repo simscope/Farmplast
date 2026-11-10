@@ -62,7 +62,7 @@ export class ClimateStore {
     const target=update.target_f??d.target_f;
     const mode=update.mode??d.mode;
     const manual=update.manual_heat??d.manual_heat;
-    if(typeof target!=='number'||!Number.isFinite(target)||target<45||target>90 || !['AUTO','MANUAL','OFF'].includes(mode) || typeof manual!=='boolean') throw Error('Invalid desired state');
+    if(typeof target!=='number'||!Number.isFinite(target)||target<40||target>90 || !['AUTO','MANUAL','OFF'].includes(mode) || typeof manual!=='boolean') throw Error('Invalid desired state');
     zone.desired={revision:d.revision+1,target_f:target,mode,manual_heat:mode==='MANUAL' ? manual : false};
     this.persist();
     return zone.desired;
@@ -76,13 +76,13 @@ export class ClimateStore {
     if(body.sensor_count!==n || !Number.isInteger(body.revision) || body.revision<0 || typeof body.heat!=='boolean') throw Error('Invalid sensor/status fields');
     const average=n===2?(body.sensor_1_f+body.sensor_2_f)/2:n===1?(body.sensor_1_f??body.sensor_2_f):null;
     if(average===null ? body.temperature_f!==null : body.temperature_f===null||Math.abs(average-body.temperature_f)>0.25) throw Error('Average inconsistent with sensors');
-    if(!['AUTO','MANUAL','OFF'].includes(body.mode)||typeof body.firmware!=='string'||!versionPattern.test(body.firmware)||!validateId(body.boot_id)||typeof body.target_f!=='number'||!Number.isFinite(body.target_f)||body.target_f<45||body.target_f>90)throw Error('Invalid runtime fields');
+    if(!['AUTO','MANUAL','OFF'].includes(body.mode)||typeof body.firmware!=='string'||!versionPattern.test(body.firmware)||!validateId(body.boot_id)||typeof body.target_f!=='number'||!Number.isFinite(body.target_f)||body.target_f<40||body.target_f>90)throw Error('Invalid runtime fields');
     const now=new Date().toISOString();
     const record={at:now,device_id:device.device_id,zone_id:device.zone_id,firmware:body.firmware,model:body.model,boot_id:body.boot_id,
       sensor_1_f:body.sensor_1_f,sensor_2_f:body.sensor_2_f,temperature_f:average,sensor_count:n,
       heat:body.heat,mode:body.mode,target_f:body.target_f,revision:body.revision,
       degraded:n===1,sensor_difference:n===2&&Math.abs(body.sensor_1_f-body.sensor_2_f)>5,
-      relay_armed:body.relay_armed===true,last_ota_job:typeof body.last_ota_job==='string'?body.last_ota_job:null};
+      relay_armed:body.relay_armed===true,rollback_enabled:body.rollback_enabled===true,ota_boot_validated:body.ota_boot_validated===true,last_ota_job:typeof body.last_ota_job==='string'?body.last_ota_job:null};
     this.log(record);
     device.last_seen=now;device.last_telemetry=record;
     this.persist();

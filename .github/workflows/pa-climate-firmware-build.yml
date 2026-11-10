@@ -29,6 +29,11 @@ jobs:
       - name: Check out
         uses: actions/checkout@v4
 
+      - name: Install and verify the actual live climate API overlay
+        run: |
+          npm ci --prefix integrations/pa-climate-auto-v3/web/live-client/client --ignore-scripts --no-audit --no-fund
+          node --test integrations/pa-climate-auto-v3/web/live-client/client/tests/pa-climate-msi-api.test.mjs
+
       - name: Verify dual-sensor UI mapping, server protocol and heating logic
         run: |
           set -euo pipefail

@@ -41,6 +41,7 @@ test('Factory enrollment is one use, scoped, reserves Zone 1, survives restart a
   assert.equal(issue.status,201);const {ticket}=await issue.json();
   const enroll=await call('/climate/workstation/enroll','POST',{ticket});assert.equal(enroll.status,201);
   const {workstation_id,workstation_token:key}=await enroll.json();
+  assert.equal((await call('/climate/workstation/devices','POST',{device_id:'PA-CLIM-70D38CA99B20',model:'PA-ESP32-WROOM32E-N4-R1'},key)).status,403);
   assert.equal((await call('/climate/workstation/enroll','POST',{ticket})).status,401);
   assert.equal((await call('/climate/workstation/devices','POST',{device_id:'PA-CLIM-112233445566',model:'PA-ESP32-WROOM32E-N4-R1',zone_id:'pa-zone-1'},key)).status,409);
   const r=await call('/climate/workstation/devices','POST',{device_id:'PA-CLIM-112233445566',model:'PA-ESP32-WROOM32E-N4-R1'},key);

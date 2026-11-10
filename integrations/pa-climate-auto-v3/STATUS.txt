@@ -1,20 +1,8 @@
-Farmplast PA Climate AUTO v3 — source-only package
-
-CHANGES FROM v2:
-- No second climate server process/service. Existing MSI HTTP gateway route /climate.
-- Install-MSI.ps1 only stages files on E: and creates module secret; NO listening port or scheduled task.
-- Auto-Add-ESP32.ps1 Windows helper auto-detects COM/MAC, selects free zone, provisions per-device keys, securely stores Wi-Fi with Windows DPAPI, validates CA, backs up 4MB flash, flashes ONE UNIVERSAL binary without embedded device tokens and provisions per-device secrets separately over USB serial into NVS.
-- Relay output is ENABLED at owner request; physical relay GPIO/active level are still unverified and configurable in device_config.h.
-- No Supabase table additions, no Docker containers, no Tailscale dependency for ESP32.
-
-LOCAL VERIFICATION:
-- Node backend/route/wizard pure functions: 8 automated tests pass.
-- Run g++ test of ClimateLogic.h separately.
-
-NOT DONE:
-- NO write/access to actual MSI disks; the MSI backend host source/framework and true public HTTPS ingress are not inspected or configured.
-- NO PowerShell execution on Windows hardware; wizard not integration-tested on MSI.
-- NO Arduino compile/upload on physical ESP32.
-- NO merging into currently published Farmplast source (GitHub main is older than live Vercel).
-- NO claim that previous PA Climate 1.2.0 was recovered, or that industrial relay/OTA recovery are validated.
-- DO NOT flash a running Zone 1 controller.
+2026-11-10: MSI and production Farmplast connected.
+Production deployment: dpl_A5CtmYW93edwFvbgKC7RMhhwqUU7
+Existing MSI gateway: 127.0.0.1:18000; existing Edge Runtime main worker only.
+HTTPS: https://farmplast.vercel.app/climate/healthz -> actual MSI 200.
+Public admin blocked; JWT/allowlist/PIN preserved; scoped Windows factory installer.
+33 public HTTPS checks passed, including a full signed firmware download and real stale/offline timeout. Tests were synthetic, not a physical controller.
+No Zone 1 flash. No physical OTA/rollback GO. Windows DPAPI denied in Codex context; actual factory user validation pending.
+See README_RU.md and web/live-client for the installed path and verified live-source overlay.

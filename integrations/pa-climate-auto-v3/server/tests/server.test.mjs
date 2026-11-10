@@ -25,7 +25,7 @@ async function fixture(){
 }
 const report=(token,more={})=>({protocol_version:1,device_id:device,model:MODEL,firmware:VERSION,boot_id:'ABCD0123',zone_id:null,
   sensor_1_f:68,sensor_2_f:72,temperature_f:70,sensor_count:2,target_f:72,mode:'AUTO',heat:false,relay_armed:false,
-  revision:1,last_ota_job:'',...more});
+  revision:1,last_ota_job:'',rollback_enabled:true,ota_boot_validated:false,...more});
 
 test('registration, authentication, telemetry, average, desired, stale/online',async()=>{
   const s=await fixture();try{
@@ -76,6 +76,8 @@ test('firmware: rejects other chip families, issues signed link only for idle re
     assert.equal(image.status,200); // synthetic fixture text parser handles binary
     const jobs=await s.call('/v1/admin/ota',{token:a});assert.equal(jobs.body.jobs[0].status,'delivered');
     await s.call('/v1/exchange',{method:'POST',token,body:report(token,{firmware:'2.0.0',boot_id:'NEWBOOT',last_ota_job:response.body.ota.job_id})});
+    const unconfirmed=await s.call('/v1/admin/ota',{token:a});assert.equal(unconfirmed.body.jobs[0].status,'delivered');
+    await s.call('/v1/exchange',{method:'POST',token,body:report(token,{firmware:'2.0.0',boot_id:'NEWBOOT',last_ota_job:response.body.ota.job_id,ota_boot_validated:true})});
     const jobsAfter=await s.call('/v1/admin/ota',{token:a});assert.equal(jobsAfter.body.jobs[0].status,'completed');
   }finally{await s.shutdown()}
 });
