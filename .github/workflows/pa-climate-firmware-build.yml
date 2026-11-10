@@ -6,12 +6,16 @@ on:
       - work/pa-climate-auto-msi-20261110
     paths:
       - "integrations/pa-climate-auto-v3/firmware/**"
+      - "integrations/pa-climate-auto-v3/web/**"
+      - "integrations/pa-climate-auto-v3/server/**"
       - ".github/workflows/pa-climate-firmware-build.yml"
   workflow_dispatch:
   pull_request:
     branches: [main]
     paths:
       - "integrations/pa-climate-auto-v3/firmware/**"
+      - "integrations/pa-climate-auto-v3/web/**"
+      - "integrations/pa-climate-auto-v3/server/**"
       - ".github/workflows/pa-climate-firmware-build.yml"
 
 permissions:
@@ -24,6 +28,13 @@ jobs:
     steps:
       - name: Check out
         uses: actions/checkout@v4
+
+      - name: Verify dual-sensor UI mapping, server protocol and heating logic
+        run: |
+          set -euo pipefail
+          node --test integrations/pa-climate-auto-v3/web/climateUiData.test.mjs integrations/pa-climate-auto-v3/server/tests/*.test.mjs
+          g++ -std=c++17 -Iintegrations/pa-climate-auto-v3/firmware/FarmplastClimate integrations/pa-climate-auto-v3/tests/test_logic.cpp -o /tmp/pa_climate_logic_test
+          /tmp/pa_climate_logic_test
 
       - name: Install Arduino CLI
         uses: arduino/setup-arduino-cli@v2
