@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {parseArgs,parseMac,nextZone,provisioningPayload,localApiBase,remoteApiBase,privateCredentials,esptool,spawn} from './onboard.mjs';
+import {parseArgs,parseMac,nextZone,provisioningPayload,localApiBase,remoteApiBase,privateCredentials,esptool,spawn,FLASH_BACKUP_TIMEOUT_MS} from './onboard.mjs';
 
 test('MAC -> stable per-device ID, no serial port index used as identity',()=>{
  assert.equal(parseMac('Connecting...\nMAC: 1a:2b:3c:4d:5e:6f\n'),'PA-CLIM-1A2B3C4D5E6F');
@@ -71,4 +71,9 @@ test('esptool launcher preserves actual stdout error when stderr contains only a
    assert.match(e.message,/exit 2/);
    return true;
  });
+});
+
+test('full 4-MiB backup at 115200 has sufficient timeout; never silently truncates at 4 minutes',()=>{
+ assert.ok(FLASH_BACKUP_TIMEOUT_MS>=15*60*1000,'4 MiB serial backup must be allowed at least 15 minutes');
+ assert.ok(FLASH_BACKUP_TIMEOUT_MS>240000,'Previous 4 minute watchdog was too short');
 });
