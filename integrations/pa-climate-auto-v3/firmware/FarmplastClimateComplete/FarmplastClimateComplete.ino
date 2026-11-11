@@ -34,7 +34,7 @@
 // Device-specific Wi-Fi, server URL, device token, OTA HMAC key and trusted root
 // certificate are stored in ESP32 NVS via first-time USB serial provisioning.
 // None of these credentials is present in the firmware image distributed for OTA.
-#define FIRMWARE_VERSION "pa-climate-msi-2.0.1"
+#define FIRMWARE_VERSION "pa-climate-msi-2.0.2"
 #define FIRMWARE_MODEL "PA-ESP32-WROOM32E-N4-R1"
 #define DS18B20_GPIO 27
 #define RELAY_GPIO 16            // Relay output GPIO; use the previously verified board wiring.
