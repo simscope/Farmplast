@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {parseArgs,parseMac,nextZone,provisioningPayload,localApiBase,remoteApiBase,privateCredentials} from './onboard.mjs';
+import {parseArgs,parseMac,nextZone,provisioningPayload,localApiBase,remoteApiBase,privateCredentials,esptool,spawn} from './onboard.mjs';
 
 test('MAC -> stable per-device ID, no serial port index used as identity',()=>{
  assert.equal(parseMac('Connecting...\nMAC: 1a:2b:3c:4d:5e:6f\n'),'PA-CLIM-1A2B3C4D5E6F');
@@ -47,4 +47,28 @@ test('Factory device credentials persist with real Windows DPAPI, without plaint
   try {privateCredentials(file,value);}catch(e){if(e.code==='DPAPI_UNAVAILABLE'){t.skip('Windows DPAPI denied access in this execution context; factory user verification required');return;}throw e;}
   assert.equal(fs.readFileSync(file,'utf8').includes(value.device_token),false);
   assert.deepEqual(privateCredentials(file),value);
+});
+
+test('esptool v5 uses read-mac / read-flash and never retries a failed COM port with deprecated read_mac', () => {
+ const calls=[];
+ const runner=(cmd,args,options)=>{calls.push({cmd,args,options});return 'MAC: 1a:2b:3c:4d:5e:6f'};
+ const mac=parseMac(esptool('esptool.exe','COM4','read_mac',[],90000,runner));
+ assert.equal(mac,'PA-CLIM-1A2B3C4D5E6F');
+ assert.deepEqual(calls[0].args,['--chip','esp32','--port','COM4','read-mac']);
+ esptool('esptool.exe','COM4','read_flash',['0x0','0x400000','backup.bin'],240000,runner);
+ assert.deepEqual(calls[1].args,['--chip','esp32','--port','COM4','read-flash','0x0','0x400000','backup.bin']);
+ let failed=0;
+ const deadPort=()=>{failed++;throw Error('Failed to connect to ESP32: No serial data received at COM4')};
+ assert.throws(()=>esptool('esptool.exe','COM4','read_mac',[],90000,deadPort),/No serial data received/);
+ assert.equal(failed,1,'Do not fall back to deprecated read_mac after real serial failure');
+});
+
+test('esptool launcher preserves actual stdout error when stderr contains only a warning',()=>{
+ const code="process.stdout.write('Failed to connect to ESP32: No serial data received on COM4\\n');process.stderr.write('Warning about another option\\n');process.exit(2)";
+ assert.throws(()=>spawn(process.execPath,['-e',code]),e=>{
+   assert.match(e.message,/Failed to connect to ESP32/);
+   assert.match(e.message,/Warning about another option/);
+   assert.match(e.message,/exit 2/);
+   return true;
+ });
 });
