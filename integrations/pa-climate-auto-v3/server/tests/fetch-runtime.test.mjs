@@ -73,3 +73,50 @@ test('Installer ZIP reads the configured disk assets when runtime module URLs ar
   assert.equal(zip.readUInt32LE(0),0x04034b50);
   for(const name of names)assert.ok(zip.includes(Buffer.from('mounted installer asset: '+name)),name);
 });
+
+
+test('Explicit physical MAC migration registers Zone 1 once, no DS18B20 required, and preserves other zones', async t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fp-zone1-migrate-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const admin='a'.repeat(48),config={dir,adminKey:admin};
+  let runtime=createClimateFetch(config);
+  const call=(p,method='GET',body,key)=>runtime.route(new Request('http://localhost'+p,{method,headers:key?{Authorization:'Bearer '+key}:{},body:body?JSON.stringify(body):undefined}));
+  const issue=await call('/climate-local/v1/admin/workstations','POST',{name:'Owner PC'},admin);
+  const {ticket}=await issue.json();
+  const enrollment=await call('/climate/workstation/enroll','POST',{ticket});
+  assert.equal(enrollment.status,201);
+  const {workstation_token:key}=await enrollment.json();
+  const zone2=await call('/climate/workstation/devices','POST',{device_id:'PA-CLIM-209BA98CD370',zone_id:'pa-zone-2',model:'PA-ESP32-WROOM32E-N4-R1'},key);
+  assert.equal(zone2.status,201);
+  const z2=await zone2.json();
+
+  const request={device_id:'PA-CLIM-209BA98CD258',zone_id:'pa-zone-1',model:'PA-ESP32-WROOM32E-N4-R1'};
+  assert.equal((await call('/climate/workstation/devices','POST',request,key)).status,409,'Zone 1 cannot be registered accidentally');
+  assert.equal((await call('/climate/workstation/devices','POST',{...request,migration_confirm:'MIGRATE EXISTING PA ZONE 1'},'wrong-token')).status,401);
+  assert.equal((await call('/climate/workstation/devices','POST',{...request,device_id:'PA-CLIM-209BA98CD259',migration_confirm:'MIGRATE EXISTING PA ZONE 1'},key)).status,409);
+  const allowed=await call('/climate/workstation/devices','POST',{...request,migration_confirm:'MIGRATE EXISTING PA ZONE 1'},key);
+  assert.equal(allowed.status,201);
+  const credentials=await allowed.json();
+  assert.equal(credentials.zone_id,'pa-zone-1');
+  assert.equal(credentials.device_id,'PA-CLIM-209BA98CD258');
+  assert.ok(credentials.device_token.length>=32);
+  assert.equal((await call('/climate/workstation/devices','POST',{...request,migration_confirm:'MIGRATE EXISTING PA ZONE 1'},key)).status,409);
+
+  const zone1=runtime.store.zones().find(z=>z.id==='pa-zone-1');
+  assert.equal(zone1.desired.mode,'OFF','Uncommissioned Zone 1 must not enable heating');
+  assert.equal(zone1.reported,null,'No DS18B20 samples yet');
+  assert.equal(runtime.store.zones().find(z=>z.id==='pa-zone-2').device_id,z2.device_id);
+  runtime=createClimateFetch(config);
+  assert.equal(runtime.store.zones().find(z=>z.id==='pa-zone-1').device_id,credentials.device_id);
+  assert.equal(runtime.store.zones().find(z=>z.id==='pa-zone-2').device_id,z2.device_id);
+
+  const sample={protocol_version:1,device_id:credentials.device_id,model:'PA-ESP32-WROOM32E-N4-R1',
+    firmware:'pa-climate-msi-2.0.1',boot_id:'00aabbff',sensor_1_f:null,sensor_2_f:null,temperature_f:null,
+    sensor_count:0,mode:'OFF',target_f:72,revision:1,heat:false};
+  const telemetry=await call('/climate/v1/exchange','POST',sample,credentials.device_token);
+  assert.equal(telemetry.status,200);
+  const online=runtime.store.zones().find(z=>z.id==='pa-zone-1');
+  assert.equal(online.online,true);
+  assert.equal(online.reported.sensor_count,0);
+  assert.equal(online.reported.heat,false);
+  assert.equal(online.command_ack.acknowledged,true);
+});
