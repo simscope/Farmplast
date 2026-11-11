@@ -22,6 +22,10 @@ jobs:
     timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
+      - name: Verify esptool v5 command handling and unmasked serial errors (no hardware)
+        shell: powershell
+        run: |
+          node --test integrations/pa-climate-auto-v3/automation/onboard.test.mjs
       - name: Verify official SHA256 validation and archive extraction on Windows PowerShell 5.1
         shell: powershell
         run: |
