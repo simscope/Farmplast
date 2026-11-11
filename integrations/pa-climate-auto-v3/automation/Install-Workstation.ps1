@@ -65,17 +65,60 @@ if(-not (Get-Command node -ErrorAction SilentlyContinue)) {
   }
   $env:PATH=$nodeRoot.FullName+';'+$env:PATH
 }
+# Reuse Arduino IDE's bundled CLI if available; users with Arduino IDE should not
+# need a second CLI download. Keep the official SHA256-verified release fallback.
+if(-not (Get-Command arduino-cli -ErrorAction SilentlyContinue)) {
+  $candidatePaths=@(
+    (Join-Path $env:LOCALAPPDATA 'Programs\Arduino IDE\resources\app\lib\backend\resources\arduino-cli.exe'),
+    (Join-Path $env:ProgramFiles 'Arduino IDE\resources\app\lib\backend\resources\arduino-cli.exe')
+  )
+  if(${env:ProgramFiles(x86)}) {
+    $candidatePaths+=Join-Path ${env:ProgramFiles(x86)} 'Arduino IDE\resources\app\lib\backend\resources\arduino-cli.exe'
+  }
+  foreach($candidate in $candidatePaths) {
+    if(Test-Path -LiteralPath $candidate -PathType Leaf) {
+      $env:PATH=(Split-Path -Parent $candidate)+';'+$env:PATH
+      break
+    }
+  }
+}
 if(-not (Get-Command arduino-cli -ErrorAction SilentlyContinue)) {
   $cli=Join-Path $tools 'arduino-cli'
   if(-not (Test-Path (Join-Path $cli 'arduino-cli.exe'))){
     $release=Invoke-RestMethod 'https://api.github.com/repos/arduino/arduino-cli/releases/latest'
-    $asset=@($release.assets | Where-Object {$_.name -match '_Windows_64bit.zip$'})
-    $sums=@($release.assets | Where-Object {$_.name -match '_checksums.txt$'})
+    # Official assets use e.g. arduino-cli_1.5.1_Windows_64bit.zip AND
+    # 1.5.1-checksums.txt (hyphen, not the incorrect _checksums.txt).
+    $asset=@($release.assets | Where-Object {$_.name -match '(?i)_Windows_64bit\.zip
+$env:PA_WORKSTATION_TOKEN=$saved.token
+try {
+  & (Join-Path $PSScriptRoot 'Auto-Add-ESP32.ps1') -Config $config
+} finally {
+  Remove-Item Env:PA_WORKSTATION_TOKEN -ErrorAction SilentlyContinue
+  $saved=$null
+  # Pending USB payloads contain plaintext Wi-Fi/device secrets only during provisioning.
+  $provision=Join-Path $root 'provisioning'
+  if(Test-Path -LiteralPath $provision){Get-ChildItem -LiteralPath $provision -Filter 'pending-provision.json' -Recurse -File | ForEach-Object {Remove-Item -LiteralPath $_.FullName -Force}}
+}
+})
+    $sums=@($release.assets | Where-Object {$_.name -match '(?i)-checksums\.txt
+$env:PA_WORKSTATION_TOKEN=$saved.token
+try {
+  & (Join-Path $PSScriptRoot 'Auto-Add-ESP32.ps1') -Config $config
+} finally {
+  Remove-Item Env:PA_WORKSTATION_TOKEN -ErrorAction SilentlyContinue
+  $saved=$null
+  # Pending USB payloads contain plaintext Wi-Fi/device secrets only during provisioning.
+  $provision=Join-Path $root 'provisioning'
+  if(Test-Path -LiteralPath $provision){Get-ChildItem -LiteralPath $provision -Filter 'pending-provision.json' -Recurse -File | ForEach-Object {Remove-Item -LiteralPath $_.FullName -Force}}
+}
+})
     if($asset.Count -ne 1 -or $sums.Count -ne 1){throw 'Official Arduino CLI release assets unavailable'}
     Get-VerifiedArchive $asset[0].browser_download_url $sums[0].browser_download_url $asset[0].name $cli
   }
   $env:PATH=$cli+';'+$env:PATH
 }
+if(-not (Get-Command arduino-cli -ErrorAction SilentlyContinue)) {throw 'Arduino CLI executable not found after setup'}
+
 $env:PA_WORKSTATION_TOKEN=$saved.token
 try {
   & (Join-Path $PSScriptRoot 'Auto-Add-ESP32.ps1') -Config $config
