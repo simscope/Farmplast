@@ -37,6 +37,20 @@ jobs:
           $wizard=[IO.File]::ReadAllText($scripts[0])
           if(-not $wizard.Contains('ESP32 ROM DOWNLOAD MODE')){throw 'Missing IO0+EN first flash instruction'}
           if(-not $wizard.Contains('USB flash complete. Start the new firmware')){throw 'Missing EN reboot instruction before USB provisioning'}
+      - name: Verify Zone 1 registration-only script has exact device and zone guards
+        shell: powershell
+        run: |
+          $file='integrations/pa-climate-auto-v3/automation/Provision-Zone1-Already-Flashed.ps1'
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$null,[ref]$errors)
+          if($errors.Count -gt 0){throw "PowerShell syntax error: $($errors | Out-String)"}
+          $content=[IO.File]::ReadAllText($file)
+          foreach($guard in @('PA-CLIM-209BA98CD258','pa-zone-1','MIGRATE EXISTING PA ZONE 1','zone_id=$targetZone')){
+            if(-not $content.Contains($guard)){throw "Missing Zone 1 registration guard: $guard"}
+          }
+          foreach($forbidden in @('arduino-cli','esptool.exe','write-flash','erase_flash')){
+            if($content.Contains($forbidden)){throw "Registration script must not flash: $forbidden"}
+          }
       - name: Verify already-flashed ESP32 provisioning script parses on Windows; no reflash tools
         shell: powershell
         run: |
