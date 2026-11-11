@@ -8,4 +8,4 @@
 #define DS18B20_GPIO 27
 #define RELAY_GPIO 16            // NOT CONFIRMED on the physical relay PCB.
 #define RELAY_ACTIVE_HIGH true  // NOT CONFIRMED on the physical relay PCB.
-#define RELAY_TESTED_AND_ENABLED true   // Enabled at owner request; GPIO/polarity must match the physical PCB.
+#define RELAY_TESTED_AND_ENABLED false  // Keep locked until the physical relay PCB is verified.

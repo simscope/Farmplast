@@ -6,3 +6,4 @@ Public admin blocked; JWT/allowlist/PIN preserved; scoped Windows factory instal
 33 public HTTPS checks passed, including a full signed firmware download and real stale/offline timeout. Tests were synthetic, not a physical controller.
 No Zone 1 flash. No physical OTA/rollback GO. Windows DPAPI denied in Codex context; actual factory user validation pending.
 See README_RU.md and web/live-client for the installed path and verified live-source overlay.
+New-board relay output locked (RELAY_TESTED_AND_ENABLED=false) until physical commissioning; existing Zone 1 unchanged.
