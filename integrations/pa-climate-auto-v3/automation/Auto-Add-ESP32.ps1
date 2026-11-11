@@ -72,9 +72,9 @@ if(-not $arduino){throw 'Arduino CLI not installed/found. Arduino IDE 2 may cont
 $portLabels=@{}
 try {
   Get-CimInstance -ClassName Win32_PnPEntity -ErrorAction Stop |
-    Where-Object { $_.Name -match '\\(COM[0-9]+\\)' } |
+    Where-Object { $_.Name -match '\(COM[0-9]+\)' } |
     ForEach-Object {
-      if($_.Name -match '\\((COM[0-9]+)\\)'){$portLabels[$Matches[1]]=[string]$_.Name}
+      if($_.Name -match '\((COM[0-9]+)\)'){$portLabels[$Matches[1]]=[string]$_.Name}
     }
 }catch{ } # On systems with WMI disabled, use ordinary COM selection.
 if(-not $Port){
