@@ -1,4 +1,4 @@
-# Entry point on the factory workstation. No server or service is installed here.
+# Entry point on the user's Windows PC with the ESP32 attached over USB-UART. No local server or service is installed.
 param([string]$Manifest=(Join-Path $PSScriptRoot '..\..\workstation-bootstrap.json'))
 $ErrorActionPreference='Stop'
 if($PSVersionTable.PSEdition -eq 'Desktop'){$env:PSModulePath="$env:SystemRoot\System32\WindowsPowerShell\v1.0\Modules;"+$env:PSModulePath}
