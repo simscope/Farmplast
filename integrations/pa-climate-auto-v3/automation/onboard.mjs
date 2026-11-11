@@ -96,7 +96,11 @@ export function spawn(cmd,args,options={}) {
 // read_mac: its deprecation warning otherwise replaces the real COM failure.
 export function esptool(cmd,port,verb,args=[],timeout=90000,runner=spawn){
   const modern=verb.replaceAll('_','-');
-  return runner(cmd,['--chip','esp32','--port',port,modern,...args],{timeout});
+  // The owner's PA relay PCB has IO0 and EN buttons but no automatic
+  // DTR/RTS programming header. The operator enters ROM download mode once.
+  // Keep the ESP32 in that mode across MAC and backup reads.
+  return runner(cmd,['--chip','esp32','--port',port,'--baud','115200',
+    '--before','no-reset','--after','no-reset',modern,...args],{timeout});
 }
 function ensureFileParent(file) {fs.mkdirSync(path.dirname(file),{recursive:true});}
 function writePrivate(file,value) {ensureFileParent(file);fs.writeFileSync(file,value,{flag:'wx',mode:0o600});}
