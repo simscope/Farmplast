@@ -115,7 +115,17 @@ export function createClimateFetch(config, {fetchImpl = fetch} = {}) {
           if(protectedDevices.has(body.device_id))return reply(403,{error:'Existing PA Climate 1.2.0 Zone 1 controller is protected'});
           let zone=body.zone_id;
           if(!zone)for(let n=1;n<10000;n++){const candidate='pa-zone-'+n;if(!reserved.has(candidate)&&!store.state.zones[candidate]){zone=candidate;break;}}
-          if(!/^pa-zone-[1-9][0-9]*$/.test(zone)||reserved.has(zone))return reply(409,{error:'Zone reserved or invalid'});
+          // One explicit migration only: the owner has USB-flashed the physical
+          // ESP32 with MAC 20:9B:A9:8C:D2:58 using the new climate firmware.
+          // Never unlock pa-zone-1 generally and never rotate another device.
+          const zone1Migration=zone==='pa-zone-1' &&
+            body.device_id==='PA-CLIM-209BA98CD258' &&
+            body.migration_confirm==='MIGRATE EXISTING PA ZONE 1';
+          if(!/^pa-zone-[1-9][0-9]*$/.test(zone)||(reserved.has(zone)&&!zone1Migration))
+            return reply(409,{error:'Zone reserved or invalid'});
+          if(zone1Migration && (store.state.devices[body.device_id] ||
+              Object.values(store.state.devices).some(device=>device.zone_id==='pa-zone-1')))
+            return reply(409,{error:'Zone 1 already registered; no credential rotation'});
           return reply(201,store.addDevice(body.device_id,zone,model));
         }catch{return reply(409,{error:'Device or zone already registered, or invalid request'});}
       }
