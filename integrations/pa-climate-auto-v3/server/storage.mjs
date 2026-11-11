@@ -45,7 +45,11 @@ export class ClimateStore {
     if(Object.values(this.state.devices).some(d=>d.zone_id===zoneId)) throw Error('Zone already assigned');
     const deviceToken=token(),otaKey=crypto.randomBytes(32).toString('hex');
     this.state.devices[deviceId]={device_id:deviceId,zone_id:zoneId,model,token_hash:sha256(deviceToken),ota_key:otaKey,registered_at:new Date().toISOString(),last_seen:null,last_telemetry:null};
-    this.state.zones[zoneId]??={id:zoneId,name:zoneId,desired:{revision:1,target_f:72,mode:'AUTO',manual_heat:false}};
+    // Zone 1 is being migrated from a different physical firmware/relay mapping.
+    // Keep the new controller in OFF while its DS18B20 sensors are disconnected.
+    // It can be switched to AUTO only after commissioning; other zones unchanged.
+    this.state.zones[zoneId]??={id:zoneId,name:zoneId==='pa-zone-1'?'Zone 1':zoneId,
+      desired:{revision:1,target_f:72,mode:zoneId==='pa-zone-1'?'OFF':'AUTO',manual_heat:false}};
     this.persist();
     return {device_id:deviceId,zone_id:zoneId,device_token:deviceToken,ota_hmac_key:otaKey};
   }
