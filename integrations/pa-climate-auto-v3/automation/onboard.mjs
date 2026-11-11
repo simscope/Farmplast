@@ -14,6 +14,9 @@ import {loadConfig} from '../server/config.mjs';
 const MODEL = 'PA-ESP32-WROOM32E-N4-R1';
 const VERSION = 'pa-climate-msi-2.0.1';
 const BOARD = 'esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,PartitionScheme=default';
+// 4 MiB full-chip backup over the basic 115200-baud USB-UART may require >7 minutes.
+// Do not kill a healthy in-progress read after the previous four-minute limit.
+export const FLASH_BACKUP_TIMEOUT_MS = 20 * 60 * 1000;
 const SCRIPT = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SCRIPT),'..');
 
@@ -85,6 +88,7 @@ export function spawn(cmd,args,options={}) {
   const r=spawnSync(cmd,args,{encoding:'utf8',windowsHide:true,timeout:options.timeout??180000,...options});
   const output=[r.stdout,r.stderr,r.error?.message].filter(Boolean).join('\n').trim();
   if(r.error||r.status!==0) {
+    if(r.error?.code==='ETIMEDOUT') throw Error(path.basename(cmd)+' timed out after '+Math.ceil((options.timeout??180000)/60000)+' minutes; full flash backup did not finish; no firmware write was attempted.');
     // esptool v5 prints warnings to stderr and connection failures to stdout.
     // Showing only stderr hides the actual COM/bootloader connection error.
     const safe=output.replace(/(?:Bearer |device_token|ota_hmac_key)[^\n]{0,120}/gi,'[sensitive redacted]');
@@ -184,7 +188,7 @@ async function main() {
   try {
     // Mandatory complete 4-MB backup BEFORE any write; a failure cannot erase old firmware.
     console.log(`Backing up the existing 4 MB flash on ${port}; never erasing without a backup...`);
-    esptool(esp,port,'read-flash',['0x0','0x400000',backupPath],240000);
+    esptool(esp,port,'read-flash',['0x0','0x400000',backupPath],FLASH_BACKUP_TIMEOUT_MS);
     if(!fs.existsSync(backupPath)||fs.statSync(backupPath).size!==0x400000)throw Error('Flash backup incomplete; upload cancelled');
     console.log(`Backup saved privately: ${backupPath}`);
     console.log('Compiling ESP32-WROOM-32E firmware (relay ENABLED; GPIO16 active HIGH)...');
