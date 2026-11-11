@@ -88,37 +88,14 @@ if(-not (Get-Command arduino-cli -ErrorAction SilentlyContinue)) {
     $release=Invoke-RestMethod 'https://api.github.com/repos/arduino/arduino-cli/releases/latest'
     # Official assets use e.g. arduino-cli_1.5.1_Windows_64bit.zip AND
     # 1.5.1-checksums.txt (hyphen, not the incorrect _checksums.txt).
-    $asset=@($release.assets | Where-Object {$_.name -match '(?i)_Windows_64bit\.zip
-$env:PA_WORKSTATION_TOKEN=$saved.token
-try {
-  & (Join-Path $PSScriptRoot 'Auto-Add-ESP32.ps1') -Config $config
-} finally {
-  Remove-Item Env:PA_WORKSTATION_TOKEN -ErrorAction SilentlyContinue
-  $saved=$null
-  # Pending USB payloads contain plaintext Wi-Fi/device secrets only during provisioning.
-  $provision=Join-Path $root 'provisioning'
-  if(Test-Path -LiteralPath $provision){Get-ChildItem -LiteralPath $provision -Filter 'pending-provision.json' -Recurse -File | ForEach-Object {Remove-Item -LiteralPath $_.FullName -Force}}
-}
-})
-    $sums=@($release.assets | Where-Object {$_.name -match '(?i)-checksums\.txt
-$env:PA_WORKSTATION_TOKEN=$saved.token
-try {
-  & (Join-Path $PSScriptRoot 'Auto-Add-ESP32.ps1') -Config $config
-} finally {
-  Remove-Item Env:PA_WORKSTATION_TOKEN -ErrorAction SilentlyContinue
-  $saved=$null
-  # Pending USB payloads contain plaintext Wi-Fi/device secrets only during provisioning.
-  $provision=Join-Path $root 'provisioning'
-  if(Test-Path -LiteralPath $provision){Get-ChildItem -LiteralPath $provision -Filter 'pending-provision.json' -Recurse -File | ForEach-Object {Remove-Item -LiteralPath $_.FullName -Force}}
-}
-})
+    $asset=@($release.assets | Where-Object {$_.name -match '(?i)_Windows_64bit\.zip$'})
+    $sums=@($release.assets | Where-Object {$_.name -match '(?i)-checksums\.txt$'})
     if($asset.Count -ne 1 -or $sums.Count -ne 1){throw 'Official Arduino CLI release assets unavailable'}
     Get-VerifiedArchive $asset[0].browser_download_url $sums[0].browser_download_url $asset[0].name $cli
   }
   $env:PATH=$cli+';'+$env:PATH
 }
 if(-not (Get-Command arduino-cli -ErrorAction SilentlyContinue)) {throw 'Arduino CLI executable not found after setup'}
-
 $env:PA_WORKSTATION_TOKEN=$saved.token
 try {
   & (Join-Path $PSScriptRoot 'Auto-Add-ESP32.ps1') -Config $config
