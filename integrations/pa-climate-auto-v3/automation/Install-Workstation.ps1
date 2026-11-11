@@ -20,10 +20,21 @@ if(-not (Test-Path -LiteralPath $credentialFile)) {
   $reply=Invoke-RestMethod -Uri ($bootstrap.public_origin+'/workstation/enroll') -Method Post -ContentType 'application/json' -Body (@{ticket=$bootstrap.ticket}|ConvertTo-Json -Compress)
   if(-not $reply.workstation_token){throw 'MSI workstation enrollment failed'}
   $private=@{origin=$bootstrap.public_origin;token=$reply.workstation_token}|ConvertTo-Json -Compress
-  ConvertTo-SecureString $private -AsPlainText -Force | ConvertFrom-SecureString | Set-Content -LiteralPath $credentialFile -Encoding ASCII
+  $encrypted=ConvertFrom-SecureString -SecureString (ConvertTo-SecureString $private -AsPlainText -Force)
+  [System.IO.File]::WriteAllText($credentialFile,$encrypted,[System.Text.Encoding]::ASCII)
+  $encrypted=$null
   $reply=$null;$private=$null
 }
-$secure=Get-Content -LiteralPath $credentialFile -Raw | ConvertTo-SecureString
+# Set-Content in earlier ZIPs appended CR/LF; ConvertTo-SecureString rejects it as invalid format.
+# Preserve the existing one-time redeemed workstation token: do NOT delete or re-enroll.
+$encrypted=(Get-Content -LiteralPath $credentialFile -Raw -Encoding ASCII).Trim()
+try{
+  if([string]::IsNullOrWhiteSpace($encrypted)){throw 'Empty credential'}
+  $secure=ConvertTo-SecureString -String $encrypted -ErrorAction Stop
+}catch{
+  throw 'Workstation DPAPI credential could not be read. Keep workstation.dpapi; retry under the same Windows account. Never delete it or consume another enrollment ticket automatically.'
+}
+$encrypted=$null
 $ptr=[Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
 try{$saved=[Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)|ConvertFrom-Json}finally{[Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)}
 if($saved.origin -ne $bootstrap.public_origin){throw 'Saved workstation belongs to a different MSI endpoint'}
