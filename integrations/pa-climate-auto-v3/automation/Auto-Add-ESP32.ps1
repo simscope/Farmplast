@@ -67,14 +67,26 @@ $arduino=Find-Executable 'arduino-cli.exe' @(
 if(-not $arduino){$c=Get-Command arduino-cli -ErrorAction SilentlyContinue;if($c){$arduino=$c.Source}}
 if(-not $arduino){throw 'Arduino CLI not installed/found. Arduino IDE 2 may contain arduino-cli.exe. No flashing attempted.'}
 
-# Detect USB–UART port; ask only if more than one is connected.
+# Detect USB–UART port; show Windows device names for ambiguous COM3/COM4.
+# Do not automatically pick a potentially unrelated USB/serial device.
+$portLabels=@{}
+try {
+  Get-CimInstance -ClassName Win32_PnPEntity -ErrorAction Stop |
+    Where-Object { $_.Name -match '\\(COM[0-9]+\\)' } |
+    ForEach-Object {
+      if($_.Name -match '\\((COM[0-9]+)\\)'){$portLabels[$Matches[1]]=[string]$_.Name}
+    }
+}catch{ } # On systems with WMI disabled, use ordinary COM selection.
 if(-not $Port){
   $ports=@([System.IO.Ports.SerialPort]::GetPortNames() | Sort-Object)
   if($ports.Count -eq 0){throw 'No COM ports found. Connect the ESP32 via a 3.3V USB–UART adapter.'}
   if($ports.Count -eq 1){$Port=$ports[0]}
   else{
     Write-Host 'Several COM ports found:'
-    for($i=0;$i -lt $ports.Count;$i++){Write-Host "[$($i+1)] $($ports[$i])"}
+    for($i=0;$i -lt $ports.Count;$i++){
+      $label=$portLabels[$ports[$i]]
+      Write-Host "[$($i+1)] $($ports[$i]) $label"
+    }
     $choice=Read-Host 'Enter COM port number (only once)'
     if($choice -notmatch '^[0-9]+$' -or [int]$choice -lt 1 -or [int]$choice -gt $ports.Count){throw 'Invalid COM port selection'}
     $Port=$ports[[int]$choice-1]
