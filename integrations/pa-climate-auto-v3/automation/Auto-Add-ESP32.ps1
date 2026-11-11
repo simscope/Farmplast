@@ -82,6 +82,8 @@ if(-not $Port){
 }
 Write-Host "Selected serial port: $Port"
 Write-Host 'The target board must be NEW, with no mains/HVAC load connected.' -ForegroundColor Yellow
+Write-Host 'This ESP32 relay PCB has IO0 and EN buttons, but no USB-UART auto-reset pins.' -ForegroundColor Cyan
+Write-Host 'It must enter the ROM download mode before its MAC can be read.' -ForegroundColor Cyan
 $confirm=Read-Host 'Type NEW to confirm first USB flashing (a 4MB backup will be saved)'
 if($confirm -cne 'NEW'){throw 'Cancelled. No firmware written.'}
 
@@ -131,6 +133,13 @@ if(-not $esptool){
 }
 if(-not $esptool){throw 'Espressif esptool.exe not found in Arduino ESP32 core. No flashing attempted.'}
 
+# Manual boot mode for the custom relay board: no DTR/RTS handshake.
+# Ask AFTER installing libraries so the user can perform this once for MAC, 4 MB backup
+# and initial Arduino upload. onboard.mjs uses --before/--after no-reset for reads.
+Write-Host ''
+Write-Host 'ESP32 ROM DOWNLOAD MODE: hold IO0, press and release EN, then release IO0.' -ForegroundColor Cyan
+Write-Host 'Use COM port connected to the ESP32 USB-UART. Do not use serial monitor simultaneously.' -ForegroundColor Cyan
+$null=Read-Host 'Once IO0 is released and board is in download mode, press ENTER'
 $env:PA_ONBOARD_WIFI_SSID=$ssid
 $env:PA_ONBOARD_WIFI_PASSWORD=$plain
 $plain=$null
@@ -140,7 +149,11 @@ try {
   # Capture machine-readable payload PATH, never credentials, from Node's output.
   $output=@(& $node $script @args 2>&1)
   foreach($line in $output){Write-Host ([string]$line)}
-  if($LASTEXITCODE -ne 0){throw 'USB firmware write failed or was cancelled. Check the error above; no manual flash bypass.'}
+  if($LASTEXITCODE -ne 0){
+    Write-Host 'MAC/read-flash error: ensure COM port matches USB-UART and ESP32 is in ROM download mode.' -ForegroundColor Yellow
+    Write-Host 'On this board: HOLD IO0, TAP EN, RELEASE EN, RELEASE IO0. No firmware write occurred if it failed at read-mac.' -ForegroundColor Yellow
+    throw 'USB firmware write failed or was cancelled. Check the actual esptool error above.'
+  }
   $candidate=@($output | ForEach-Object {[string]$_} | Where-Object {$_ -like 'FP_PROVISION_FILE=*'})
   if($candidate.Count -ne 1){throw 'Provisioning file path was not emitted; online setup is NOT complete'}
   $payloadFile=$candidate[0].Substring('FP_PROVISION_FILE='.Length)
@@ -150,6 +163,11 @@ try {
   if($info.device_id -notmatch '^PA-CLIM-[0-9A-F]{12}$'){throw 'Invalid device identity'}
   $provisionLine='FP1:'+([Convert]::ToBase64String([Text.Encoding]::UTF8.GetBytes($payload)))
   if($provisionLine.Length -gt 10500){throw 'Provisioning payload exceeds device USB receive capacity'}
+  # Arduino CLI may leave a USB-UART-only board in the ROM bootloader.
+  # The firmware must be running to accept FP1 provisioning and acknowledge NVS.
+  Write-Host ''
+  Write-Host 'USB flash complete. Start the new firmware: release IO0 and briefly press EN (reset).' -ForegroundColor Cyan
+  $null=Read-Host 'Press ENTER after the ESP32 has restarted with IO0 RELEASED'
   Write-Host 'Sending the UNIQUE device credentials into the ESP32 NVS using USB serial...'
   $serial=New-Object System.IO.Ports.SerialPort($Port,115200,[System.IO.Ports.Parity]::None,8,[System.IO.Ports.StopBits]::One)
   $serial.ReadTimeout=1500
