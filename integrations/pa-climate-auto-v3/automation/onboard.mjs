@@ -81,7 +81,7 @@ export function privateCredentials(file,value) {
   if(encrypt)writePrivate(file,result.stdout.trim());
   else return JSON.parse(result.stdout);
 }
-function spawn(cmd,args,options={}) {
+export function spawn(cmd,args,options={}) {
   const r=spawnSync(cmd,args,{encoding:'utf8',windowsHide:true,timeout:options.timeout??180000,...options});
   const output=[r.stdout,r.stderr,r.error?.message].filter(Boolean).join('\n').trim();
   if(r.error||r.status!==0) {
