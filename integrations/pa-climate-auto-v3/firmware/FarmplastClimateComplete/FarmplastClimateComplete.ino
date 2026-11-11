@@ -100,6 +100,15 @@ inline Result evaluate(const Input &in) {
 extern "C" const char PA_CLIMATE_BUILD_VERSION[] __attribute__((used)) = "PA_CLIMATE_FW_VERSION=" FIRMWARE_VERSION;
 extern "C" const char PA_CLIMATE_BUILD_MODEL[] __attribute__((used)) = "PA_CLIMATE_FW_MODEL=" FIRMWARE_MODEL;
 
+// Arduino-ESP32 3.3.8 otherwise auto-validates a freshly OTA-booted image
+// before setup(). Defer acceptance until valid DS18B20 samples and a real
+// authenticated MSI HTTPS exchange; maybeConfirmOta() completes validation.
+// If the new firmware fails before validation, the rollback-enabled bootloader
+// can restore the previous application after reset.
+#ifdef CONFIG_APP_ROLLBACK_ENABLE
+extern "C" bool verifyRollbackLater(void) { return true; }
+#endif
+
 namespace {
 constexpr uint32_t SENSOR_PERIOD_MS = 5000;
 constexpr uint32_t CONVERSION_TIME_MS = 800; // 12-bit DS18B20, 750 ms maximum
