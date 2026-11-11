@@ -120,7 +120,7 @@ export default function ClimateControl({ zones }) {
       <div title={valid(z.controlAverageF)?'Control average: '+z.controlAverageF.toFixed(1)+' °F':undefined}><Thermometer color="#1677dd" /><strong>{valid(z.secondTemperatureF)?z.secondTemperatureF.toFixed(1):'—'}°F</strong><small>Temperature 2</small></div></div>
       {z.msi&&<div className="cl-pin-panel"><label htmlFor={'cl-zone-pin-'+z.id}>Temperature PIN</label>
         <input id={'cl-zone-pin-'+z.id} type="password" inputMode="numeric" autoComplete="off" placeholder="4-digit PIN" maxLength={4}
-          value={zonePins[z.id]||''} onChange={e=>setZonePins(v=>({...v,[z.id]:e.target.value.replace(/\\D/g,'')}))}/></div>}
+          value={zonePins[z.id]||''} onChange={e=>setZonePins(v=>({...v,[z.id]:e.target.value.replace(/\D/g,'')}))}/></div>}
       <Target key={String(drafts[z.id]) + ':' + (z.msi?.desired?.target_f??'')} min={40} max={90} disabled={saving} label={z.name + ' target'} initial={z.msi?z.setpointF:valid(drafts[z.id]) ? drafts[z.id] : z.setpointF} onSave={target => save([z.id],target,z.msi?zonePins[z.id]:'')} />
       {z.msi&&<small role="status">MSI target: {z.msi.desired?.target_f??'—'}°F · ESP32 target: {valid(z.msi.reported?.target_f)?z.msi.reported.target_f+'°F':'—'} · {z.msi.command_ack?.acknowledged?'Confirmed':z.msi.command_ack?.status==='pending'?'Awaiting controller ACK':'Not confirmed'}</small>}
       {zoneFeedback[z.id]&&<small role="alert">{zoneFeedback[z.id]}</small>}
