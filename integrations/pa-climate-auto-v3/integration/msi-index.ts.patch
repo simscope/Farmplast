@@ -1,12 +1,13 @@
 --- index.ts.before
 +++ index.ts
-@@ -283,0 +284,14 @@
+@@ -283,0 +284,15 @@
 +// Farmplast Climate: single store in the existing main worker; no extra listener.
 +const climateReady = (async () => {
 +  const { loadConfig } = await import('./climate/module/server/config.mjs')
 +  const { createClimateFetch } = await import('./climate/module/integration/fetch-existing-runtime.mjs')
 +  const c = loadConfig('/home/deno/functions/main/climate/runtime.env')
 +  const climate = createClimateFetch({dir:c.DATA_DIR,adminKey:c.CLIMATE_ADMIN_KEY,publicOrigin:c.PUBLIC_ORIGIN,
++    installerSourceDir:'/home/deno/functions/main/climate/module',
 +    authUrl:c.FARMPLAST_AUTH_URL,authAnonKey:c.FARMPLAST_AUTH_ANON_KEY,allowedUserIds:c.FARMPLAST_ALLOWED_USER_IDS})
 +  if(c.PA_CLIMATE_TRANSPORT_KEY) {
 +    const {startMsiTransport} = await import('./climate/module/integration/realtime-https-transport.mjs')
@@ -15,7 +16,7 @@
 +  return climate
 +})().catch(e => { console.error('Climate initialization failed:', e.message); return null })
 +
-@@ -284,0 +299,8 @@
+@@ -284,0 +300,8 @@
 +  const climatePath = new URL(req.url).pathname
 +  if (climatePath === '/climate' || climatePath.startsWith('/climate/') || climatePath.startsWith('/climate-local/')) {
 +    const climate = await climateReady

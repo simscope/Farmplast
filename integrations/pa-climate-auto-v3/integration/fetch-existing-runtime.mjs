@@ -5,6 +5,7 @@ import { createClimateHandler } from '../server/app.mjs';
 import { Workstations } from '../server/workstations.mjs';
 import { secureEqual } from '../server/storage.mjs';
 import fs from 'node:fs';
+import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {zipFiles} from '../server/zip.mjs';
 
@@ -62,7 +63,10 @@ export function createClimateFetch(config, {fetchImpl = fetch} = {}) {
       if(!config.publicOrigin)return reply(409,{error:'Public HTTPS endpoint is not configured'});
       const ticket=workstations.issue('Factory Windows');
       const names=['automation/Auto-Add-ESP32.ps1','automation/Install-Workstation.ps1','automation/onboard.mjs','server/config.mjs','firmware/FarmplastClimate/FarmplastClimate.ino','firmware/FarmplastClimate/device_config.h','firmware/FarmplastClimate/ClimateLogic.h'];
-      const files=names.map(name=>['module/'+name,fs.readFileSync(fileURLToPath(new URL('../'+name,import.meta.url)))]);
+      // Edge Runtime relocates import.meta.url into its compiled virtual filesystem.
+      // Installer assets are ordinary files in the existing MSI bind mount.
+      const sourceDir=config.installerSourceDir||fileURLToPath(new URL('../',import.meta.url));
+      const files=names.map(name=>['module/'+name,fs.readFileSync(path.join(sourceDir,name))]);
       files.push(['workstation-bootstrap.json',JSON.stringify({public_origin:config.publicOrigin,...ticket})]);
       files.push(['Add-ESP32.cmd','@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0module\\automation\\Install-Workstation.ps1"\r\npause\r\n']);
       return new Response(zipFiles(files),{headers:{'Content-Type':'application/zip','Content-Disposition':'attachment; filename="Farmplast-Add-ESP32.zip"','Cache-Control':'private, no-store'}});

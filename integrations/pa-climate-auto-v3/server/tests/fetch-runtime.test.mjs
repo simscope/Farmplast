@@ -57,3 +57,19 @@ test('Factory enrollment is one use, scoped, reserves Zone 1, survives restart a
   assert.equal((await call('/climate-local/v1/admin/workstations','DELETE',{id:workstation_id},config.adminKey)).status,200);
   assert.equal((await call('/climate/workstation/zones','GET',null,key)).status,401);
 });
+
+test('Installer ZIP reads the configured disk assets when runtime module URLs are relocated', async t=>{
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fp-installer-assets-'));
+  t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
+  const assets=path.join(dir,'mounted-module');
+  const names=['automation/Auto-Add-ESP32.ps1','automation/Install-Workstation.ps1','automation/onboard.mjs','server/config.mjs','firmware/FarmplastClimate/FarmplastClimate.ino','firmware/FarmplastClimate/device_config.h','firmware/FarmplastClimate/ClimateLogic.h'];
+  for(const name of names){const file=path.join(assets,name);fs.mkdirSync(path.dirname(file),{recursive:true});fs.writeFileSync(file,'mounted installer asset: '+name);}
+  const runtime=createClimateFetch({dir,adminKey:'x'.repeat(48),publicOrigin:'https://farmplast.vercel.app/climate',authUrl:'https://auth.example',authAnonKey:'public',allowedUserIds:'owner',installerSourceDir:assets},{fetchImpl:async()=>Response.json({id:'owner'})});
+  const response=await runtime.route(new Request('https://farmplast.vercel.app/climate/operator/installer',{method:'POST',headers:{Authorization:'Bearer '+'j'.repeat(40)}}));
+  assert.equal(response.status,200);
+  assert.equal(response.headers.get('content-type'),'application/zip');
+  assert.match(response.headers.get('cache-control'),/no-store/);
+  const zip=Buffer.from(await response.arrayBuffer());
+  assert.equal(zip.readUInt32LE(0),0x04034b50);
+  for(const name of names)assert.ok(zip.includes(Buffer.from('mounted installer asset: '+name)),name);
+});
