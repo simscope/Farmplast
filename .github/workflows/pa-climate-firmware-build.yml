@@ -82,7 +82,7 @@ jobs:
           assert data[0]==0xE9, 'Invalid ESP32 application'
           assert len(data)<=0x140000, 'Standalone image exceeds OTA slot'
           assert b'PA_CLIMATE_FW_MODEL=PA-ESP32-WROOM32E-N4-R1' in data
-          assert b'PA_CLIMATE_FW_VERSION=pa-climate-msi-2.0.0' in data
+          assert b'PA_CLIMATE_FW_VERSION=pa-climate-msi-2.0.1' in data
           print(f'Standalone .ino compiles and fits slot: {len(data)} bytes')
           PY
 
@@ -95,7 +95,7 @@ jobs:
           data=files[0].read_bytes()
           assert data[0] == 0xE9, 'Not an ESP32 application image'
           assert len(data) <= 0x140000, f'Application exceeds single OTA slot: {len(data)} bytes'
-          for marker in [b'PA_CLIMATE_FW_VERSION=pa-climate-msi-2.0.0', b'PA_CLIMATE_FW_MODEL=PA-ESP32-WROOM32E-N4-R1']:
+          for marker in [b'PA_CLIMATE_FW_VERSION=pa-climate-msi-2.0.1', b'PA_CLIMATE_FW_MODEL=PA-ESP32-WROOM32E-N4-R1']:
               assert marker in data, f'Firmware marker missing: {marker}'
           print(f'VALID ESP32 app: {files[0].name}, {len(data)} bytes, OTA slot 1,310,720')
           PY
@@ -103,6 +103,6 @@ jobs:
       - name: Upload verified firmware binaries
         uses: actions/upload-artifact@v4
         with:
-          name: Farmplast-PA-Climate-ESP32-WROOM32E-2_0_0
+          name: Farmplast-PA-Climate-ESP32-WROOM32E-2_0_1
           path: build/pa-climate/
           retention-days: 14

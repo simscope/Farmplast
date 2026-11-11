@@ -12,7 +12,7 @@ import {fileURLToPath} from 'node:url';
 import {loadConfig} from '../server/config.mjs';
 
 const MODEL = 'PA-ESP32-WROOM32E-N4-R1';
-const VERSION = 'pa-climate-msi-2.0.0';
+const VERSION = 'pa-climate-msi-2.0.1';
 const BOARD = 'esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,PartitionScheme=default';
 const SCRIPT = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SCRIPT),'..');
