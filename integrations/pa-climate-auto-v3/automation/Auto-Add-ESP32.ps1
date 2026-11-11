@@ -96,7 +96,7 @@ Write-Host "Selected serial port: $Port"
 Write-Host 'The target board must be NEW, with no mains/HVAC load connected.' -ForegroundColor Yellow
 Write-Host 'This ESP32 relay PCB has IO0 and EN buttons, but no USB-UART auto-reset pins.' -ForegroundColor Cyan
 Write-Host 'It must enter the ROM download mode before its MAC can be read.' -ForegroundColor Cyan
-$confirm=Read-Host 'Type NEW to confirm first USB flashing (a 4MB backup will be saved)'
+$confirm=Read-Host 'Type NEW to confirm the ESP32 has no existing firmware to preserve (first USB flash; no 4MB backup)'
 if($confirm -cne 'NEW'){throw 'Cancelled. No firmware written.'}
 
 # One-time Wi-Fi entry. Password persists with Windows DPAPI bound to this user,
@@ -146,8 +146,8 @@ if(-not $esptool){
 if(-not $esptool){throw 'Espressif esptool.exe not found in Arduino ESP32 core. No flashing attempted.'}
 
 # Manual boot mode for the custom relay board: no DTR/RTS handshake.
-# Ask AFTER installing libraries so the user can perform this once for MAC, 4 MB backup
-# and initial Arduino upload. onboard.mjs uses --before/--after no-reset for reads.
+# Ask AFTER installing libraries so the user can enter ROM download mode once
+# for MAC detection and the initial Arduino upload.
 Write-Host ''
 Write-Host 'ESP32 ROM DOWNLOAD MODE: hold IO0, press and release EN, then release IO0.' -ForegroundColor Cyan
 Write-Host 'Use COM port connected to the ESP32 USB-UART. Do not use serial monitor simultaneously.' -ForegroundColor Cyan
@@ -158,14 +158,14 @@ $plain=$null
 try {
   $args=@('--config',$Config,'--port',$Port,'--arduino-cli',$arduino,'--esptool',$esptool,'--confirm-new')
   if($Zone){$args+=@('--zone',$Zone)}
-  # The full 4 MiB flash backup is read at the reliable 115200 baud speed.
-  # Captured command output is displayed after the child exits, so explain the quiet period.
-  Write-Host 'Reading the full 4 MB ESP32 flash backup. At 115200 baud this may take several minutes; do not disconnect the board.' -ForegroundColor Cyan
+  # A confirmed NEW ESP32 requires no 4MB flash backup; the uploader reads the MAC,
+  # registers the device, builds the new image and writes it directly.
+  Write-Host 'NEW ESP32: no existing firmware backup. Reading MAC and preparing first flash.' -ForegroundColor Cyan
   # Capture machine-readable payload PATH, never credentials, from Node's output.
   $output=@(& $node $script @args 2>&1)
   foreach($line in $output){Write-Host ([string]$line)}
   if($LASTEXITCODE -ne 0){
-    Write-Host 'MAC/read-flash error: ensure COM port matches USB-UART and ESP32 is in ROM download mode.' -ForegroundColor Yellow
+    Write-Host 'USB flash setup error: ensure COM port matches USB-UART and ESP32 is in ROM download mode.' -ForegroundColor Yellow
     Write-Host 'On this board: HOLD IO0, TAP EN, RELEASE EN, RELEASE IO0. No firmware write occurred if it failed at read-mac.' -ForegroundColor Yellow
     throw 'USB firmware write failed or was cancelled. Check the actual esptool error above.'
   }
