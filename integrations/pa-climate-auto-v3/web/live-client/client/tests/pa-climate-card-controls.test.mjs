@@ -1,14 +1,14 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import {transform} from 'esbuild'
+import {parse} from '@babel/parser'
 
 const file = new URL('../src/components/monitoring/pa/ClimateControl.jsx',import.meta.url)
 const source = fs.readFileSync(file,'utf8')
 
-test('Updated Zone 2 controls parse as valid production JSX',async()=>{
- const built=await transform(source,{loader:'jsx',jsx:'automatic',target:'es2022',format:'esm'})
- assert.ok(built.code.length>0)
+test('Updated Zone 2 controls parse as valid production JSX',()=>{
+ const ast=parse(source,{sourceType:'module',plugins:['jsx']})
+ assert.ok(ast.program.body.length>0)
 })
 test('MSI zone card keeps existing target buttons but takes PIN next to the target',()=>{
  assert.ok(source.includes("id={'cl-zone-pin-'+z.id}"))
