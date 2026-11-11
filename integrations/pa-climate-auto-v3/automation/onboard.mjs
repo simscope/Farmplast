@@ -14,14 +14,11 @@ import {loadConfig} from '../server/config.mjs';
 const MODEL = 'PA-ESP32-WROOM32E-N4-R1';
 const VERSION = 'pa-climate-msi-2.0.1';
 const BOARD = 'esp32:esp32:esp32:FlashMode=dio,FlashFreq=40,PartitionScheme=default';
-// 4 MiB full-chip backup over the basic 115200-baud USB-UART may require >7 minutes.
-// Do not kill a healthy in-progress read after the previous four-minute limit.
-export const FLASH_BACKUP_TIMEOUT_MS = 20 * 60 * 1000;
 const SCRIPT = fileURLToPath(import.meta.url);
 const ROOT = path.resolve(path.dirname(SCRIPT),'..');
 
 export function parseArgs(args) {
-  const optionNames=new Set(['--config','--port','--zone','--arduino-cli','--esptool','--source','--backup-dir','--device']);
+  const optionNames=new Set(['--config','--port','--zone','--arduino-cli','--esptool','--source','--device']);
   const flags=new Set(['--preflight','--confirm-new','--verify']);
   const out={};
   for(let i=0;i<args.length;i++) {
@@ -88,7 +85,7 @@ export function spawn(cmd,args,options={}) {
   const r=spawnSync(cmd,args,{encoding:'utf8',windowsHide:true,timeout:options.timeout??180000,...options});
   const output=[r.stdout,r.stderr,r.error?.message].filter(Boolean).join('\n').trim();
   if(r.error||r.status!==0) {
-    if(r.error?.code==='ETIMEDOUT') throw Error(path.basename(cmd)+' timed out after '+Math.ceil((options.timeout??180000)/60000)+' minutes; full flash backup did not finish; no firmware write was attempted.');
+    if(r.error?.code==='ETIMEDOUT') throw Error(path.basename(cmd)+' timed out after '+Math.ceil((options.timeout??180000)/60000)+' minutes.');
     // esptool v5 prints warnings to stderr and connection failures to stdout.
     // Showing only stderr hides the actual COM/bootloader connection error.
     const safe=output.replace(/(?:Bearer |device_token|ota_hmac_key)[^\n]{0,120}/gi,'[sensitive redacted]');
@@ -102,7 +99,7 @@ export function esptool(cmd,port,verb,args=[],timeout=90000,runner=spawn){
   const modern=verb.replaceAll('_','-');
   // The owner's PA relay PCB has IO0 and EN buttons but no automatic
   // DTR/RTS programming header. The operator enters ROM download mode once.
-  // Keep the ESP32 in that mode across MAC and backup reads.
+  // Keep the ESP32 in ROM download mode while reading its MAC.
   return runner(cmd,['--chip','esp32','--port',port,'--baud','115200',
     '--before','no-reset','--after','no-reset',modern,...args],{timeout});
 }
@@ -183,14 +180,11 @@ async function main() {
   fs.mkdirSync(sketch);fs.mkdirSync(build);
   const source=path.resolve(a.source||path.join(ROOT,'firmware','FarmplastClimate'));
   for(const name of ['FarmplastClimate.ino','ClimateLogic.h','device_config.h'])fs.copyFileSync(path.join(source,name),path.join(sketch,name));
-  const backupPath=path.join(path.resolve(a['backup-dir']||path.join(config.DATA_DIR,'backups')),dev+'-'+new Date().toISOString().replace(/[:.]/g,'-')+'.bin');
-  ensureFileParent(backupPath);
+  // Explicit first-install mode: confirmed NEW ESP32, never an already running controller.
+  // Reading 4 MiB before a first flash is unnecessary and was blocking setup for minutes.
+  // Existing online controllers and Zone 1 are protected above.
   try {
-    // Mandatory complete 4-MB backup BEFORE any write; a failure cannot erase old firmware.
-    console.log(`Backing up the existing 4 MB flash on ${port}; never erasing without a backup...`);
-    esptool(esp,port,'read-flash',['0x0','0x400000',backupPath],FLASH_BACKUP_TIMEOUT_MS);
-    if(!fs.existsSync(backupPath)||fs.statSync(backupPath).size!==0x400000)throw Error('Flash backup incomplete; upload cancelled');
-    console.log(`Backup saved privately: ${backupPath}`);
+    console.log('New ESP32 confirmed: skipping full-chip flash backup. Reading MAC only, then uploading new application.');
     console.log('Compiling ESP32-WROOM-32E firmware (relay ENABLED; GPIO16 active HIGH)...');
     spawn(arduino,['compile','--fqbn',BOARD,'--output-dir',build,sketch],{timeout:300000});
     const binary=path.join(build,'FarmplastClimate.ino.bin');
