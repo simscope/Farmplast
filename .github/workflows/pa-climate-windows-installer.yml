@@ -1,0 +1,28 @@
+name: PA Climate Windows installer checksums
+
+on:
+  push:
+    branches:
+      - work/pa-climate-auto-msi-20261110
+    paths:
+      - "integrations/pa-climate-auto-v3/automation/**"
+      - ".github/workflows/pa-climate-windows-installer.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "integrations/pa-climate-auto-v3/automation/**"
+      - ".github/workflows/pa-climate-windows-installer.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-powershell-51:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify official SHA256 validation and archive extraction on Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          & .\integrations\pa-climate-auto-v3\automation\tests\installer-checksums.test.ps1
