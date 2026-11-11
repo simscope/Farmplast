@@ -158,6 +158,9 @@ $plain=$null
 try {
   $args=@('--config',$Config,'--port',$Port,'--arduino-cli',$arduino,'--esptool',$esptool,'--confirm-new')
   if($Zone){$args+=@('--zone',$Zone)}
+  # The full 4 MiB flash backup is read at the reliable 115200 baud speed.
+  # Captured command output is displayed after the child exits, so explain the quiet period.
+  Write-Host 'Reading the full 4 MB ESP32 flash backup. At 115200 baud this may take several minutes; do not disconnect the board.' -ForegroundColor Cyan
   # Capture machine-readable payload PATH, never credentials, from Node's output.
   $output=@(& $node $script @args 2>&1)
   foreach($line in $output){Write-Host ([string]$line)}
