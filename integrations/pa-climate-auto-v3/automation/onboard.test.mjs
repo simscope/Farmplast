@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import {parseArgs,parseMac,nextZone,provisioningPayload,localApiBase,remoteApiBase,privateCredentials,esptool,spawn,FLASH_BACKUP_TIMEOUT_MS} from './onboard.mjs';
+import {parseArgs,parseMac,nextZone,provisioningPayload,localApiBase,remoteApiBase,privateCredentials,esptool,spawn} from './onboard.mjs';
 
 test('MAC -> stable per-device ID, no serial port index used as identity',()=>{
  assert.equal(parseMac('Connecting...\nMAC: 1a:2b:3c:4d:5e:6f\n'),'PA-CLIM-1A2B3C4D5E6F');
@@ -49,14 +49,12 @@ test('Factory device credentials persist with real Windows DPAPI, without plaint
   assert.deepEqual(privateCredentials(file),value);
 });
 
-test('esptool v5 uses read-mac / read-flash and never retries a failed COM port with deprecated read_mac', () => {
+test('esptool v5 reads MAC once and never retries a failed COM port with deprecated read_mac', () => {
  const calls=[];
  const runner=(cmd,args,options)=>{calls.push({cmd,args,options});return 'MAC: 1a:2b:3c:4d:5e:6f'};
  const mac=parseMac(esptool('esptool.exe','COM4','read_mac',[],90000,runner));
  assert.equal(mac,'PA-CLIM-1A2B3C4D5E6F');
  assert.deepEqual(calls[0].args,['--chip','esp32','--port','COM4','--baud','115200','--before','no-reset','--after','no-reset','read-mac']);
- esptool('esptool.exe','COM4','read_flash',['0x0','0x400000','backup.bin'],240000,runner);
- assert.deepEqual(calls[1].args,['--chip','esp32','--port','COM4','--baud','115200','--before','no-reset','--after','no-reset','read-flash','0x0','0x400000','backup.bin']);
  let failed=0;
  const deadPort=()=>{failed++;throw Error('Failed to connect to ESP32: No serial data received at COM4')};
  assert.throws(()=>esptool('esptool.exe','COM4','read_mac',[],90000,deadPort),/No serial data received/);
@@ -73,7 +71,12 @@ test('esptool launcher preserves actual stdout error when stderr contains only a
  });
 });
 
-test('full 4-MiB backup at 115200 has sufficient timeout; never silently truncates at 4 minutes',()=>{
- assert.ok(FLASH_BACKUP_TIMEOUT_MS>=15*60*1000,'4 MiB serial backup must be allowed at least 15 minutes');
- assert.ok(FLASH_BACKUP_TIMEOUT_MS>240000,'Previous 4 minute watchdog was too short');
+test('new ESP32 first-flash path never reads 4 MiB of existing flash',()=>{
+ const nodeSource=fs.readFileSync(new URL('./onboard.mjs',import.meta.url),'utf8');
+ const wizardSource=fs.readFileSync(new URL('./Auto-Add-ESP32.ps1',import.meta.url),'utf8');
+ assert.doesNotMatch(nodeSource,/esptool\s*\(\s*esp\s*,\s*port\s*,\s*['"]read[_-]flash['"]/i);
+ assert.doesNotMatch(nodeSource,/backupPath|FLASH_BACKUP_TIMEOUT_MS|0x400000/);
+ assert.match(nodeSource,/skipping full-chip flash backup/);
+ assert.match(wizardSource,/first USB flash; no 4MB backup/);
+ assert.match(wizardSource,/NEW ESP32: no existing firmware backup/);
 });
