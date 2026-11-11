@@ -54,9 +54,9 @@ test('esptool v5 uses read-mac / read-flash and never retries a failed COM port 
  const runner=(cmd,args,options)=>{calls.push({cmd,args,options});return 'MAC: 1a:2b:3c:4d:5e:6f'};
  const mac=parseMac(esptool('esptool.exe','COM4','read_mac',[],90000,runner));
  assert.equal(mac,'PA-CLIM-1A2B3C4D5E6F');
- assert.deepEqual(calls[0].args,['--chip','esp32','--port','COM4','read-mac']);
+ assert.deepEqual(calls[0].args,['--chip','esp32','--port','COM4','--baud','115200','--before','no-reset','--after','no-reset','read-mac']);
  esptool('esptool.exe','COM4','read_flash',['0x0','0x400000','backup.bin'],240000,runner);
- assert.deepEqual(calls[1].args,['--chip','esp32','--port','COM4','read-flash','0x0','0x400000','backup.bin']);
+ assert.deepEqual(calls[1].args,['--chip','esp32','--port','COM4','--baud','115200','--before','no-reset','--after','no-reset','read-flash','0x0','0x400000','backup.bin']);
  let failed=0;
  const deadPort=()=>{failed++;throw Error('Failed to connect to ESP32: No serial data received at COM4')};
  assert.throws(()=>esptool('esptool.exe','COM4','read_mac',[],90000,deadPort),/No serial data received/);
