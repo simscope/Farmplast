@@ -177,12 +177,7 @@ try {
   Remove-Item -Path $payloadFile -Force
   # Distinguish a successful USB flash from a complete end-to-end MSI verification.
   # The ESP32 may be provisioned at home for a Wi-Fi network that exists only in PA.
-  $currentWifi=@(netsh wlan show interfaces | Out-String | Select-String -Pattern '(?m)^\s*SSID\s*:\s*(.+?)\s*
-}finally{
-  Remove-Item Env:PA_ONBOARD_WIFI_PASSWORD -ErrorAction SilentlyContinue
-  Remove-Item Env:PA_ONBOARD_WIFI_SSID -ErrorAction SilentlyContinue
-}
- -AllMatches | ForEach-Object {$_.Matches} | ForEach-Object {$_.Groups[1].Value.Trim()})
+  $currentWifi=@(netsh wlan show interfaces | Out-String | Select-String -Pattern '(?m)^\s*SSID\s*:\s*(.+?)\s*$' -AllMatches | ForEach-Object {$_.Matches} | ForEach-Object {$_.Groups[1].Value.Trim()})
   if($currentWifi -contains $ssid){
     Write-Host 'ESP32 provisioned. Checking real authenticated MSI telemetry...'
     & $node $script --config $Config --verify --device ([string]$info.device_id)
