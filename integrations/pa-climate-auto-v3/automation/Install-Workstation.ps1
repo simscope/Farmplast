@@ -44,16 +44,35 @@ $config=Join-Path $root 'workstation.env'
 $tools=Join-Path $root 'tools'
 New-Item -ItemType Directory -Path $tools -Force | Out-Null
 # Retrieve official tools over Windows-validated TLS and check their published SHA256.
-function Get-VerifiedArchive($url,$sumUrl,$name,$destination) {
+function Get-VerifiedArchive($url,$checksumSource,$name,$destination) {
   $archive=Join-Path $tools $name
-  Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing
-  $sums=(Invoke-WebRequest -Uri $sumUrl -UseBasicParsing).Content
-  $line=@($sums -split "`n" | Where-Object {$_ -match ([regex]::Escape($name)+'\s*$')})
-  if($line.Count -ne 1){throw 'Official tool checksum entry missing'}
-  $expected=([regex]::Match($line[0],'(?i)^[a-f0-9]{64}')).Value
-  if(-not $expected -or (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash -ne $expected){throw 'Official tool checksum mismatch'}
+  $expected=$null
+  if($checksumSource -match '^sha256:([a-fA-F0-9]{64})$'){
+    $expected=$Matches[1]
+  }else{
+    # Windows PowerShell 5.1 .Content can be a byte array. Decode from a file.
+    $sumFile=Join-Path $tools ("checksums-"+[guid]::NewGuid().ToString('N')+".txt")
+    try {
+      Invoke-WebRequest -Uri $checksumSource -OutFile $sumFile -UseBasicParsing -ErrorAction Stop
+      $sums=[System.IO.File]::ReadAllText($sumFile,[System.Text.Encoding]::UTF8)
+      $filePattern=[regex]::Escape($name)
+      $entries=@([regex]::Matches($sums,"(?im)^\s*([a-fA-F0-9]{64})\s+\*?$filePattern\s*$"))
+      if($entries.Count -ne 1){throw "Official SHA256 entry not found for $name"}
+      $expected=$entries[0].Groups[1].Value
+    }finally{
+      Remove-Item -LiteralPath $sumFile -Force -ErrorAction SilentlyContinue
+    }
+  }
+  if($expected -notmatch '^[a-fA-F0-9]{64}$'){throw 'Official tool SHA256 digest invalid'}
+  Invoke-WebRequest -Uri $url -OutFile $archive -UseBasicParsing -ErrorAction Stop
+  $actual=(Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
+  if(-not [string]::Equals($actual,$expected,[StringComparison]::OrdinalIgnoreCase)){
+    Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+    throw 'Official tool checksum mismatch'
+  }
+  New-Item -ItemType Directory -Path $destination -Force | Out-Null
   Expand-Archive -LiteralPath $archive -DestinationPath $destination -Force
-  Remove-Item -LiteralPath $archive
+  Remove-Item -LiteralPath $archive -Force
 }
 if(-not (Get-Command node -ErrorAction SilentlyContinue)) {
   $nodeRoot=Get-ChildItem $tools -Directory -Filter 'node-*-win-x64' | Sort-Object Name -Descending | Select-Object -First 1
@@ -89,9 +108,14 @@ if(-not (Get-Command arduino-cli -ErrorAction SilentlyContinue)) {
     # Official assets use e.g. arduino-cli_1.5.1_Windows_64bit.zip AND
     # 1.5.1-checksums.txt (hyphen, not the incorrect _checksums.txt).
     $asset=@($release.assets | Where-Object {$_.name -match '(?i)_Windows_64bit\.zip$'})
-    $sums=@($release.assets | Where-Object {$_.name -match '(?i)-checksums\.txt$'})
-    if($asset.Count -ne 1 -or $sums.Count -ne 1){throw 'Official Arduino CLI release assets unavailable'}
-    Get-VerifiedArchive $asset[0].browser_download_url $sums[0].browser_download_url $asset[0].name $cli
+    if($asset.Count -ne 1){throw 'Official Arduino CLI Windows ZIP asset unavailable'}
+    $check=$asset[0].digest
+    if($check -notmatch '^sha256:[a-fA-F0-9]{64}$'){
+      $sums=@($release.assets | Where-Object {$_.name -match '(?i)-checksums\.txt$'})
+      if($sums.Count -ne 1){throw 'Official Arduino CLI checksums asset unavailable'}
+      $check=$sums[0].browser_download_url
+    }
+    Get-VerifiedArchive $asset[0].browser_download_url $check $asset[0].name $cli
   }
   $env:PATH=$cli+';'+$env:PATH
 }
