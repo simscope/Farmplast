@@ -1,4 +1,4 @@
-# Run on the FACTORY Windows workstation; MSI remains the remote server.
+# Run on ANY Windows workstation with USB-UART access to the ESP32; MSI remains the remote server.
 # This script NEVER starts a second HTTP server, Docker container, or Windows service.
 param(
   [string]$Config = 'E:\SimScopeData\Farmplast\Climate\climate.env',
@@ -95,11 +95,11 @@ if(Test-Path $wifiFile){
   $ssid=[string]$saved.ssid
   $password=ConvertTo-SecureString -String ([string]$saved.dpapi)
 }else{
-  $wlan=netsh wlan show interfaces | Out-String
-  $connected=@([regex]::Matches($wlan,'(?m)^\s*SSID\s*:\s*(.+?)\s*$') | ForEach-Object {$_.Groups[1].Value.Trim()} | Select-Object -Unique)
-  if($connected.Count -ne 1){throw 'Connect this workstation to the Pennsylvania Wi-Fi before first setup; exactly one connected WLAN is required.'}
-  $ssid=$connected[0]
-  $password=Read-Host -AsSecureString 'Enter Wi-Fi password (stored with Windows DPAPI)'
+  # The workstation can be at home, at the plant, or anywhere with USB-UART.
+  # Do not read its current WLAN SSID: that might be unrelated to the ESP32 destination.
+  $ssid=(Read-Host 'Enter the future ESP32 Wi-Fi SSID (not necessarily your current PC Wi-Fi)').Trim()
+  if(-not $ssid){throw 'Target ESP32 Wi-Fi SSID is required'}
+  $password=Read-Host -AsSecureString 'Enter the password of that ESP32 Wi-Fi (stored using Windows DPAPI)'
   New-Item -ItemType Directory -Path $wifiDir -Force | Out-Null
   @{ssid=$ssid;dpapi=($password | ConvertFrom-SecureString)} | ConvertTo-Json | Set-Content -Path $wifiFile -Encoding UTF8
 }
@@ -175,10 +175,24 @@ try {
   if(-not $acked){throw 'ESP32 did not confirm credentials in NVS. Not reporting success; do not install into an HVAC panel.'}
   # The password/token/CA are now in NVS. Remove temporary JSON with plaintext.
   Remove-Item -Path $payloadFile -Force
-  Write-Host 'ESP32 provisioned. Checking real authenticated MSI telemetry...'
-  & $node $script --config $Config --verify --device ([string]$info.device_id)
-  if($LASTEXITCODE -ne 0){throw 'USB provisioning succeeded, but the controller has not yet reported ONLINE to MSI.'}
-  Write-Host "SUCCESS: $($info.device_id) registered, firmware flashed, NVS provisioned and MSI ONLINE confirmed." -ForegroundColor Green
+  # Distinguish a successful USB flash from a complete end-to-end MSI verification.
+  # The ESP32 may be provisioned at home for a Wi-Fi network that exists only in PA.
+  $currentWifi=@(netsh wlan show interfaces | Out-String | Select-String -Pattern '(?m)^\s*SSID\s*:\s*(.+?)\s*
+}finally{
+  Remove-Item Env:PA_ONBOARD_WIFI_PASSWORD -ErrorAction SilentlyContinue
+  Remove-Item Env:PA_ONBOARD_WIFI_SSID -ErrorAction SilentlyContinue
+}
+ -AllMatches | ForEach-Object {$_.Matches} | ForEach-Object {$_.Groups[1].Value.Trim()})
+  if($currentWifi -contains $ssid){
+    Write-Host 'ESP32 provisioned. Checking real authenticated MSI telemetry...'
+    & $node $script --config $Config --verify --device ([string]$info.device_id)
+    if($LASTEXITCODE -ne 0){throw 'USB provisioning succeeded, but the controller has not yet reported ONLINE to MSI.'}
+    Write-Host "SUCCESS: $($info.device_id) registered, firmware flashed, NVS provisioned and MSI ONLINE confirmed." -ForegroundColor Green
+  }else{
+    Write-Host "USB FLASH/PROVISION PASS: $($info.device_id). The target SSID is not the current Windows Wi-Fi." -ForegroundColor Yellow
+    Write-Host 'MSI ONLINE / end-to-end verification is PENDING until the ESP32 reaches the target Wi-Fi. This is not an online success claim.' -ForegroundColor Yellow
+    Write-Host 'No second application flash is needed solely for the location change.'
+  }
 }finally{
   Remove-Item Env:PA_ONBOARD_WIFI_PASSWORD -ErrorAction SilentlyContinue
   Remove-Item Env:PA_ONBOARD_WIFI_SSID -ErrorAction SilentlyContinue
