@@ -31,10 +31,11 @@ function ZoneControls({ id, name, zone, refresh }) {
   }
   const actual=zone?{mode:zone.reported?.mode??zone.desired.mode,heat:zone.reported?.heat===true}:choice
   const busy=zone&&(!zone.online||zone.command_ack?.status==='pending')
+  const disabledForMode=mode=>zone&&(!zone.online||(zone.command_ack?.status==='pending'&&mode!=='OFF'))
   return <div className="cl-switches">
     <small>{zone?'Controller settings':'Local settings'}</small>
     <div role="group" aria-label={name + ' mode'}>{(zone?['AUTO','MANUAL','OFF']:['AUTO','MANUAL']).map(mode =>
-      <button type="button" key={mode} disabled={busy} aria-pressed={actual.mode === mode} onClick={() => select(mode, mode === choice.mode && choice.heat)}>{mode}</button>)}</div>
+      <button type="button" key={mode} disabled={disabledForMode(mode)} aria-pressed={actual.mode === mode} onClick={() => select(mode, mode === choice.mode && choice.heat)}>{mode}</button>)}</div>
     {actual.mode === 'MANUAL' && <div role="group" aria-label={name + ' manual heat'}>{[true, false].map(on =>
       <button type="button" key={String(on)} disabled={busy||(zone&&on&&zone.reported?.sensor_count===0)} aria-pressed={actual.heat === on} onClick={() => select('MANUAL', on, true)}>HEAT {on ? 'ON' : 'OFF'}</button>)}</div>}
     {error && <small role="alert">{error}</small>}
@@ -49,6 +50,7 @@ async function msiRequest(method='GET',body){
 }
 export default function ClimateControl({ zones }) {
   const [msiZones,setMsiZones]=useState([]),[adding,setAdding]=useState(false)
+  const [zonePins,setZonePins]=useState({}),[zoneFeedback,setZoneFeedback]=useState({})
   async function refreshMsi(){
     try{const value=await msiRequest();setMsiZones(value.zones||[])}catch{setMsiZones(old=>old.map(z=>({...z,online:false,reported:null})))}
   }
@@ -72,21 +74,28 @@ export default function ClimateControl({ zones }) {
   const [notice, setNotice] = useState('')
   const pinField=useRef(null)
   const [pin,setPin]=useState(''),[saving,setSaving]=useState(false)
-  async function save(ids,target){
+  async function save(ids,target,localPin=''){
     if(saving)return
+    const singleMsi=ids.length===1&&managed.has(ids[0])?ids[0]:null
+    const enteredPin=localPin||pin
     setSaving(true);setNotice('')
+    if(singleMsi)setZoneFeedback(v=>({...v,[singleMsi]:''}))
     try{
-      if(!/^\d{4}$/.test(pin)){pinField.current?.focus();throw Error('Enter your four-digit temperature PIN.')}
+      if(!/^\d{4}$/.test(enteredPin)){if(!singleMsi)pinField.current?.focus();throw Error('Enter the four-digit temperature PIN before saving.')}
       const {data}=await supabase.auth.getSession();if(!data.session)throw Error('Sign in as an administrator.')
       const live=ids.includes('pa-zone-1')&&!managed.has('pa-zone-1'),url='/api/pa-zone1'
       const current=live?await (await fetch(url,{cache:'no-store'})).json():null
       if(live&&!Number.isSafeInteger(current?.revision))throw Error('Zone 1 is offline. No targets changed.')
-      const r=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+data.session.access_token,'Content-Type':'application/json'},body:JSON.stringify({action:live?'TARGET':'CHECK_PIN',target,pin,revision:current?.revision})})
+      const r=await fetch(url,{method:'POST',headers:{Authorization:'Bearer '+data.session.access_token,'Content-Type':'application/json'},body:JSON.stringify({action:live?'TARGET':'CHECK_PIN',target,pin:enteredPin,revision:current?.revision})})
       if(!r.ok)throw Error((await r.json()).error||'Target not accepted.')
       const connected=ids.filter(id=>managed.has(id))
-      for(const id of connected)await msiRequest('POST',{action:'set',zone_id:id,target_f:target,pin})
+      for(const id of connected)await msiRequest('POST',{action:'set',zone_id:id,target_f:target,pin:enteredPin})
       await refreshMsi()
       setPin('')
+      if(singleMsi){
+        setZonePins(v=>({...v,[singleMsi]:''}))
+        setZoneFeedback(v=>({...v,[singleMsi]:'Target '+target+'°F sent to MSI; awaiting controller ACK.'}))
+      }
       if(live){let confirmed=false;setNotice('Waiting for Zone 1…')
         for(let i=0;i<12;i++){await new Promise(resolve=>setTimeout(resolve,2500));const s=await (await fetch(url,{cache:'no-store'})).json();if(s.revision>current.revision&&s.target===target){confirmed=true;break}}
         if(!confirmed)throw Error('Zone 1 has not confirmed the new target. Check its reported temperature setting.')
@@ -94,7 +103,7 @@ export default function ClimateControl({ zones }) {
       const draftsOnly=ids.filter(id=>id!=='pa-zone-1'&&!managed.has(id))
       if(draftsOnly.length)saveDrafts(draftsOnly,target)
       setNotice((live?'Zone 1 confirmed '+target+' °F. ':'')+(connected.length?'Sent to MSI for '+connected.length+' controller(s); awaiting reported ACK. ':'')+(draftsOnly.length?'Local targets saved for '+draftsOnly.length+' unconnected zone(s).':''))
-    }catch(e){setNotice(e.message)}finally{setSaving(false)}
+    }catch(e){setNotice(e.message);if(singleMsi)setZoneFeedback(v=>({...v,[singleMsi]:e.message}))}finally{setSaving(false)}
   }
   function saveDrafts(ids, target) {
     const next = { ...drafts, ...Object.fromEntries(ids.map(id => [id, target])) }
@@ -109,7 +118,12 @@ export default function ClimateControl({ zones }) {
       <header><h2>{z.name}</h2><small>{z.connection}</small></header>
       <div className="cl-readings"><div><Thermometer color="#dc402b" /><strong>{z.temperatureF ?? '—'}°F</strong><small>{valid(z.temperatureF) ? ((z.temperatureF-32)*5/9).toFixed(1) + ' °C' : 'Temperature'}</small></div>
       <div title={valid(z.controlAverageF)?'Control average: '+z.controlAverageF.toFixed(1)+' °F':undefined}><Thermometer color="#1677dd" /><strong>{valid(z.secondTemperatureF)?z.secondTemperatureF.toFixed(1):'—'}°F</strong><small>Temperature 2</small></div></div>
-      <Target key={String(drafts[z.id]) + ':' + notice} min={40} max={90} disabled={saving} label={z.name + ' target'} initial={z.msi?z.setpointF:valid(drafts[z.id]) ? drafts[z.id] : z.setpointF} onSave={target => save([z.id], target)} />
+      {z.msi&&<div className="cl-pin-panel"><label htmlFor={'cl-zone-pin-'+z.id}>Temperature PIN</label>
+        <input id={'cl-zone-pin-'+z.id} type="password" inputMode="numeric" autoComplete="off" placeholder="4-digit PIN" maxLength={4}
+          value={zonePins[z.id]||''} onChange={e=>setZonePins(v=>({...v,[z.id]:e.target.value.replace(/\\D/g,'')}))}/></div>}
+      <Target key={String(drafts[z.id]) + ':' + (z.msi?.desired?.target_f??'')} min={40} max={90} disabled={saving} label={z.name + ' target'} initial={z.msi?z.setpointF:valid(drafts[z.id]) ? drafts[z.id] : z.setpointF} onSave={target => save([z.id],target,z.msi?zonePins[z.id]:'')} />
+      {z.msi&&<small role="status">MSI target: {z.msi.desired?.target_f??'—'}°F · ESP32 target: {valid(z.msi.reported?.target_f)?z.msi.reported.target_f+'°F':'—'} · {z.msi.command_ack?.acknowledged?'Confirmed':z.msi.command_ack?.status==='pending'?'Awaiting controller ACK':'Not confirmed'}</small>}
+      {zoneFeedback[z.id]&&<small role="alert">{zoneFeedback[z.id]}</small>}
       <ZoneControls id={z.id} name={z.name} zone={z.msi} refresh={refreshMsi} />
       <footer><Flame size={18} /> Reported heat {z.heatingActive == null ? '—' : z.heatingActive ? 'ON' : 'OFF'} · Mode {z.mode === 'NO_DATA' ? '—' : z.mode}</footer>
       {z.sensorWarning&&<strong role="status">One temperature sensor unavailable</strong>}
