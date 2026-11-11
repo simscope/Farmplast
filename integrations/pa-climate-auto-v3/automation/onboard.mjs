@@ -83,18 +83,20 @@ export function privateCredentials(file,value) {
 }
 function spawn(cmd,args,options={}) {
   const r=spawnSync(cmd,args,{encoding:'utf8',windowsHide:true,timeout:options.timeout??180000,...options});
+  const output=[r.stdout,r.stderr,r.error?.message].filter(Boolean).join('\n').trim();
   if(r.error||r.status!==0) {
-    const message=String(r.stderr||r.stdout||r.error?.message||'').slice(-950);
-    throw Error(`${path.basename(cmd)} failed: ${message.replace(/(?:Bearer |device_token|ota_hmac_key)[^\n]{0,120}/gi,'[sensitive redacted]')}`);
+    // esptool v5 prints warnings to stderr and connection failures to stdout.
+    // Showing only stderr hides the actual COM/bootloader connection error.
+    const safe=output.replace(/(?:Bearer |device_token|ota_hmac_key)[^\n]{0,120}/gi,'[sensitive redacted]');
+    throw Error(path.basename(cmd)+' failed (exit '+String(r.status??'N/A')+'): '+safe.slice(-2400));
   }
-  return String(r.stdout||'')+'\n'+String(r.stderr||'');
+  return output;
 }
-function esptool(cmd,port,verb,args=[],timeout=90000){
-  let error;
-  for(const sub of [verb.replaceAll('_','-'),verb.replaceAll('-','_')]) {
-    try{return spawn(cmd,['--chip','esp32','--port',port,sub,...args],{timeout})}catch(e){error=e;}
-  }
-  throw error;
+// ESPTool 5 uses dashed subcommands. Never retry a hardware/serial error as
+// read_mac: its deprecation warning otherwise replaces the real COM failure.
+export function esptool(cmd,port,verb,args=[],timeout=90000,runner=spawn){
+  const modern=verb.replaceAll('_','-');
+  return runner(cmd,['--chip','esp32','--port',port,modern,...args],{timeout});
 }
 function ensureFileParent(file) {fs.mkdirSync(path.dirname(file),{recursive:true});}
 function writePrivate(file,value) {ensureFileParent(file);fs.writeFileSync(file,value,{flag:'wx',mode:0o600});}
@@ -143,7 +145,7 @@ async function main() {
   if(!arduino||!esp||!fs.existsSync(arduino)||!fs.existsSync(esp))throw Error('Arduino CLI or Espressif esptool executable not found');
   const wifi={ssid:process.env.PA_ONBOARD_WIFI_SSID,password:process.env.PA_ONBOARD_WIFI_PASSWORD};
   if(!wifi.ssid||!wifi.password)throw Error('Wi-Fi credentials must come from local Windows secure prompt, not command arguments');
-  const dev=parseMac(esptool(esp,port,'read_mac'));
+  const dev=parseMac(esptool(esp,port,'read-mac'));
   if(dev==='PA-CLIM-70D38CA99B20')throw Error('Existing PA Climate 1.2.0 Zone 1 is protected. This installer is for new controllers only.');
   const exists=zones.find(z=>z.device_id===dev);
   if(exists?.online)throw Error(`${dev} is ONLINE in ${exists.id}. Refusing to overwrite an operating controller.`);
@@ -178,10 +180,10 @@ async function main() {
   try {
     // Mandatory complete 4-MB backup BEFORE any write; a failure cannot erase old firmware.
     console.log(`Backing up the existing 4 MB flash on ${port}; never erasing without a backup...`);
-    esptool(esp,port,'read_flash',['0x0','0x400000',backupPath],240000);
+    esptool(esp,port,'read-flash',['0x0','0x400000',backupPath],240000);
     if(!fs.existsSync(backupPath)||fs.statSync(backupPath).size!==0x400000)throw Error('Flash backup incomplete; upload cancelled');
     console.log(`Backup saved privately: ${backupPath}`);
-    console.log('Compiling ESP32-WROOM-32E firmware (relay remains LOCKED)...');
+    console.log('Compiling ESP32-WROOM-32E firmware (relay ENABLED; GPIO16 active HIGH)...');
     spawn(arduino,['compile','--fqbn',BOARD,'--output-dir',build,sketch],{timeout:300000});
     const binary=path.join(build,'FarmplastClimate.ino.bin');
     if(!fs.existsSync(binary)||fs.statSync(binary).size<256||fs.statSync(binary).size>1310720)throw Error('Application binary missing or too large for the selected OTA partition');
