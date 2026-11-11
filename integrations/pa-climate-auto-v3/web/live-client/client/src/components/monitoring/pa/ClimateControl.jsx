@@ -116,7 +116,7 @@ export default function ClimateControl({ zones }) {
       <Target label="All zones" min={40} max={90} disabled={saving} onSave={target => save(viewZones.map(z => z.id), target)} /><span role="status">{notice}</span></div>
     <div className="cl-grid">{viewZones.map(z => z.id === 'pa-zone-1'&&!z.msi ? <ZoneOne key={z.id} saveTarget={v=>save([z.id],v)} savingTarget={saving} /> : <article key={z.id}>
       <header><h2>{z.name}</h2><small>{z.connection}</small></header>
-      <div className="cl-readings"><div><Thermometer color="#dc402b" /><strong>{z.temperatureF ?? '—'}°F</strong><small>{valid(z.temperatureF) ? ((z.temperatureF-32)*5/9).toFixed(1) + ' °C' : 'Temperature'}</small></div>
+      <div className="cl-readings"><div><Thermometer color="#dc402b" /><strong>{valid(z.temperatureF)?z.temperatureF.toFixed(1):'—'}°F</strong><small>{valid(z.temperatureF) ? ((z.temperatureF-32)*5/9).toFixed(1) + ' °C' : 'Temperature'}</small></div>
       <div title={valid(z.controlAverageF)?'Control average: '+z.controlAverageF.toFixed(1)+' °F':undefined}><Thermometer color="#1677dd" /><strong>{valid(z.secondTemperatureF)?z.secondTemperatureF.toFixed(1):'—'}°F</strong><small>Temperature 2</small></div></div>
       {z.msi&&<div className="cl-pin-panel"><label htmlFor={'cl-zone-pin-'+z.id}>Temperature PIN</label>
         <input id={'cl-zone-pin-'+z.id} type="password" inputMode="numeric" autoComplete="off" placeholder="4-digit PIN" maxLength={4}
