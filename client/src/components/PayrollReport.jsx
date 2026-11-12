@@ -7,6 +7,7 @@ import {
 } from '../utils/payrollMath'
 import { calculatePaystubDetails } from '../lib/payrollTaxMath'
 import { getPayrollYtdTotals, loadPayrollPaymentHistory } from '../utils/payrollYtd'
+import { PAYROLL_REPORT_LOCATIONS, selectPayrollReportEmployees } from '../utils/payrollReportScope'
 
 const cardClass =
   'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
@@ -175,8 +176,12 @@ function getNetPay(totals) {
 
 function buildPayrollReportHtml(week, payrollRows, options = {}) {
   const isExcludedReport = options.excludedOnly === true
-  const reportBrand = isExcludedReport ? 'Excluded Payroll Report' : 'Payroll Report'
-  const reportTitle = isExcludedReport ? 'Excluded Weekly Payroll' : 'Weekly Payroll'
+  const locationLabel = PAYROLL_REPORT_LOCATIONS.find(
+    (location) => location.code === options.plantLocation
+  )?.label
+  const locationSuffix = locationLabel ? ` — ${locationLabel}` : ''
+  const reportBrand = `${isExcludedReport ? 'Excluded Payroll Report' : 'Payroll Report'}${locationSuffix}`
+  const reportTitle = `${isExcludedReport ? 'Excluded Weekly Payroll' : 'Weekly Payroll'}${locationSuffix}`
 
   const grandHours = payrollRows.reduce(
     (sum, item) => sum + Number(item.totals.totalReg || 0),
@@ -535,13 +540,6 @@ function buildPayrollReportHtml(week, payrollRows, options = {}) {
 }
 
 export default function PayrollReport({ employees = [] }) {
-  const safeEmployees = Array.isArray(employees) ? employees : []
-  const reportEmployees = safeEmployees.filter(
-    (employee) => employee?.exclude_from_payroll_report !== true
-  )
-  const excludedReportEmployees = safeEmployees.filter(
-    (employee) => employee?.exclude_from_payroll_report === true
-  )
   const weekOptions = getPayrollWeekOptions()
   const defaultWeekStart = weekOptions[0]?.value || getPreviousWeekRange().startText
 
@@ -568,7 +566,7 @@ export default function PayrollReport({ employees = [] }) {
     }
   }
 
-  async function loadPayrollSupportData(week, sourceEmployees = reportEmployees) {
+  async function loadPayrollSupportData(week, sourceEmployees) {
     const employeeIds = sourceEmployees
       .map((employee) => employee?.id)
       .filter(Boolean)
@@ -628,7 +626,7 @@ export default function PayrollReport({ employees = [] }) {
     })
   }
 
-  function buildRows(week, logs, sourceEmployees = reportEmployees, supportData = {}) {
+  function buildRows(week, logs, sourceEmployees, supportData = {}) {
     const safeLogs = Array.isArray(logs) ? logs : []
     const deductionsByEmployeeId = supportData.deductionsByEmployeeId || new Map()
     const paymentsByEmployeeId = supportData.paymentsByEmployeeId || new Map()
@@ -706,15 +704,16 @@ export default function PayrollReport({ employees = [] }) {
     })
   }
 
-  async function handlePayrollPdfReport() {
+  async function handlePayrollPdfReport(plantLocation, excludedOnly = false) {
     try {
       setLoading(true)
       setError('')
 
+      const sourceEmployees = selectPayrollReportEmployees(employees, plantLocation, excludedOnly)
       const { week, logs } = await loadWeekWorkLogs()
-      const supportData = await loadPayrollSupportData(week, reportEmployees)
-      const payrollRows = buildRows(week, logs, reportEmployees, supportData)
-      const html = buildPayrollReportHtml(week, payrollRows)
+      const supportData = await loadPayrollSupportData(week, sourceEmployees)
+      const payrollRows = buildRows(week, logs, sourceEmployees, supportData)
+      const html = buildPayrollReportHtml(week, payrollRows, { plantLocation, excludedOnly })
 
       const printWindow = window.open('', '_blank')
 
@@ -742,42 +741,6 @@ export default function PayrollReport({ employees = [] }) {
     }
   }
 
-  async function handleExcludedPayrollPdfReport() {
-    try {
-      setLoading(true)
-      setError('')
-
-      const { week, logs } = await loadWeekWorkLogs()
-      const supportData = await loadPayrollSupportData(week, excludedReportEmployees)
-      const payrollRows = buildRows(week, logs, excludedReportEmployees, supportData)
-      const html = buildPayrollReportHtml(week, payrollRows, { excludedOnly: true })
-
-      const printWindow = window.open('', '_blank')
-
-      if (!printWindow) {
-        throw new Error('Popup blocked. Allow popups and click Excluded Payroll PDF again.')
-      }
-
-      printWindow.document.open()
-      printWindow.document.write(html)
-      printWindow.document.close()
-      printWindow.focus()
-
-      setTimeout(() => {
-        try {
-          printWindow.print()
-        } catch (printError) {
-          console.warn('Auto print failed:', printError)
-        }
-      }, 500)
-    } catch (err) {
-      console.error('handleExcludedPayrollPdfReport error:', err)
-      setError(err.message || 'Failed to build excluded payroll PDF report')
-    } finally {
-      setLoading(false)
-    }
-  }
-
   return (
     <div className={`${cardClass} min-w-0 p-3`}>
       <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -793,6 +756,7 @@ export default function PayrollReport({ employees = [] }) {
             value={selectedWeekStart}
             onChange={(event) => setSelectedWeekStart(event.target.value)}
             disabled={loading}
+            aria-label="Payroll week"
             className="min-w-0 max-w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60"
             title="Payroll week"
           >
@@ -803,25 +767,29 @@ export default function PayrollReport({ employees = [] }) {
             ))}
           </select>
 
-          <button
-            type="button"
-            onClick={handlePayrollPdfReport}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:opacity-60"
-          >
-            <FileText size={16} />
-            Payroll PDF
-          </button>
+          {PAYROLL_REPORT_LOCATIONS.map(({ code, label }) => (
+            <div key={code} role="group" aria-label={`${label} payroll reports`} className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => handlePayrollPdfReport(code)}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:opacity-60"
+              >
+                <FileText size={16} />
+                Payroll PDF {code}
+              </button>
 
-          <button
-            type="button"
-            onClick={handleExcludedPayrollPdfReport}
-            disabled={loading}
-            className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-60"
-          >
-            <FileText size={16} />
-            Excluded Payroll PDF
-          </button>
+              <button
+                type="button"
+                onClick={() => handlePayrollPdfReport(code, true)}
+                disabled={loading}
+                className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-60"
+              >
+                <FileText size={16} />
+                Excluded Payroll PDF {code}
+              </button>
+            </div>
+          ))}
         </div>
       </div>
 
