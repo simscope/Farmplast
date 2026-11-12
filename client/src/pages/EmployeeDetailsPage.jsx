@@ -1368,6 +1368,7 @@ function ActiveEmployeeDetailsPage() {
       priorYtdDeductions,
       priorYtdDeductionBreakdown,
       priorYtdNetPay,
+      referencePayment,
     } = getPayrollYtdTotals(payments, {
       employeeId: id,
       periodStart,
@@ -1393,6 +1394,7 @@ function ActiveEmployeeDetailsPage() {
       priorYtdDeductions,
       priorYtdDeductionBreakdown,
       priorYtdNetPay,
+      recordedPayment: printModalOpen && printCheckStatus === 'draft' ? null : referencePayment,
     })
 
     const employeeTaxNum = Number(payrollTaxTotals.totalEmployeeTaxes || 0)

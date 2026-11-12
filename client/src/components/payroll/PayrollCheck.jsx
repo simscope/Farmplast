@@ -818,7 +818,13 @@ function PayrollStubCopy({
               <tr key={row.label}>
                 <td style={td}>{row.label}</td>
                 <td style={td}>{stubMoney(row.value)}</td>
-                <td style={td}>{row.ytdValue === undefined ? '' : stubMoney(row.ytdValue)}</td>
+                <td style={td}>
+                  {row.ytdValue === undefined
+                    ? ''
+                    : row.label === 'Employee Tax'
+                      ? stubMoneyCents(row.ytdValue)
+                      : stubMoney(row.ytdValue)}
+                </td>
               </tr>
             ))}
 

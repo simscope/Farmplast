@@ -41,6 +41,7 @@ import {
 } from '../utils/payrollMath'
 import {
   saveEmployeePayment,
+  calculatePrintedCheckYtd,
 } from '../utils/paymentHistory'
 import {
   getPayrollPaymentDate,
@@ -1278,6 +1279,12 @@ export default function DashboardPage() {
     const overtimeTaxNum = roundDollars(employeeTaxNum - mainTaxNum)
     const totalDeductions = roundDollars(employeeTaxNum + manualDeductions)
     const netPay = roundDollars(Number(taxTotals.netPay || 0))
+    const printedYtd = calculatePrintedCheckYtd(
+      ytd.priorYtdEmployeeTaxes,
+      employeeTaxNum,
+      ytd.priorYtdNetPay,
+      netPay
+    )
 
     const rowsByDate = {}
     calculatedRows.forEach((row) => {
@@ -1311,7 +1318,7 @@ export default function DashboardPage() {
     const checkTotals = {
       ...payrollTotals,
       employeeTaxNum,
-      ytdEmployeeTaxes: taxTotals.ytdEmployeeTaxes || employeeTaxNum,
+      ytdEmployeeTaxes: printedYtd.ytdEmployeeTaxes,
       mainTax: mainTaxNum,
       overtimeTax: overtimeTaxNum,
       employeeTaxes: taxTotals.employeeTaxes || [],
@@ -1333,7 +1340,7 @@ export default function DashboardPage() {
       employeeDeductions: manualDeductions,
       totalDeductions,
       netPay,
-      ytdNetPay: taxTotals.ytdNetPay || netPay,
+      ytdNetPay: printedYtd.ytdNetPay,
     }
 
     return {

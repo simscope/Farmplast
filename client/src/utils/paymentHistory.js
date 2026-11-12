@@ -58,3 +58,13 @@ export async function saveEmployeePayment(supabase, payload) {
 
   if (error) throw error
 }
+
+// Use the amounts actually withheld/paid on the current printed check.
+export function calculatePrintedCheckYtd(priorTax, taxWithheld, priorNetPay, netPay) {
+  const money = (value) => Number((Number(value) || 0).toFixed(2))
+
+  return {
+    ytdEmployeeTaxes: money(Number(priorTax || 0) + Number(taxWithheld || 0)),
+    ytdNetPay: money(Number(priorNetPay || 0) + Number(netPay || 0)),
+  }
+}

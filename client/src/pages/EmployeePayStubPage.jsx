@@ -173,6 +173,7 @@ export default function EmployeePayStubPage() {
     },
     reimbursements: 0,
     netPay: 0,
+    recordedPayment: null,
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -249,6 +250,7 @@ export default function EmployeePayStubPage() {
           deductionBreakdown: ytd.priorYtdDeductionBreakdown,
           reimbursements: 0,
           netPay: ytd.priorYtdNetPay,
+          recordedPayment: ytd.referencePayment,
         })
       } catch (err) {
         console.error('loadPaystub error:', err)
@@ -276,6 +278,7 @@ export default function EmployeePayStubPage() {
         priorYtdDeductionBreakdown: priorYtdTotals.deductionBreakdown,
         priorYtdReimbursements: priorYtdTotals.reimbursements,
         priorYtdNetPay: priorYtdTotals.netPay,
+        recordedPayment: priorYtdTotals.recordedPayment,
       }),
     [deductions, employee, logs, periodEnd, periodStart, priorYtdGross, priorYtdTotals, taxProfile]
   )

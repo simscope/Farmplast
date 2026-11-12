@@ -365,6 +365,7 @@ export function calculatePaystubDetails({
   priorYtdDeductionBreakdown = {},
   priorYtdReimbursements = 0,
   priorYtdNetPay = 0,
+  recordedPayment = null,
 } = {}) {
   const employeeWithTaxProfile = {
     ...(employee || {}),
@@ -505,10 +506,14 @@ export function calculatePaystubDetails({
     employeeWithTaxProfile?.overtime_enabled === true
       ? moneyRound(regularRate * 1.5)
       : 0
-  const ytdEmployeeTaxes = moneyRound(priorYtdEmployeeTaxes + totalEmployeeTaxes)
+  const ytdEmployeeTaxes = moneyRound(
+    priorYtdEmployeeTaxes + numberOrZero(recordedPayment?.employee_tax ?? totalEmployeeTaxes)
+  )
   const ytdDeductions = moneyRound(priorYtdDeductions + totalDeductions)
   const ytdReimbursements = moneyRound(priorYtdReimbursements + totalReimbursements)
-  const ytdNetPay = moneyRound(priorYtdNetPay + netPay)
+  const ytdNetPay = moneyRound(
+    priorYtdNetPay + numberOrZero(recordedPayment?.net_pay ?? netPay)
+  )
 
   return {
     rows: normalizedRows,
