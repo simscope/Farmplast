@@ -2357,7 +2357,7 @@ export default function DashboardPage() {
           ) : null}
         </div>
 
-        <div className="mb-3 grid items-start gap-3 md:grid-cols-[minmax(0,3fr)_minmax(228px,1fr)]">
+        <div className="mb-3 grid items-stretch gap-3 md:grid-cols-[minmax(0,3fr)_minmax(228px,1fr)]">
           <PayrollReport employees={employees} />
           <section className={`${cardClass} flex min-w-0 flex-wrap items-center justify-between gap-3 p-3`} aria-labelledby="safety-title">
             <div className="flex items-center gap-2">

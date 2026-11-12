@@ -743,14 +743,20 @@ export default function PayrollReport({ employees = [] }) {
 
   return (
     <div className={`${cardClass} min-w-0 p-3`}>
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="text-lg font-bold text-white">Payroll report</h2>
+      <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="rounded-xl bg-cyan-500/10 p-2.5 text-cyan-400">
+            <FileText size={22} />
+          </div>
+          <h2 className="text-lg font-bold text-white">Payroll report</h2>
+        </div>
+        <div className="flex min-w-0 max-w-full flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-stretch">
           <select
             value={selectedWeekStart}
             onChange={(event) => setSelectedWeekStart(event.target.value)}
             disabled={loading}
             aria-label="Payroll week"
-            className="w-full min-w-0 max-w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60 sm:w-auto"
+            className="min-h-10 w-full min-w-0 max-w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60 sm:w-auto"
             title="Payroll week"
           >
             {weekOptions.map((week) => (
@@ -759,15 +765,14 @@ export default function PayrollReport({ employees = [] }) {
               </option>
             ))}
           </select>
-      </div>
-      <div className="mt-2 grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))] gap-2">
+          <div className="grid w-full min-w-0 gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2 sm:w-[416px]">
           {PAYROLL_REPORT_LOCATIONS.map(({ code, label }) => (
             <div key={code} role="group" aria-label={`${label} payroll reports`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] items-stretch gap-2">
               <button
                 type="button"
                 onClick={() => handlePayrollPdfReport(code)}
                 disabled={loading}
-                className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:opacity-60 sm:text-sm"
+                className="inline-flex min-w-0 items-center justify-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:opacity-60 sm:text-sm"
               >
                 <FileText size={16} className="shrink-0" />
                 Payroll PDF {code}
@@ -777,13 +782,15 @@ export default function PayrollReport({ employees = [] }) {
                 type="button"
                 onClick={() => handlePayrollPdfReport(code, true)}
                 disabled={loading}
-                className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-60 sm:text-sm"
+                className="inline-flex min-w-0 items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-60 sm:text-sm"
               >
                 <FileText size={16} className="shrink-0" />
                 Excluded Payroll PDF {code}
               </button>
             </div>
           ))}
+          </div>
+        </div>
       </div>
 
       {error ? (
