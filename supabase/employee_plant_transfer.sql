@@ -295,6 +295,21 @@ begin
     when shift = 'night' and coalesce(new.time_in, new.time_out) < time '12:00' then interval '1 day'
     else interval '0 day' end) at time zone 'America/New_York';
   if punch_at < period.work_started_at then
+    -- A profile may be entered days after its confirmed hire date. An
+    -- authenticated admin can enter those hours explicitly for this UUID.
+    -- Keep the timestamp floor for ZKT imports, reused-number ownership,
+    -- later engagements and exact plant-transfer cutovers.
+    if period.transferred_from_period_id is null
+      and period.hire_date is not null and new.work_date >= period.hire_date
+      and new.source in ('manual', 'manual_downtime')
+      and auth.role() = 'authenticated' and public.employee_archive_admin()
+      and (tg_op = 'INSERT' or old.employee_id = new.employee_id)
+      and not exists (
+        select 1 from public.employee_employment_periods previous
+        where previous.employee_id = period.employee_id and previous.id < period.id
+      ) then
+      return new;
+    end if;
     raise exception 'Work time precedes the employee assignment start' using errcode = '23514';
   end if;
   return new;
