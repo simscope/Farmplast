@@ -743,21 +743,21 @@ export default function PayrollReport({ employees = [] }) {
 
   return (
     <div className={`${cardClass} min-w-0 p-3`}>
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
+        <div className="min-w-0 flex-1">
           <h2 className="text-lg font-bold text-white">Payroll report</h2>
           <p className="mt-1 text-xs text-cyan-200">
             Uses the same shared calculation as employee payroll card. Excludes workers marked in employee card.
           </p>
         </div>
 
-        <div className="flex min-w-0 flex-wrap items-center gap-2">
+        <div className="grid w-full min-w-0 gap-2 xl:w-[440px] xl:shrink-0">
           <select
             value={selectedWeekStart}
             onChange={(event) => setSelectedWeekStart(event.target.value)}
             disabled={loading}
             aria-label="Payroll week"
-            className="min-w-0 max-w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60"
+            className="w-full min-w-0 rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60"
             title="Payroll week"
           >
             {weekOptions.map((week) => (
@@ -768,14 +768,14 @@ export default function PayrollReport({ employees = [] }) {
           </select>
 
           {PAYROLL_REPORT_LOCATIONS.map(({ code, label }) => (
-            <div key={code} role="group" aria-label={`${label} payroll reports`} className="flex flex-wrap items-center gap-2">
+            <div key={code} role="group" aria-label={`${label} payroll reports`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] items-stretch gap-2">
               <button
                 type="button"
                 onClick={() => handlePayrollPdfReport(code)}
                 disabled={loading}
-                className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:opacity-60"
+                className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-xs font-semibold text-cyan-300 transition hover:bg-cyan-500/20 disabled:opacity-60 sm:text-sm"
               >
-                <FileText size={16} />
+                <FileText size={16} className="shrink-0" />
                 Payroll PDF {code}
               </button>
 
@@ -783,9 +783,9 @@ export default function PayrollReport({ employees = [] }) {
                 type="button"
                 onClick={() => handlePayrollPdfReport(code, true)}
                 disabled={loading}
-                className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-60"
+                className="inline-flex min-h-10 min-w-0 items-center justify-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20 disabled:opacity-60 sm:text-sm"
               >
-                <FileText size={16} />
+                <FileText size={16} className="shrink-0" />
                 Excluded Payroll PDF {code}
               </button>
             </div>
