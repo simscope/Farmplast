@@ -743,21 +743,14 @@ export default function PayrollReport({ employees = [] }) {
 
   return (
     <div className={`${cardClass} min-w-0 p-3`}>
-      <div className="flex flex-col gap-3 xl:flex-row xl:items-start xl:justify-between">
-        <div className="min-w-0 flex-1">
-          <h2 className="text-lg font-bold text-white">Payroll report</h2>
-          <p className="mt-1 text-xs text-cyan-200">
-            Uses the same shared calculation as employee payroll card. Excludes workers marked in employee card.
-          </p>
-        </div>
-
-        <div className="grid w-full min-w-0 gap-2 xl:w-[440px] xl:shrink-0">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-lg font-bold text-white">Payroll report</h2>
           <select
             value={selectedWeekStart}
             onChange={(event) => setSelectedWeekStart(event.target.value)}
             disabled={loading}
             aria-label="Payroll week"
-            className="w-full min-w-0 rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60"
+            className="w-full min-w-0 max-w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60 sm:w-auto"
             title="Payroll week"
           >
             {weekOptions.map((week) => (
@@ -766,7 +759,8 @@ export default function PayrollReport({ employees = [] }) {
               </option>
             ))}
           </select>
-
+      </div>
+      <div className="mt-2 grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,24rem),1fr))] gap-2">
           {PAYROLL_REPORT_LOCATIONS.map(({ code, label }) => (
             <div key={code} role="group" aria-label={`${label} payroll reports`} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)] items-stretch gap-2">
               <button
@@ -790,7 +784,6 @@ export default function PayrollReport({ employees = [] }) {
               </button>
             </div>
           ))}
-        </div>
       </div>
 
       {error ? (
