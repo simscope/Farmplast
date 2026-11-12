@@ -25,7 +25,8 @@ import {
   normalizePayrollRow,
 } from '../utils/payrollMath'
 import {
-  normalizePaymentHistory,
+  loadYearToDatePayments,
+  calculatePrintedCheckYtd,
   saveEmployeePayment,
 } from '../utils/paymentHistory'
 import { calculatePaystubDetails } from '../lib/payrollTaxMath'
@@ -1148,20 +1149,7 @@ export default function DashboardPage() {
   }
 
   async function loadPriorPayrollPayments(week) {
-    const yearStart = week?.startText ? `${String(week.startText).slice(0, 4)}-01-01` : ''
-
-    if (!yearStart || !week?.startText) return []
-
-    const { data, error } = await supabase
-      .from('employee_payments')
-      .select('employee_id,period_start,period_end,total_labor,employee_tax,rent,electric,water,clean,transport,net_pay,paid_at,created_at')
-      .gte('period_start', yearStart)
-      .lt('period_start', week.startText)
-      .limit(10000)
-
-    if (error) throw error
-
-    return normalizePaymentHistory(data)
+    return loadYearToDatePayments(supabase, week?.startText)
   }
 
   function getNumberFromObject(object, keys, fallback = 0) {
@@ -1285,6 +1273,12 @@ export default function DashboardPage() {
     const overtimeTaxNum = roundDollars(employeeTaxNum - mainTaxNum)
     const totalDeductions = roundDollars(employeeTaxNum + manualDeductions)
     const netPay = roundDollars(Number(taxTotals.netPay || 0))
+    const printedYtd = calculatePrintedCheckYtd(
+      priorYtdEmployeeTaxes,
+      employeeTaxNum,
+      priorYtdNetPay,
+      netPay
+    )
 
     const rowsByDate = {}
     calculatedRows.forEach((row) => {
@@ -1318,7 +1312,7 @@ export default function DashboardPage() {
     const checkTotals = {
       ...payrollTotals,
       employeeTaxNum,
-      ytdEmployeeTaxes: taxTotals.ytdEmployeeTaxes || employeeTaxNum,
+      ytdEmployeeTaxes: printedYtd.ytdEmployeeTaxes,
       mainTax: mainTaxNum,
       overtimeTax: overtimeTaxNum,
       employeeTaxes: taxTotals.employeeTaxes || [],
@@ -1340,7 +1334,7 @@ export default function DashboardPage() {
       employeeDeductions: manualDeductions,
       totalDeductions,
       netPay,
-      ytdNetPay: taxTotals.ytdNetPay || netPay,
+      ytdNetPay: printedYtd.ytdNetPay,
     }
 
     return {
