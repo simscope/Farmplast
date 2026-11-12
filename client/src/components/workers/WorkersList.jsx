@@ -12,6 +12,7 @@ import {
   User,
 } from 'lucide-react'
 import { getEmployeePhotoThumbnailUrl } from '../../utils/employeePhotos'
+import ZktActionsMenu from './ZktActionsMenu'
 
 const LAST_ACCESSED_EMPLOYEE_KEY = 'farmplast:last-accessed-employee-id'
 
@@ -332,41 +333,13 @@ export default function WorkersList({
                       </span>
                     </div>
                     <div className="flex flex-wrap gap-1.5">
-                      <div className="group relative">
-                        <button
-                          type="button"
-                          disabled={zkLoading}
-                          className="inline-flex items-center gap-1 rounded-lg border border-orange-500/30 bg-orange-500/10 px-2 py-1.5 text-xs font-semibold text-orange-300 transition hover:bg-orange-500/20 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          ZKT Actions
-                        </button>
-
-                        <div className="absolute right-0 top-full z-50 mt-1 hidden min-w-[180px] overflow-hidden rounded-xl border border-slate-700 bg-[#08111f] shadow-2xl group-hover:block">
-                          <button
-                            type="button"
-                            onClick={() => handleSyncEmployeeToZkt(employee)}
-                            className="block w-full border-b border-slate-800 px-4 py-3 text-left text-xs font-semibold text-cyan-300 transition hover:bg-slate-900"
-                          >
-                            Sync ZKT
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleDeleteFromZkt(employee)}
-                            className="block w-full border-b border-slate-800 px-4 py-3 text-left text-xs font-semibold text-orange-300 transition hover:bg-slate-900"
-                          >
-                            Delete from ZKT
-                          </button>
-
-                          <button
-                            type="button"
-                            onClick={() => handleVerifyEmployeeInZkt(employee)}
-                            className="block w-full px-4 py-3 text-left text-xs font-semibold text-purple-300 transition hover:bg-slate-900"
-                          >
-                            Verify selected
-                          </button>
-                        </div>
-                      </div>
+                      <ZktActionsMenu
+                        employee={employee}
+                        disabled={zkLoading}
+                        onSync={handleSyncEmployeeToZkt}
+                        onDelete={handleDeleteFromZkt}
+                        onVerify={handleVerifyEmployeeInZkt}
+                      />
 
                       <button
                         title="Terminate Employee"
@@ -536,41 +509,14 @@ export default function WorkersList({
                 >
                   Open
                 </Link>
-                <div className="group relative">
-                  <button
-                    type="button"
-                    disabled={zkLoading}
-                    className="rounded-lg border border-orange-500/30 bg-orange-500/10 px-3 py-2 text-xs font-semibold text-orange-300 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    ZKT Actions
-                  </button>
-
-                  <div className="absolute right-0 top-full z-50 mt-1 hidden min-w-[190px] overflow-hidden rounded-xl border border-slate-700 bg-[#08111f] shadow-2xl group-hover:block">
-                    <button
-                      type="button"
-                      onClick={() => handleSyncEmployeeToZkt(employee)}
-                      className="block w-full border-b border-slate-800 px-4 py-3 text-left text-xs font-semibold text-cyan-300 transition hover:bg-slate-900"
-                    >
-                      Sync ZKT
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDeleteFromZkt(employee)}
-                      className="block w-full border-b border-slate-800 px-4 py-3 text-left text-xs font-semibold text-orange-300 transition hover:bg-slate-900"
-                    >
-                      Delete from ZKT
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleVerifyEmployeeInZkt(employee)}
-                      className="block w-full px-4 py-3 text-left text-xs font-semibold text-purple-300 transition hover:bg-slate-900"
-                    >
-                      Verify selected
-                    </button>
-                  </div>
-                </div>
+                <ZktActionsMenu
+                  employee={employee}
+                  disabled={zkLoading}
+                  onSync={handleSyncEmployeeToZkt}
+                  onDelete={handleDeleteFromZkt}
+                  onVerify={handleVerifyEmployeeInZkt}
+                  mobile
+                />
                 <button
                   onClick={() => handleDelete(employee.id)}
                   disabled={!canTerminate}
