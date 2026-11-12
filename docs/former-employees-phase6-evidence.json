@@ -1,0 +1,129 @@
+{
+  "release_recovery_gate": "BLOCKED: database ACL/settings, extension ownership and external credential/config recovery not fully rehearsed",
+  "scope": "logical PostgreSQL rows/schema/object ACLs/non-login role attributes/memberships and archive rollback; not full managed-platform recovery",
+  "dump_sha256": "4ff748b41c9d0ca7a9fe543b6af89a62c7d3dbf4e8bf6190594cf2988fa618c7",
+  "structure": {
+    "functions": {
+      "source": 178,
+      "restored": 178,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "relations": {
+      "source": 119,
+      "restored": 119,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "schemas": {
+      "source": 11,
+      "restored": 11,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "default_acls": {
+      "source": 27,
+      "restored": 27,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "column_acls": {
+      "source": 0,
+      "restored": 0,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "constraints": {
+      "source": 293,
+      "restored": 293,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "triggers": {
+      "source": 20,
+      "restored": 20,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "event_triggers": {
+      "source": 6,
+      "restored": 6,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    }
+  },
+  "roles_isolated": true,
+  "global_role_attributes_match": true,
+  "membership_options_match": true,
+  "membership_grantor_exact": true,
+  "migrations": [
+    {
+      "file": "former_employees.sql",
+      "sha256": "6ef40ea7eff739bcb6b644af9b8a539658f3fffa1fc4a7d60dde814d9fe2fd70",
+      "preserved_tables": 96
+    },
+    {
+      "file": "employee_archive_feature_flags.sql",
+      "sha256": "e18a3a76accbd7b38950b72282978ba837b903c5bfee7bdadd5b01d30e616a88",
+      "preserved_tables": 96
+    }
+  ],
+  "archive_off_denied": true,
+  "archive_admin_8_anon_denied": true,
+  "rollback": {
+    "retained_schema": true,
+    "preserved_tables": 96,
+    "retained_post_migration_employee_period_payroll_attendance": true,
+    "flags_enabled": 0
+  },
+  "legacy_zkt_sacs_function_definitions_preserved": 10,
+  "final_counts": {
+    "employees": 66,
+    "active": 58,
+    "former": 8
+  },
+  "cron_launch_active_jobs": "off",
+  "restore": {
+    "restore_exit": 0,
+    "dump_sha256": "4ff748b41c9d0ca7a9fe543b6af89a62c7d3dbf4e8bf6190594cf2988fa618c7",
+    "cron_launch_active_jobs": "off",
+    "database": "phase6_restore",
+    "tables_preserved": 96,
+    "extensions": [
+      {
+        "name": "plpgsql",
+        "version": "1.0"
+      },
+      {
+        "name": "pg_cron",
+        "version": "1.6.4"
+      },
+      {
+        "name": "pg_stat_statements",
+        "version": "1.11"
+      },
+      {
+        "name": "pgcrypto",
+        "version": "1.3"
+      },
+      {
+        "name": "supabase_vault",
+        "version": "0.3.1"
+      },
+      {
+        "name": "uuid-ossp",
+        "version": "1.1"
+      }
+    ],
+    "policy_matches": true,
+    "policies_count": 59
+  }
+}

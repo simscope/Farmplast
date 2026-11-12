@@ -1,0 +1,18 @@
+{
+  "audit_date": "2026-10-11",
+  "production_source_commit": "4b7573a6d105cbfd61a035e0c31c3f324a4a165b",
+  "implementation_commit": "12e5481617af387fcf4e4c4a5e9df27447c0b84b",
+  "production_modified": false,
+  "production_counts": { "employees": 65, "active": 57, "former": 8, "work_logs": 5665, "payments": 987, "deductions": 242, "tax_profiles": 65, "payroll_checks": 1544, "legacy_raw": 10578 },
+  "farmplast_dump": { "snapshot_at": "2026-10-11T13:47:11.051Z", "exit": 0, "toc_exit": 0, "bytes": 2134065, "sha256": "45570234629a01a3e9f2d92faf3762fc216f05ceb324f2c6f99b743c7ac2fab9", "source_tables": 96, "scoped_or_full": "full database, no schema filters" },
+  "full_restore": { "exit": 1, "status": "BLOCKED", "reason": "pg_cron unavailable on disposable Windows PostgreSQL; compatible Supabase restore still required" },
+  "sacs_full_backup": "BLOCKED",
+  "scoped_postgres_rehearsal": { "engine": "PostgreSQL 18.4", "original_tables_preserved": 9, "original_policies_preserved": 18, "migrations_applied": 4, "legacy_identity_events": 10578, "owned": 0, "review": 10578, "actions_enabled": false, "reuse_enabled": false },
+  "tests": { "application_passed": 144, "application_failed": 0, "bridge_passed": 19, "bridge_failed": 0, "postgres_checks_passed": 8, "postgres_concurrency_interleavings": 7, "chrome_desktop_mobile": "PASS", "lint_errors": 0, "lint_existing_warnings": 6, "build": "PASS" },
+  "physical_nj": "BLOCKED",
+  "physical_pa": "BLOCKED",
+  "live_sacs": "BLOCKED",
+  "rollback_rehearsal": "BLOCKED",
+  "production_readiness": "NO-GO",
+  "stages": { "A": "NO-GO", "B": "NO-GO; local archive PASS", "C": "NO-GO", "D": "NO-GO", "E": "NO-GO", "F": "NO-GO; production deployment not performed" }
+}

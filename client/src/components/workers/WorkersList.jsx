@@ -54,6 +54,7 @@ function SortIcon({ field, employeeSort }) {
 }
 
 export default function WorkersList({
+  canTerminate = false,
   cardClass,
   counts,
   employeeSort,
@@ -66,12 +67,8 @@ export default function WorkersList({
   getOvertimeLabel,
   getPayLabel,
   getPresenceBadgeClass,
-  getPresenceDirection,
   getPresenceLabel,
   getPresenceTitle,
-  getPunchErrorBadgeClass,
-  getPunchErrorLabel,
-  getPunchErrorTitle,
   getShiftBadgeClass,
   getShiftLabel,
   handleDelete,
@@ -135,7 +132,7 @@ export default function WorkersList({
         <div>
           <h2 className="text-base font-semibold text-white">Workers list</h2>
           <p className="mt-0.5 text-xs text-slate-400">
-            Database employees + live presence from work logs
+            Employees + presence from the latest ZKT status update
           </p>
         </div>
 
@@ -178,8 +175,8 @@ export default function WorkersList({
           </div>
         ) : (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
-            <div className="min-w-[1800px]">
-              <div className="grid grid-cols-[70px_30px_230px_90px_150px_170px_110px_100px_180px_110px_120px_270px_160px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+            <div className="min-w-[1530px]">
+              <div className="grid grid-cols-[70px_30px_230px_90px_150px_170px_100px_110px_120px_270px_160px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
                 <button
                   type="button"
                   onClick={() => handleEmployeeSort('number')}
@@ -208,9 +205,7 @@ export default function WorkersList({
                 <div>Open</div>
                 <div>Presence ({counts.presenceOnline})</div>
                 <div>Last punch</div>
-                <div>Direction</div>
                 <div>Shift</div>
-                <div>Punch error</div>
                 <div>Payment</div>
                 <div>Overtime</div>
                 <div>Actions</div>
@@ -246,7 +241,7 @@ export default function WorkersList({
                   return (
                   <div
                     key={employee.id}
-                    className={`grid grid-cols-[70px_30px_230px_90px_150px_170px_110px_100px_180px_110px_120px_270px_160px] items-center border-t border-slate-800 px-3 py-2 text-xs text-slate-200 ${
+                    className={`grid grid-cols-[70px_30px_230px_90px_150px_170px_100px_110px_120px_270px_160px] items-center border-t border-slate-800 px-3 py-2 text-xs text-slate-200 ${
                       isLastAccessed
                         ? `${isInactive ? 'border-l-4 border-l-orange-400 bg-orange-900/45' : 'bg-cyan-500/10'} ring-1 ring-inset ring-cyan-400/50`
                         : isInactive
@@ -314,10 +309,6 @@ export default function WorkersList({
                       {formatPresenceTime(employee.last_punch_time)}
                     </div>
 
-                    <div className="truncate whitespace-nowrap font-semibold text-cyan-300">
-                      {getPresenceDirection(employee)}
-                    </div>
-
                     <div>
                       <select
                         className={`rounded-lg border px-2 py-1 text-[11px] font-bold uppercase outline-none ${getShiftBadgeClass(employee)} bg-[#08101c]`}
@@ -327,15 +318,6 @@ export default function WorkersList({
                         <option value="day">DAY</option>
                         <option value="night">NIGHT</option>
                       </select>
-                    </div>
-
-                    <div className="min-w-0">
-                      <span
-                        title={getPunchErrorTitle(employee)}
-                        className={`inline-flex max-w-full rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${getPunchErrorBadgeClass(employee)}`}
-                      >
-                        <span className="truncate">{getPunchErrorLabel(employee)}</span>
-                      </span>
                     </div>
 
                     <div className="truncate whitespace-nowrap font-semibold text-cyan-300">
@@ -387,6 +369,9 @@ export default function WorkersList({
                       </div>
 
                       <button
+                        title="Terminate Employee"
+                        aria-label="Terminate Employee"
+                        disabled={!canTerminate}
                         onClick={() => handleDelete(employee.id)}
                         className="rounded-lg border border-red-500/30 bg-red-600/10 px-2 py-1.5 text-red-300 transition hover:bg-red-600/20"
                       >
@@ -487,7 +472,7 @@ export default function WorkersList({
                       ) : null}
                     </div>
                     <div className="mt-1 text-xs text-slate-400">
-                      {getPlantLocationLabel(employee.plant_location)} В· {employee.position || 'worker'} В· {getShiftLabel(employee)} В· {getPunchErrorLabel(employee)} В· {getPayLabel(employee)} В· {getOvertimeLabel(employee)}
+                      {getPlantLocationLabel(employee.plant_location)} В· {employee.position || 'worker'} В· {getShiftLabel(employee)} В· {getPayLabel(employee)} В· {getOvertimeLabel(employee)}
                     </div>
                   </div>
                 </button>
@@ -513,10 +498,6 @@ export default function WorkersList({
                   <span className="font-semibold text-white">{formatPresenceTime(employee.last_punch_time)}</span>
                 </div>
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
-                  <span className="text-slate-400">Direction</span>
-                  <span className="font-semibold text-cyan-300">{getPresenceDirection(employee)}</span>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
                   <span className="text-slate-400">Shift</span>
                   <select
                     className={`rounded-lg border px-2 py-1 text-[11px] font-bold uppercase outline-none ${getShiftBadgeClass(employee)} bg-[#08101c]`}
@@ -526,15 +507,6 @@ export default function WorkersList({
                     <option value="day">DAY</option>
                     <option value="night">NIGHT</option>
                   </select>
-                </div>
-                <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
-                  <span className="text-slate-400">Punch error</span>
-                  <span
-                    title={getPunchErrorTitle(employee)}
-                    className={`inline-flex max-w-[210px] rounded-full px-2 py-1 text-[10px] font-bold uppercase tracking-wide ${getPunchErrorBadgeClass(employee)}`}
-                  >
-                    <span className="truncate">{getPunchErrorLabel(employee)}</span>
-                  </span>
                 </div>
                 <div className="flex items-center justify-between gap-3 rounded-lg border border-slate-800 bg-slate-950/40 px-3 py-2">
                   <span className="text-slate-400">Print check</span>
@@ -601,9 +573,10 @@ export default function WorkersList({
                 </div>
                 <button
                   onClick={() => handleDelete(employee.id)}
+                  disabled={!canTerminate}
                   className="rounded-lg border border-red-500/30 bg-red-600/10 px-3 py-2 text-xs font-semibold text-red-300"
                 >
-                  Delete DB
+                  Terminate Employee
                 </button>
               </div>
             </div>

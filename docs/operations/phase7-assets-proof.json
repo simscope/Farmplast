@@ -1,0 +1,15 @@
+{
+  "storage_files_hash_verified_and_restored": 55,
+  "storage_api_restore_tested": false,
+  "storage_missing_private_objects": 12,
+  "bridge_capture_date": "2026-09-08",
+  "bridge_files_manifest_hash_verified": 8,
+  "bridge_archive_sha256": "fccb670c95fcdb1155deff34eea3d517f511ff12e0a0f0ceb814916c0f5fe5c7",
+  "bridge_archive_crc_valid": true,
+  "bridge_archive_entries": 9,
+  "bridge_capture_is_live_evidence": false,
+  "partial_recovery_archive_sha256": "da86a6a63bdcfb893c92f397582846fc157290ab002ad1b91d68daa3ecd17506",
+  "partial_recovery_archive_crc_valid": true,
+  "partial_recovery_archive_entries": 61,
+  "full_recovery_package_complete": false
+}

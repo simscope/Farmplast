@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { createRoot } from 'react-dom/client'
+import { Link } from 'react-router-dom'
 import {
   LayoutDashboard,
+  Archive,
   LogOut,
   Plus,
   RefreshCw,
@@ -9,6 +11,7 @@ import {
   DownloadCloud,
   Loader2,
   BadgeCheck,
+  ShieldCheck,
   Zap,
   FileText,
   Printer,
@@ -16,8 +19,20 @@ import {
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/useAuth'
+import useEmployeeFeatureFlags from '../hooks/useEmployeeFeatureFlags'
+import useEmployeePlantTransfer from '../hooks/useEmployeePlantTransfer'
+import { employeeNumberForSave } from '../utils/employeeNumber'
+import {
+  employeeAssignmentForEdit,
+  employeeTransferNotice,
+  saveEmployeeEdit,
+} from '../utils/employeePlantTransfer'
+import { deliverEmployeeIntegrations } from '../utils/deliverEmployeeIntegrations'
 import EmployeeModal from '../components/EmployeeModal'
+import EmployeeTerminationDialog from '../components/EmployeeTerminationDialog'
 import PayrollReport from '../components/PayrollReport'
+import SacsLink from '../components/SacsLink'
+import { runEmployeeSyncTargets } from '../utils/employeeSyncTargets'
 import WorkersList from '../components/workers/WorkersList'
 import { useEmployeeList } from '../hooks/useEmployeeList'
 import {
@@ -25,10 +40,14 @@ import {
   normalizePayrollRow,
 } from '../utils/payrollMath'
 import {
-  loadYearToDatePayments,
-  calculatePrintedCheckYtd,
   saveEmployeePayment,
 } from '../utils/paymentHistory'
+import {
+  getPayrollPaymentDate,
+  getPayrollPaymentTimestamp,
+  getPayrollYtdTotals,
+  loadPayrollPaymentHistory,
+} from '../utils/payrollYtd'
 import { calculatePaystubDetails } from '../lib/payrollTaxMath'
 import {
   createFarmplastBackup,
@@ -110,7 +129,7 @@ function PayrollPrintDocument({ rows, week, defaultPayDate, getFullName, printWi
     rows.forEach((item) => {
       const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
       initial[getPrintRowKey(item)] = {
-        payDate: defaultPayDate,
+        payDate: item.paymentDate || defaultPayDate,
         amount: String(Number(totals?.netPay || totals?.totalLabor || item?.netPay || 0).toFixed(2)),
       }
     })
@@ -182,7 +201,7 @@ function PayrollPrintDocument({ rows, week, defaultPayDate, getFullName, printWi
                 <input
                   type="date"
                   value={payDate}
-                  onChange={(event) => updateEdit(rowKey, 'payDate', event.target.value)}
+                        readOnly
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500"
                 />
               </label>
@@ -437,7 +456,8 @@ function buildTaxProfilePayload(form, employeeId) {
 }
 
 export default function DashboardPage() {
-  const { signOut } = useAuth()
+  const { signOut, role } = useAuth()
+  const { flags } = useEmployeeFeatureFlags()
 
   const emptyForm = {
     id: null,
@@ -473,14 +493,23 @@ export default function DashboardPage() {
 
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
+  const [refreshingPresence, setRefreshingPresence] = useState(false)
+  const [presenceCheckedAt, setPresenceCheckedAt] = useState(null)
+  const employeeLoadRef = useRef(null)
+  const employeeDataLoadedRef = useRef(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [zkLoading, setZkLoading] = useState(false)
   const [zkStatus, setZkStatus] = useState('')
+  const [sacsLoading, setSacsLoading] = useState(false)
+  const [sacsStatus, setSacsStatus] = useState('')
   const [activeZkAction, setActiveZkAction] = useState('')
   const [activeCommandId, setActiveCommandId] = useState(null)
   const [modalOpen, setModalOpen] = useState(false)
+  const [terminationEmployee, setTerminationEmployee] = useState(null)
+  const [employeeCreationNotice, setEmployeeCreationNotice] = useState('')
   const [form, setForm] = useState(emptyForm)
+  const transfer = useEmployeePlantTransfer({ open: modalOpen, allowed: role === 'admin', form, setForm })
   const [reportLoading, setReportLoading] = useState(false)
   const [reportError, setReportError] = useState('')
   const [backupLoading, setBackupLoading] = useState(false)
@@ -510,32 +539,42 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadEmployees()
-
-    const channel = supabase
-      .channel('dashboard-presence-live')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'zkt_attendance_logs' },
-        () => loadEmployees()
-      )
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'employees' },
-        () => loadEmployees()
-      )
-      .subscribe()
-
-    return () => {
-      supabase.removeChannel(channel)
+    let debounceTimer
+    const scheduleReload = () => {
+      clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => { void loadEmployees() }, 500)
     }
+    const channel = supabase.channel('dashboard-employees-cached-presence')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employees' }, scheduleReload)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'employee_work_logs' }, scheduleReload)
+      .subscribe()
+    return () => { clearTimeout(debounceTimer); supabase.removeChannel(channel) }
   }, [])
 
-  async function loadEmployees() {
+  async function refreshPresence() {
+    setRefreshingPresence(true)
+    setError('')
     try {
-      setLoading(true)
+      const { error: refreshError } = await supabase.rpc('refresh_employee_presence')
+      if (refreshError) throw refreshError
+      // Any list request already in flight may contain the previous snapshot.
+      if (employeeLoadRef.current) await employeeLoadRef.current
+      await loadEmployees()
+    } catch (err) {
+      setError(err.message || 'Failed to refresh presence')
+    } finally { setRefreshingPresence(false) }
+  }
+
+  async function loadEmployees() {
+    if (employeeLoadRef.current) return employeeLoadRef.current
+    const request = (async () => {
+    try {
+      if (!employeeDataLoadedRef.current) setLoading(true)
       setError('')
 
-      const { data, error } = await supabase
+      const week = getCurrentWeekRange()
+      const [employeeResult, workLogResult] = await Promise.all([
+      supabase
         .from('v_employee_current_presence')
         .select(`
           id,
@@ -572,53 +611,29 @@ export default function DashboardPage() {
           is_on_site,
           last_work_date,
           absence_days,
-          presence_status
+          presence_status,
+          presence_checked_at,
+          company_id,
+          last_payment_date,
+          last_payment_amount,
+          last_check_number,
+          default_lunch_hours,
+          plant_location,
+          tax_profile
         `)
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      const week = getCurrentWeekRange()
-
-      const { data: workLogs, error: workLogsError } = await supabase
+        .order('created_at', { ascending: false }),
+      supabase
         .from('employee_work_logs')
         .select('employee_id, work_date, time_in, time_out, missed_punch, auto_closed_reason, punch_error')
         .gte('work_date', week.startText)
         .lte('work_date', week.endText)
         .eq('is_deleted', false)
         .order('work_date', { ascending: true })
-
+      ])
+      const { data, error } = employeeResult
+      const { data: workLogs, error: workLogsError } = workLogResult
+      if (error) throw error
       if (workLogsError) throw workLogsError
-
-      const employeeIds = (data || []).map((employee) => employee.id).filter(Boolean)
-      const employeePaymentMetaById = new Map()
-      const taxProfileByEmployeeId = new Map()
-
-      if (employeeIds.length > 0) {
-        const { data: paymentMetaRows, error: paymentMetaError } = await supabase
-          .from('employees')
-          .select('id, company_id, last_payment_date, last_payment_amount, last_check_number, default_lunch_hours, plant_location')
-          .in('id', employeeIds)
-
-        if (paymentMetaError) throw paymentMetaError
-
-        ;(paymentMetaRows || []).forEach((row) => {
-          employeePaymentMetaById.set(row.id, row)
-        })
-
-        const { data: taxProfileRows, error: taxProfileError } = await supabase
-          .from('employee_tax_profiles')
-          .select('*')
-          .in('employee_id', employeeIds)
-
-        if (taxProfileError) {
-          console.warn('employee_tax_profiles load skipped:', taxProfileError)
-        } else {
-          ;(taxProfileRows || []).forEach((row) => {
-            taxProfileByEmployeeId.set(row.employee_id, row)
-          })
-        }
-      }
 
       const punchErrorsByEmployee = new Map()
 
@@ -641,7 +656,7 @@ export default function DashboardPage() {
       })
 
       const employeesWithPunchErrors = (data || []).map((employee) => {
-        const paymentMeta = employeePaymentMetaById.get(employee.id) || {}
+        const paymentMeta = employee
 
         return {
           ...employee,
@@ -651,7 +666,7 @@ export default function DashboardPage() {
           last_check_number: paymentMeta.last_check_number ?? null,
           default_lunch_hours: normalizeDefaultLunchHours(paymentMeta.default_lunch_hours),
           plant_location: normalizePlantLocation(paymentMeta.plant_location),
-          tax_profile: normalizeTaxProfile(taxProfileByEmployeeId.get(employee.id)),
+          tax_profile: normalizeTaxProfile(employee.tax_profile),
           punch_errors_week: punchErrorsByEmployee.get(employee.id) || [],
           punch_errors_week_start: week.startText,
           punch_errors_week_end: week.endText,
@@ -659,12 +674,17 @@ export default function DashboardPage() {
       })
 
       setEmployees(employeesWithPunchErrors)
+      setPresenceCheckedAt((data || []).find(employee => employee.presence_checked_at)?.presence_checked_at || null)
+      employeeDataLoadedRef.current = true
     } catch (err) {
       console.error('loadEmployees error:', err)
       setError(err.message || 'Failed to load employees')
     } finally {
       setLoading(false)
     }
+    })()
+    employeeLoadRef.current = request
+    try { await request } finally { if (employeeLoadRef.current === request) employeeLoadRef.current = null }
   }
 
   async function createZktCommand(command, payload = {}) {
@@ -793,6 +813,40 @@ export default function DashboardPage() {
     }
   }
 
+  async function runEmployeeSync(command, label, payload, actionKey = '') {
+    setSacsLoading(true)
+    setSacsStatus(`${label}: syncing...`)
+    try {
+      await runEmployeeSyncTargets(
+        () => runZktCommand(command, label, payload, loadEmployees, actionKey),
+        async () => {
+          try {
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session) throw new Error('Sign in required')
+            const selection = payload.employee_id
+              ? { employee_id: payload.employee_id }
+              : { plant_location: payload.plant_location }
+            const response = await fetch('/api/sync-sacs', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+              body: JSON.stringify(selection),
+              signal: AbortSignal.timeout(45000),
+            })
+            if (!response.ok) throw new Error('SACS unavailable')
+            const result = await response.json()
+            const failures = (result.results || []).filter(row => row.status === 'failed')
+              .map(row => `#${row.employee_number}: ${row.error}`).join('; ')
+            setSacsStatus(`${result.failed ? 'ERROR: ' : ''}${label}: ${result.synced} synced / ${result.failed} failed${failures ? ` — ${failures}` : ''}`)
+          } catch {
+            setSacsStatus(`ERROR: ${label}: SACS sync failed. Retry when the service is available.`)
+          }
+        }
+      )
+    } finally {
+      setSacsLoading(false)
+    }
+  }
+
   async function handleZkTest(plantLocation) {
     const label = getPlantLocationLabel(plantLocation)
     await runZktCommand(
@@ -806,11 +860,10 @@ export default function DashboardPage() {
 
   async function handleZkSyncEmployees(plantLocation) {
     const label = getPlantLocationLabel(plantLocation)
-    await runZktCommand(
+    await runEmployeeSync(
       'sync_employees',
       `SYNC ${label} EMPLOYEES`,
       buildZktPayloadForLocation(plantLocation),
-      loadEmployees,
       `sync-${label}`
     )
   }
@@ -853,11 +906,10 @@ export default function DashboardPage() {
   async function handleSyncEmployeeToZkt(employee) {
     const name = getFullName(employee)
 
-    await runZktCommand(
+    await runEmployeeSync(
       'sync_one_employee',
       `SYNC ZKT ${name}`,
-      buildZktPayloadForLocation(employee.plant_location, { employee_id: employee.id }),
-      loadEmployees
+      buildZktPayloadForLocation(employee.plant_location, { employee_id: employee.id })
     )
   }
 
@@ -873,14 +925,19 @@ export default function DashboardPage() {
   }
 
   function openAddModal() {
+    setError('')
+    setEmployeeCreationNotice('')
     setForm(emptyForm)
     setModalOpen(true)
   }
 
   function openEditModal(employee) {
+    setError('')
+    const originalAssignment = employeeAssignmentForEdit(employee, normalizePlantLocation(employee.plant_location))
     setForm({
       id: employee.id,
-      employee_number: employee.employee_number ?? '',
+      originalAssignment,
+      ...originalAssignment,
       first_name: employee.first_name || '',
       last_name: employee.last_name || '',
       phone: employee.phone || '',
@@ -892,7 +949,6 @@ export default function DashboardPage() {
       overtime_enabled: employee.overtime_enabled ?? false,
       downtime_enabled: employee.downtime_enabled ?? true,
       default_lunch_hours: String(normalizeDefaultLunchHours(employee.default_lunch_hours)),
-      plant_location: normalizePlantLocation(employee.plant_location),
       shift_type: normalizeShiftType(employee.shift_type),
       active: employee.active ?? true,
       exclude_from_payroll_report: employee.exclude_from_payroll_report === true,
@@ -902,7 +958,6 @@ export default function DashboardPage() {
       company_id: employee.company_id || null,
       photo_url: employee.photo_url || '',
       zkt_enabled: employee.zkt_enabled ?? true,
-      zkt_user_id: employee.zkt_user_id ?? employee.employee_number ?? '',
       zkt_name: employee.zkt_name || '',
       zkt_password: employee.zkt_password || '',
       zkt_card_number: employee.zkt_card_number ?? '',
@@ -920,7 +975,7 @@ export default function DashboardPage() {
   async function handleSave(e) {
     e.preventDefault()
 
-    if (form.employee_number === '' || Number.isNaN(Number(form.employee_number))) {
+    if (form.id && (form.employee_number === '' || Number.isNaN(Number(form.employee_number)))) {
       setError('Employee number is required')
       return
     }
@@ -930,7 +985,7 @@ export default function DashboardPage() {
       return
     }
 
-    if (form.zkt_enabled && !form.zkt_user_id) {
+    if (form.id && form.zkt_enabled && !form.zkt_user_id) {
       setError('ZKT user ID is required when ZKT enabled')
       return
     }
@@ -942,7 +997,7 @@ export default function DashboardPage() {
       const fullName = `${form.first_name || ''} ${form.last_name || ''}`.trim()
 
       const payload = {
-        employee_number: Number(form.employee_number),
+        employee_number: employeeNumberForSave(form),
         first_name: form.first_name.trim(),
         last_name: form.last_name.trim() || null,
         phone: form.phone.trim() || null,
@@ -985,18 +1040,21 @@ export default function DashboardPage() {
       }
 
       let savedEmployeeId = form.id
+      let createdEmployee = null
+      let transferredEmployee = null
 
       if (form.id) {
-        const { error } = await supabase.from('employees').update(payload).eq('id', form.id)
-        if (error) throw error
+        const saved = await saveEmployeeEdit(supabase, form, payload)
+        if (transfer.active) transferredEmployee = saved
       } else {
         const { data, error } = await supabase
           .from('employees')
           .insert(payload)
-          .select('id')
+          .select('id,employee_number,zkt_enabled,zkt_sync_status,zkt_sync_error')
           .single()
         if (error) throw error
         savedEmployeeId = data?.id
+        createdEmployee = data
       }
 
       if (savedEmployeeId) {
@@ -1011,9 +1069,20 @@ export default function DashboardPage() {
         }
       }
 
-      await rebuildZktWorkLogs()
+      let deliveryNotice=''
+      if(!form.id&&savedEmployeeId&&flags.employee_rehire){
+        try{await deliverEmployeeIntegrations(savedEmployeeId,{getSession:()=>supabase.auth.getSession()});deliveryNotice='SACS identity synchronized. Terminal provisioning is tracked separately.'}
+        catch(err){deliveryNotice=`ERROR: ${err.message}`}
+      }
+      if (createdEmployee) {
+        setEmployeeCreationNotice(`Employee #${createdEmployee.employee_number} saved in Farmplast. ${form.zkt_enabled
+          ? `ZKT synchronization is pending. ${createdEmployee.zkt_sync_error || 'Awaiting terminal acknowledgement.'} The employee has not been confirmed on the terminal.`
+          : 'ZKT synchronization was not requested.'}`)
+      }
+      if (transferredEmployee) setEmployeeCreationNotice(employeeTransferNotice(transferredEmployee))
       closeModal()
       await loadEmployees()
+      if(deliveryNotice)setSacsStatus(deliveryNotice)
     } catch (err) {
       console.error('handleSave error:', err)
       setError(err.message || 'Failed to save employee')
@@ -1022,46 +1091,15 @@ export default function DashboardPage() {
     }
   }
 
-  async function handleDelete(id) {
-    const ok = window.confirm('Delete this employee from database?')
-    if (!ok) return
-
-    try {
-      setError('')
-      const { error } = await supabase.from('employees').delete().eq('id', id)
-      if (error) throw error
-      await loadEmployees()
-    } catch (err) {
-      console.error('handleDelete error:', err)
-      setError(err.message || 'Failed to delete employee')
-    }
+  function handleDelete(id) {
+    const employee = employees.find(row => row.id === id)
+    if (!employee || !flags.employee_terminate) return
+    setTerminationEmployee(employee)
   }
 
   async function rebuildZktWorkLogs() {
     const { error } = await supabase.rpc('process_zkt_attendance_to_work_logs')
     if (error) throw error
-
-    const { data: employeesWithLunch, error: employeesError } = await supabase
-      .from('employees')
-      .select('id, default_lunch_hours')
-
-    if (employeesError) throw employeesError
-
-    const lunchUpdateResults = await Promise.all(
-      (employeesWithLunch || []).map((employeeRow) =>
-        supabase
-          .from('employee_work_logs')
-          .update({
-            lunch_hours: normalizeDefaultLunchHours(employeeRow.default_lunch_hours),
-          })
-          .eq('employee_id', employeeRow.id)
-          .eq('source', 'zkt')
-          .or('manually_edited.is.null,manually_edited.eq.false')
-      )
-    )
-
-    const lunchUpdateError = lunchUpdateResults.find((result) => result.error)?.error
-    if (lunchUpdateError) throw lunchUpdateError
   }
 
   async function handleShiftChange(employeeId, shiftType) {
@@ -1148,8 +1186,8 @@ export default function DashboardPage() {
     return []
   }
 
-  async function loadPriorPayrollPayments(week) {
-    return loadYearToDatePayments(supabase, week?.startText)
+  async function loadPriorPayrollPayments() {
+    return loadPayrollPaymentHistory(supabase, { employeeIds: employees.map((employee) => employee.id) })
   }
 
   function getNumberFromObject(object, keys, fallback = 0) {
@@ -1193,7 +1231,7 @@ export default function DashboardPage() {
     return (rows || []).reduce((sum, row) => sum + getNumberFromObject(row, keys), 0)
   }
 
-  function getEmployeePayroll(employee, week, logsByEmployeeAndDate, deductionsRows, priorPayments) {
+  function getEmployeePayroll(employee, week, logsByEmployeeAndDate, deductionsRows, priorPayments, paymentDate) {
     const normalizedRows = week.days.flatMap((day) => {
       const dayText = toLocalDateString(day)
       const dayLogs = logsByEmployeeAndDate.get(`${employee.id}__${dayText}`) || []
@@ -1211,41 +1249,12 @@ export default function DashboardPage() {
     const cleanNum = roundDollars(sumDeductions(employeeDeductions, ['clean', 'cleaning']))
     const transportNum = roundDollars(sumDeductions(employeeDeductions, ['transport', 'transportation']))
     const manualDeductions = roundDollars(rentNum + electricNum + waterNum + cleanNum + transportNum)
-    const employeePriorPayments = (priorPayments || []).filter(
-      (row) => String(row.employee_id || '') === String(employee.id || '')
-    )
-    const priorYtdGross = employeePriorPayments.reduce(
-      (sum, row) => sum + Number(row.total_labor || 0),
-      0
-    )
-    const priorYtdEmployeeTaxes = employeePriorPayments.reduce(
-      (sum, row) => sum + Number(row.employee_tax || 0),
-      0
-    )
-    const priorYtdDeductionBreakdown = employeePriorPayments.reduce(
-      (acc, row) => ({
-        rent: acc.rent + Number(row.rent || 0),
-        electric: acc.electric + Number(row.electric || 0),
-        water: acc.water + Number(row.water || 0),
-        clean: acc.clean + Number(row.clean || 0),
-        transport: acc.transport + Number(row.transport || 0),
-      }),
-      {
-        rent: 0,
-        electric: 0,
-        water: 0,
-        clean: 0,
-        transport: 0,
-      }
-    )
-    const priorYtdDeductions = Object.values(priorYtdDeductionBreakdown).reduce(
-      (sum, value) => sum + Number(value || 0),
-      0
-    )
-    const priorYtdNetPay = employeePriorPayments.reduce(
-      (sum, row) => sum + Number(row.net_pay || 0),
-      0
-    )
+    const ytd = getPayrollYtdTotals(priorPayments, {
+      employeeId: employee.id,
+      periodStart: week.startText,
+      periodEnd: week.endText,
+      paymentDate,
+    })
 
     const taxTotals = calculatePaystubDetails({
       employee,
@@ -1260,11 +1269,7 @@ export default function DashboardPage() {
       },
       periodStart: week.startText,
       periodEnd: week.endText,
-      priorYtdGross,
-      priorYtdEmployeeTaxes,
-      priorYtdDeductions,
-      priorYtdDeductionBreakdown,
-      priorYtdNetPay,
+      ...ytd,
     })
     const employeeTaxNum = roundDollars(taxTotals.totalEmployeeTaxes || 0)
     const mainTaxNum = roundDollars(
@@ -1273,12 +1278,6 @@ export default function DashboardPage() {
     const overtimeTaxNum = roundDollars(employeeTaxNum - mainTaxNum)
     const totalDeductions = roundDollars(employeeTaxNum + manualDeductions)
     const netPay = roundDollars(Number(taxTotals.netPay || 0))
-    const printedYtd = calculatePrintedCheckYtd(
-      priorYtdEmployeeTaxes,
-      employeeTaxNum,
-      priorYtdNetPay,
-      netPay
-    )
 
     const rowsByDate = {}
     calculatedRows.forEach((row) => {
@@ -1312,7 +1311,7 @@ export default function DashboardPage() {
     const checkTotals = {
       ...payrollTotals,
       employeeTaxNum,
-      ytdEmployeeTaxes: printedYtd.ytdEmployeeTaxes,
+      ytdEmployeeTaxes: taxTotals.ytdEmployeeTaxes || employeeTaxNum,
       mainTax: mainTaxNum,
       overtimeTax: overtimeTaxNum,
       employeeTaxes: taxTotals.employeeTaxes || [],
@@ -1334,11 +1333,12 @@ export default function DashboardPage() {
       employeeDeductions: manualDeductions,
       totalDeductions,
       netPay,
-      ytdNetPay: printedYtd.ytdNetPay,
+      ytdNetPay: taxTotals.ytdNetPay || netPay,
     }
 
     return {
       employee,
+      paymentDate: ytd.paymentDate,
       rows: calculatedRows,
       rowsByDate,
       totals: checkTotals,
@@ -1369,6 +1369,7 @@ export default function DashboardPage() {
 
   function buildPayrollRows(week, logs, deductionsRows, options = {}) {
     const logsByEmployeeAndDate = new Map()
+    const paymentDate = options.paymentDate || getPayrollPaymentDate(new Date())
     const includeExcluded = options.includeExcluded === true
     const excludedOnly = options.excludedOnly === true
     const sourceEmployees = excludedOnly
@@ -1395,7 +1396,8 @@ export default function DashboardPage() {
         week,
         logsByEmployeeAndDate,
         deductionsRows,
-        options.priorPayments || []
+        options.priorPayments || [],
+        paymentDate
       )
     )
   }
@@ -1451,7 +1453,7 @@ export default function DashboardPage() {
 
     const rootElement = targetWindow.document.getElementById('print-root')
     const root = createRoot(rootElement)
-    const payDate = toLocalDateString(new Date())
+    const payDate = payrollRows[0]?.paymentDate || getPayrollPaymentDate(new Date())
 
     root.render(
       <PayrollPrintDocument
@@ -1673,13 +1675,13 @@ export default function DashboardPage() {
 
   async function savePrintedPayrollRows(week, printRows) {
     const nowIso = new Date().toISOString()
-    const today = nowIso.slice(0, 10)
 
     for (const item of printRows) {
       const employee = item.employee
       const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
 
       const sourceItems = item.grouped_company ? item.grouped_items : [item]
+      const paymentDate = sourceItems[0]?.paymentDate || getPayrollPaymentDate(nowIso)
       const checkEmployeeId = item.grouped_company
         ? sourceItems[0]?.employee?.id
         : employee.id
@@ -1715,7 +1717,7 @@ export default function DashboardPage() {
 
       const nextCheckNumber = createdCheck.check_number
 
-      const { data: printedCheck, error: printedError } = await supabase.rpc(
+      const { error: printedError } = await supabase.rpc(
         'mark_payroll_check_printed',
         {
           p_check_id: createdCheck.id,
@@ -1724,10 +1726,9 @@ export default function DashboardPage() {
 
       if (printedError) throw printedError
 
-      const confirmedAt =
-        printedCheck?.printed_confirmed_at ||
-        printedCheck?.printed_at ||
-        nowIso
+      // Use the same chosen pay date for YTD, the stored payment and the check.
+      // A batch finishing after midnight must not silently switch tax years.
+      const paidAt = getPayrollPaymentTimestamp(paymentDate)
 
       for (const sourceItem of sourceItems) {
         const sourceEmployee = sourceItem.employee
@@ -1748,7 +1749,7 @@ export default function DashboardPage() {
           clean: Number(sourceTotals.cleanNum || 0),
           transport: Number(sourceTotals.transportNum || 0),
           net_pay: Number(sourceTotals.netPay || 0),
-          paid_at: confirmedAt,
+          paid_at: paidAt,
         }
 
         await saveEmployeePayment(supabase, paymentPayload)
@@ -1756,7 +1757,7 @@ export default function DashboardPage() {
         const { error: employeeUpdateError } = await supabase
           .from('employees')
           .update({
-            last_payment_date: today,
+            last_payment_date: paymentDate,
             last_payment_amount: Number(sourceTotals.netPay || 0),
             last_check_number: nextCheckNumber,
           })
@@ -1766,7 +1767,7 @@ export default function DashboardPage() {
       }
 
       item.print_check_number = nextCheckNumber
-      employee.last_payment_date = today
+      employee.last_payment_date = paymentDate
       employee.last_payment_amount = Number(totals.netPay || 0)
       employee.last_check_number = nextCheckNumber
     }
@@ -1785,7 +1786,7 @@ export default function DashboardPage() {
       const printWindow = createPayrollPrintWindow()
       const { week, logs } = await loadPreviousWeekWorkLogs()
       const deductionsRows = await tryLoadPayrollDeductions(week)
-      const priorPayments = await loadPriorPayrollPayments(week)
+      const priorPayments = await loadPriorPayrollPayments()
       const allPayrollRows = buildPayrollRows(week, logs, deductionsRows, {
         includeExcluded: true,
         priorPayments,
@@ -1839,7 +1840,7 @@ export default function DashboardPage() {
       const selectedIdSet = new Set(selectedCheckIds)
       const { week, logs } = await loadPreviousWeekWorkLogs()
       const deductionsRows = await tryLoadPayrollDeductions(week)
-      const priorPayments = await loadPriorPayrollPayments(week)
+      const priorPayments = await loadPriorPayrollPayments()
       const payrollRows = buildPayrollRows(week, logs, deductionsRows, {
         includeExcluded: true,
         priorPayments,
@@ -2168,7 +2169,7 @@ export default function DashboardPage() {
     <div className="min-h-screen bg-[#020817] text-white">
       <div className="mx-auto max-w-[1900px] px-3 py-4 sm:px-4 lg:px-5">
         <div className={`${cardClass} mb-4 p-3`}>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex flex-col gap-3 xl:flex-row xl:flex-wrap xl:items-center xl:justify-between">
             <div className="flex items-start gap-3">
               <div className="rounded-xl bg-cyan-500/10 p-2.5 text-cyan-400">
                 <LayoutDashboard size={22} />
@@ -2179,22 +2180,28 @@ export default function DashboardPage() {
                 <p className="mt-0.5 text-xs text-slate-400">
                   Total: {counts.total} · Presence: {counts.presenceOnline} online · {counts.offSite} off site · {counts.openShift} missed out · {counts.punchErrors} punch errors · {counts.absent} absent
                 </p>
+                <p className="mt-1 text-xs text-slate-500">
+                  Presence after ZKT sync: 8 AM / 8 PM (New York)
+                  {presenceCheckedAt ? ' · Updated ' + new Date(presenceCheckedAt).toLocaleString('en-US', {timeZone:'America/New_York', month:'short', day:'numeric', hour:'numeric', minute:'2-digit'}) : ''}
+                </p>
               </div>
             </div>
 
-            <div className="flex flex-wrap gap-2">
+            <div className="flex min-w-0 flex-wrap gap-2">
               <button
-                onClick={loadEmployees}
+                onClick={refreshPresence}
+                disabled={refreshingPresence}
+                title="Refresh presence from the latest imported ZKT punches"
                 className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:border-cyan-500"
               >
-                <RefreshCw size={15} />
-                Refresh
+                <RefreshCw size={15} className={refreshingPresence ? 'animate-spin' : ''} />
+                {refreshingPresence ? 'Refreshing…' : 'Refresh'}
               </button>
 
-              <div className="grid grid-flow-col grid-rows-2 gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2">
+              <div className="grid max-w-full grid-cols-2 gap-2 rounded-lg border border-slate-800 bg-slate-950/40 p-2 sm:grid-flow-col sm:grid-cols-none sm:grid-rows-2">
               <button
                 onClick={() => handleZkTest('NJ')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('test-NJ', <Zap size={15} />)}
@@ -2203,7 +2210,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkTest('PA')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-yellow-500/30 bg-yellow-500/10 px-3 py-2 text-sm font-medium text-yellow-300 transition hover:bg-yellow-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('test-PA', <Zap size={15} />)}
@@ -2212,7 +2219,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkSyncEmployees('NJ')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('sync-NJ', <UploadCloud size={15} />)}
@@ -2221,7 +2228,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkSyncEmployees('PA')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 transition hover:bg-blue-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('sync-PA', <UploadCloud size={15} />)}
@@ -2230,7 +2237,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkVerifyEmployees('NJ')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('verify-NJ', <BadgeCheck size={15} />)}
@@ -2239,7 +2246,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkVerifyEmployees('PA')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-purple-500/30 bg-purple-500/10 px-3 py-2 text-sm font-medium text-purple-300 transition hover:bg-purple-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('verify-PA', <BadgeCheck size={15} />)}
@@ -2248,7 +2255,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkPullLogs('NJ')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('pull-NJ', <DownloadCloud size={15} />)}
@@ -2257,7 +2264,7 @@ export default function DashboardPage() {
 
               <button
                 onClick={() => handleZkPullLogs('PA')}
-                disabled={zkLoading}
+                disabled={zkLoading || sacsLoading}
                 className="inline-flex items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm font-medium text-emerald-300 transition hover:bg-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {renderZktActionIcon('pull-PA', <DownloadCloud size={15} />)}
@@ -2273,14 +2280,24 @@ export default function DashboardPage() {
                 Add employee
               </button>
 
+              {role === 'admin' && (
+                <Link
+                  to="/employees/former"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-slate-500/40 bg-slate-500/10 px-2.5 py-2 text-center text-sm font-medium leading-tight text-slate-200 transition hover:bg-slate-500/20"
+                >
+                  <Archive size={15} />
+                  <span>Former<br />Employees</span>
+                </Link>
+              )}
+
               <button
                 type="button"
                 onClick={handleDownloadBackup}
                 disabled={backupLoading}
-                className="inline-flex items-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-3 py-2 text-sm font-medium text-sky-300 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-60"
+                className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-sky-500/30 bg-sky-500/10 px-2.5 py-2 text-center text-sm font-medium leading-tight text-sky-300 transition hover:bg-sky-500/20 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {backupLoading ? <Loader2 size={15} className="animate-spin" /> : <FileText size={15} />}
-                {backupLoading ? 'Backup...' : 'Database Backup'}
+                {backupLoading ? 'Backup...' : <span>Database<br />Backup</span>}
               </button>
 
               <button
@@ -2292,6 +2309,12 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+
+          {sacsStatus ? (
+            <div role="status" className={`mt-3 rounded-lg border px-3 py-2 text-xs ${sacsStatus.startsWith('ERROR:') ? 'border-amber-500/30 bg-amber-500/10 text-amber-200' : 'border-cyan-500/20 bg-cyan-500/10 text-cyan-200'}`}>
+              SACS: {sacsStatus}
+            </div>
+          ) : null}
 
           {zkStatus ? (
             <div
@@ -2327,9 +2350,23 @@ export default function DashboardPage() {
           ) : null}
         </div>
 
-        <PayrollReport employees={employees} />
+        <div className="mb-3 grid items-start gap-3 md:grid-cols-[minmax(0,3fr)_minmax(228px,1fr)]">
+          <PayrollReport employees={employees} />
+          <section className={`${cardClass} flex min-w-0 flex-wrap items-center justify-between gap-3 p-3`} aria-labelledby="safety-title">
+            <div className="flex items-center gap-2">
+              <ShieldCheck size={22} className="shrink-0 text-emerald-300" aria-hidden="true" />
+              <div>
+                <h2 id="safety-title" className="text-base font-bold text-white">Safety</h2>
+                <p className="text-xs text-slate-400">SACS</p>
+              </div>
+            </div>
+            <SacsLink className="inline-flex w-fit shrink-0 items-center rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-2 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan-400" />
+          </section>
+        </div>
 
+        {employeeCreationNotice && <p role="status" className="mb-3 rounded-lg border border-cyan-500/30 bg-cyan-500/10 p-3 text-sm text-cyan-200">{employeeCreationNotice}</p>}
         <WorkersList
+          canTerminate={flags.employee_terminate}
           cardClass={cardClass}
           counts={counts}
           employeeSort={employeeSort}
@@ -2368,7 +2405,7 @@ export default function DashboardPage() {
           setSearch={setSearch}
           toggleAllVisibleChecks={toggleAllVisibleChecks}
           toggleSelectedCheck={toggleSelectedCheck}
-          zkLoading={zkLoading}
+          zkLoading={zkLoading || sacsLoading}
         />
 
         <EmployeeModal
@@ -2379,7 +2416,15 @@ export default function DashboardPage() {
           setForm={setForm}
           saving={saving}
           isEditing={isEditing}
+          error={error}
+          canTerminate={flags.employee_terminate}
+          onTerminate={handleDelete}
+          transfer={transfer}
         />
+        {terminationEmployee && <EmployeeTerminationDialog key={terminationEmployee.id} employee={terminationEmployee}
+          onClose={() => setTerminationEmployee(null)} onArchived={async notice => {
+            setTerminationEmployee(null); closeModal(); setEmployeeCreationNotice(notice); await loadEmployees()
+          }} />}
       </div>
     </div>
   )

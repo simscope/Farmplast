@@ -1,51 +1,32 @@
-import React from 'react'
+import { Link } from 'react-router-dom'
+import { ArrowLeft, ArrowUpRight, Snowflake, Cylinder, Zap, Thermometer } from 'lucide-react'
+import PlantSummary from '../components/monitoring/pa/PlantSummary'
+import AlarmSummary from '../components/monitoring/pa/AlarmSummary'
+import StatusBadge from '../components/monitoring/pa/StatusBadge'
+import { getPaPlant } from '../components/monitoring/pa/plant'
+import '../components/monitoring/pa/pa.css'
 
 export default function MonitoringPAPage() {
-  return (
-    <div
-      style={{
-        minHeight: '100vh',
-        background: '#020617',
-        color: '#f8fafc',
-        padding: 24,
-      }}
-    >
-      <div
-        style={{
-          maxWidth: 1200,
-          margin: '0 auto',
-          background: 'rgba(15,23,42,0.82)',
-          border: '1px solid rgba(148,163,184,0.14)',
-          borderRadius: 24,
-          padding: 24,
-        }}
-      >
-        <div style={{ color: '#67e8f9', fontSize: 13, fontWeight: 900 }}>PENNSYLVANIA</div>
-        <h1 style={{ marginTop: 8 }}>Monitoring dashboard</h1>
-        <p style={{ color: '#cbd5e1' }}>
-          Pennsylvania monitoring page coming soon.
-        </p>
-
-        <div style={{ marginTop: 20 }}>
-          <button
-            onClick={() => {
-              window.location.href = '/'
-            }}
-            style={{
-              height: 44,
-              padding: '0 16px',
-              borderRadius: 14,
-              border: '1px solid rgba(148,163,184,0.18)',
-              background: 'rgba(15,23,42,0.8)',
-              color: '#e2e8f0',
-              fontWeight: 800,
-              cursor: 'pointer',
-            }}
-          >
-            Back to Home
-          </button>
-        </div>
-      </div>
-    </div>
-  )
+  const plant = getPaPlant()
+  const sections = [
+    { id: 'chillers', title: 'Chillers', summary: plant.chillers.length ? `${plant.chillers.length} chillers` : 'No PA chillers configured', icon: <Snowflake size={24} aria-hidden="true" />, status: 'NOT CONFIGURED' },
+    { id: 'barrels', title: 'Barrels / Mixers', summary: `${plant.barrels.length} barrels · ${plant.mixers.length} mixers`, icon: <Cylinder size={24} aria-hidden="true" /> },
+    { id: 'machines', title: 'Machine Power', summary: `${plant.machines.length} machines`, icon: <Zap size={24} aria-hidden="true" /> },
+    { id: 'climate', title: 'Climate', summary: `${plant.climateZones.length} zones`, icon: <Thermometer size={24} aria-hidden="true" /> },
+  ]
+  return <main className="pa-dashboard pa-overview"><div className="pa-container">
+    <header className="pa-header">
+      <div><p className="pa-eyebrow">PENNSYLVANIA</p><h1>PA PLANT</h1><p className="pa-muted">Plant overview · Monitoring only</p></div>
+      <Link className="pa-home" to="/"><ArrowLeft size={16} aria-hidden="true" /> Back to Home</Link>
+    </header>
+    <PlantSummary plant={plant} />
+    <AlarmSummary alarms={plant.alarms} />
+    <nav className="pa-section-nav" aria-label="PA equipment sections">
+      {sections.map(({ id, title, summary, icon, status }) => <Link key={id} className="pa-section-link" to={`/monitoring/pa/${id}`}>
+        <div className="pa-section-title">{icon}<h2>{title}</h2></div>
+        <p className="pa-section-count">{summary}</p>
+        <div className="pa-section-bottom"><StatusBadge status={status} /><span className="pa-open">OPEN <ArrowUpRight size={18} aria-hidden="true" /></span></div>
+      </Link>)}
+    </nav>
+  </div></main>
 }

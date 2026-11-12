@@ -20,7 +20,7 @@ const CHECK_COORDS = {
 
   amountNumber: { right: 24, y: 34 },
 
-  amountWordsText: { x: 18, y: 48 },
+  amountWordsText: { x: 18, y: 47 },
   amountWordsLine: { x: 14, y: 52, w: 160 },
   dollarsLabel: { x: 158, y: 48 },
 
@@ -474,7 +474,7 @@ function CheckStockPrint({
 
       <div
         style={posStyle('amountWordsText', {
-          fontSize: '4.5mm',
+          fontSize: '14pt',
           fontWeight: 500,
           lineHeight: 1,
           whiteSpace: 'nowrap',
@@ -818,13 +818,7 @@ function PayrollStubCopy({
               <tr key={row.label}>
                 <td style={td}>{row.label}</td>
                 <td style={td}>{stubMoney(row.value)}</td>
-                <td style={td}>
-                  {row.ytdValue === undefined
-                    ? ''
-                    : row.label === 'Employee Tax'
-                      ? stubMoneyCents(row.ytdValue)
-                      : stubMoney(row.ytdValue)}
-                </td>
+                <td style={td}>{row.ytdValue === undefined ? '' : stubMoney(row.ytdValue)}</td>
               </tr>
             ))}
 

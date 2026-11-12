@@ -6,6 +6,7 @@ import {
   normalizePayrollRow,
 } from '../utils/payrollMath'
 import { calculatePaystubDetails } from '../lib/payrollTaxMath'
+import { getPayrollYtdTotals, loadPayrollPaymentHistory } from '../utils/payrollYtd'
 
 const cardClass =
   'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
@@ -601,14 +602,7 @@ export default function PayrollReport({ employees = [] }) {
       })
     })
 
-    const { data: paymentsRows, error: paymentsError } = await supabase
-      .from('employee_payments')
-      .select('*')
-      .in('employee_id', employeeIds)
-      .order('paid_at', { ascending: false, nullsFirst: false })
-      .order('created_at', { ascending: false, nullsFirst: false })
-
-    if (paymentsError) throw paymentsError
+    const paymentsRows = await loadPayrollPaymentHistory(supabase, { employeeIds })
 
     ;(paymentsRows || []).forEach((row) => {
       const key = String(row.employee_id || '')
@@ -627,36 +621,11 @@ export default function PayrollReport({ employees = [] }) {
 
   function getPriorYtdPaymentTotals(employee, week, paymentsByEmployeeId) {
     const employeePayments = paymentsByEmployeeId.get(String(employee.id)) || []
-    const yearStart = week.startText ? `${String(week.startText).slice(0, 4)}-01-01` : ''
-    const priorYtdPayments = employeePayments.filter((row) => {
-      const rowPeriodStart = String(row.period_start || '')
-      return rowPeriodStart && yearStart && rowPeriodStart >= yearStart && rowPeriodStart < week.startText
+    return getPayrollYtdTotals(employeePayments, {
+      employeeId: employee.id,
+      periodStart: week.startText,
+      periodEnd: week.endText,
     })
-
-    return {
-      priorYtdGross: priorYtdPayments.reduce(
-        (sum, row) => sum + getNumber(row.total_labor),
-        0
-      ),
-      priorYtdEmployeeTaxes: priorYtdPayments.reduce(
-        (sum, row) => sum + getNumber(row.employee_tax),
-        0
-      ),
-      priorYtdDeductions: priorYtdPayments.reduce(
-        (sum, row) =>
-          sum +
-          getNumber(row.rent) +
-          getNumber(row.electric) +
-          getNumber(row.water) +
-          getNumber(row.clean) +
-          getNumber(row.transport),
-        0
-      ),
-      priorYtdNetPay: priorYtdPayments.reduce(
-        (sum, row) => sum + getNumber(row.net_pay),
-        0
-      ),
-    }
   }
 
   function buildRows(week, logs, sourceEmployees = reportEmployees, supportData = {}) {
@@ -810,8 +779,8 @@ export default function PayrollReport({ employees = [] }) {
   }
 
   return (
-    <div className={`${cardClass} p-4`}>
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+    <div className={`${cardClass} min-w-0 p-3`}>
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
         <div>
           <h2 className="text-lg font-bold text-white">Payroll report</h2>
           <p className="mt-1 text-xs text-cyan-200">
@@ -819,12 +788,12 @@ export default function PayrollReport({ employees = [] }) {
           </p>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
           <select
             value={selectedWeekStart}
             onChange={(event) => setSelectedWeekStart(event.target.value)}
             disabled={loading}
-            className="rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60"
+            className="min-w-0 max-w-full rounded-lg border border-slate-700 bg-[#08101c] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-cyan-500 disabled:opacity-60"
             title="Payroll week"
           >
             {weekOptions.map((week) => (
@@ -857,7 +826,7 @@ export default function PayrollReport({ employees = [] }) {
       </div>
 
       {error ? (
-        <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
+        <div className="mt-3 rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300">
           {error}
         </div>
       ) : null}

@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "compress:employee-photos": "node scripts/compress-employee-photos.mjs",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.99.1",

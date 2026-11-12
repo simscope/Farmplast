@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { X, Upload, Loader2, Trash2, FileText, Printer } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import EmployeeNumberSuggestion from './EmployeeNumberSuggestion'
+import EmployeePlantTransferHint from './EmployeePlantTransferHint'
 import {
   EMPLOYEE_PHOTO_BUCKET,
   compressEmployeePhoto,
@@ -76,6 +78,10 @@ export default function EmployeeModal({
   setForm,
   saving,
   isEditing,
+  error = '',
+  canTerminate = false,
+  onTerminate,
+  transfer,
 }) {
   const [uploadingPhoto, setUploadingPhoto] = useState(false)
   const [uploadError, setUploadError] = useState('')
@@ -463,6 +469,7 @@ export default function EmployeeModal({
         </div>
 
         <form onSubmit={onSave} className="space-y-4 px-4 py-4 pb-10">
+          {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
           <div className="grid gap-4 lg:grid-cols-[180px_1fr]">
             <div className="rounded-xl border border-slate-800 bg-[#0b1220] p-3">
               <div className="mx-auto h-28 w-28 overflow-hidden rounded-2xl border border-slate-700 bg-[#07101d]">
@@ -523,21 +530,30 @@ export default function EmployeeModal({
 
             <div className="grid gap-3 md:grid-cols-2">
               <div>
-                <label className="mb-1 block text-xs text-slate-300">Employee number</label>
+                <label htmlFor="employee-number" className="mb-1 block text-xs text-slate-300">Employee number</label>
                 <input
+                  id="employee-number"
                   type="number"
                   className={inputClass}
                   value={form.employee_number}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, employee_number: e.target.value }))
-                  }
-                  placeholder="Employee number"
+                  readOnly={Boolean(form.id) && !transfer.active}
+                  disabled={saving}
+                  required
+                  min="1"
+                  max="2147483647"
+                  step="1"
+                  onChange={(e) => transfer.changeNumber(e.target.value)}
+                  placeholder={form.id ? 'Employee number' : 'Loading unused employee number…'}
                 />
+                {!form.id && <EmployeeNumberSuggestion key={form.plant_location} plant={form.plant_location} setForm={setForm} />}
+                <EmployeePlantTransferHint transfer={transfer} saving={saving} />
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">First name</label>
+                <label htmlFor="employee-first-name" className="mb-1 block text-xs text-slate-300">First name</label>
                 <input
+                  id="employee-first-name"
+                  required
                   className={inputClass}
                   value={form.first_name}
                   onChange={(e) =>
@@ -597,13 +613,13 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">Location</label>
+                <label htmlFor="employee-plant" className="mb-1 block text-xs text-slate-300">Plant</label>
                 <select
+                  id="employee-plant"
                   className={inputClass}
                   value={normalizePlantLocation(form.plant_location)}
-                  onChange={(e) =>
-                    setForm((prev) => ({ ...prev, plant_location: e.target.value }))
-                  }
+                  disabled={saving || (Boolean(form.id) && !transfer.available)}
+                  onChange={(e) => transfer.changePlant(e.target.value)}
                 >
                   <option value="NJ">New Jersey</option>
                   <option value="PA">Pennsylvania</option>
@@ -616,6 +632,7 @@ export default function EmployeeModal({
                   type="date"
                   className={inputClass}
                   value={form.hire_date}
+                  readOnly={Boolean(form.id)}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, hire_date: e.target.value }))
                   }
@@ -814,14 +831,21 @@ export default function EmployeeModal({
 
               <div>
                 <label className="mb-1 block text-xs text-slate-300">Status</label>
+                {form.id ? <div className="rounded-lg border border-slate-700 bg-[#08101c] p-2">
+                  <span className="text-sm text-white">{form.active ? 'Active' : 'Inactive'}</span>
+                  {form.active && <button type="button" disabled={!canTerminate || saving} onClick={() => onTerminate?.(form.id)} className="ml-3 text-sm font-semibold text-red-300 underline disabled:opacity-50">Terminate employee</button>}
+                  <p className="mt-1 text-[11px] text-slate-400">{form.active ? 'Confirm the last working day to move this employee to Former Employees.' : 'Former employee history is read-only.'}</p>
+                </div> : <>
                 <select
                   className={inputClass}
                   value={form.active ? 'true' : 'false'}
+                  disabled={Boolean(form.id)}
                   onChange={(e) => setForm((prev) => ({ ...prev, active: e.target.value === 'true' }))}
                 >
                   <option value="true">Active</option>
                   <option value="false">Inactive</option>
                 </select>
+                </>}
               </div>
 
               <div className="md:col-span-2">
@@ -989,13 +1013,14 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">ZKT enabled</label>
+                <label htmlFor="employee-zkt-enabled" className="mb-1 block text-xs text-slate-300">ZKT enabled</label>
                 <select
+                  id="employee-zkt-enabled"
                   className={inputClass}
                   value={form.zkt_enabled ? 'true' : 'false'}
                   onChange={(e) => setForm((prev) => ({ ...prev, zkt_enabled: e.target.value === 'true' }))}
                 >
-                  <option value="true">Yes - send to ZKT</option>
+                  <option value="true">{isEditing && !transfer.active ? 'Yes - send to ZKT' : 'Yes - request synchronization'}</option>
                   <option value="false">No</option>
                 </select>
               </div>
@@ -1006,6 +1031,7 @@ export default function EmployeeModal({
                   type="number"
                   className={inputClass}
                   value={form.zkt_user_id}
+                  readOnly
                   onChange={(e) => setForm((prev) => ({ ...prev, zkt_user_id: e.target.value }))}
                   placeholder="Usually same as employee number"
                 />
@@ -1067,7 +1093,8 @@ export default function EmployeeModal({
 
             <button
               type="submit"
-              disabled={saving || uploadingPhoto}
+              disabled={saving || uploadingPhoto || ((!form.id || transfer.active) &&
+                (!form.employee_number || !Number.isSafeInteger(Number(form.employee_number)) || Number(form.employee_number) < 1))}
               className="rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
               {saving ? 'Saving...' : isEditing ? 'Save changes' : 'Add employee'}

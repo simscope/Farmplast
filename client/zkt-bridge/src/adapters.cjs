@@ -1,6 +1,7 @@
 "use strict";
 const { fail } = require("./core.cjs");
-function supabaseAdapter(client) {
+function supabaseAdapter(client, plant = 'NJ') {
+  const queueStatus = plant === 'PA' ? 'pending_pa' : 'pending';
   const unwrap = async (q) => {
     const { data, error } = await q;
     if (error) throw error;
@@ -13,7 +14,7 @@ function supabaseAdapter(client) {
           client
             .from("zkt_bridge_commands")
             .select("id,command,payload,created_at")
-            .eq("status", "pending")
+            .eq("status", queueStatus)
             .order("created_at", { ascending: true })
             .limit(1)
             .abortSignal(signal),
@@ -26,7 +27,7 @@ function supabaseAdapter(client) {
             .from("zkt_bridge_commands")
             .update({ status: "running", picked_at: pickedAt, error: null })
             .eq("id", id)
-            .eq("status", "pending")
+            .eq("status", queueStatus)
             .select("id")
             .abortSignal(signal),
         )
@@ -71,6 +72,15 @@ function supabaseAdapter(client) {
       unwrap(
         client.rpc("process_zkt_attendance_to_work_logs").abortSignal(signal),
       ),
+    identityAttendance: (deviceKey,serial,rows,signal) => unwrap(client.rpc('ingest_zkt_identity_events',{
+      p_device_key:deviceKey,p_serial_number:serial,p_events:rows,
+    }).abortSignal(signal)),
+    claimIntegration: (id,deviceKey,signal) => unwrap(client.rpc('claim_employee_integration',{
+      p_operation_id:id,p_device_key:deviceKey,
+    }).abortSignal(signal)),
+    finishIntegration: (id,claimToken,result,signal) => unwrap(client.rpc('finish_employee_integration',{
+      p_operation_id:id,p_claim_token:claimToken,p_result:result,
+    }).abortSignal(signal)),
   };
 }
 function memoryAdapter() {

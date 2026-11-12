@@ -14,7 +14,7 @@ import {
   calculatePaystubDetails,
   getDefaultPaystubPeriod,
 } from '../lib/payrollTaxMath'
-import { normalizePaymentHistory } from '../utils/paymentHistory'
+import { getPayrollYtdTotals, loadPayrollPaymentHistory } from '../utils/payrollYtd'
 
 const shell =
   'rounded-lg border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]'
@@ -235,67 +235,20 @@ export default function EmployeePayStubPage() {
           console.warn('employee_tax_profiles load skipped:', taxProfileError)
         }
 
-        const yearStart = `${String(periodStart).slice(0, 4)}-01-01`
-        const { data: ytdPaymentsData, error: ytdPaymentsError } = await supabase
-          .from('employee_payments')
-          .select('employee_id,period_start,period_end,total_labor,employee_tax,rent,electric,water,clean,transport,net_pay,paid_at,created_at')
-          .eq('employee_id', employeeId)
-          .gte('period_start', yearStart)
-          .lt('period_start', periodStart)
-
-        if (ytdPaymentsError) throw ytdPaymentsError
-        const ytdPayments = normalizePaymentHistory(ytdPaymentsData)
-
-        const ytdGross = ytdPayments.reduce(
-          (sum, row) => sum + Number(row.total_labor || 0),
-          0
-        )
-        const ytdEmployeeTaxes = ytdPayments.reduce(
-          (sum, row) => sum + Number(row.employee_tax || 0),
-          0
-        )
-        const ytdDeductions = ytdPayments.reduce(
-          (sum, row) =>
-            sum +
-            Number(row.rent || 0) +
-            Number(row.electric || 0) +
-            Number(row.water || 0) +
-            Number(row.clean || 0) +
-            Number(row.transport || 0),
-          0
-        )
-        const ytdDeductionBreakdown = ytdPayments.reduce(
-          (acc, row) => ({
-            rent: acc.rent + Number(row.rent || 0),
-            electric: acc.electric + Number(row.electric || 0),
-            water: acc.water + Number(row.water || 0),
-            clean: acc.clean + Number(row.clean || 0),
-            transport: acc.transport + Number(row.transport || 0),
-          }),
-          {
-            rent: 0,
-            electric: 0,
-            water: 0,
-            clean: 0,
-            transport: 0,
-          }
-        )
-        const ytdNetPay = ytdPayments.reduce(
-          (sum, row) => sum + Number(row.net_pay || 0),
-          0
-        )
+        const paymentHistory = await loadPayrollPaymentHistory(supabase, { employeeIds: [employeeId] })
+        const ytd = getPayrollYtdTotals(paymentHistory, { employeeId, periodStart, periodEnd })
 
         setEmployee(employeeData)
         setTaxProfile(taxProfileData || null)
         setLogs(logsData || [])
         setDeductions(deductionData || {})
-        setPriorYtdGross(ytdGross)
+        setPriorYtdGross(ytd.priorYtdGross)
         setPriorYtdTotals({
-          employeeTaxes: ytdEmployeeTaxes,
-          deductions: ytdDeductions,
-          deductionBreakdown: ytdDeductionBreakdown,
+          employeeTaxes: ytd.priorYtdEmployeeTaxes,
+          deductions: ytd.priorYtdDeductions,
+          deductionBreakdown: ytd.priorYtdDeductionBreakdown,
           reimbursements: 0,
-          netPay: ytdNetPay,
+          netPay: ytd.priorYtdNetPay,
         })
       } catch (err) {
         console.error('loadPaystub error:', err)

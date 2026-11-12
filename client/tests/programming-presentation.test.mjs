@@ -21,6 +21,10 @@ test('programming presentation explains initial installation and blocks offline 
   const offline=render(2,{device:{version:'old',last_seen:'2020-01-01T00:00:00Z'},releases:[{id:'r',version:'next'}],jobs:[]})
   assert.match(offline,/DEVICE OFFLINE/)
   assert.match(offline,/<button[^>]*disabled=""[^>]*>PROGRAM FIRMWARE/)
+  const freshTelemetry=renderToStaticMarkup(createElement(Programming,{deviceCode:'ESP32-CH2-PLC',label:'Chiller 2',online:true,onRefresh:()=>{},
+    data:{device:{version:'old',last_seen:'2020-01-01T00:00:00Z'},releases:[{id:'r',version:'next'}],jobs:[]}}))
+  assert.doesNotMatch(freshTelemetry,/DEVICE OFFLINE/)
+  assert.match(freshTelemetry,/<button(?![^>]*disabled)[^>]*>PROGRAM FIRMWARE/)
   const active=render(2,{device:{version:'old',last_seen:new Date().toISOString()},releases:[],jobs:[{status:'downloading',progress:50}]})
   assert.match(active,/DOWNLOADING/);assert.match(active,/50%/)
   assert.doesNotMatch(active,/PROGRAMMING SUCCESSFUL/)

@@ -139,7 +139,7 @@ async function main() {
         realtime: { transport: WS },
       },
     );
-    db = supabaseAdapter(client);
+    db = supabaseAdapter(client,core.config(env).plant);
     sdk = core.powershell;
   } else {
     env = {

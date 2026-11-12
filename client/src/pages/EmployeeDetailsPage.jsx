@@ -25,6 +25,18 @@ import {
   X,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import FormerEmployeeDetails from '../components/FormerEmployeeDetails'
+import EmployeeTerminationDialog from '../components/EmployeeTerminationDialog'
+import EmployeePlantTransferHint from '../components/EmployeePlantTransferHint'
+import { useAuth } from '../context/useAuth'
+import useEmployeeFeatureFlags from '../hooks/useEmployeeFeatureFlags'
+import useEmployeePlantTransfer from '../hooks/useEmployeePlantTransfer'
+import { employeeNumberForSave } from '../utils/employeeNumber'
+import {
+  employeeAssignmentForEdit,
+  employeeTransferNotice,
+  saveEmployeeEdit,
+} from '../utils/employeePlantTransfer'
 import {
   calculatePayrollTotals,
   normalizePayrollRow,
@@ -40,6 +52,12 @@ import {
   normalizePaymentHistory,
   saveEmployeePayment,
 } from '../utils/paymentHistory'
+import {
+  getPayrollPaymentDate,
+  getPayrollPaymentTimestamp,
+  getPayrollYtdTotals,
+  loadPayrollPaymentHistory,
+} from '../utils/payrollYtd'
 import { calculatePaystubDetails } from '../lib/payrollTaxMath'
 import PayrollCheck from '../components/payroll/PayrollCheck'
 import '../components/payroll/PayrollCheck.css'
@@ -289,8 +307,11 @@ function getPlantLocationLabel(value) {
 }
 
 function buildEmployeeEditForm(employee = {}, profile = {}) {
+  const originalAssignment = employeeAssignmentForEdit(employee, normalizePlantLocation(employee.plant_location))
   return {
-    employee_number: employee.employee_number ?? '',
+    id: employee.id,
+    originalAssignment,
+    ...originalAssignment,
     first_name: employee.first_name || '',
     last_name: employee.last_name || '',
     phone: employee.phone || '',
@@ -302,16 +323,14 @@ function buildEmployeeEditForm(employee = {}, profile = {}) {
     overtime_enabled: employee.overtime_enabled === true,
     downtime_enabled: employee.downtime_enabled !== false,
     default_lunch_hours: String(normalizeDefaultLunchHours(employee.default_lunch_hours)),
-    plant_location: normalizePlantLocation(employee.plant_location),
     shift_type: normalizeShiftType(employee.shift_type),
-    active: employee.active !== false,
+    active: employee.active === true,
     exclude_from_payroll_report: employee.exclude_from_payroll_report === true,
     hire_date: employee.hire_date || '',
     employer_form: employee.employer_form || 'W2',
     company_id: employee.company_id || null,
     company_name: employee.company_name || '',
     zkt_enabled: employee.zkt_enabled !== false,
-    zkt_user_id: employee.zkt_user_id ?? employee.employee_number ?? '',
     zkt_name: employee.zkt_name || '',
     zkt_password: employee.zkt_password || '',
     zkt_card_number: employee.zkt_card_number ?? '',
@@ -321,7 +340,7 @@ function buildEmployeeEditForm(employee = {}, profile = {}) {
   }
 }
 
-function buildEmptyRow(downtimeEnabled = true, defaultLunchHours = 1) {
+function buildEmptyRow(defaultLunchHours = 1) {
   return {
     id: `new-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     work_date: toLocalDateString(new Date()),
@@ -384,6 +403,9 @@ function PrintPreviewModal({
   periodStart,
   periodEnd,
   checkNumber,
+  checkStatus,
+  confirmationPending,
+  error,
   payDate,
   checkAmount,
   onPayDateChange,
@@ -406,6 +428,7 @@ function PrintPreviewModal({
               <input
                 type="date"
                 value={payDate || ''}
+                disabled={printing || confirmationPending || checkStatus !== 'draft'}
                 onChange={(event) => onPayDateChange(event.target.value)}
                 className="mt-1 w-[150px] rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500"
               />
@@ -418,6 +441,7 @@ function PrintPreviewModal({
                 step="0.01"
                 min="0"
                 value={checkAmount ?? ''}
+                disabled={printing || confirmationPending || checkStatus !== 'draft'}
                 onChange={(event) => onCheckAmountChange(event.target.value)}
                 className="mt-1 w-[130px] rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500"
               />
@@ -429,11 +453,12 @@ function PrintPreviewModal({
               className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
             >
               <Printer size={16} />
-              {printing ? 'Preparing...' : 'Print'}
+              {printing ? 'Preparing...' : confirmationPending ? 'Retry Save and Print' : 'Print'}
             </button>
 
             <button
               onClick={onClose}
+              disabled={printing || confirmationPending}
               className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white transition hover:border-red-500"
             >
               <X size={16} />
@@ -441,6 +466,8 @@ function PrintPreviewModal({
             </button>
           </div>
         </div>
+
+        {error && <p role="alert" className="border-b border-red-500/30 bg-red-500/10 px-5 py-3 text-sm text-red-200">{error}</p>}
 
         <div className="flex-1 overflow-auto bg-white p-0">
           <div className="payroll-print-host mx-auto w-fit bg-white">
@@ -480,11 +507,15 @@ function PrintPreviewModal({
   )
 }
 
-export default function EmployeeDetailsPage() {
+function ActiveEmployeeDetailsPage() {
   const { id } = useParams()
+  const { role } = useAuth()
+  const { flags, loading: flagsLoading } = useEmployeeFeatureFlags()
   const defaultPayrollPeriod = getPayrollWeekRange('last')
 
   const [employee, setEmployee] = useState(null)
+  const [terminationOpen, setTerminationOpen] = useState(false)
+  const archiveReadOnly = employee?.active !== true
   const [taxProfile, setTaxProfile] = useState(null)
   const [logs, setLogs] = useState([])
   const [payments, setPayments] = useState([])
@@ -493,10 +524,19 @@ export default function EmployeeDetailsPage() {
   const [printCheckId, setPrintCheckId] = useState(null)
   const [printCheckNumber, setPrintCheckNumber] = useState(null)
   const [printCheckStatus, setPrintCheckStatus] = useState(null)
-  const [printPayDate, setPrintPayDate] = useState(toLocalDateString(new Date()))
+  const [printPayDate, setPrintPayDate] = useState(() => getPayrollPaymentDate(new Date()))
   const [printCheckAmount, setPrintCheckAmount] = useState('')
+  const [printAmountEdited, setPrintAmountEdited] = useState(false)
+  const pendingPrintedPayment = useRef(null)
+  const [printConfirmationPending, setPrintConfirmationPending] = useState(false)
   const [editEmployeeOpen, setEditEmployeeOpen] = useState(false)
   const [editEmployeeForm, setEditEmployeeForm] = useState(() => buildEmployeeEditForm())
+  const transfer = useEmployeePlantTransfer({
+    open: editEmployeeOpen,
+    allowed: role === 'admin',
+    form: editEmployeeForm,
+    setForm: setEditEmployeeForm,
+  })
   const [editEmployeeW4Open, setEditEmployeeW4Open] = useState(false)
   const [savingEmployee, setSavingEmployee] = useState(false)
 
@@ -597,14 +637,7 @@ export default function EmployeeDetailsPage() {
     try {
       setRefreshingPayments(true)
 
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from('employee_payments')
-        .select('*')
-        .eq('employee_id', id)
-        .order('paid_at', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false, nullsFirst: false })
-
-      if (paymentsError) throw paymentsError
+      const paymentsData = await loadPayrollPaymentHistory(supabase, { employeeIds: [id] })
       setPayments(normalizePaymentHistory(paymentsData))
     } catch (err) {
       console.error('loadPaymentsOnly error:', err)
@@ -634,6 +667,14 @@ export default function EmployeeDetailsPage() {
         setPayments([])
         setError('Employee not found')
         return
+      }
+
+      if (employeeData.active !== true) {
+        const availability = await supabase.rpc('employee_feature_flags_status')
+        if (availability.error || availability.data?.former_employees_archive_readonly !== true) {
+          setEmployee(null); setLogs([]); setPayments([])
+          throw Error('Former Employees archive is disabled.')
+        }
       }
 
       setEmployee(employeeData)
@@ -679,19 +720,8 @@ export default function EmployeeDetailsPage() {
         )
       }
 
-      const { data: paymentsData, error: paymentsError } = await supabase
-        .from('employee_payments')
-        .select('*')
-        .eq('employee_id', id)
-        .order('paid_at', { ascending: false, nullsFirst: false })
-        .order('created_at', { ascending: false, nullsFirst: false })
-
-      if (paymentsError) {
-        console.error('employee_payments load error:', paymentsError)
-        setPayments([])
-      } else {
-        setPayments(normalizePaymentHistory(paymentsData))
-      }
+      const paymentsData = await loadPayrollPaymentHistory(supabase, { employeeIds: [id] })
+      setPayments(normalizePaymentHistory(paymentsData))
     } catch (err) {
       console.error('loadPage error:', err)
       setError(err.message || 'Failed to load employee page')
@@ -711,6 +741,7 @@ export default function EmployeeDetailsPage() {
   }
 
   function openEditEmployeeModal() {
+    if (archiveReadOnly) return
     setError('')
     setSuccess('')
     setEditEmployeeForm(buildEmployeeEditForm(employee || {}, taxProfile || {}))
@@ -728,6 +759,7 @@ export default function EmployeeDetailsPage() {
   }
 
   async function handleSaveEmployeeDetails(event) {
+    if (archiveReadOnly) { event.preventDefault(); return }
     event.preventDefault()
 
     if (!employee?.id) return
@@ -758,7 +790,7 @@ export default function EmployeeDetailsPage() {
       const payType = editEmployeeForm.pay_type || 'hourly'
 
       const payload = {
-        employee_number: Number(editEmployeeForm.employee_number),
+        employee_number: employeeNumberForSave(editEmployeeForm),
         first_name: firstName,
         last_name: lastName || null,
         phone: String(editEmployeeForm.phone || '').trim() || null,
@@ -779,7 +811,7 @@ export default function EmployeeDetailsPage() {
         default_lunch_hours: normalizeDefaultLunchHours(editEmployeeForm.default_lunch_hours),
         plant_location: normalizePlantLocation(editEmployeeForm.plant_location),
         shift_type: normalizeShiftType(editEmployeeForm.shift_type),
-        active: editEmployeeForm.active !== false,
+        active: editEmployeeForm.active === true,
         exclude_from_payroll_report: editEmployeeForm.exclude_from_payroll_report === true,
         hire_date: editEmployeeForm.hire_date || null,
         employer_form: editEmployeeForm.employer_form || null,
@@ -808,14 +840,7 @@ export default function EmployeeDetailsPage() {
             : 0,
       }
 
-      const { data, error: updateError } = await supabase
-        .from('employees')
-        .update(payload)
-        .eq('id', employee.id)
-        .select('*')
-        .single()
-
-      if (updateError) throw updateError
+      const data = await saveEmployeeEdit(supabase, editEmployeeForm, payload)
 
       const taxPayload = buildTaxProfilePayload(editEmployeeForm, employee.id)
       const { data: savedTaxProfile, error: taxProfileError } = await supabase
@@ -826,12 +851,16 @@ export default function EmployeeDetailsPage() {
         .select('*')
         .single()
 
-      if (taxProfileError) throw taxProfileError
+      if (taxProfileError && !transfer.active) throw taxProfileError
 
       setEmployee((prev) => ({ ...(prev || {}), ...(data || payload) }))
-      setTaxProfile(savedTaxProfile || taxPayload)
+      if (taxProfileError) {
+        setError(`Employee transfer saved. Tax details could not be saved: ${taxProfileError.message}`)
+      } else {
+        setTaxProfile(savedTaxProfile || taxPayload)
+      }
       setEditEmployeeOpen(false)
-      setSuccess('Employee details saved')
+      setSuccess(transfer.active ? employeeTransferNotice(data) : 'Employee details saved')
     } catch (err) {
       console.error('handleSaveEmployeeDetails error:', err)
       setError(err.message || 'Failed to save employee details')
@@ -900,9 +929,9 @@ export default function EmployeeDetailsPage() {
   }
 
   function addRow() {
+    if (archiveReadOnly) return
     setLogs((prev) => [
       buildEmptyRow(
-        employee?.downtime_enabled !== false,
         employee?.default_lunch_hours
       ),
       ...prev,
@@ -1168,6 +1197,7 @@ export default function EmployeeDetailsPage() {
   }
 
   async function saveChangedRows() {
+    if (archiveReadOnly) return
     try {
       setSaving(true)
       setError('')
@@ -1231,6 +1261,7 @@ export default function EmployeeDetailsPage() {
   }
 
   async function deleteRow(row) {
+    if (archiveReadOnly) return
     try {
       setError('')
       setSuccess('')
@@ -1259,6 +1290,7 @@ export default function EmployeeDetailsPage() {
   }
 
   async function rebuildRowFromZkt(row) {
+    if (archiveReadOnly) return
     try {
       setError('')
       setSuccess('')
@@ -1330,50 +1362,18 @@ export default function EmployeeDetailsPage() {
       rentNum + electricNum + waterNum + cleanNum + transportNum
     )
 
-    const yearStart = periodStart ? `${String(periodStart).slice(0, 4)}-01-01` : ''
-    const priorYtdPayments = payments.filter((row) => {
-      const rowPeriodStart = String(row.period_start || '')
-      return rowPeriodStart && yearStart && rowPeriodStart >= yearStart && rowPeriodStart < periodStart
+    const {
+      priorYtdGross,
+      priorYtdEmployeeTaxes,
+      priorYtdDeductions,
+      priorYtdDeductionBreakdown,
+      priorYtdNetPay,
+    } = getPayrollYtdTotals(payments, {
+      employeeId: id,
+      periodStart,
+      periodEnd,
+      paymentDate: printModalOpen && printCheckStatus === 'draft' ? printPayDate : undefined,
     })
-
-    const priorYtdGross = priorYtdPayments.reduce(
-      (sum, row) => sum + Number(row.total_labor || 0),
-      0
-    )
-    const priorYtdEmployeeTaxes = priorYtdPayments.reduce(
-      (sum, row) => sum + Number(row.employee_tax || 0),
-      0
-    )
-    const priorYtdDeductions = priorYtdPayments.reduce(
-      (sum, row) =>
-        sum +
-        Number(row.rent || 0) +
-        Number(row.electric || 0) +
-        Number(row.water || 0) +
-        Number(row.clean || 0) +
-        Number(row.transport || 0),
-      0
-    )
-    const priorYtdDeductionBreakdown = priorYtdPayments.reduce(
-      (acc, row) => ({
-        rent: acc.rent + Number(row.rent || 0),
-        electric: acc.electric + Number(row.electric || 0),
-        water: acc.water + Number(row.water || 0),
-        clean: acc.clean + Number(row.clean || 0),
-        transport: acc.transport + Number(row.transport || 0),
-      }),
-      {
-        rent: 0,
-        electric: 0,
-        water: 0,
-        clean: 0,
-        transport: 0,
-      }
-    )
-    const priorYtdNetPay = priorYtdPayments.reduce(
-      (sum, row) => sum + Number(row.net_pay || 0),
-      0
-    )
 
     const payrollTaxTotals = calculatePaystubDetails({
       employee,
@@ -1433,7 +1433,13 @@ export default function EmployeeDetailsPage() {
       totalDeductions,
       netPay,
     }
-  }, [filteredLogs, employee, taxProfile, rent, electric, water, clean, transport, periodStart, periodEnd, payments])
+  }, [filteredLogs, employee, taxProfile, rent, electric, water, clean, transport, periodStart, periodEnd, payments, id, printModalOpen, printPayDate, printCheckStatus])
+
+  useEffect(() => {
+    if (printModalOpen && printCheckStatus === 'draft' && !printConfirmationPending && !printAmountEdited) {
+      setPrintCheckAmount(String(Number(totals.netPay || 0).toFixed(2)))
+    }
+  }, [printModalOpen, printCheckStatus, printConfirmationPending, printAmountEdited, totals.netPay])
 
   useEffect(() => {
     setEmployeeTax(String(totals.employeeTaxNum || 0))
@@ -1457,6 +1463,11 @@ export default function EmployeeDetailsPage() {
     [employee?.first_name, employee?.last_name].filter(Boolean).join(' ') || '—'
 
   async function handleOpenPrintModal() {
+    if (archiveReadOnly) return
+    if (pendingPrintedPayment.current) {
+      setError('Finish saving the confirmed payment by pressing Retry Save and Print.')
+      return
+    }
     try {
       setPaying(true)
       setError('')
@@ -1464,7 +1475,9 @@ export default function EmployeeDetailsPage() {
       setPrintCheckId(null)
       setPrintCheckNumber(null)
       setPrintCheckStatus(null)
-      setPrintPayDate(toLocalDateString(new Date()))
+      setPrintConfirmationPending(false)
+      setPrintAmountEdited(false)
+      setPrintPayDate(getPayrollPaymentDate(new Date()))
       setPrintCheckAmount(String(Number(totals.netPay || 0).toFixed(2)))
 
       const netPay = Number(totals.netPay || 0)
@@ -1501,7 +1514,7 @@ export default function EmployeeDetailsPage() {
 
       const payDateSource =
         createdCheck.printed_at || createdCheck.created_at || new Date().toISOString()
-      const payDate = String(payDateSource).slice(0, 10)
+      const payDate = getPayrollPaymentDate(payDateSource)
 
       flushSync(() => {
         setPrintCheckId(createdCheck.id)
@@ -1532,6 +1545,10 @@ export default function EmployeeDetailsPage() {
   }
 
   async function handleClosePrintModal() {
+    if (pendingPrintedPayment.current) {
+      setError('Finish saving the confirmed payment by pressing Retry Save and Print before closing.')
+      return
+    }
     try {
       setError('')
 
@@ -1556,6 +1573,7 @@ export default function EmployeeDetailsPage() {
   }
 
   async function handleSaveAndPrint() {
+    if (archiveReadOnly) return
     try {
       setPaying(true)
       setError('')
@@ -1565,45 +1583,138 @@ export default function EmployeeDetailsPage() {
         return
       }
 
-      const { data: printedCheck, error: printedError } = await supabase.rpc(
-        'mark_payroll_check_printed',
-        {
-          p_check_id: printCheckId,
-        }
-      )
-
-      if (printedError) throw printedError
-
-      const confirmedAt =
-        printedCheck?.printed_confirmed_at || printedCheck?.printed_at || new Date().toISOString()
-      const paymentDate = printPayDate || String(confirmedAt).slice(0, 10)
-      const paidAt = new Date(`${paymentDate}T12:00:00`).toISOString()
-      const printedAmount = Number(printCheckAmount || totals.netPay || 0)
-
-      const payload = {
-        employee_id: id,
-        period_start: periodStart,
-        period_end: periodEnd,
-        total_labor: Number(totals.totalLabor || 0),
-        employee_tax: Number(totals.employeeTaxNum || 0),
-        rent: Number(totals.rentNum || 0),
-        electric: Number(totals.electricNum || 0),
-        water: Number(totals.waterNum || 0),
-        clean: Number(totals.cleanNum || 0),
-        transport: Number(totals.transportNum || 0),
-        net_pay: printedAmount,
-        paid_at: paidAt,
+      let confirmation = pendingPrintedPayment.current
+      const retryingUncertainConfirmation = Boolean(confirmation && !confirmation.confirmed)
+      if (printCheckStatus === 'printed' && !confirmation) {
+        if (document?.fonts?.ready) await document.fonts.ready
+        await waitForNextPaint()
+        window.print()
+        return
       }
 
-      await saveEmployeePayment(supabase, payload)
+      if (!confirmation) {
+        const paymentDate = getPayrollPaymentDate(printPayDate)
+        const paidAt = getPayrollPaymentTimestamp(paymentDate)
+        if (!paidAt) throw new Error('Choose a valid payment date')
+
+        const printedAmount = Number(printCheckAmount || totals.netPay || 0)
+        if (!Number.isFinite(printedAmount) || printedAmount < 0) {
+          throw new Error('Enter a valid check amount')
+        }
+
+        // The payment date can be changed after the draft was created. Refresh
+        // that draft with the preview's date-based YTD before confirming it.
+        const draftValues = {
+          regular_hours: Number(totals.mainHours || 0),
+          overtime_hours: Number(totals.overtimeHours || 0),
+          regular_labor: Number(totals.mainLabor || 0),
+          overtime_labor: Number(totals.overtimeLabor || 0),
+          gross_pay: Number(totals.totalLabor || 0),
+          employee_tax: Number(totals.employeeTaxNum || 0),
+          rent: Number(totals.rentNum || 0),
+          electric: Number(totals.electricNum || 0),
+          water: Number(totals.waterNum || 0),
+          clean: Number(totals.cleanNum || 0),
+          transport: Number(totals.transportNum || 0),
+          net_pay: printedAmount,
+        }
+        const { data: updatedDraft, error: updateDraftError } = await supabase
+          .from('payroll_checks')
+          .update(draftValues)
+          .eq('id', printCheckId)
+          .eq('employee_id', id)
+          .eq('status', 'draft')
+          .select('id')
+          .maybeSingle()
+
+        if (updateDraftError) throw updateDraftError
+        if (!updatedDraft) throw new Error('This draft check is no longer available. Reopen the print preview.')
+
+        const payload = {
+          employee_id: id,
+          period_start: periodStart,
+          period_end: periodEnd,
+          total_labor: Number(totals.totalLabor || 0),
+          employee_tax: Number(totals.employeeTaxNum || 0),
+          rent: Number(totals.rentNum || 0),
+          electric: Number(totals.electricNum || 0),
+          water: Number(totals.waterNum || 0),
+          clean: Number(totals.cleanNum || 0),
+          transport: Number(totals.transportNum || 0),
+          net_pay: printedAmount,
+          paid_at: paidAt,
+        }
+
+        // Freeze the attempt BEFORE calling the confirmation RPC: its database
+        // transaction may commit even when the response is lost in transit.
+        confirmation = {
+          checkId: printCheckId,
+          checkNumber: printCheckNumber,
+          paymentDate,
+          payload: Object.freeze(payload),
+          draftValues: Object.freeze(draftValues),
+          confirmed: false,
+        }
+        pendingPrintedPayment.current = confirmation
+        setPrintConfirmationPending(true)
+      }
+
+      if (confirmation.checkId !== printCheckId) throw new Error('Confirmed payment does not match this check')
+
+      if (retryingUncertainConfirmation) {
+        const { data: existingCheck, error: existingCheckError } = await supabase
+          .from('payroll_checks')
+          .select('id,employee_id,pay_period_start,pay_period_end,status,voided_at,regular_hours,overtime_hours,regular_labor,overtime_labor,gross_pay,employee_tax,rent,electric,water,clean,transport,net_pay')
+          .eq('id', confirmation.checkId)
+          .eq('employee_id', confirmation.payload.employee_id)
+          .maybeSingle()
+
+        if (existingCheckError) throw existingCheckError
+        if (existingCheck?.voided_at || ['void', 'voided'].includes(existingCheck?.status)) {
+          pendingPrintedPayment.current = null
+          setPrintConfirmationPending(false)
+          setPrintCheckStatus(existingCheck.status || 'voided')
+          throw new Error('This check was voided. Close the preview and create a new check.')
+        }
+
+        const matchesAttempt = existingCheck &&
+          existingCheck.pay_period_start === confirmation.payload.period_start &&
+          existingCheck.pay_period_end === confirmation.payload.period_end &&
+          Object.entries(confirmation.draftValues).every(([key, value]) =>
+            Object.hasOwn(existingCheck, key) &&
+            Number.isFinite(Number(existingCheck[key])) &&
+            Math.abs(Number(existingCheck[key]) - value) < 0.000001
+          )
+        if (!matchesAttempt || !['draft', 'printed'].includes(existingCheck.status)) {
+          const reviewError = new Error('Check values or status changed after confirmation was attempted. Verify this check before continuing.')
+          reviewError.name = 'PayrollCheckRecoveryError'
+          throw reviewError
+        }
+        confirmation.confirmed = existingCheck.status === 'printed'
+      }
+
+      if (!confirmation.confirmed) {
+        const { data: printedCheck, error: printedError } = await supabase.rpc(
+          'mark_payroll_check_printed',
+          { p_check_id: confirmation.checkId }
+        )
+        if (printedError) throw printedError
+        if (printedCheck?.id !== confirmation.checkId) throw new Error('Check confirmation was not returned')
+        confirmation.confirmed = true
+      }
+
+      await saveEmployeePayment(supabase, confirmation.payload)
+      pendingPrintedPayment.current = null
 
       flushSync(() => {
+        setPrintConfirmationPending(false)
         setPrintCheckStatus('printed')
-        setPrintPayDate(paymentDate)
+        setPrintPayDate(confirmation.paymentDate)
+        setPrintCheckAmount(String(Number(confirmation.payload.net_pay || 0).toFixed(2)))
       })
 
       await loadPaymentsOnly()
-      setSuccess(`Check #${printCheckNumber} marked as printed`)
+      setSuccess(`Check #${confirmation.checkNumber} marked as printed`)
 
       if (document?.fonts?.ready) {
         await document.fonts.ready
@@ -1613,7 +1724,13 @@ export default function EmployeeDetailsPage() {
       window.print()
     } catch (err) {
       console.error('handleSaveAndPrint error:', err)
-      setError(err.message || 'Failed to print check')
+      setError(err.name === 'PayrollCheckRecoveryError'
+        ? err.message
+        : pendingPrintedPayment.current
+          ? pendingPrintedPayment.current.confirmed
+            ? 'Check confirmed, but payment history was not saved. Press Retry Save and Print to finish.'
+            : 'Check confirmation could not be verified. Press Retry Save and Print to check its status and finish.'
+          : err.message || 'Failed to print check')
     } finally {
       setPaying(false)
     }
@@ -1668,8 +1785,10 @@ export default function EmployeeDetailsPage() {
     )
   }, [totals.filteredForView, periodStart, periodEnd, employee])
 
+  if (employee && archiveReadOnly && (flagsLoading || !flags.former_employees_archive_readonly)) return <p className="p-6 text-white">{flagsLoading ? 'Checking archive availability…' : 'Former Employees archive is disabled.'}</p>
   return (
     <div className="min-h-screen bg-[#020817] text-white print:bg-white print:text-black">
+      {terminationOpen && employee && <EmployeeTerminationDialog employee={employee} onClose={() => setTerminationOpen(false)} onArchived={() => window.location.assign(`/employees/${id}`)} />}
       <style>{`
         input[type="date"]::-webkit-calendar-picker-indicator,
         input[type="time"]::-webkit-calendar-picker-indicator {
@@ -1680,6 +1799,7 @@ export default function EmployeeDetailsPage() {
       `}</style>
 
       <div className="mx-auto max-w-[1800px] px-3 py-4 sm:px-4 lg:px-5">
+        <Link to="/employees/former" className="text-cyan-300 no-print">Former Employees</Link>
         <div className="mb-4 flex flex-wrap gap-2 no-print">
           <Link
             to="/dashboard"
@@ -1689,8 +1809,11 @@ export default function EmployeeDetailsPage() {
             Back
           </Link>
 
+          {employee?.active && flags.employee_terminate && <button type="button" onClick={() => setTerminationOpen(true)} className="inline-flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-600/10 px-3 py-2 text-sm font-semibold text-red-300"><Trash2 size={16} />Terminate employee</button>}
+
           <button
             onClick={addRow}
+            disabled={archiveReadOnly}
             className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500"
           >
             <Plus size={16} />
@@ -1737,6 +1860,7 @@ export default function EmployeeDetailsPage() {
 
           <button
             onClick={handleOpenPrintModal}
+            disabled={archiveReadOnly}
             className="inline-flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-sm font-semibold text-amber-300 transition hover:bg-amber-500/20"
           >
             <Printer size={16} />
@@ -1785,6 +1909,7 @@ export default function EmployeeDetailsPage() {
                       <button
                         type="button"
                         onClick={openEditEmployeeModal}
+                        disabled={archiveReadOnly}
                         className="inline-flex items-center gap-2 rounded-lg border border-cyan-500/30 bg-cyan-500/10 px-3 py-1.5 text-sm font-semibold text-cyan-300 transition hover:bg-cyan-500/20"
                       >
                         <Edit3 size={15} />
@@ -2331,7 +2456,7 @@ export default function EmployeeDetailsPage() {
                         <div className="flex gap-1">
                           <button
                             onClick={saveChangedRows}
-                            disabled={saving}
+                            disabled={archiveReadOnly || saving}
                             className="rounded-lg bg-cyan-600 px-2 py-2 text-xs font-semibold text-white transition hover:bg-cyan-500 disabled:opacity-60"
                           >
                             Save All
@@ -2339,6 +2464,7 @@ export default function EmployeeDetailsPage() {
 
                           <button
                             onClick={() => rebuildRowFromZkt(row)}
+                            disabled={archiveReadOnly}
                             className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-2 py-2 text-xs font-semibold text-amber-300 transition hover:bg-amber-500/20"
                             title="Rebuild this day from ZKT punches"
                           >
@@ -2347,6 +2473,7 @@ export default function EmployeeDetailsPage() {
 
                           <button
                             onClick={() => deleteRow(row)}
+                            disabled={archiveReadOnly}
                             className="rounded-lg border border-red-500/30 bg-red-600/10 px-2 py-2 text-red-300 transition hover:bg-red-600/20"
                           >
                             <Trash2 size={14} />
@@ -2508,16 +2635,24 @@ export default function EmployeeDetailsPage() {
               </div>
 
               <form onSubmit={handleSaveEmployeeDetails} className="space-y-4 px-4 py-4 pb-6">
+                {error && <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
                 <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                   <div>
-                    <label className="mb-1 block text-xs text-slate-300">Employee number</label>
+                    <label htmlFor="edit-employee-number" className="mb-1 block text-xs text-slate-300">Employee number</label>
                     <input
+                      id="edit-employee-number"
                       type="number"
                       value={editEmployeeForm.employee_number}
-                      onChange={(e) => updateEditEmployeeForm('employee_number', e.target.value)}
+                      readOnly={!transfer.active}
+                      required
+                      min="1"
+                      max="2147483647"
+                      step="1"
+                      onChange={(e) => transfer.changeNumber(e.target.value)}
                       className={employeeEditInput}
                       disabled={savingEmployee}
                     />
+                    <EmployeePlantTransferHint transfer={transfer} saving={savingEmployee} />
                   </div>
 
                   <div>
@@ -2576,6 +2711,7 @@ export default function EmployeeDetailsPage() {
                     <input
                       type="date"
                       value={editEmployeeForm.hire_date}
+                      readOnly
                       onChange={(e) => updateEditEmployeeForm('hire_date', e.target.value)}
                       className={employeeEditInput}
                       disabled={savingEmployee}
@@ -2654,12 +2790,13 @@ export default function EmployeeDetailsPage() {
                   ) : null}
 
                   <div>
-                    <label className="mb-1 block text-xs text-slate-300">Location</label>
+                    <label htmlFor="edit-employee-plant" className="mb-1 block text-xs text-slate-300">Plant</label>
                     <select
+                      id="edit-employee-plant"
                       value={normalizePlantLocation(editEmployeeForm.plant_location)}
-                      onChange={(e) => updateEditEmployeeForm('plant_location', e.target.value)}
+                      onChange={(e) => transfer.changePlant(e.target.value)}
                       className={employeeEditInput}
-                      disabled={savingEmployee}
+                      disabled={savingEmployee || !transfer.available}
                     >
                       <option value="NJ">New Jersey</option>
                       <option value="PA">Pennsylvania</option>
@@ -2880,7 +3017,7 @@ export default function EmployeeDetailsPage() {
                         className={employeeEditInput}
                         disabled={savingEmployee}
                       >
-                        <option value="true">Enabled</option>
+                        <option value="true">{transfer.active ? 'Request synchronization' : 'Enabled'}</option>
                         <option value="false">Disabled</option>
                       </select>
                     </div>
@@ -2890,6 +3027,7 @@ export default function EmployeeDetailsPage() {
                       <input
                         type="number"
                         value={editEmployeeForm.zkt_user_id}
+                        readOnly
                         onChange={(e) => updateEditEmployeeForm('zkt_user_id', e.target.value)}
                         className={employeeEditInput}
                         disabled={savingEmployee}
@@ -2931,7 +3069,7 @@ export default function EmployeeDetailsPage() {
 
                   <button
                     type="submit"
-                    disabled={savingEmployee}
+                    disabled={savingEmployee || (transfer.active && !editEmployeeForm.employee_number)}
                     className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     {savingEmployee ? (
@@ -2958,12 +3096,38 @@ export default function EmployeeDetailsPage() {
           periodStart={periodStart}
           periodEnd={periodEnd}
           checkNumber={printCheckNumber}
+          checkStatus={printCheckStatus}
+          confirmationPending={printConfirmationPending}
+          error={error}
           payDate={printPayDate}
           checkAmount={printCheckAmount}
           onPayDateChange={setPrintPayDate}
-          onCheckAmountChange={setPrintCheckAmount}
+          onCheckAmountChange={(value) => {
+            setPrintAmountEdited(true)
+            setPrintCheckAmount(value)
+          }}
         />
       </div>
     </div>
   )
+}
+
+export default function EmployeeDetailsPage() {
+  const { id } = useParams()
+  const [profile, setProfile] = useState(null)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    supabase.from('employees').select('*').eq('id', id).maybeSingle().then(result => {
+      if (cancelled) return
+      if (result.error || !result.data) setError(result.error?.message || 'Employee not found')
+      else setProfile({ id, employee: result.data })
+    })
+    return () => { cancelled = true }
+  }, [id])
+  if (error) return <p role="alert" className="p-6 text-red-300">{error}</p>
+  if (profile?.id !== id) return <p className="p-6 text-slate-300">Loading employee…</p>
+  return profile.employee.active === true
+    ? <ActiveEmployeeDetailsPage key={id} />
+    : <FormerEmployeeDetails key={id} employee={profile.employee} />
 }

@@ -163,12 +163,13 @@ test('firmware and HMI preserve compact telemetry, device scope and shared polli
   assert.match(ino,/Network.setDefaultInterface\(WiFi.STA\)/)
   assert.match(ino,/WiFi.setSleep\(false\)/)
   assert.match(ino,/eth_gateway\s*\(0, 0, 0, 0\)/)
-  assert.match(ino,/"Prefer", "return=minimal"/)
+  assert.match(ino,/chillerOtaResponse\(response, true\)/)
   assert.doesNotMatch(ino,/setInsecure|httpUpdate|CH2_HEARTBEAT|CH2_R40053|CH2_R40054|CH2_R40060/)
   assert.deepEqual([...ino.matchAll(/append(?:UInt|Bool)Reading\(body, first, "([^"]+)"/g)].map(m=>m[1]).sort(),retained)
   const page=await readFile(new URL(`../src/pages/Chiller${n}HMIPage.jsx`,import.meta.url),'utf8')
   assert.match(page,/useMonitoringPolling\(loadTelemetry, POLL_MS\)/)
-  assert.equal([...page.matchAll(/functions.invoke\('chiller-ota'/g)].length,1)
+  assert.equal([...page.matchAll(/functions.invoke\('chiller-ota'/g)].length,0)
+  assert.match(page,/useOtaStatus/)
  }
  const client=await readFile(new URL('../src/components/ChillerProgramming.jsx',import.meta.url),'utf8')
  assert.doesNotMatch(client,/setInterval|setTimeout|SERVICE_ROLE|DEVICE_KEY|7720/)
@@ -250,3 +251,26 @@ test('signed manifest audit follows successful private signing and contains iden
 })
 
 test.after(()=>db.close())
+
+test('hourly wake migration uses fresh telemetry, survives lost wake, and bounds installation expiry',async()=>{
+ const migration=await read('chiller_ota_realtime_wake.sql');await db.exec(migration);await db.exec(migration)
+ await telemetry(2)
+ await db.query("update chiller_ota_devices set last_seen=now()-interval '2 hours' where device=$1",[device(2)])
+ await grant(2,'hourly');const job=id(801);await queue(2,'hourly',job,id(2))
+ let row=(await db.query('select * from chiller_ota_jobs where id=$1',[job])).rows[0]
+ assert(Date.parse(row.expires_at)-Date.now()>65*60*1000)
+ const claim=async n=>(await db.query('select chiller_ota_claim_wake($1,$2) claimed',[device(n),job])).rows[0].claimed
+ assert.equal(await claim(3),false);assert.equal(await claim(2),true);assert.equal(await claim(2),false)
+ // One hour after queue: the waiting job still exists; first discovery starts 10min.
+ await db.query("update chiller_ota_jobs set created_at=now()-interval '1 hour',expires_at=expires_at-interval '1 hour' where id=$1",[job])
+ const found=await sync(2);assert.equal(found.o.id,job)
+ assert(found.o.expires-Math.floor(Date.now()/1000)<=600)
+ row=(await db.query('select * from chiller_ota_jobs where id=$1',[job])).rows[0];assert(row.dispatched_at)
+ const expires=row.expires_at
+ await sync(2);assert.deepEqual((await db.query('select expires_at from chiller_ota_jobs where id=$1',[job])).rows[0].expires_at,expires)
+ await sync(2,'old',boot,job,'failed')
+ assert.equal(await claim(2),false)
+ await db.query("update chiller_ota_receipts set received_at=now()-interval '1 minute' where device=$1",[device(2)])
+ await grant(2,'stale-receipt');await assert.rejects(queue(2,'stale-receipt',id(802),id(2)),/offline/)
+ await db.exec('set role anon');await assert.rejects(claim(2),/permission denied/);await db.exec('reset role')
+})

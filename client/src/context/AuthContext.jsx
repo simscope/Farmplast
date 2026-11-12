@@ -18,6 +18,7 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [profile, setProfile] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [profileLoading, setProfileLoading] = useState(false)
 
   async function loadProfile(authUser) {
     if (!authUser?.id) {
@@ -26,6 +27,7 @@ export function AuthProvider({ children }) {
     }
 
     const fallbackProfile = buildFallbackProfile(authUser)
+    setProfileLoading(true)
 
     // Ставим профиль сразу, чтобы UI не ждал таблицу profiles
     setProfile(fallbackProfile)
@@ -51,6 +53,8 @@ export function AuthProvider({ children }) {
     } catch (err) {
       console.error('loadProfile crash:', err)
       return fallbackProfile
+    } finally {
+      setProfileLoading(false)
     }
   }
 
@@ -179,13 +183,13 @@ export function AuthProvider({ children }) {
       session,
       user,
       profile,
-      loading,
+      loading: loading || profileLoading,
       signIn,
       signOut,
       isAuthenticated: !!user,
       role: profile?.role || 'user',
     }),
-    [session, user, profile, loading]
+    [session, user, profile, loading, profileLoading]
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

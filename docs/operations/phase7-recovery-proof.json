@@ -1,0 +1,100 @@
+{
+  "dump_sha256": "d42b02b909aeb9151e4921f6ccb708e78809b9e25910979133825b5b1806c229",
+  "all_toc_entries_executed": 1180,
+  "toc_entries_excluded": 0,
+  "tables_counts_checksums_match": 96,
+  "database_properties_acl_match": true,
+  "database_role_settings_match": true,
+  "database_role_settings_count": 9,
+  "extension_owners_versions_match": true,
+  "source_collation_version": "153.120",
+  "restored_collation_version": "153.120",
+  "cron_launch_active_jobs": "off",
+  "network_policy": "deny-all",
+  "production_credentials_loaded": false,
+  "structure": {
+    "functions": {
+      "source": 178,
+      "restored": 178,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "relations": {
+      "source": 119,
+      "restored": 119,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "schemas": {
+      "source": 11,
+      "restored": 11,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "default_acls": {
+      "source": 27,
+      "restored": 27,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "column_acls": {
+      "source": 0,
+      "restored": 0,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "constraints": {
+      "source": 293,
+      "restored": 293,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "triggers": {
+      "source": 20,
+      "restored": 20,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    },
+    "event_triggers": {
+      "source": 6,
+      "restored": 6,
+      "equal": true,
+      "missing": 0,
+      "extra": 0
+    }
+  },
+  "global_role_attributes_match": true,
+  "membership_grantor_exact": true,
+  "roles_isolated": true,
+  "rollback": {
+    "retained_schema": true,
+    "preserved_tables": 96,
+    "retained_post_migration_employee_period_payroll_attendance": true,
+    "flags_enabled": 0
+  },
+  "archive_admin_8_anon_denied": true,
+  "migrations": [
+    {
+      "file": "former_employees.sql",
+      "sha256": "6ef40ea7eff739bcb6b644af9b8a539658f3fffa1fc4a7d60dde814d9fe2fd70",
+      "preserved_tables": 96
+    },
+    {
+      "file": "employee_archive_feature_flags.sql",
+      "sha256": "e18a3a76accbd7b38950b72282978ba837b903c5bfee7bdadd5b01d30e616a88",
+      "preserved_tables": 96
+    }
+  ],
+  "legacy_functions_preserved": 10,
+  "original_rls_policies_preserved": 59,
+  "icu_source_commit": "680f521746a3bd6a86f25f25ee50a62d88b489cf",
+  "postgres_version": "17.6",
+  "checked_at_utc": "2026-10-11 16:49:53 UTC"
+}

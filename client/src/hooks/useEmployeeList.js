@@ -64,7 +64,8 @@ export function useEmployeeList(employees, helpers) {
 
   const filteredEmployees = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const visibleEmployees = !q ? employees : employees.filter((employee) => {
+    const activeEmployees = employees.filter(employee => employee.active === true)
+    const visibleEmployees = !q ? activeEmployees : activeEmployees.filter((employee) => {
       const fullName = getFullName(employee).toLowerCase()
 
       return (
