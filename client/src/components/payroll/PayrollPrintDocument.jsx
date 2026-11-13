@@ -90,7 +90,7 @@ export default function PayrollPrintDocument({
               <input
                 type="date" required aria-label="Date for all checks"
                 value={commonDate} disabled={locked}
-                onChange={(event) => updateDates(event.target.value)}
+                onInput={(event) => updateDates(event.currentTarget.value)}
                 className="mt-1 block rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none [color-scheme:dark] focus:border-cyan-500 disabled:opacity-60"
               />
             </label>
@@ -130,7 +130,7 @@ export default function PayrollPrintDocument({
                 <input
                   type="date" required aria-label={`Date for ${fullName}`}
                   value={payDate} disabled={locked}
-                  onChange={(event) => updateDates(event.target.value, rowKey)}
+                  onInput={(event) => updateDates(event.currentTarget.value, rowKey)}
                   className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition [color-scheme:dark] focus:border-cyan-500 disabled:opacity-60"
                 />
               </label>

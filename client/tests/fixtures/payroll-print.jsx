@@ -21,12 +21,12 @@ function recalculateRow(item, paymentDate) {
   }
 }
 
-export default function Fixture() {
+export default function Fixture({ targetWindow = window }) {
   const [record, setRecord] = useState({ saves: 0, prints: 0, rows: [] })
   const fail = new URLSearchParams(location.search).has('fail')
   const printTarget = {
-    document,
-    requestAnimationFrame: window.requestAnimationFrame.bind(window),
+    document: targetWindow.document,
+    requestAnimationFrame: targetWindow.requestAnimationFrame.bind(targetWindow),
     print() { setRecord((previous) => ({ ...previous, prints: previous.prints + 1 })) },
     close() {},
   }
@@ -44,4 +44,12 @@ export default function Fixture() {
   </>
 }
 
-createRoot(document.getElementById('root')).render(<Fixture />)
+function openPopup() {
+  const popup = window.open('', '_blank')
+  popup.document.write('<!doctype html><html><head><title>Isolated payroll popup</title></head><body><div id="root"></div></body></html>')
+  popup.document.close()
+  document.querySelectorAll('style,link[rel="stylesheet"]').forEach((style) => popup.document.head.appendChild(style.cloneNode(true)))
+  createRoot(popup.document.getElementById('root')).render(<Fixture targetWindow={popup} />)
+}
+
+createRoot(document.getElementById('root')).render(<><button onClick={openPopup}>Open popup fixture</button><Fixture /></>)
