@@ -310,8 +310,8 @@ function CheckStockPrint({
   const amountWords = capitalizeFirstLetter(amountToWords(amount))
 
   const rawCheckNumber = Number(checkNumber || employee?.last_check_number || 0)
-  const checkNumberTop = String(rawCheckNumber)
-  const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
+  const checkNumberTop = checkNumber === 'pending' ? '—' : String(rawCheckNumber)
+  const checkNumberMicr = checkNumber === 'pending' ? '' : String(rawCheckNumber).padStart(6, '0')
 
   const memoText =
     periodStart && periodEnd ? `${formatDate(periodStart)} - ${formatDate(periodEnd)}` : ''
@@ -693,7 +693,7 @@ function PayrollStubCopy({
 
   const payDateText = payDate ? formatDate(payDate) : new Date().toLocaleDateString('en-US')
   const rawCheckNumber = Number(checkNumber || employee?.last_check_number || 0)
-  const checkNumberTop = String(rawCheckNumber)
+  const checkNumberTop = checkNumber === 'pending' ? '—' : String(rawCheckNumber)
 
   const deductionRows = [
     { label: 'Employee Tax', value: displayTotals?.employeeTaxNum, ytdValue: displayTotals?.ytdEmployeeTaxes },

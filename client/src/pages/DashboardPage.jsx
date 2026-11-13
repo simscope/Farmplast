@@ -40,12 +40,10 @@ import {
   normalizePayrollRow,
 } from '../utils/payrollMath'
 import {
-  saveEmployeePayment,
   calculatePrintedCheckYtd,
 } from '../utils/paymentHistory'
 import {
   getPayrollPaymentDate,
-  getPayrollPaymentTimestamp,
   getPayrollYtdTotals,
   loadPayrollPaymentHistory,
 } from '../utils/payrollYtd'
@@ -55,8 +53,8 @@ import {
   downloadJson,
   getBackupFileName,
 } from '../utils/backupExport'
-import PayrollCheck from '../components/payroll/PayrollCheck'
-import CompanyPayrollCheck from '../components/payroll/CompanyPayrollCheck'
+import PayrollPrintDocument from '../components/payroll/PayrollPrintDocument'
+import { mapPayrollRowToCheckTotals, savePrintedPayrollRows } from '../utils/payrollPrint'
 import '../components/payroll/PayrollCheck.css'
 
 const cardClass = 'rounded-xl border border-slate-800 bg-[#0b1220] shadow-sm'
@@ -92,162 +90,6 @@ function pad2(value) {
 
 function toLocalDateString(date) {
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}`
-}
-
-function getPrintRowKey(item) {
-  const employeeId = item?.employee?.id || item?.fullName || 'employee'
-  const checkNumber = item?.print_check_number || item?.employee?.last_check_number || 'check'
-  return `${employeeId}-${checkNumber}`
-}
-
-function mapPayrollRowToCheckTotals(item) {
-  if (item?.checkTotals) return item.checkTotals
-  if (item?.totals) return item.totals
-
-  return {
-    mainHours: item.regularHours,
-    overtimeHours: item.overtimeHours,
-    totalLabor: item.grossPay,
-    mainLabor: item.regularLabor,
-    overtimeLabor: item.overtimeLabor,
-    employeeTaxNum: item.deductions?.tax || 0,
-    rentNum: item.deductions?.rent || 0,
-    electricNum: item.deductions?.electric || 0,
-    waterNum: item.deductions?.water || 0,
-    cleanNum: item.deductions?.clean || 0,
-    transportNum: item.deductions?.transport || 0,
-    netPay: item.netPay,
-    rows: item.rows || [],
-    filteredForView: item.rows || [],
-    rowsByDate: item.rowsByDate || {},
-  }
-}
-
-function PayrollPrintDocument({ rows, week, defaultPayDate, getFullName, printWindow }) {
-  const [edits, setEdits] = useState(() => {
-    const initial = {}
-
-    rows.forEach((item) => {
-      const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-      initial[getPrintRowKey(item)] = {
-        payDate: item.paymentDate || defaultPayDate,
-        amount: String(Number(totals?.netPay || totals?.totalLabor || item?.netPay || 0).toFixed(2)),
-      }
-    })
-
-    return initial
-  })
-
-  function updateEdit(rowKey, field, value) {
-    setEdits((prev) => ({
-      ...prev,
-      [rowKey]: {
-        ...(prev[rowKey] || {}),
-        [field]: value,
-      },
-    }))
-  }
-
-  return (
-    <div className="payroll-print-host dashboard-selected-checks-print">
-      <div className="no-print sticky top-0 z-10 border-b border-slate-700 bg-[#07111f] px-4 py-3 text-white shadow">
-        <div className="mx-auto flex max-w-[215.9mm] items-center justify-between gap-3">
-          <div>
-            <div className="text-sm font-bold">Payroll checks</div>
-            <div className="text-xs text-slate-400">{rows.length} ready to print</div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => (printWindow || window).print()}
-              className="inline-flex items-center gap-2 rounded-lg bg-cyan-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-cyan-500"
-            >
-              <Printer size={16} />
-              Print
-            </button>
-
-            <button
-              type="button"
-              onClick={() => (printWindow || window).close()}
-              className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-4 py-2 text-sm font-semibold text-white transition hover:border-red-500"
-            >
-              <X size={16} />
-              Close
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {rows.map((item) => {
-        const employee = item.employee
-        const checkNumber = item.print_check_number || employee?.last_check_number || 0
-        const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-        const rowKey = getPrintRowKey(item)
-        const edit = edits[rowKey] || {}
-        const payDate = edit.payDate || defaultPayDate
-        const checkAmount = edit.amount === '' ? totals?.netPay : Number(edit.amount)
-
-        return (
-          <div key={rowKey} className="dashboard-selected-check-page">
-            <div className="no-print mx-auto my-4 grid max-w-[215.9mm] gap-3 rounded-lg border border-slate-700 bg-[#07111f] p-3 text-white md:grid-cols-[1fr_160px_160px]">
-              <div className="min-w-0">
-                <div className="truncate text-sm font-semibold">
-                  Check #{checkNumber || '-'} · {item.fullName || getFullName(employee)}
-                </div>
-              </div>
-
-              <label className="block text-xs font-semibold text-slate-300">
-                Date
-                <input
-                  type="date"
-                  value={payDate}
-                        readOnly
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500"
-                />
-              </label>
-
-              <label className="block text-xs font-semibold text-slate-300">
-                Amount
-                <input
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={edit.amount ?? String(Number(totals?.netPay || 0).toFixed(2))}
-                  onChange={(event) => updateEdit(rowKey, 'amount', event.target.value)}
-                  className="mt-1 w-full rounded-lg border border-slate-700 bg-[#0b1220] px-3 py-2 text-sm text-white outline-none transition focus:border-cyan-500"
-                />
-              </label>
-            </div>
-
-            {item.grouped_company ? (
-              <CompanyPayrollCheck
-                companyName={item.fullName || getFullName(employee)}
-                groupedItems={item.grouped_items || []}
-                totals={totals}
-                periodStart={week.startText}
-                periodEnd={week.endText}
-                checkNumber={checkNumber}
-                payDate={payDate}
-                checkAmount={checkAmount}
-              />
-            ) : (
-              <PayrollCheck
-                employee={employee}
-                fullName={item.fullName || getFullName(employee)}
-                totals={totals}
-                periodStart={week.startText}
-                periodEnd={week.endText}
-                checkNumber={checkNumber}
-                payDate={payDate}
-                checkAmount={checkAmount}
-              />
-            )}
-          </div>
-        )
-      })}
-    </div>
-  )
 }
 
 function getPreviousWeekRange() {
@@ -1453,7 +1295,7 @@ export default function DashboardPage() {
     return printWindow
   }
 
-  function openSelectedChecksPrintWindow(week, payrollRows, printWindow = null) {
+  function openSelectedChecksPrintWindow(week, payrollRows, printWindow, { recalculateRow, onConfirm }) {
     const targetWindow = printWindow || createPayrollPrintWindow()
 
     copyPrintStylesToWindow(targetWindow.document)
@@ -1469,12 +1311,39 @@ export default function DashboardPage() {
         defaultPayDate={payDate}
         getFullName={getFullName}
         printWindow={targetWindow}
+        recalculateRow={recalculateRow}
+        onConfirm={onConfirm}
       />
     )
 
     setTimeout(() => {
       targetWindow.focus()
     }, 150)
+  }
+
+  function openPayrollDraftWindow(week, logs, deductionsRows, priorPayments, companyLookup, printRows, printWindow) {
+    const logsByEmployeeAndDate = new Map()
+    for (const log of logs) {
+      const key = `${getLogEmployeeId(log)}__${getLogDate(log)}`
+      const dayLogs = logsByEmployeeAndDate.get(key) || []
+      dayLogs.push(log)
+      logsByEmployeeAndDate.set(key, dayLogs)
+    }
+    openSelectedChecksPrintWindow(week, printRows, printWindow, {
+      recalculateRow(item, paymentDate) {
+        const sources = item.grouped_company ? item.grouped_items : [item]
+        const recalculated = sources.map((source) => getEmployeePayroll(
+          source.employee, week, logsByEmployeeAndDate, deductionsRows, priorPayments, paymentDate
+        ))
+        return mergeCompanyPayrollRows(recalculated, companyLookup)[0]
+      },
+      async onConfirm(chosenRows) {
+        await savePrintedPayrollRows(supabase, week, chosenRows)
+        // A failed dashboard refresh must never re-issue saved checks.
+        loadEmployees().catch((err) => console.warn('Could not refresh employees after printing:', err))
+        return chosenRows
+      },
+    })
   }
 
   function toggleSelectedCheck(employeeId) {
@@ -1680,106 +1549,6 @@ export default function DashboardPage() {
     return companyLookup
   }
 
-  async function savePrintedPayrollRows(week, printRows) {
-    const nowIso = new Date().toISOString()
-
-    for (const item of printRows) {
-      const employee = item.employee
-      const totals = item.checkTotals || item.totals || mapPayrollRowToCheckTotals(item)
-
-      const sourceItems = item.grouped_company ? item.grouped_items : [item]
-      const paymentDate = sourceItems[0]?.paymentDate || getPayrollPaymentDate(nowIso)
-      const checkEmployeeId = item.grouped_company
-        ? sourceItems[0]?.employee?.id
-        : employee.id
-
-      if (!checkEmployeeId) {
-        throw new Error('Employee not found for payroll check')
-      }
-
-      const { data: createdCheck, error: createCheckError } = await supabase.rpc(
-        'create_payroll_check',
-        {
-          p_employee_id: checkEmployeeId,
-          p_pay_period_start: week.startText,
-          p_pay_period_end: week.endText,
-          p_regular_hours: Number(totals.mainHours || totals.taxableHours || 0),
-          p_overtime_hours: Number(totals.overtimeHours || 0),
-          p_regular_labor: Number(totals.mainLabor || totals.taxableLabor || 0),
-          p_overtime_labor: Number(totals.overtimeLabor || 0),
-          p_gross_pay: Number(totals.totalLabor || 0),
-          p_employee_tax: Number(totals.employeeTaxNum || 0),
-          p_rent: Number(totals.rentNum || 0),
-          p_electric: Number(totals.electricNum || 0),
-          p_water: Number(totals.waterNum || 0),
-          p_clean: Number(totals.cleanNum || 0),
-          p_transport: Number(totals.transportNum || 0),
-          p_net_pay: Number(totals.netPay || 0),
-        }
-      )
-
-      if (createCheckError) throw createCheckError
-      if (!createdCheck?.id) throw new Error('Check record was not created')
-      if (!createdCheck?.check_number) throw new Error('Check number was not created')
-
-      const nextCheckNumber = createdCheck.check_number
-
-      const { error: printedError } = await supabase.rpc(
-        'mark_payroll_check_printed',
-        {
-          p_check_id: createdCheck.id,
-        }
-      )
-
-      if (printedError) throw printedError
-
-      // Use the same chosen pay date for YTD, the stored payment and the check.
-      // A batch finishing after midnight must not silently switch tax years.
-      const paidAt = getPayrollPaymentTimestamp(paymentDate)
-
-      for (const sourceItem of sourceItems) {
-        const sourceEmployee = sourceItem.employee
-        const sourceTotals =
-          sourceItem.checkTotals ||
-          sourceItem.totals ||
-          mapPayrollRowToCheckTotals(sourceItem)
-
-        const paymentPayload = {
-          employee_id: sourceEmployee.id,
-          period_start: week.startText,
-          period_end: week.endText,
-          total_labor: Number(sourceTotals.totalLabor || 0),
-          employee_tax: Number(sourceTotals.employeeTaxNum || 0),
-          rent: Number(sourceTotals.rentNum || 0),
-          electric: Number(sourceTotals.electricNum || 0),
-          water: Number(sourceTotals.waterNum || 0),
-          clean: Number(sourceTotals.cleanNum || 0),
-          transport: Number(sourceTotals.transportNum || 0),
-          net_pay: Number(sourceTotals.netPay || 0),
-          paid_at: paidAt,
-        }
-
-        await saveEmployeePayment(supabase, paymentPayload)
-
-        const { error: employeeUpdateError } = await supabase
-          .from('employees')
-          .update({
-            last_payment_date: paymentDate,
-            last_payment_amount: Number(sourceTotals.netPay || 0),
-            last_check_number: nextCheckNumber,
-          })
-          .eq('id', sourceEmployee.id)
-
-        if (employeeUpdateError) throw employeeUpdateError
-      }
-
-      item.print_check_number = nextCheckNumber
-      employee.last_payment_date = paymentDate
-      employee.last_payment_amount = Number(totals.netPay || 0)
-      employee.last_check_number = nextCheckNumber
-    }
-  }
-
   async function handlePrintSingleCheck(employee) {
     try {
       setReportLoading(true)
@@ -1820,9 +1589,7 @@ export default function DashboardPage() {
       const companyLookup = await loadCompanyLookupForPayrollRows(rowsToPrint)
       const printRows = mergeCompanyPayrollRows(rowsToPrint, companyLookup)
 
-      await savePrintedPayrollRows(week, printRows)
-      openSelectedChecksPrintWindow(week, printRows, printWindow)
-      await loadEmployees()
+      openPayrollDraftWindow(week, logs, deductionsRows, priorPayments, companyLookup, printRows, printWindow)
     } catch (err) {
       console.error('handlePrintSingleCheck error:', err)
       const message = err.message || 'Failed to print check'
@@ -1862,11 +1629,8 @@ export default function DashboardPage() {
       const companyLookup = await loadCompanyLookupForPayrollRows(payrollRows)
       const printRows = mergeCompanyPayrollRows(payrollRows, companyLookup)
 
-      await savePrintedPayrollRows(week, printRows)
-      openSelectedChecksPrintWindow(week, printRows, printWindow)
-
+      openPayrollDraftWindow(week, logs, deductionsRows, priorPayments, companyLookup, printRows, printWindow)
       setSelectedCheckIds([])
-      await loadEmployees()
     } catch (err) {
       console.error('handlePrintSelectedChecks error:', err)
       const message = err.message || 'Failed to print selected checks'

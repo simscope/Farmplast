@@ -235,8 +235,8 @@ function CheckStockPrint({
   const amountWords = capitalizeFirstLetter(amountToWords(amount))
 
   const rawCheckNumber = Number(checkNumber || 0)
-  const checkNumberTop = String(rawCheckNumber)
-  const checkNumberMicr = String(rawCheckNumber).padStart(6, '0')
+  const checkNumberTop = checkNumber === 'pending' ? '—' : String(rawCheckNumber)
+  const checkNumberMicr = checkNumber === 'pending' ? '' : String(rawCheckNumber).padStart(6, '0')
 
   const memoText =
     periodStart && periodEnd ? `${formatDate(periodStart)} - ${formatDate(periodEnd)}` : ''
@@ -490,7 +490,7 @@ function CompanyStubCopy({
   }
   const payDateText = payDate ? formatDate(payDate) : new Date().toLocaleDateString('en-US')
   const rawCheckNumber = Number(checkNumber || 0)
-  const checkNumberTop = String(rawCheckNumber)
+  const checkNumberTop = checkNumber === 'pending' ? '—' : String(rawCheckNumber)
   const companyRows = getCompanyRows(groupedItems)
 
   const totalHours = companyRows.reduce((sum, row) => sum + Number(row.hours || 0), 0)
