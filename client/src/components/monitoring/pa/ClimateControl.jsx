@@ -115,6 +115,7 @@ export default function ClimateControl({ zones }) {
     catch { throw Error('Could not save local targets in this browser.') }
   }
   return <section className="cl-control">
+    <ClimateMap zones={viewZones} onOpen={setSelected} />
     <div className="cl-bulk"><h2>Common target temperature</h2><p><Link to="/monitoring/pa/climate/programming">Programming &amp; diagnostics →</Link> <button type="button" disabled={adding} onClick={addController}>{adding?'Preparing…':'Add controller'}</button></p><div className="cl-pin-panel"><div><label htmlFor="cl-temperature-pin">Temperature PIN</label><small id="cl-pin-hint">Enter your 4-digit PIN before saving a temperature.</small></div>
       <input id="cl-temperature-pin" ref={pinField} aria-describedby="cl-pin-hint" type="password" inputMode="numeric" autoComplete="off" placeholder="Enter PIN" maxLength={4} value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,''))} /></div>
       <Target label="All zones" min={40} max={90} disabled={saving} onSave={target => save(viewZones.map(z => z.id), target)} /><span role="status">{notice}</span></div>
