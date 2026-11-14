@@ -116,10 +116,11 @@ export default function ClimateControl({ zones }) {
   }
   return <section className="cl-control">
     <ClimateMap zones={viewZones} onOpen={setSelected} />
+
     <div className="cl-bulk"><h2>Common target temperature</h2><p><Link to="/monitoring/pa/climate/programming">Programming &amp; diagnostics →</Link> <button type="button" disabled={adding} onClick={addController}>{adding?'Preparing…':'Add controller'}</button></p><div className="cl-pin-panel"><div><label htmlFor="cl-temperature-pin">Temperature PIN</label><small id="cl-pin-hint">Enter your 4-digit PIN before saving a temperature.</small></div>
       <input id="cl-temperature-pin" ref={pinField} aria-describedby="cl-pin-hint" type="password" inputMode="numeric" autoComplete="off" placeholder="Enter PIN" maxLength={4} value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,''))} /></div>
       <Target label="All zones" min={40} max={90} disabled={saving} onSave={target => save(viewZones.map(z => z.id), target)} /><span role="status">{notice}</span></div>
-    <ClimateMap zones={viewZones} onOpen={setSelected} />
+
     <dialog ref={dialog} className="cl-zone-dialog" aria-label="Zone controls" onClose={() => setSelected(null)}><button type="button" className="cl-zone-close" onClick={() => dialog.current.close()}>Close</button><div className="cl-grid">{viewZones.filter(z => z.id === selected).map(z => z.id === 'pa-zone-1'&&!z.msi ? <ZoneOne key={z.id} saveTarget={v=>save([z.id],v)} savingTarget={saving} /> : <article key={z.id}>
       <header><h2>{z.name}</h2><small>{z.connection}</small></header>
       <div className="cl-readings"><div><Thermometer color="#dc402b" /><strong>{valid(z.temperatureF)?z.temperatureF.toFixed(1):'—'}°F</strong><small>{valid(z.temperatureF) ? ((z.temperatureF-32)*5/9).toFixed(1) + ' °C' : 'Temperature'}</small></div>
