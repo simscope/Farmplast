@@ -35,7 +35,7 @@ test('Operator uses verified Farmplast JWT and allowlist; never exposes device r
 
 test('Factory enrollment is one use, scoped, reserves Zone 1, survives restart and can be revoked', async t=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fp-workstation-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
-  const config={dir,adminKey:'x'.repeat(48)};let runtime=createClimateFetch(config);
+  const config={dir,adminKey:'x'.repeat(48),reservedZoneIds:['pa-zone-1']};let runtime=createClimateFetch(config);
   const call=(p,method='GET',body,key)=>runtime.route(new Request('http://localhost'+p,{method,headers:key?{Authorization:'Bearer '+key}:{},body:body?JSON.stringify(body):undefined}));
   const issue=await call('/climate-local/v1/admin/workstations','POST',{name:'PA test'},config.adminKey);
   assert.equal(issue.status,201);const {ticket}=await issue.json();
@@ -75,7 +75,7 @@ test('Installer ZIP reads the configured disk assets when runtime module URLs ar
 });
 
 
-test('Explicit physical MAC migration registers Zone 1 once, no DS18B20 required, and preserves other zones', async t=>{
+test('BF90 can register an empty Zone 1 once at 50 F OFF without changing other zones', async t=>{
   const dir=fs.mkdtempSync(path.join(os.tmpdir(),'fp-zone1-migrate-'));t.after(()=>fs.rmSync(dir,{recursive:true,force:true}));
   const admin='a'.repeat(48),config={dir,adminKey:admin};
   let runtime=createClimateFetch(config);
@@ -89,15 +89,14 @@ test('Explicit physical MAC migration registers Zone 1 once, no DS18B20 required
   assert.equal(zone2.status,201);
   const z2=await zone2.json();
 
-  const request={device_id:'PA-CLIM-209BA98CD258',zone_id:'pa-zone-1',model:'PA-ESP32-WROOM32E-N4-R1'};
-  assert.equal((await call('/climate/workstation/devices','POST',request,key)).status,409,'Zone 1 cannot be registered accidentally');
+  const request={device_id:'PA-CLIM-209BA98DBF90',zone_id:'pa-zone-1',model:'PA-ESP32-WROOM32E-N4-R1'};
   assert.equal((await call('/climate/workstation/devices','POST',{...request,migration_confirm:'MIGRATE EXISTING PA ZONE 1'},'wrong-token')).status,401);
-  assert.equal((await call('/climate/workstation/devices','POST',{...request,device_id:'PA-CLIM-209BA98CD259',migration_confirm:'MIGRATE EXISTING PA ZONE 1'},key)).status,409);
+  assert.equal((await call('/climate/workstation/devices','POST',{...request,model:'ESP32-C3'},key)).status,400);
   const allowed=await call('/climate/workstation/devices','POST',{...request,migration_confirm:'MIGRATE EXISTING PA ZONE 1'},key);
   assert.equal(allowed.status,201);
   const credentials=await allowed.json();
   assert.equal(credentials.zone_id,'pa-zone-1');
-  assert.equal(credentials.device_id,'PA-CLIM-209BA98CD258');
+  assert.equal(credentials.device_id,'PA-CLIM-209BA98DBF90');
   assert.ok(credentials.device_token.length>=32);
   assert.equal((await call('/climate/workstation/devices','POST',{...request,migration_confirm:'MIGRATE EXISTING PA ZONE 1'},key)).status,409);
 
@@ -111,7 +110,7 @@ test('Explicit physical MAC migration registers Zone 1 once, no DS18B20 required
 
   const sample={protocol_version:1,device_id:credentials.device_id,model:'PA-ESP32-WROOM32E-N4-R1',
     firmware:'pa-climate-msi-2.0.1',boot_id:'00aabbff',sensor_1_f:null,sensor_2_f:null,temperature_f:null,
-    sensor_count:0,mode:'OFF',target_f:72,revision:1,heat:false};
+    sensor_count:0,mode:'OFF',target_f:50,revision:1,heat:false};
   const telemetry=await call('/climate/v1/exchange','POST',sample,credentials.device_token);
   assert.equal(telemetry.status,200);
   const online=runtime.store.zones().find(z=>z.id==='pa-zone-1');

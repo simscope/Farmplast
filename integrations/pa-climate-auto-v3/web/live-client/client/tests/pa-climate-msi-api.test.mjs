@@ -44,5 +44,16 @@ test('Live site API preserves the existing PIN check, verifies the operator and 
  const good=await run({action:'set',zone_id:'pa-zone-2',target_f:72,pin:'1234'});assert.equal(good.code,200)
  assert.deepEqual(JSON.parse(Buffer.from(messages.at(-1).body,'base64')),{target_f:72})
  assert.equal((await run({action:'register'})).code,400)
+ const beforeReplacement=messages.length
+ assert.equal((await run({action:'replacement_create',zone_id:'pa-zone-1',old_device_id:null,request_id:'00000000-0000-4000-8000-000000000009',pin:'wrong'})).code,403)
+ assert.equal(messages.length,beforeReplacement)
+ assert.equal((await run({action:'replacement_create',zone_id:'pa-zone-1',old_device_id:null,expected_device_id:'PA-CLIM-209BA98DBF90',request_id:'00000000-0000-4000-8000-000000000009',pin:'1234'})).code,200)
+ assert.equal(messages.at(-1).path,'/climate/operator/replacements')
+ assert.equal(JSON.parse(Buffer.from(messages.at(-1).body,'base64')).expected_device_id,'PA-CLIM-209BA98DBF90')
+ assert.ok(!Buffer.from(messages.at(-1).body,'base64').toString().includes('1234'))
+ for(const action of ['replacement_installer','replacement_commit','replacement_cancel']){
+  const n=messages.length;assert.equal((await run({action,operation_id:'00000000-0000-4000-8000-000000000009',pin:'wrong'})).code,403);assert.equal(messages.length,n)
+ }
  caller='other';assert.equal((await run()).code,403)
+ assert.equal((await run({action:'replacement_create',zone_id:'pa-zone-1',old_device_id:null,request_id:'00000000-0000-4000-8000-000000000009',pin:'1234'})).code,403)
 })

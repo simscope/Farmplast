@@ -36,7 +36,7 @@ test('registration, authentication, telemetry, average, desired, stale/online',a
     assert.equal((await s.call('/v1/admin/devices',{method:'POST',token:'a'.repeat(64),body:{device_id:device,zone_id:'pa-zone-1',model:MODEL}})).status,400);
     assert.equal((await s.call('/v1/exchange',{method:'POST',token:'wrongbutverylongtoken-AAAAAAAAAAAA',body:report()})).status,401);
     const exchange=await s.call('/v1/exchange',{method:'POST',token:deviceToken,body:report()});
-    assert.equal(exchange.status,200);assert.equal(exchange.body.desired.target_f,72);
+    assert.equal(exchange.status,200);assert.equal(exchange.body.desired.target_f,50);
     const zones=await s.call('/v1/admin/zones',{token:'a'.repeat(64)});
     assert.equal(zones.body.zones[0].reported.sensor_1_f,68);
     assert.equal(zones.body.zones[0].reported.sensor_2_f,72);

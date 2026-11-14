@@ -4,6 +4,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { Buffer } from 'node:buffer';
 import { ClimateStore, secureEqual, sha256, hmac, validateId } from './storage.mjs';
+import {Replacements} from './replacements.mjs';
 
 const json = (res, code, value) => {
   const bytes=Buffer.from(JSON.stringify(value));
@@ -27,6 +28,7 @@ export function createClimateHandler({dir,adminKey,publicOrigin='',allowAdmin=tr
   if(origin && (origin.protocol!=='https:'||origin.username||origin.password||!['/','/climate'].includes(origin.pathname)||origin.search||origin.hash))throw Error('PUBLIC_ORIGIN must be HTTPS with root or /climate path');
   const publicBase=origin?origin.origin+(origin.pathname==='/'?'':origin.pathname):'';
   const store=new ClimateStore(dir);
+  const replacements=new Replacements(store,adminKey);
   const handler=async(req,res)=>{
     const url=new URL(req.url,'http://localhost');
     const pathname=url.pathname;
@@ -38,7 +40,9 @@ export function createClimateHandler({dir,adminKey,publicOrigin='',allowAdmin=tr
         if(!device)return bad(res,401,'Device authentication failed');
         const telemetry=store.ingest(device,body);
         const zone=store.state.zones[device.zone_id];
-        const result={server_time:new Date().toISOString(),zone_id:device.zone_id,desired:zone.desired};
+        const staged=device.registration_state==='staged';
+        const result={server_time:new Date().toISOString(),zone_id:device.zone_id??device.pending_zone_id,registration_state:staged?'staged':'active',desired:staged?replacements.stagedDesired(device):zone.desired};
+        if(staged)return json(res,200,result);
         const pending=Object.values(store.state.jobs).find(j=>j.device_id===device.device_id&&['queued','delivered'].includes(j.status));
         // OTA completion is recognized from real post-reboot telemetry, not the download response.
         for(const job of Object.values(store.state.jobs))if(job.device_id===device.device_id && ['queued','delivered'].includes(job.status) &&
@@ -66,7 +70,7 @@ export function createClimateHandler({dir,adminKey,publicOrigin='',allowAdmin=tr
         const sha=pathname.substring('/v1/firmware/'.length),id=url.searchParams.get('device'),exp=Number(url.searchParams.get('exp')),sig=url.searchParams.get('sig');
         if(!firmwareSha(sha)||!validateId(id)||!Number.isSafeInteger(exp)||exp<Math.floor(Date.now()/1000)||exp>Math.floor(Date.now()/1000)+360||!firmwareSha(sig))return bad(res,403,'Invalid download link');
         const device=store.state.devices[id];
-        if(!device||!secureEqual(hmac(device.ota_key,`${id}\n${sha}\n${exp}`),sig))return bad(res,403,'Invalid download signature');
+        if(!device||['revoked','staged'].includes(device.registration_state)||!secureEqual(hmac(device.ota_key,`${id}\n${sha}\n${exp}`),sig))return bad(res,403,'Invalid download signature');
         const job=Object.values(store.state.jobs).find(j=>j.device_id===id && j.sha256===sha && j.status==='delivered');
         const rel=store.state.releases[sha];
         if(!job||!rel||rel.model!==device.model)return bad(res,403,'No authorized release');
@@ -77,6 +81,10 @@ export function createClimateHandler({dir,adminKey,publicOrigin='',allowAdmin=tr
       }
       if(pathname.startsWith('/v1/admin/')) {
         if(!allowAdmin||!secureEqual(bearer(req),adminKey))return bad(res,401,'Admin authentication required');
+        if(req.method==='GET' && pathname==='/v1/admin/replacements')return json(res,200,{replacements:replacements.list(),history:store.state.assignment_history??[]});
+        if(req.method==='POST' && pathname==='/v1/admin/replacements')return json(res,201,replacements.create(parseObject(await limitedBody(req)),'local-owner'));
+        const replacementMatch=pathname.match(/^\/v1\/admin\/replacements\/([a-f0-9-]{36})\/(commit|cancel)$/);
+        if(req.method==='POST'&&replacementMatch){const body=parseObject(await limitedBody(req));return json(res,200,replacementMatch[2]==='commit'?replacements.commit(replacementMatch[1],body):replacements.cancel(replacementMatch[1]));}
         if(req.method==='GET' && pathname==='/v1/admin/zones')return json(res,200,{zones:store.zones()});
         if(req.method==='GET' && pathname==='/v1/admin/releases')return json(res,200,{releases:Object.values(store.state.releases)});
         if(req.method==='GET' && pathname==='/v1/admin/ota')return json(res,200,{jobs:Object.values(store.state.jobs).map(({id,device_id,version,status,created_at,completed_at})=>({id,device_id,version,status,created_at,completed_at}))});
@@ -106,7 +114,7 @@ export function createClimateHandler({dir,adminKey,publicOrigin='',allowAdmin=tr
           if(body.confirm!=='STAGE PA OTA'||!validateId(body.device_id)||!firmwareSha(body.sha256))return bad(res,400,'Explicit confirmation and valid release required');
           if(!publicBase)return bad(res,409,'PUBLIC_ORIGIN is not configured');
           const device=store.state.devices[body.device_id],release=store.state.releases[body.sha256];
-          if(!device||!release||device.model!==release.model)return bad(res,404,'Device/release mismatch');
+          if(!device||['revoked','staged'].includes(device.registration_state)||!release||device.model!==release.model)return bad(res,404,'Device/release mismatch');
           if(Object.values(store.state.jobs).some(j=>j.device_id===device.device_id&&['queued','delivered'].includes(j.status)))return bad(res,409,'Device already has active OTA');
           const t=device.last_telemetry;
           if(!t||Date.now()-Date.parse(t.at)>60000||t.sensor_count===0||t.heat)return bad(res,409,'Device must be recently online, sensors valid, heating off');
@@ -120,13 +128,13 @@ export function createClimateHandler({dir,adminKey,publicOrigin='',allowAdmin=tr
       return bad(res,404,'Not found');
     }catch(e){
       if(e instanceof SyntaxError)return bad(res,400,'Invalid JSON');
-      if(e.status===413)return bad(res,413,'Request too large');
+      if(e.status&&e.status>=400&&e.status<500)return bad(res,e.status,e.status===413?'Request too large':e.message);
       if(e.message && /Invalid|Unknown|Expected|mismatch|inconsistent|already|required|not registered|unsupported/i.test(e.message))return bad(res,400,e.message);
       console.error('Climate API error:',e.message);
       return bad(res,500,'Internal server error');
     }
   };
-  return {handler,store};
+  return {handler,store,replacements};
 }
 
 // Compatibility for offline automated tests only. No climate listener needs to run

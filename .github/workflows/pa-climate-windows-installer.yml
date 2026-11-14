@@ -27,7 +27,8 @@ jobs:
         run: |
           $scripts=@(
             '.\\integrations\\pa-climate-auto-v3\\automation\\Auto-Add-ESP32.ps1',
-            '.\\integrations\\pa-climate-auto-v3\\automation\\Install-Workstation.ps1'
+            '.\\integrations\\pa-climate-auto-v3\\automation\\Install-Workstation.ps1',
+            '.\\integrations\\pa-climate-auto-v3\\automation\\Replace-Controller.ps1'
           )
           foreach($script in $scripts){
             $errors=$null
@@ -80,3 +81,7 @@ jobs:
         shell: powershell
         run: |
           & .\integrations\pa-climate-auto-v3\automation\tests\installer-checksums.test.ps1
+      - name: Verify replacement OTA metadata and safe application-slot selection
+        shell: powershell
+        run: |
+          & .\integrations\pa-climate-auto-v3\automation\tests\replacement-helpers.test.ps1

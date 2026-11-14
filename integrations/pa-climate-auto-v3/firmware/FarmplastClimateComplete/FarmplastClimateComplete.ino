@@ -2,12 +2,11 @@
  * Farmplast Pennsylvania - Climate Controller, revision MSI 2.0.0
  * ESP32-WROOM-32E-N4 / 4 MB Flash / one relay / two DS18B20 on 1-Wire.
  *
- * SINGLE-FILE Arduino IDE sketch (no external .h files).
  * Required Arduino IDE libraries:
  *   ESP32 by Espressif Systems 3.3.x, OneWire, DallasTemperature, ArduinoJson 7.x
  *
- * Relay control is ENABLED in this sketch by owner decision.
- * GPIO and polarity are defined below; retain the values verified on the hardware.
+ * Relay control is enabled by default in device_config.h at owner request.
+ * Relay GPIO and polarity are installer-configurable; hardware mapping is not confirmed.
  * Real HTTPS backend/OTA require explicit provisioning, no demo credentials.
  */
 #include <Arduino.h>
@@ -29,16 +28,15 @@
 #include <time.h>
 #include <math.h>
 
-// All-in-one Arduino sketch. Keep these settings here: no companion .h files required.
-// Universal firmware. Identical source/application binary for all PA zones.
+// UNIVERSAL safe firmware. Identical source/application binary for all PA zones.
 // Device-specific Wi-Fi, server URL, device token, OTA HMAC key and trusted root
 // certificate are stored in ESP32 NVS via first-time USB serial provisioning.
 // None of these credentials is present in the firmware image distributed for OTA.
-#define FIRMWARE_VERSION "pa-climate-msi-2.0.2"
+#define FIRMWARE_VERSION "pa-climate-msi-2.1.0"
 #define FIRMWARE_MODEL "PA-ESP32-WROOM32E-N4-R1"
 #define DS18B20_GPIO 27
-#define RELAY_GPIO 16            // Relay output GPIO; use the previously verified board wiring.
-#define RELAY_ACTIVE_HIGH true  // Relay active polarity; use the previously verified board wiring.
+#define RELAY_GPIO 16            // NOT CONFIRMED on the physical relay PCB.
+#define RELAY_ACTIVE_HIGH true  // NOT CONFIRMED on the physical relay PCB.
 #define RELAY_TESTED_AND_ENABLED true   // Enabled by owner; existing GPIO and polarity preserved.
 
 #include <math.h>
@@ -95,7 +93,6 @@ inline Result evaluate(const Input &in) {
 
 }  // namespace ClimateLogic
 
-
 // Identity markers allow MSI to reject a binary built for another model/version.
 extern "C" const char PA_CLIMATE_BUILD_VERSION[] __attribute__((used)) = "PA_CLIMATE_FW_VERSION=" FIRMWARE_VERSION;
 extern "C" const char PA_CLIMATE_BUILD_MODEL[] __attribute__((used)) = "PA_CLIMATE_FW_MODEL=" FIRMWARE_MODEL;
@@ -149,12 +146,15 @@ bool otaInProgress = false;
 uint32_t lastHeatTransition = 0;
 uint32_t revisionApplied = 0;
 float setpointF = 72.0f;
+float controlHysteresisF = HYSTERESIS_F;
+uint32_t controlMinSwitchMs = MIN_RELAY_INTERVAL_MS;
 ClimateLogic::Mode operatingMode = ClimateLogic::Mode::AUTO;
 ClimateLogic::Result current{};
 String deviceId;
 String wifiSsid, wifiPassword, cloudExchangeUrl, cloudDeviceToken, cloudOtaHmacKey, cloudRootCaPem;
 String incomingSerial;
 bool isProvisioned = false;
+bool commissioningPending = true;
 String lastOtaJob;
 String lastFailedOtaJob;
 uint32_t lastFailedOtaAt = 0;
@@ -215,6 +215,13 @@ bool acceptProvisioning(const String &encoded) {
   }
   // Flag is written LAST. A loss of power mid-provision keeps the board
   // in first-provisioning mode instead of starting with partial credentials.
+  nv.putBool("provready", false);
+  if (!nv.putBool("commission", true)) return false;
+  nv.putUChar("mode", static_cast<uint8_t>(ClimateLogic::Mode::OFF));
+  nv.putUInt("revision", 0);
+  commissioningPending = true;
+  if (RELAY_TESTED_AND_ENABLED) digitalWrite(RELAY_GPIO, RELAY_ACTIVE_HIGH ? LOW : HIGH);
+  heatOn = false;
   bool ok = nv.putString("wifissid", ssid) > 0 &&
     nv.putString("wifipass", pass) > 0 &&
     nv.putString("cloudurl", url) > 0 &&
@@ -226,7 +233,7 @@ bool acceptProvisioning(const String &encoded) {
 }
 
 void pollProvisioning() {
-  if (isProvisioned) return;
+  // A physically connected owner can resume provisioning without re-flashing.
   while (Serial.available()) {
     const char c = static_cast<char>(Serial.read());
     if (c == '\n') {
@@ -338,14 +345,14 @@ void writeRelay(bool desiredOn) {
 
 void applyControl() {
   ClimateLogic::Input in{sensorOK[0], sensorF[0], sensorOK[1], sensorF[1],
-    setpointF, HYSTERESIS_F, DIFFERENCE_WARNING_F, heatOn, operatingMode, manualHeat};
+    setpointF, controlHysteresisF, DIFFERENCE_WARNING_F, heatOn, operatingMode, manualHeat};
   current = ClimateLogic::evaluate(in);
-  const bool desired = current.wantHeat && RELAY_TESTED_AND_ENABLED && !otaInProgress;
+  const bool desired = current.wantHeat && RELAY_TESTED_AND_ENABLED && !otaInProgress && !commissioningPending;
   if (desired == heatOn) return;
   // Fault, OFF or OTA must shut off immediately, no minimum run-time restriction.
   const bool emergencyOff = !desired && (!current.hasTemperature ||
-        operatingMode == ClimateLogic::Mode::OFF || otaInProgress);
-  if (emergencyOff || elapsed(lastHeatTransition, MIN_RELAY_INTERVAL_MS)) writeRelay(desired);
+        operatingMode == ClimateLogic::Mode::OFF || otaInProgress || commissioningPending);
+  if (emergencyOff || elapsed(lastHeatTransition, controlMinSwitchMs)) writeRelay(desired);
 }
 
 void requestSample() {
@@ -548,6 +555,13 @@ void applyDesired(JsonVariantConst desired) {
     Serial.println("Cloud desired state rejected (invalid target/mode)"); return;
   }
   if (mode == "MANUAL" && !desired["manual_heat"].is<bool>()) return;
+  const float hysteresis = desired["hysteresis_f"] | controlHysteresisF;
+  const uint32_t minSwitch = desired["min_switch_ms"] | controlMinSwitchMs;
+  if (!isfinite(hysteresis) || hysteresis < 0.2f || hysteresis > 20.0f || minSwitch < 1000 || minSwitch > 3600000) return;
+  controlHysteresisF = hysteresis;
+  controlMinSwitchMs = minSwitch;
+  nv.putFloat("hysteresis", controlHysteresisF);
+  nv.putUInt("minswitch", controlMinSwitchMs);
   setpointF = target;
   operatingMode = mode == "AUTO" ? ClimateLogic::Mode::AUTO :
                   mode == "OFF" ? ClimateLogic::Mode::OFF : ClimateLogic::Mode::MANUAL;
@@ -579,9 +593,14 @@ void cloudExchange() {
   tx["sensor_1_rom"] = installedValid[0] ? addrHex(installed[0]) : "";
   tx["sensor_2_rom"] = installedValid[1] ? addrHex(installed[1]) : "";
   tx["target_f"] = setpointF;
+  tx["hysteresis_f"] = controlHysteresisF;
+  tx["min_switch_ms"] = controlMinSwitchMs;
   tx["mode"] = operatingMode == ClimateLogic::Mode::AUTO ? "AUTO" :
                 operatingMode == ClimateLogic::Mode::OFF ? "OFF" : "MANUAL";
   tx["heat"] = heatOn;
+  tx["commissioning_pending"] = commissioningPending;
+  tx["wifi_rssi"] = WiFi.RSSI();
+  tx["ip"] = WiFi.localIP().toString();
   tx["relay_armed"] = (bool)RELAY_TESTED_AND_ENABLED;
   tx["degraded"] = current.degraded;
   tx["sensor_difference"] = current.disagreement;
@@ -620,6 +639,10 @@ void cloudExchange() {
   if (deserializeJson(rx, body) != DeserializationError::Ok) {
     Serial.println("Cloud response invalid JSON"); return;
   }
+  if (commissioningPending && rx["registration_state"] == "active") {
+    if (!nv.putBool("commission", false)) return;
+    commissioningPending = false;
+  }
   applyDesired(rx["desired"]);
   processOta(rx["ota"]);
 }
@@ -643,6 +666,10 @@ void maybeConfirmOta() {
 
 void setup() {
   Serial.begin(115200);
+  // Real references retain both identity strings under linker --gc-sections.
+  // __attribute__((used)) alone only protects compilation, not final linking.
+  Serial.println(PA_CLIMATE_BUILD_VERSION);
+  Serial.println(PA_CLIMATE_BUILD_MODEL);
   delay(250);
   nv.begin("fpclimate", false);
   uint8_t mac[6] = {0};
@@ -675,6 +702,11 @@ void setup() {
   revisionApplied = nv.getUInt("revision", 0);
   lastOtaJob = nv.getString("otajob", "");
   readProvisioning();
+  controlHysteresisF = nv.getFloat("hysteresis", HYSTERESIS_F);
+  controlMinSwitchMs = nv.getUInt("minswitch", MIN_RELAY_INTERVAL_MS);
+  if (!isfinite(controlHysteresisF) || controlHysteresisF < 0.2f || controlHysteresisF > 20.0f) controlHysteresisF = HYSTERESIS_F;
+  if (controlMinSwitchMs < 1000 || controlMinSwitchMs > 3600000) controlMinSwitchMs = MIN_RELAY_INTERVAL_MS;
+  commissioningPending = nv.getBool("commission", true);
   manualHeat = false;
   if (operatingMode == ClimateLogic::Mode::MANUAL) operatingMode = ClimateLogic::Mode::OFF;
   for (int slot = 0; slot < 2; ++slot)

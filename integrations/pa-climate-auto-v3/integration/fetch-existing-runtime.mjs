@@ -36,10 +36,10 @@ export function nodeHandlerAsFetch(handler) {
 }
 
 export function createClimateFetch(config, {fetchImpl = fetch} = {}) {
-  const {handler, store} = createClimateHandler(config);
+  const {handler, store,replacements} = createClimateHandler(config);
   const dispatch = nodeHandlerAsFetch(handler);
   const workstations = new Workstations(config.dir);
-  const reserved = new Set(config.reservedZoneIds || ['pa-zone-1']);
+  const reserved = new Set(config.reservedZoneIds || []);
   const model = 'PA-ESP32-WROOM32E-N4-R1';
   const protectedDevices=new Set(config.protectedDeviceIds||['PA-CLIM-70D38CA99B20']); // MAC from the verified live Zone 1 API.
   async function object(request) {
@@ -59,6 +59,20 @@ export function createClimateFetch(config, {fetchImpl = fetch} = {}) {
     const user = await response.json().catch(() => null);
     if (!response.ok || !user?.id) return reply(401,{error:'Invalid Farmplast login'});
     if (!allowed.has(user.id)) return reply(403,{error:'Climate operator access required'});
+    if(request.method==='GET'&&suffix==='/replacements')return reply(200,{replacements:replacements.list(),history:store.state.assignment_history??[]});
+    const replacement=suffix.match(/^\/replacements\/([a-f0-9-]{36})\/(commit|cancel|installer)$/);
+    if(request.method==='POST'&&(suffix==='/replacements'||replacement)){
+      try{
+        if(suffix==='/replacements')return reply(201,replacements.create(await object(request),user.id));
+        const [,id,action]=replacement;
+        if(action==='commit')return reply(200,replacements.commit(id,await object(request)));
+        if(action==='cancel')return reply(200,replacements.cancel(id));
+        const source=config.installerSourceDir||fileURLToPath(new URL('../',import.meta.url));
+        const image=fs.readFileSync(path.join(source,'firmware/replacement/FarmplastClimate.ino.bin'));
+        const files=[['Replace-Controller.ps1',fs.readFileSync(path.join(source,'automation/Replace-Controller.ps1'))],['firmware.bin',image],['replacement-bootstrap.json',JSON.stringify({public_origin:config.publicOrigin,operation_id:id,operation_token:replacements.grant(id),firmware_sha256:(await import('../server/storage.mjs')).sha256(image),firmware_version:'pa-climate-msi-2.1.0'})],['Run-Replacement.cmd','@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0Replace-Controller.ps1"\r\npause\r\n']];
+        return new Response(zipFiles(files),{headers:{'Content-Type':'application/zip','Content-Disposition':'attachment; filename="Farmplast-Replace-Controller.zip"','Cache-Control':'private, no-store'}});
+      }catch(e){return reply(e.status??400,{error:e.status?e.message:'Replacement installer unavailable'});}
+    }
     if(request.method==='POST'&&suffix==='/installer') {
       if(!config.publicOrigin)return reply(409,{error:'Public HTTPS endpoint is not configured'});
       const ticket=workstations.issue('Factory Windows');
@@ -81,6 +95,16 @@ export function createClimateFetch(config, {fetchImpl = fetch} = {}) {
   }
   return {store, async route(request) {
     const url = new URL(request.url), p = url.pathname;
+    const replacement=p.match(/^\/climate\/workstation\/replacements\/([a-f0-9-]{36})(?:\/(prepare))?$/);
+    if(replacement){
+      try{
+        const [,id,action]=replacement;
+        if(!replacements.authorized(id,credential(request)))return reply(401,{error:'Operation capability is invalid, expired or closed'});
+        if(request.method==='GET'&&!action)return reply(200,replacements.view(replacements.get(id)));
+        if(request.method==='POST'&&action==='prepare')return reply(200,replacements.prepare(id,await object(request)));
+        return reply(405,{error:'Method not allowed'});
+      }catch(e){return reply(e.status??400,{error:e.message});}
+    }
     if(p === '/climate-local/v1/admin/workstations') {
       if(!secureEqual(credential(request),config.adminKey))return reply(401,{error:'Admin authentication required'});
       if(request.method==='GET')return reply(200,{workstations:workstations.list()});
@@ -115,17 +139,10 @@ export function createClimateFetch(config, {fetchImpl = fetch} = {}) {
           if(protectedDevices.has(body.device_id))return reply(403,{error:'Existing PA Climate 1.2.0 Zone 1 controller is protected'});
           let zone=body.zone_id;
           if(!zone)for(let n=1;n<10000;n++){const candidate='pa-zone-'+n;if(!reserved.has(candidate)&&!store.state.zones[candidate]){zone=candidate;break;}}
-          // One explicit migration only: the owner has USB-flashed the physical
-          // ESP32 with MAC 20:9B:A9:8C:D2:58 using the new climate firmware.
-          // Never unlock pa-zone-1 generally and never rotate another device.
-          const zone1Migration=zone==='pa-zone-1' &&
-            body.device_id==='PA-CLIM-209BA98CD258' &&
-            body.migration_confirm==='MIGRATE EXISTING PA ZONE 1';
-          if(!/^pa-zone-[1-9][0-9]*$/.test(zone)||(reserved.has(zone)&&!zone1Migration))
+          // Free zones use the same authenticated assignment path. Replacing
+          // an occupied zone requires a PIN-authorized staged operation.
+          if(!/^pa-zone-[1-9][0-9]*$/.test(zone)||reserved.has(zone))
             return reply(409,{error:'Zone reserved or invalid'});
-          if(zone1Migration && (store.state.devices[body.device_id] ||
-              Object.values(store.state.devices).some(device=>device.zone_id==='pa-zone-1')))
-            return reply(409,{error:'Zone 1 already registered; no credential rotation'});
           return reply(201,store.addDevice(body.device_id,zone,model));
         }catch{return reply(409,{error:'Device or zone already registered, or invalid request'});}
       }

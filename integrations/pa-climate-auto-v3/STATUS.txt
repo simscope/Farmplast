@@ -1,9 +1,9 @@
-2026-11-10: MSI and production Farmplast connected.
-Production deployment: dpl_A5CtmYW93edwFvbgKC7RMhhwqUU7
-Existing MSI gateway: 127.0.0.1:18000; existing Edge Runtime main worker only.
-HTTPS: https://farmplast.vercel.app/climate/healthz -> actual MSI 200.
-Public admin blocked; JWT/allowlist/PIN preserved; scoped Windows factory installer.
-33 public HTTPS checks passed, including a full signed firmware download and real stale/offline timeout. Tests were synthetic, not a physical controller.
-No Zone 1 flash. No physical OTA/rollback GO. Windows DPAPI denied in Codex context; actual factory user validation pending.
-See README_RU.md and web/live-client for the installed path and verified live-source overlay.
-Owner update: Add controller firmware pa-climate-msi-2.0.1, RELAY_TESTED_AND_ENABLED=true, GPIO 16 active HIGH preserved; existing Zone 1 unchanged.
+2026-11-14: staged controller replacement implemented in the existing MSI Deno gateway.
+Zone 1: configured 50 F / OFF, unassigned until BF90 USB setup and explicit confirmation.
+BF90: PA-CLIM-209BA98DBF90. Not registered/ONLINE or physically verified by this deployment.
+Existing Zone 2, 3, 4 bindings, credentials and desired settings retained.
+Production site base: current main 50da67c2355912bfdbdc937030f29ce607e91cd8.
+Published site commit f2e0ee7688ab13c77aea0b6fb87fded8e0db9b9c; deployment dpl_BQQHvGUm1vTZzUvqcdSXJa2jRUcJ.
+Programming & diagnostics now provides PIN-protected Replace controller and scoped Windows USB setup.
+Firmware 2.1.0 holds its output OFF until an authenticated active assignment; GPIO 16 active HIGH retained.
+Existing MSI infrastructure only. See REPLACEMENT_RU.md for the exact owner step and verification boundaries.

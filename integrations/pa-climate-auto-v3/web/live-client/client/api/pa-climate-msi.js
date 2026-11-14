@@ -17,10 +17,23 @@ export default async function handler(req,res){
   if(!user?.id)return send(401,{error:'Invalid Farmplast login'})
   if(!allow.includes(user.id))return send(403,{error:'Climate operator access required'})
   let suffix,body,extra={}
-  if(req.method==='GET')suffix=req.query.view==='releases'?'/releases':req.query.view==='jobs'?'/ota':'/zones'
+  if(req.method==='GET')suffix=req.query.view==='replacements'?'/replacements':req.query.view==='releases'?'/releases':req.query.view==='jobs'?'/ota':'/zones'
   else if(req.method==='POST'){
    const b=req.body||{}
-   if(b.action==='installer')suffix='/installer'
+   if(['replacement_create','replacement_installer','replacement_commit','replacement_cancel'].includes(b.action)){
+    let pinStatus=503,pinBody={error:'PIN check unavailable'}
+    await legacyHandler({method:'POST',headers:req.headers,body:{action:'CHECK_PIN',pin:b.pin}},{setHeader(){},status(code){pinStatus=code;return this},json(value){pinBody=value}})
+    if(pinStatus!==200)return send(pinStatus,pinBody)
+    if(b.action==='replacement_create'){
+     if(!validId(b.zone_id)||!/^[a-f0-9-]{36}$/.test(b.request_id||''))return send(400,{error:'Invalid replacement request'})
+     suffix='/replacements';body=JSON.stringify({zone_id:b.zone_id,request_id:b.request_id,old_device_id:b.old_device_id??null,expected_device_id:b.expected_device_id||null})
+    }else{
+     if(!/^[a-f0-9-]{36}$/.test(b.operation_id||''))return send(400,{error:'Invalid operation identity'})
+     const action=b.action.slice('replacement_'.length);suffix='/replacements/'+b.operation_id+'/'+action
+     if(action==='commit')body=JSON.stringify({new_device_id:b.new_device_id,old_device_id:b.old_device_id??null,restore_mode:b.restore_mode,acknowledge_heat:b.acknowledge_heat===true})
+    }
+    extra={'Content-Type':'application/json'}
+   }else if(b.action==='installer')suffix='/installer'
    else if(['set','mode','heat'].includes(b.action)){
     if(!validId(b.zone_id))return send(400,{error:'Invalid zone'})
     suffix='/zones/'+b.zone_id+'/desired'
