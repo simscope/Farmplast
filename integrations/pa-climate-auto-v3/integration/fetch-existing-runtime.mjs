@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {zipFiles} from '../server/zip.mjs';
+import {ClimateAudit,withClimateAudit} from '../server/audit.mjs';
 
 const reply = (status, body) => Response.json(body, { status, headers: {'Cache-Control':'no-store'} });
 export function nodeHandlerAsFetch(handler) {
@@ -93,7 +94,7 @@ export function createClimateFetch(config, {fetchImpl = fetch} = {}) {
     const headers = new Headers(request.headers); headers.set('authorization','Bearer '+config.adminKey);
     return dispatch(new Request(url, {method:request.method,headers,body:request.body,duplex:'half'}));
   }
-  return {store, async route(request) {
+  const route=async request=>{
     const url = new URL(request.url), p = url.pathname;
     const replacement=p.match(/^\/climate\/workstation\/replacements\/([a-f0-9-]{36})(?:\/(prepare))?$/);
     if(replacement){
@@ -163,5 +164,6 @@ export function createClimateFetch(config, {fetchImpl = fetch} = {}) {
     if (!permitted) return reply(404,{error:'Not found'});
     url.pathname = suffix;
     return dispatch(new Request(url, request));
-  }};
+  };
+  return {store,route:withClimateAudit(route,store,new ClimateAudit(config.auditDir||path.join(config.dir,'audit')))};
 }
