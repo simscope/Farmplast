@@ -1,0 +1,87 @@
+name: PA Climate Windows installer checksums
+
+on:
+  push:
+    branches:
+      - work/pa-climate-auto-msi-20261110
+    paths:
+      - "integrations/pa-climate-auto-v3/automation/**"
+      - ".github/workflows/pa-climate-windows-installer.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "integrations/pa-climate-auto-v3/automation/**"
+      - ".github/workflows/pa-climate-windows-installer.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  windows-powershell-51:
+    runs-on: windows-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify Windows PowerShell manual bootloader prompts and parse
+        shell: powershell
+        run: |
+          $scripts=@(
+            '.\\integrations\\pa-climate-auto-v3\\automation\\Auto-Add-ESP32.ps1',
+            '.\\integrations\\pa-climate-auto-v3\\automation\\Install-Workstation.ps1',
+            '.\\integrations\\pa-climate-auto-v3\\automation\\Replace-Controller.ps1'
+          )
+          foreach($script in $scripts){
+            $errors=$null
+            [void][System.Management.Automation.Language.Parser]::ParseFile($script,[ref]$null,[ref]$errors)
+            if($errors.Count -gt 0){throw "PowerShell syntax error in $script : $($errors | Out-String)"}
+          }
+          $wizard=[IO.File]::ReadAllText($scripts[0])
+          if(-not $wizard.Contains('ESP32 ROM DOWNLOAD MODE')){throw 'Missing IO0+EN first flash instruction'}
+          if(-not $wizard.Contains('USB flash complete. Start the new firmware')){throw 'Missing EN reboot instruction before USB provisioning'}
+      - name: Verify Zone 1 registration-only script has exact device and zone guards
+        shell: powershell
+        run: |
+          $file='integrations/pa-climate-auto-v3/automation/Provision-Zone1-Already-Flashed.ps1'
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$null,[ref]$errors)
+          if($errors.Count -gt 0){throw "PowerShell syntax error: $($errors | Out-String)"}
+          $content=[IO.File]::ReadAllText($file)
+          foreach($guard in @('PA-CLIM-209BA98CD258','pa-zone-1','MIGRATE EXISTING PA ZONE 1','zone_id=$targetZone')){
+            if(-not $content.Contains($guard)){throw "Missing Zone 1 registration guard: $guard"}
+          }
+          foreach($forbidden in @('arduino-cli','esptool.exe','write-flash','erase_flash')){
+            if($content.Contains($forbidden)){throw "Registration script must not flash: $forbidden"}
+          }
+      - name: Verify already-flashed ESP32 provisioning script parses on Windows; no reflash tools
+        shell: powershell
+        run: |
+          $file='.\integrations\pa-climate-auto-v3\automation\Provision-Already-Flashed.ps1'
+          $errors=$null
+          [void][System.Management.Automation.Language.Parser]::ParseFile($file,[ref]$null,[ref]$errors)
+          if($errors.Count -gt 0){throw "PowerShell syntax error: $($errors | Out-String)"}
+          $text=[IO.File]::ReadAllText($file)
+          foreach($word in @('arduino-cli','esptool.exe','write-flash','erase_flash')){
+            if($text.Contains($word)){throw "Provision-only script must not invoke compiler or flash tools: $word"}
+          }
+          if(-not $text.Contains("FP1:")){throw 'Provision-only script must send FP1 data to device NVS'}
+          if(-not $text.Contains('device-secrets.dpapi')){throw 'Provision-only script does not reuse cached device secrets'}
+          Write-Host 'PASS: PowerShell 5.1 syntax and no-compiler/no-reflash provisioning path'
+      - name: Verify esptool 5.4.0 no-reset CLI arguments without ESP32
+        shell: powershell
+        run: |
+          python -m pip install --disable-pip-version-check esptool==5.4.0
+          if($LASTEXITCODE -ne 0){throw 'esptool v5.4.0 installation failed'}
+          python -m esptool --chip esp32 --port COM4 --baud 115200 --before no-reset --after no-reset read-mac --help | Out-Null
+          if($LASTEXITCODE -ne 0){throw 'esptool v5.4.0 CLI arguments rejected'}
+      - name: Verify esptool v5 command handling and unmasked serial errors (no hardware)
+        shell: powershell
+        run: |
+          node --test integrations/pa-climate-auto-v3/automation/onboard.test.mjs
+      - name: Verify official SHA256 validation and archive extraction on Windows PowerShell 5.1
+        shell: powershell
+        run: |
+          & .\integrations\pa-climate-auto-v3\automation\tests\installer-checksums.test.ps1
+      - name: Verify replacement OTA metadata and safe application-slot selection
+        shell: powershell
+        run: |
+          & .\integrations\pa-climate-auto-v3\automation\tests\replacement-helpers.test.ps1

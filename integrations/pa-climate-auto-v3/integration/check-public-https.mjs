@@ -1,0 +1,76 @@
+// Synthetic protocol verification on the real production HTTPS route, NOT a board test.
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import assert from 'node:assert/strict';
+import {loadConfig} from '../server/config.mjs';
+const c=loadConfig(process.argv[2]),phase=process.argv[3]||'begin',base=c.PUBLIC_ORIGIN,local=c.CLIMATE_LOCAL_BASE_URL;
+assert.equal(base,'https://farmplast.vercel.app/climate');
+const folder=path.join(c.DATA_DIR,'validation'),sessionFile=path.join(folder,'public-synthetic-session.json');fs.mkdirSync(folder,{recursive:true});
+const evidence={at:new Date().toISOString(),synthetic:true,physical_test:false,checks:[]};
+const check=(name,value)=>{assert.ok(value,name);evidence.checks.push(name);};
+async function request(base,p,method='GET',token,body,extra={}){
+ const r=await fetch(base+p,{method,headers:{...(token?{Authorization:'Bearer '+token}:{}),...(body&&!Buffer.isBuffer(body)?{'Content-Type':'application/json'}:{}),...extra},body:body===undefined?undefined:Buffer.isBuffer(body)?body:JSON.stringify(body),redirect:'error',signal:AbortSignal.timeout(25000)});
+ const type=r.headers.get('content-type')||'';
+ return {status:r.status,body:type.includes('json')?await r.json():Buffer.from(await r.arrayBuffer())};
+}
+const admin=(p,method='GET',body,extra={})=>request(local,'/v1/admin'+p,method,c.CLIMATE_ADMIN_KEY,body,extra);
+if(phase==='begin'){
+ check('real production HTTPS reaches MSI',(await request(base,'/healthz')).body.service==='farmplast-pa-climate');
+ for(const method of ['GET','POST'])check('public admin denied '+method,(await request(base,'/v1/admin/zones',method,c.CLIMATE_ADMIN_KEY)).status===404);
+ check('site API rejects missing JWT',(await request('https://farmplast.vercel.app','/api/pa-climate-msi')).status===401);
+ check('workstation access requires scoped credential',(await request(base,'/workstation/zones')).status===401);
+ const ticket=await admin('/workstations','POST',{name:'SYNTHETIC HTTPS validation'});check('ticket issued locally',ticket.status===201);
+ const enrolled=await request(base,'/workstation/enroll','POST',null,{ticket:ticket.body.ticket});check('HTTPS enrollment accepted',enrolled.status===201);
+ const key=enrolled.body.workstation_token;
+ const state={workstationId:enrolled.body.workstation_id,key,id:'PA-CLIM-FEFFFFFFFFF0',zone:'pa-zone-9999'};
+ fs.writeFileSync(sessionFile,JSON.stringify(state),{mode:0o600,flag:'wx'});
+ check('one-use ticket cannot be replayed',(await request(base,'/workstation/enroll','POST',null,{ticket:ticket.body.ticket})).status===401);
+ const model='PA-ESP32-WROOM32E-N4-R1';
+ const registered=await request(base,'/workstation/devices','POST',key,{device_id:state.id,zone_id:state.zone,model});check('HTTPS registration accepted',registered.status===201);
+ state.token=registered.body.device_token;state.otaKey=registered.body.ota_hmac_key;fs.writeFileSync(sessionFile,JSON.stringify(state),{mode:0o600});
+ check('duplicate registration rejected',(await request(base,'/workstation/devices','POST',key,{device_id:state.id,zone_id:state.zone,model})).status===409);
+ const report={protocol_version:1,device_id:state.id,model,firmware:'SYNTHETIC-PREVIOUS',boot_id:'SYNTHETICBOOT1',sensor_1_f:69,sensor_2_f:73,temperature_f:71,sensor_count:2,target_f:72,mode:'AUTO',heat:false,relay_armed:true,revision:1,last_ota_job:'',rollback_enabled:true,ota_boot_validated:true};
+ const exchange=fields=>request(base,'/v1/exchange','POST',state.token,{...report,...fields});
+ check('wrong device credential rejected',(await request(base,'/v1/exchange','POST','x'.repeat(43),report)).status===401);
+ check('two sensor HTTPS exchange accepted',(await exchange({})).status===200);
+ let z=(await admin('/zones')).body.zones.find(z=>z.id===state.zone);check('MSI stores T1, T2 and average',z.reported.sensor_1_f===69&&z.reported.sensor_2_f===73&&z.reported.temperature_f===71);
+ check('single sensor fallback accepted',(await exchange({sensor_2_f:null,temperature_f:69,sensor_count:1})).status===200);
+ z=(await admin('/zones')).body.zones.find(z=>z.id===state.zone);check('degraded state explicit',z.reported.degraded===true);
+ check('both sensor readings absent accepted',(await exchange({sensor_1_f:null,sensor_2_f:null,temperature_f:null,sensor_count:0,heat:false})).status===200);
+ const cmd=await admin('/zones/'+state.zone+'/desired','POST',{target_f:73,mode:'OFF'});check('MSI command revision issued',cmd.body.desired.revision===2);
+ z=(await admin('/zones')).body.zones.find(z=>z.id===state.zone);check('no false command ACK before report',z.command_ack.status==='pending');
+ check('HTTPS command ACK accepted',(await exchange({revision:2,target_f:73,mode:'OFF'})).status===200);
+ z=(await admin('/zones')).body.zones.find(z=>z.id===state.zone);check('command ACK matches reported revision',z.command_ack.status==='applied');
+ const image=fs.readFileSync(path.join(folder,'candidate-build','FarmplastClimate.ino.bin')),sha=crypto.createHash('sha256').update(image).digest('hex');
+ const uploaded=await request(base,'/workstation/releases','POST',key,image,{'Content-Type':'application/octet-stream','X-Firmware-Model':model,'X-Firmware-Version':'pa-climate-msi-2.0.0'});check('full binary uploaded from workstation HTTPS',uploaded.status===201&&uploaded.body.sha256===sha);
+ const job=await admin('/ota','POST',{device_id:state.id,sha256:sha,confirm:'STAGE PA OTA'});check('synthetic OTA job queued',job.status===201);
+ const delivered=await exchange({revision:2,target_f:73,mode:'OFF'});const ota=delivered.body.ota;check('signed OTA manifest delivered over HTTPS',!!ota&&ota.job_id===job.body.job_id);
+ const message=`PA-OTA-V1\n${state.id}\n${model}\n${ota.job_id}\n${ota.version}\n${ota.url}\n${ota.sha256}`;
+ check('manifest HMAC matches per-device key',crypto.createHmac('sha256',state.otaKey).update(message).digest('hex')===ota.hmac_sha256);
+ check('unsigned firmware request denied',(await request(base,'/v1/firmware/'+sha)).status===403);
+ const url=new URL(ota.url),start=Date.now(),download=await request(url.origin,url.pathname+url.search);
+ check('signed full firmware downloaded over HTTPS',download.status===200&&Buffer.isBuffer(download.body)&&crypto.createHash('sha256').update(download.body).digest('hex')===sha);
+ evidence.firmware_download_ms=Date.now()-start;evidence.firmware_bytes=image.length;
+ url.searchParams.set('sig','0'.repeat(64));check('tampered signature denied',(await request(url.origin,url.pathname+url.search)).status===403);
+ const after={revision:2,target_f:73,mode:'OFF',firmware:'pa-climate-msi-2.0.0',boot_id:'SYNTHETICBOOT2',last_ota_job:ota.job_id,ota_boot_validated:false};
+ await exchange(after);check('new boot alone does not complete OTA',(await admin('/ota')).body.jobs.find(j=>j.id===ota.job_id).status==='delivered');
+ await exchange({...after,ota_boot_validated:true});check('explicit app validation completes synthetic job',(await admin('/ota')).body.jobs.find(j=>j.id===ota.job_id).status==='completed');
+ state.lastSeen=Date.now();state.sha=sha;fs.writeFileSync(sessionFile,JSON.stringify(state),{mode:0o600});
+}else if(phase==='offline'){
+ const state=JSON.parse(fs.readFileSync(sessionFile,'utf8'));
+ assert.ok(Date.now()-state.lastSeen>=61000,'Wait 61s without synthetic reports');
+ const zones=await request(base,'/workstation/zones','GET',state.key);
+ check('Wi-Fi/report loss becomes offline',zones.body.zones.find(z=>z.id===state.zone)?.online===false);
+ const z=(await admin('/zones')).body.zones.find(z=>z.id===state.zone);check('stale temperatures not returned as live',z.reported===null);
+ check('scoped workstation revoked',(await admin('/workstations','DELETE',{id:state.workstationId})).status===200);
+ check('revoked workstation denied over HTTPS',(await request(base,'/workstation/zones','GET',state.key)).status===401);
+}else if(phase==='cleanup-stopped-runtime'){
+ const state=JSON.parse(fs.readFileSync(sessionFile,'utf8')),dir=path.join(c.DATA_DIR,'data'),file=path.join(dir,'climate-state.json'),data=JSON.parse(fs.readFileSync(file,'utf8'));
+ assert.equal(data.devices[state.id]?.zone_id,state.zone);delete data.devices[state.id];delete data.zones[state.zone];
+ for(const [id,job]of Object.entries(data.jobs))if(job.device_id===state.id)delete data.jobs[id];fs.writeFileSync(file,JSON.stringify(data,null,2)+'\n',{mode:0o600});
+ const wf=path.join(dir,'workstations.json'),w=JSON.parse(fs.readFileSync(wf,'utf8'));delete w.clients[state.workstationId];fs.writeFileSync(wf,JSON.stringify(w),{mode:0o600});fs.unlinkSync(sessionFile);
+ check('synthetic controller and jobs removed; release retained',true);
+}else throw Error('Unknown phase');
+fs.writeFileSync(path.join(folder,'public-https-'+phase+'.json'),JSON.stringify(evidence,null,2));
+console.log(JSON.stringify({phase,passed:evidence.checks.length,synthetic:true,firmware_bytes:evidence.firmware_bytes,download_ms:evidence.firmware_download_ms}));

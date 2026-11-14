@@ -1,0 +1,47 @@
+--- lds.template.yaml.before
++++ lds.template.yaml
+@@ -58,0 +59,44 @@
++                      - name: climate-public
++                        match:
++                          prefix: /climate/
++                        route:
++                          cluster: functions
++                          timeout: 20s
++                        typed_per_filter_config:
++                          envoy.filters.http.basic_auth:
++                            '@type': type.googleapis.com/envoy.config.route.v3.FilterConfig
++                            disabled: true
++                          envoy.filters.http.rbac:
++                            '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBACPerRoute
++                            rbac:
++                              rules:
++                                action: ALLOW
++                                policies:
++                                  climate_dispatch:
++                                    permissions:
++                                      - any: true
++                                    principals:
++                                      - any: true
++
++                      - name: climate-loopback-management
++                        match:
++                          prefix: /climate-local/
++                        route:
++                          cluster: functions
++                          timeout: 20s
++                        typed_per_filter_config:
++                          envoy.filters.http.basic_auth:
++                            '@type': type.googleapis.com/envoy.config.route.v3.FilterConfig
++                            disabled: true
++                          envoy.filters.http.rbac:
++                            '@type': type.googleapis.com/envoy.extensions.filters.http.rbac.v3.RBACPerRoute
++                            rbac:
++                              rules:
++                                action: ALLOW
++                                policies:
++                                  climate_dispatch:
++                                    permissions:
++                                      - any: true
++                                    principals:
++                                      - any: true
++

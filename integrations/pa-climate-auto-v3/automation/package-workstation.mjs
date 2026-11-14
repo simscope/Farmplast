@@ -1,0 +1,28 @@
+// Build on MSI after PUBLIC_ORIGIN is verified. Never include climate.env or admin key.
+import fs from 'node:fs';
+import path from 'node:path';
+import {fileURLToPath} from 'node:url';
+import {spawnSync} from 'node:child_process';
+import {loadConfig} from '../server/config.mjs';
+const config=loadConfig(process.argv[2]);
+const endpoint=new URL(config.PUBLIC_ORIGIN);
+if(endpoint.protocol!=='https:'||endpoint.port&&endpoint.port!=='443'||endpoint.pathname!=='/climate'||endpoint.username||endpoint.password||endpoint.search||endpoint.hash)throw Error('Verified PUBLIC_ORIGIN /climate is required before packaging');
+const health=await fetch(endpoint.href+'/healthz',{redirect:'error',signal:AbortSignal.timeout(10000)});
+if(!health.ok||(await health.json()).service!=='farmplast-pa-climate')throw Error('Public MSI climate health check failed');
+const r=await fetch(config.CLIMATE_LOCAL_BASE_URL+'/v1/admin/workstations',{method:'POST',headers:{Authorization:'Bearer '+config.CLIMATE_ADMIN_KEY,'Content-Type':'application/json'},body:JSON.stringify({name:'Farmplast PA Windows'}),redirect:'error'});
+if(!r.ok)throw Error('Local workstation ticket creation failed');
+const ticket=await r.json();
+const source=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');
+const dest=path.join(config.DATA_DIR,'workstation-installer');
+if(fs.existsSync(dest))throw Error('Installer directory already exists; preserve or archive the previous package first');
+fs.cpSync(path.join(source,'firmware'),path.join(dest,'module','firmware'),{recursive:true});
+for(const folder of ['automation','server'])fs.mkdirSync(path.join(dest,'module',folder),{recursive:true});
+for(const name of ['Auto-Add-ESP32.ps1','Install-Workstation.ps1','onboard.mjs'])fs.copyFileSync(path.join(source,'automation',name),path.join(dest,'module','automation',name));
+fs.copyFileSync(path.join(source,'server','config.mjs'),path.join(dest,'module','server','config.mjs'));
+fs.writeFileSync(path.join(dest,'workstation-bootstrap.json'),JSON.stringify({public_origin:endpoint.href,...ticket}),{mode:0o600,flag:'wx'});
+fs.writeFileSync(path.join(dest,'Add-ESP32.cmd'),'@echo off\r\npowershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0module\\automation\\Install-Workstation.ps1"\r\npause\r\n');
+const zip=path.join(config.DATA_DIR,'Farmplast-PA-Add-ESP32.zip');
+if(fs.existsSync(zip))throw Error('Previous installer archive exists; preserve it first');
+const packed=spawnSync('powershell.exe',['-NoProfile','-NonInteractive','-Command','Compress-Archive -LiteralPath $env:FP_INSTALLER_SOURCE -DestinationPath $env:FP_INSTALLER_ZIP -ErrorAction Stop'],{env:{...process.env,FP_INSTALLER_SOURCE:dest,FP_INSTALLER_ZIP:zip,PSModulePath:path.join(process.env.SystemRoot,'System32','WindowsPowerShell','v1.0','Modules')},windowsHide:true,encoding:'utf8',timeout:30000});
+if(packed.status!==0||packed.error)throw Error('Could not package factory installer archive');
+console.log('Factory installer prepared. Enrollment ticket expires in 10 minutes; existing enrolled workstation uses DPAPI on subsequent runs. No MSI admin key included.');
