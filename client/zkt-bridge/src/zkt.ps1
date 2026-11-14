@@ -16,7 +16,11 @@ try {
     if ([string]$request.expectedSerialNumber -ne '') {
         if (!$zk.GetSerialNumber($machine,[ref]$identitySerial) -or $identitySerial -ne [string]$request.expectedSerialNumber) { throw 'Terminal serial identity mismatch' }
     }
-    try { $zk.EnableDevice($machine, $false) | Out-Null; $disabled = $true } catch {}
+    if (!$request.readOnly) {
+        try { $zk.EnableDevice($machine, $false) | Out-Null; $disabled = $true } catch {}
+    } elseif ([string]$request.operation -notin @('test','pull_attendance')) {
+        throw 'Read-only SDK request cannot modify terminal accounts'
+    }
     switch ([string]$request.operation) {
         'test' {
             $users=0; $logs=0; $serial=''; $firmware=''

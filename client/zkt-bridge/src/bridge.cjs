@@ -102,7 +102,9 @@ async function selfTest() {
 async function main() {
   if (process.argv.includes("--self-test")) return selfTest();
   const offline = process.argv.includes("--serve-offline"),
-    live = process.argv.includes("--live");
+    mappedOnce = process.argv.includes("--pull-mapped-once"),
+    probe = process.argv.includes("--probe-live"),
+    live = process.argv.includes("--live") || mappedOnce || probe;
   if (!offline && !live)
     throw core.fail(
       "Candidate v2 is not deployed. Use --self-test or --serve-offline; live mode requires explicit approval/configuration.",
@@ -152,6 +154,16 @@ async function main() {
     sdk = mockSdk;
   }
   const cfg = core.config(env);
+  if (mappedOnce || probe) {
+    const release = await core.singleton('farmplast-zkt-mapped-attendance');
+    try {
+      const result = await require('./mapped-attendance.cjs').collect({
+        client, cfg, env, probe, signal:AbortSignal.timeout(cfg.commandMs),
+      });
+      console.log(JSON.stringify(result));
+      return;
+    } finally { await release(); }
+  }
   if (cfg.endHour <= cfg.startHour)
     throw core.fail("Invalid work-hour window", "CONFIG");
   const stateDir = path.resolve(
