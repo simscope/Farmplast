@@ -330,7 +330,7 @@ function buildEmployeeEditForm(employee = {}, profile = {}) {
     employer_form: employee.employer_form || 'W2',
     company_id: employee.company_id || null,
     company_name: employee.company_name || '',
-    zkt_enabled: employee.zkt_enabled !== false,
+    zkt_enabled: employee.zkt_enabled !== false || employee.zkt_sync_status === 'pending',
     zkt_name: employee.zkt_name || '',
     zkt_password: employee.zkt_password || '',
     zkt_card_number: employee.zkt_card_number ?? '',

@@ -37,10 +37,10 @@ try {
             $refresh=$false; try { $refresh=$zk.RefreshData($machine) } catch {}
             $code=0; if(!$set){try{$zk.GetLastError([ref]$code)|Out-Null}catch{}}
             $answer=@{ok=[bool]$set;message=$(if($set){'SSR_SetUserInfo OK'}else{'SSR_SetUserInfo failed'});errorCode=$code;user=@{userId=$u.userId;name=$u.name;passwordSet=([string]$u.password -ne '');privilege=$u.privilege;cardNo=$u.cardNo;enabled=$u.enabled};sdk=@{cardResult=[bool]$card;setResult=[bool]$set;refreshResult=[bool]$refresh}}
-            if ([string]$request.operation -eq 'identity_activate_employee') {
+            if ([string]$request.operation -eq 'identity_activate_employee' -or $request.verifyUser) {
                 $name='';$password='';$privilege=0;$enabled=$false
                 $read=$zk.SSR_GetUserInfo($machine,[string]$u.userId,[ref]$name,[ref]$password,[ref]$privilege,[ref]$enabled)
-                $answer=@{ok=([bool]$set -and [bool]$read -and [bool]$enabled);userId=[string]$u.userId;enabled=[bool]$enabled;readBackVerified=[bool]$read;serialNumber=$identitySerial}
+                $answer=@{ok=([bool]$set -and [bool]$read -and [bool]$enabled);userId=[string]$u.userId;name=$name;enabled=[bool]$enabled;readBackVerified=[bool]$read;serialNumber=$identitySerial}
             }
         }
         'identity_disable_employee' {
@@ -69,6 +69,16 @@ try {
             }
         }
         'pull_attendance' {
+            $users=New-Object 'System.Collections.Generic.List[object]'
+            if($request.includeUsers){
+                if(!$zk.ReadAllUserID($machine)){throw 'SDK user inventory read failed'}
+                $id='';$name='';$password='';$privilege=0;$enabled=$false
+                while($zk.SSR_GetAllUserInfo($machine,[ref]$id,[ref]$name,[ref]$password,[ref]$privilege,[ref]$enabled)){
+                    $users.Add(@{id=[string]$id;name=$name;enabled=[bool]$enabled})
+                    $id='';$name='';$password='';$privilege=0;$enabled=$false
+                    if($users.Count -gt 5000){throw 'Invalid SDK user inventory size'}
+                }
+            }
             $rows=New-Object 'System.Collections.Generic.List[object]'
             $read=$zk.ReadGeneralLogData($machine)
             if($read){
@@ -81,6 +91,7 @@ try {
             }
             $code=0;if(!$read){try{$zk.GetLastError([ref]$code)|Out-Null}catch{}}
             $answer=@{ok=[bool]$read;message=$(if($read){'Attendance logs read OK'}else{'ReadGeneralLogData failed'});errorCode=$code;count=$rows.Count;logs=@($rows.ToArray())}
+            if($request.includeUsers){$answer.users=@($users.ToArray())}
         }
         default { throw 'Unknown SDK operation' }
     }

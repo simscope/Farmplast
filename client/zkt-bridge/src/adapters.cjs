@@ -1,7 +1,7 @@
 "use strict";
 const { fail } = require("./core.cjs");
-function supabaseAdapter(client, plant = 'NJ') {
-  const queueStatus = plant === 'PA' ? 'pending_pa' : 'pending';
+function supabaseAdapter(client, plant = 'NJ', commonAttendance=false) {
+  const queueStatus = commonAttendance ? 'pending_attendance' : plant === 'PA' ? 'pending_pa' : 'pending';
   const unwrap = async (q) => {
     const { data, error } = await q;
     if (error) throw error;
@@ -48,7 +48,7 @@ function supabaseAdapter(client, plant = 'NJ') {
         client
           .from("employees")
           .select(
-            "id,employee_number,first_name,last_name,active,zkt_user_id,zkt_name,zkt_password,zkt_card_number,zkt_privilege,zkt_enabled",
+            "id,employee_number,plant_location,first_name,last_name,active,zkt_user_id,zkt_name,zkt_password,zkt_card_number,zkt_privilege,zkt_enabled,zkt_sync_status",
           )
           .eq("id", id)
           .single()
@@ -72,6 +72,15 @@ function supabaseAdapter(client, plant = 'NJ') {
       unwrap(
         client.rpc("process_zkt_attendance_to_work_logs").abortSignal(signal),
       ),
+    validateAssignment: (employeeId,deviceKey,serial,signal) => unwrap(client.rpc('validate_zkt_assignment_sync',{
+      p_employee_id:employeeId,p_device_key:deviceKey,p_serial_number:serial,
+    }).abortSignal(signal)),
+    confirmAssignments: (deviceKey,serial,users,signal) => unwrap(client.rpc('confirm_zkt_assignment_readback',{
+      p_device_key:deviceKey,p_serial_number:serial,p_users:users,
+    }).abortSignal(signal)),
+    importBatch: (deviceKey,serial,events,signal) => unwrap(client.rpc('ingest_zkt_attendance_batch',{
+      p_device_key:deviceKey,p_serial_number:serial,p_events:events,
+    }).abortSignal(signal)),
     identityAttendance: (deviceKey,serial,rows,signal) => unwrap(client.rpc('ingest_zkt_identity_events',{
       p_device_key:deviceKey,p_serial_number:serial,p_events:rows,
     }).abortSignal(signal)),

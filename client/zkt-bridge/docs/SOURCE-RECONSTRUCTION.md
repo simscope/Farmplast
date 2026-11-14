@@ -1,5 +1,10 @@
 # Source reconstruction assessment — 2026-09-08
 
+Release update, 2026-11-13: the common attendance and individual-sync paths now
+have independent live verification and run in the separate NJ attendance
+service. See [GENERAL-ATTENDANCE.md](GENERAL-ATTENDANCE.md). The historical
+assessment below still applies to replacing the complete legacy worker.
+
 Candidate v2 is editable and buildable. It is **not production-equivalence verified**
 and was not deployed. Historical EXE SHA256:
 `5A45D0F09506336D4A771C79EE942DDF407B12AAD54607B4DAF5BE39030DFF60`.

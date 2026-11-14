@@ -21,7 +21,8 @@ No production secrets, employee records, logs, or SSH keys belong in this tree.
 
 See [BUILD.md](docs/BUILD.md), [PRODUCTION-CONTRACT.md](docs/PRODUCTION-CONTRACT.md), and [SOURCE-RECONSTRUCTION.md](docs/SOURCE-RECONSTRUCTION.md). The candidate implements test, sync_one_employee and pull_attendance. It has offline tests and a pinned build, but production equivalence is NOT verified. The historical binary remains the production queue worker.
 
-The separate [mapped attendance companion](docs/MAPPED-ATTENDANCE.md) uses only
-the new one-shot, read-only SDK mode to supply device-verified ownership evidence
-for explicitly mapped IDs. It does not replace the historical service or claim
-its command queue.
+The [common attendance importer](docs/GENERAL-ATTENDANCE.md) processes every
+employee through device-verified assignment intervals. The NJ attendance worker
+owns attendance and individual sync commands; the historical service retains
+bulk sync, verify, test and delete. PA uses the editable Linux bridge in
+`linux/`. Employee-specific companion tasks and allowlists are retired.

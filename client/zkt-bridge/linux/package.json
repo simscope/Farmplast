@@ -1,0 +1,15 @@
+{
+  "name": "farmplast-zkt-linux-bridge",
+  "private": true,
+  "version": "1.0.0",
+  "main": "bridge.cjs",
+  "scripts": {
+    "start": "node bridge.cjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "2.39.7",
+    "cross-fetch": "4.0.0",
+    "dotenv": "16.4.7",
+    "node-zklib": "1.3.0"
+  }
+}

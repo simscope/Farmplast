@@ -102,9 +102,10 @@ async function selfTest() {
 async function main() {
   if (process.argv.includes("--self-test")) return selfTest();
   const offline = process.argv.includes("--serve-offline"),
-    mappedOnce = process.argv.includes("--pull-mapped-once"),
+    allOnce = process.argv.includes('--pull-all-once'),
+    drainOnce = process.argv.includes('--drain-once'),
     probe = process.argv.includes("--probe-live"),
-    live = process.argv.includes("--live") || mappedOnce || probe;
+    live = process.argv.includes("--live") || probe || allOnce || drainOnce;
   if (!offline && !live)
     throw core.fail(
       "Candidate v2 is not deployed. Use --self-test or --serve-offline; live mode requires explicit approval/configuration.",
@@ -141,7 +142,8 @@ async function main() {
         realtime: { transport: WS },
       },
     );
-    db = supabaseAdapter(client,core.config(env).plant);
+    if(process.argv.includes('--common-attendance') || allOnce || drainOnce)env.ZKT_COMMON_ATTENDANCE='true';
+    db = supabaseAdapter(client,core.config(env).plant,core.config(env).commonAttendance);
     sdk = core.powershell;
   } else {
     env = {
@@ -154,15 +156,23 @@ async function main() {
     sdk = mockSdk;
   }
   const cfg = core.config(env);
-  if (mappedOnce || probe) {
-    const release = await core.singleton('farmplast-zkt-mapped-attendance');
-    try {
-      const result = await require('./mapped-attendance.cjs').collect({
-        client, cfg, env, probe, signal:AbortSignal.timeout(cfg.commandMs),
-      });
-      console.log(JSON.stringify(result));
-      return;
-    } finally { await release(); }
+  if(drainOnce){
+    const release=await core.singleton('farmplast-zkt-common-attendance');
+    const worker=new core.Worker({db,sdk,cfg:{...cfg,autoHours:[]},store:core.stateStore(path.resolve(arg('--state-dir') || path.join(path.dirname(path.resolve(arg('--config'))),'state'))),log,
+      redact:core.redactor([env.SUPABASE_SERVICE_ROLE_KEY,env.SUPABASE_KEY,env.ZKT_WAKE_TOKEN])});
+    try{await worker.wake();console.log(JSON.stringify({ok:true,queueDrained:true}));return}
+    finally{await worker.close();await release()}
+  }
+  if(allOnce){
+    const release=await core.singleton('farmplast-zkt-common-attendance');
+    try{console.log(JSON.stringify(await core.dispatch({command:'pull_attendance',payload:{plant_location:cfg.plant}},{cfg,db,sdk,signal:AbortSignal.timeout(cfg.commandMs)})));return}
+    finally{await release()}
+  }
+  if (probe) {
+    if(!cfg.deviceKey)throw core.fail('Verified device identity required','CONFIG');
+    const result=await sdk({operation:'test',ip:cfg.ip,port:cfg.port,machine:cfg.machine,expectedSerialNumber:cfg.serialNumber,readOnly:true},{signal:AbortSignal.timeout(cfg.commandMs),timeoutMs:cfg.childMs});
+    if(!result.ok || result.serialNumber!==cfg.serialNumber)throw core.fail('Physical serial readback failed','IDENTITY');
+    console.log(JSON.stringify({ok:true,device_key:cfg.deviceKey,serialNumber:result.serialNumber,readOnly:true}));return;
   }
   if (cfg.endHour <= cfg.startHour)
     throw core.fail("Invalid work-hour window", "CONFIG");
@@ -181,7 +191,7 @@ async function main() {
       env.ZKT_WAKE_TOKEN,
     ]),
   });
-  const release = await core.singleton();
+  const release = await core.singleton(cfg.commonAttendance?'farmplast-zkt-common-attendance':undefined);
   let closing = false,
     server,
     channel,

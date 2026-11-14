@@ -603,7 +603,7 @@ export default function DashboardPage() {
       if (error) throw error
       if (!data) throw new Error('Command not found')
 
-      if (data.status === 'pending' || data.status === 'pending_pa') {
+      if (['pending','pending_pa','pending_attendance'].includes(data.status)) {
         setZkStatus(`${label}: waiting for bridge... (${attempt}/${maxAttempts})`)
       }
 
@@ -800,7 +800,7 @@ export default function DashboardPage() {
       company_name: employee.company_name || '',
       company_id: employee.company_id || null,
       photo_url: employee.photo_url || '',
-      zkt_enabled: employee.zkt_enabled ?? true,
+      zkt_enabled: employee.zkt_enabled !== false || employee.zkt_sync_status === 'pending',
       zkt_name: employee.zkt_name || '',
       zkt_password: employee.zkt_password || '',
       zkt_card_number: employee.zkt_card_number ?? '',

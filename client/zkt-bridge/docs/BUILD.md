@@ -1,5 +1,11 @@
 # Candidate v2 build and offline verification
 
+Current release: the independently tested common attendance/individual-sync
+paths are deployed in the separate NJ service described in
+[GENERAL-ATTENDANCE.md](GENERAL-ATTENDANCE.md). The historical executable keeps
+the remaining commands and its original hash. The full reconstructed queue
+worker is still not a replacement for that executable.
+
 This builds a reconstructed candidate, not the historical executable. Do not use
 the recovery installers to deploy this candidate. The historical runtime and its
 SHA256 remain unchanged. Full production equivalence has not been established.

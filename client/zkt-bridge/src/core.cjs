@@ -57,8 +57,10 @@ function config(env) {
   const deviceKey = env.ZKT_IDENTITY_DEVICE_KEY || '';
   const serialNumber = env.ZKT_EXPECTED_SERIAL_NUMBER || '';
   if (Boolean(deviceKey) !== Boolean(serialNumber)) throw fail('Device identity key and expected serial must be configured together','CONFIG');
+  const commonAttendance=env.ZKT_COMMON_ATTENDANCE === 'true';
+  if(commonAttendance && (!deviceKey || plant!=='NJ'))throw fail('NJ common attendance requires verified device identity','CONFIG');
   return {
-    plant, deviceKey, serialNumber,
+    plant, deviceKey, serialNumber, commonAttendance,
     ip,
     port: number("ZKT_PORT", 4370, 1, 65535),
     machine: number("ZKT_MACHINE_NUMBER", 1),
@@ -288,6 +290,9 @@ async function dispatch(
         machine: cfg.machine,
         user,
         expectedSerialNumber: cfg.serialNumber,
+        readOnly: cfg.commonAttendance && command.command==='pull_attendance',
+        includeUsers: cfg.commonAttendance && command.command==='pull_attendance',
+        verifyUser: cfg.commonAttendance && command.command==='sync_one_employee',
       },
       { signal, timeoutMs: cfg.childMs },
     );
@@ -324,13 +329,23 @@ async function dispatch(
     const id = payload.employee_id || payload.id;
     const emp = await db.employee(id, signal);
     check(signal);
-    const user = employeePayload(emp);
+    if(cfg.commonAttendance){
+      if(emp.plant_location!==cfg.plant)throw fail('Employee belongs to a different plant','PLANT');
+      await db.validateAssignment(emp.id,cfg.deviceKey,cfg.serialNumber,signal);
+    }
+    const requested=cfg.commonAttendance && emp.zkt_sync_status==='pending';
+    const user = employeePayload(requested?{...emp,zkt_enabled:true}:emp);
     let result;
     try {
       result = await callSdk(user);
     } catch (e) {
       e.message = redactor([user.password])(e.message);
       throw e;
+    }
+    if(cfg.commonAttendance){
+      if(result.serialNumber!==cfg.serialNumber || result.readBackVerified!==true || result.userId!==user.userId || result.enabled!==true || result.name!==user.name)throw fail('Employee SDK readback does not match requested identity','IDENTITY');
+      const confirmed=await db.confirmAssignments(cfg.deviceKey,result.serialNumber,[{id:result.userId,name:result.name,enabled:true}],signal);
+      if(!confirmed.accepted)throw fail('Employee assignment could not be confirmed','IDENTITY');
     }
     await db.employeeStatus(
       id,
@@ -354,6 +369,7 @@ async function dispatch(
     };
   }
   const result = await callSdk();
+  if(cfg.commonAttendance)return require('./common-attendance.cjs').importAttendance(result,{db,cfg,signal,now});
   const logs = Array.isArray(result.logs) ? result.logs : [];
   if (cfg.deviceKey) {
     if (result.serialNumber !== cfg.serialNumber) throw fail('Attendance serial identity mismatch','IDENTITY');
@@ -462,10 +478,12 @@ class Worker {
     Object.assign(this, { db, sdk, cfg, store, log, redact, shutdown });
     this.active = null;
     this.again = false;
+    this.autoRetryAfter=new Map();
   }
   async finish(entry) {
     if (entry.auto) {
-      this.store.markAuto(entry.id);
+      if(this.cfg.commonAttendance && entry.terminal?.status==='error')this.autoRetryAfter.set(entry.id,Date.now()+60000);
+      else this.store.markAuto(entry.id);
       this.store.clear();
       return;
     }
@@ -497,7 +515,7 @@ class Worker {
         day = `${d.getFullYear()}-${d.getMonth() + 1}-${d.getDate()}`;
       const hour = this.cfg.autoHours
         .filter((h) => h <= d.getHours())
-        .find((h) => !this.store.autoDone().includes(`auto:${day}:${h}`));
+        .find((h) => !this.store.autoDone().includes(`auto:${day}:${h}`) && (this.autoRetryAfter.get(`auto:${day}:${h}`)||0)<=Date.now());
       if (hour !== undefined)
         command = {
           id: `auto:${day}:${hour}`,
