@@ -9,7 +9,8 @@ export const permittedPath=(method,p,operator=false)=>
   ||method==='GET'&&/^\/climate\/v1\/firmware\/[a-f0-9]{64}$/.test(p)
   ||method==='POST'&&['/climate/workstation/enroll','/climate/workstation/devices','/climate/workstation/releases'].includes(p)
   ||method==='GET'&&p==='/climate/workstation/zones'
-  ||operator&&['GET','POST'].includes(method)&&/^\/climate\/operator\/(zones(?:\/[A-Za-z0-9_-]{1,64}\/desired)?|releases|ota|installer)$/.test(p);
+  ||['GET','POST'].includes(method)&&/^\/climate\/workstation\/replacements\/[a-f0-9-]{36}(?:\/prepare)?$/.test(p)
+  ||operator&&['GET','POST'].includes(method)&&/^\/climate\/operator\/(zones(?:\/[A-Za-z0-9_-]{1,64}\/desired)?|releases|ota|installer|replacements(?:\/[a-f0-9-]{36}\/(?:commit|cancel|installer))?)$/.test(p);
 export function codec(secret) {
   if(typeof secret!=='string'||!/^[a-f0-9]{64}$/.test(secret))throw Error('Transport key missing');
   const key=crypto.createHash('sha256').update('farmplast-v1:'+secret).digest();

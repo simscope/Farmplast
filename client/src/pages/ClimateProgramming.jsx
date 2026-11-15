@@ -3,6 +3,7 @@ import {Link} from 'react-router-dom'
 import '../components/monitoring/pa/pa.css'
 import '../components/monitoring/pa/climateControl.css'
 import MsiOta from '../components/monitoring/pa/MsiOta'
+import ControllerReplacement from '../components/monitoring/pa/ControllerReplacement'
 const sha='7a31edc3c867c86385fb9e3d03c5889d1937685383eaf8d9988dad03851b87eb'
 const digest=async bytes=>Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('')
 export default function ClimateProgramming(){
@@ -39,10 +40,11 @@ export default function ClimateProgramming(){
  }
  const live=sample&&Number.isFinite(sample.at)&&Date.now()-sample.at<30000
  return <main className="pa-dashboard"><div className="pa-container"><header className="pa-header"><div><p className="pa-eyebrow">PENNSYLVANIA</p><h1>Programming &amp; diagnostics</h1></div><Link className="pa-home" to="/monitoring/pa/climate">Back to climate</Link></header><section className="cl-control">
- <article><h2>Zone 1 · {live?'Online':'Offline'}</h2><p>Firmware {live?sample.version??'—':'—'} · Wi-Fi {live?sample.wifi??'—':'—'} dBm · Network {live?sample.network??'—':'—'}</p><p>Last sample: {live?new Date(sample.at).toLocaleString():'—'} · Fault: {live?(sample.fault?'yes':'none reported'):'unknown'}</p></article>
+ <article><h2>Legacy PA Climate 1.2.0 · {live?'Online':'Offline'}</h2><p>Firmware {live?sample.version??'—':'—'} · Wi-Fi {live?sample.wifi??'—':'—'} dBm · Network {live?sample.network??'—':'—'}</p><p>Last sample: {live?new Date(sample.at).toLocaleString():'—'} · Fault: {live?(sample.fault?'yes':'none reported'):'unknown'}</p></article>
  <article><h2>USB diagnostics</h2><button disabled={busy||!navigator.serial} onClick={()=>usb(false)}>Read USB log</button> <button disabled={!busy||!reading.current} onClick={()=>reading.current?.cancel()}>Stop log</button></article>
  <article><h2>USB firmware · PA Climate 1.2.0</h2><p>For initialized PA WROOM32E 4 MB boards booting from slot 0. This updates the application only and preserves Wi-Fi and zone settings. Disconnect the heating load, use low-voltage bench power, hold IO0 while pressing EN, then release IO0.</p>
  <input type="file" accept=".bin" disabled={busy} onChange={e=>choose(e.target.files[0])}/><label><input type="checkbox" checked={confirmed} onChange={e=>confirm(e.target.checked)}/> Board is unloaded and in download mode</label> <button disabled={busy||!file||!confirmed||!navigator.serial} onClick={()=>usb(true)}>Write and verify</button></article>
+ <ControllerReplacement/>
  <MsiOta/>
  {!navigator.serial&&<p>Use desktop Chrome or Edge for USB.</p>}<pre aria-live="polite" style={{color:'white',whiteSpace:'pre-wrap'}}>{log}</pre></section></div></main>
 }

@@ -1,0 +1,25 @@
+.cl-map {margin-bottom:20px}
+.cl-map-toolbar {display:flex;align-items:center;justify-content:space-between;gap:12px}
+.cl-map-toolbar h2 {margin:0}
+.cl-map-toolbar button,.cl-zone-close {padding:10px 16px;border:1px solid #c7d3df;border-radius:8px;background:#176bc5;color:white;cursor:pointer;font:inherit}
+.cl-map>p {font-size:.9rem}
+.cl-map-scroll {overflow-x:auto;border-radius:12px}
+.cl-map-surface {position:relative;width:100%;background:white}
+.cl-map-surface>img {display:block;width:100%;height:auto;user-select:none}
+.cl-map-marker {position:absolute;transform:translate(-50%,-50%);display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 10px;border:1px solid #a3b8cf;border-radius:10px;background:#f8fbff;color:#112138;box-shadow:0 3px 12px #122b4a26;cursor:pointer;font:inherit;max-width:22%}
+.cl-map-marker span {font-size:.8rem;overflow-wrap:anywhere}
+.cl-map-marker strong {font-size:1.2rem;white-space:nowrap}
+.cl-map-marker small {font-size:.65rem}
+.cl-map-marker.is-moving {cursor:grab;touch-action:none;border:2px dashed #176bc5}
+.cl-map-marker:focus-visible {outline:3px solid #176bc5;outline-offset:3px;z-index:2}
+.cl-zone-dialog {border:0;border-radius:16px;padding:16px;width:min(420px,calc(100% - 32px));max-height:90dvh;overflow:auto;background:#f8fbff;color:#112138}
+.cl-zone-dialog::backdrop {background:#061020aa}
+.cl-zone-close {display:block;margin:0 0 12px auto}
+.cl-zone-dialog .cl-grid {display:block}
+.cl-zone-dialog .cl-grid>article {margin:0;border:0;padding:8px;box-shadow:none}
+@media(max-width:600px) {
+ .cl-map-surface {min-width:560px}
+ .cl-map-marker {padding:5px 8px}
+ .cl-map-marker strong {font-size:1rem}
+}
+.cl-map {padding:16px;background:#f8fbff;border-radius:16px;color:#112138}

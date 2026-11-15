@@ -1,3 +1,4 @@
+import ClimateMap from './ClimateMap'
 import {Link} from 'react-router-dom'
 import {supabase} from '../../../lib/supabase'
 import Target from './ZoneTarget'
@@ -49,6 +50,9 @@ async function msiRequest(method='GET',body){
  return r.json()
 }
 export default function ClimateControl({ zones }) {
+  const dialog = useRef(null)
+  const [selected, setSelected] = useState(null)
+  useEffect(() => { if (selected) dialog.current?.showModal() }, [selected])
   const [msiZones,setMsiZones]=useState([]),[adding,setAdding]=useState(false)
   const [zonePins,setZonePins]=useState({}),[zoneFeedback,setZoneFeedback]=useState({})
   async function refreshMsi(){
@@ -111,10 +115,13 @@ export default function ClimateControl({ zones }) {
     catch { throw Error('Could not save local targets in this browser.') }
   }
   return <section className="cl-control">
+    <ClimateMap zones={viewZones} onOpen={setSelected} />
+
     <div className="cl-bulk"><h2>Common target temperature</h2><p><Link to="/monitoring/pa/climate/programming">Programming &amp; diagnostics →</Link> <button type="button" disabled={adding} onClick={addController}>{adding?'Preparing…':'Add controller'}</button></p><div className="cl-pin-panel"><div><label htmlFor="cl-temperature-pin">Temperature PIN</label><small id="cl-pin-hint">Enter your 4-digit PIN before saving a temperature.</small></div>
       <input id="cl-temperature-pin" ref={pinField} aria-describedby="cl-pin-hint" type="password" inputMode="numeric" autoComplete="off" placeholder="Enter PIN" maxLength={4} value={pin} onChange={e=>setPin(e.target.value.replace(/\D/g,''))} /></div>
       <Target label="All zones" min={40} max={90} disabled={saving} onSave={target => save(viewZones.map(z => z.id), target)} /><span role="status">{notice}</span></div>
-    <div className="cl-grid">{viewZones.map(z => z.id === 'pa-zone-1'&&!z.msi ? <ZoneOne key={z.id} saveTarget={v=>save([z.id],v)} savingTarget={saving} /> : <article key={z.id}>
+
+    <dialog ref={dialog} className="cl-zone-dialog" aria-label="Zone controls" onClose={() => setSelected(null)}><button type="button" className="cl-zone-close" onClick={() => dialog.current.close()}>Close</button><div className="cl-grid">{viewZones.filter(z => z.id === selected).map(z => z.id === 'pa-zone-1'&&!z.msi ? <ZoneOne key={z.id} saveTarget={v=>save([z.id],v)} savingTarget={saving} /> : <article key={z.id}>
       <header><h2>{z.name}</h2><small>{z.connection}</small></header>
       <div className="cl-readings"><div><Thermometer color="#dc402b" /><strong>{valid(z.temperatureF)?z.temperatureF.toFixed(1):'—'}°F</strong><small>{valid(z.temperatureF) ? ((z.temperatureF-32)*5/9).toFixed(1) + ' °C' : 'Temperature'}</small></div>
       <div title={valid(z.controlAverageF)?'Control average: '+z.controlAverageF.toFixed(1)+' °F':undefined}><Thermometer color="#1677dd" /><strong>{valid(z.secondTemperatureF)?z.secondTemperatureF.toFixed(1):'—'}°F</strong><small>Temperature 2</small></div></div>
@@ -128,5 +135,5 @@ export default function ClimateControl({ zones }) {
       <footer><Flame size={18} /> Reported heat {z.heatingActive == null ? '—' : z.heatingActive ? 'ON' : 'OFF'} · Mode {z.mode === 'NO_DATA' ? '—' : z.mode}</footer>
       {z.sensorWarning&&<strong role="status">One temperature sensor unavailable</strong>}
       {z.alarm === true && <strong>Active alarm</strong>}
-    </article>)}</div></section>
+    </article>)}</div></dialog></section>
 }
