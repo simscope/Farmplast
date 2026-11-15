@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { archiveDates, employmentDuration } from '../utils/formerEmployeeDates'
 import { supabase } from '../lib/supabase'
 import useEmployeeFeatureFlags from '../hooks/useEmployeeFeatureFlags'
+import EmployeeRestoreDialog from '../components/EmployeeRestoreDialog'
 
 
 export default function FormerEmployeesPage() {
   const { flags, loading: flagsLoading } = useEmployeeFeatureFlags()
+  const navigate = useNavigate()
+  const [restoring, setRestoring] = useState(null)
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -59,8 +62,10 @@ export default function FormerEmployeesPage() {
   if (!flags.former_employees_archive_readonly) return <div className="p-6 text-white"><p>Former Employees archive is disabled.</p><Link to="/dashboard" className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:border-cyan-500"><ArrowLeft size={16} />Back</Link></div>
   return <div className="min-h-screen bg-[#020817] text-white"><main className="mx-auto max-w-[1800px] px-3 py-6 sm:px-6">
     <Link to="/dashboard" className="mb-4 inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm font-semibold text-white transition hover:border-cyan-500"><ArrowLeft size={16} />Back</Link>
+    {restoring && <EmployeeRestoreDialog employee={restoring} onClose={() => setRestoring(null)} onRestored={data => navigate(`/employees/${data.employee_id}`, { replace: true })} />}
     <h1 className="text-2xl font-bold">Former Employees</h1>
     <p className="my-3 text-slate-300">{loading ? 'Loading…' : `${employees.length} Former Employees · ${rows.length} shown`}</p>
+    {!flags.employee_rehire && <p className="mb-3 text-sm text-amber-200">Employee restoration is currently disabled by the HR release setting.</p>}
     <div className="mb-4 flex flex-wrap gap-3">
       <input aria-label="Search former employees" placeholder="Name or employee number" value={search} onChange={event => setSearch(event.target.value)} className="min-w-0 w-full sm:w-auto sm:flex-1 rounded-lg border border-slate-700 bg-slate-900 p-2" />
       <select aria-label="Plant filter" value={plant} onChange={event => setPlant(event.target.value)} className="rounded-lg bg-slate-900 p-2"><option value="">All plants</option><option>NJ</option><option>PA</option></select>
@@ -70,13 +75,13 @@ export default function FormerEmployeesPage() {
     </div>
     {error && <p role="alert" className="my-4 text-red-300">{error}</p>}
     <div className="overflow-x-auto rounded-xl border border-slate-700 bg-slate-900"><table className="w-full text-left text-sm">
-      <thead><tr>{['Employee Number','First Name / Last Name','Plant','Position','Hire Date','Termination Date','Employment Duration','Last Work Date','Actions'].map(label => <th key={label} className="whitespace-nowrap p-3">{label}</th>)}</tr></thead>
+      <thead><tr>{['Employee Number','Employee / Photo','Plant','Position','Hire Date','Termination Date','Employment Duration','Last Work Date','Actions'].map(label => <th key={label} className="whitespace-nowrap p-3">{label}</th>)}</tr></thead>
       <tbody>{rows.map(employee => <tr key={employee.id} className="border-t border-slate-700">
-        <td className="p-3">{employee.employee_number}</td><td className="p-3">{employee.first_name} {employee.last_name}</td>
+        <td className="p-3">{employee.employee_number}</td><td className="p-3"><div className="flex items-center gap-3">{employee.photo_url ? <img loading="lazy" src={employee.photo_url} alt={`${employee.first_name || ''} ${employee.last_name || ''}`} className="h-11 w-11 shrink-0 rounded-full object-cover" /> : <div className="h-11 w-11 shrink-0 rounded-full bg-slate-700" aria-label="No saved photo" />}<span>{employee.first_name} {employee.last_name}</span></div></td>
         <td className="p-3">{employee.plant_location || 'Not recorded'}</td><td className="p-3">{employee.position || 'Not recorded'}</td>
         <td className="p-3">{employee.hire_date || 'Not recorded'}</td><td className="p-3">{employee.termination_date || 'Not recorded'}{employee.termination_needs_review && <span className="block text-xs text-amber-300">Historical correction needs review</span>}</td>
         <td className="p-3">{employmentDuration(employee)}</td><td className="p-3">{employee.last_work_date || 'Not recorded'}</td>
-        <td className="whitespace-nowrap p-3"><Link className="text-cyan-300" to={`/employees/${employee.id}`}>View</Link></td>
+        <td className="whitespace-nowrap p-3"><div className="flex items-center gap-3"><Link className="text-cyan-300" to={`/employees/${employee.id}`}>View</Link>{flags.employee_rehire && <button type="button" className="rounded-lg border border-cyan-500/40 px-3 py-1.5 text-cyan-300 hover:bg-cyan-500/10" onClick={() => setRestoring(employee)}>Restore</button>}</div></td>
       </tr>)}</tbody>
     </table></div>
     {!loading && !error && rows.length === 0 && <p className="mt-4 text-slate-300">No former employees match these filters.</p>}
