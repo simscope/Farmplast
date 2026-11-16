@@ -129,7 +129,7 @@ export default function Chiller2HMIPage() {
           supabase
             .from('ch2_latest')
             .select(
-              'point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at'
+              'value_number, raw_register, raw_value'
             )
             .in('raw_register', [40023, 40024, 40025, 40051, 40052, 40056, 40057, 40061])
             .order('raw_register', { ascending: true }).abortSignal(signal),

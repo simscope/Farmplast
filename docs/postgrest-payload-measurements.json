@@ -1,0 +1,160 @@
+{
+  "note": "Identity response bytes; local gzip is a reproducible comparison, not measured wire/billed bytes. Rates assume one continuously visible page. Legacy route is not mounted in production.",
+  "measurements": [
+    {
+      "name": "legacy-before",
+      "endpoint": "v_asset_points_latest",
+      "params": {
+        "select": "*",
+        "or": "(point_code.like.CH2_%,point_code.like.CH3_%)",
+        "order": "point_code.asc"
+      },
+      "measuredAt": "2026-09-20T20:47:15.477Z",
+      "rows": 246,
+      "requestsPerHour": 360,
+      "responseBodyBytes": 319980,
+      "contentEncoding": null,
+      "localGzipBytes": 11365,
+      "hypothetical24hVisibleBodyMB": 2764.6272
+    },
+    {
+      "name": "legacy-after",
+      "endpoint": "v_asset_points_latest",
+      "params": {
+        "select": "point_code,value_number,value_boolean,updated_at",
+        "point_code": "in.(CH2_SETPOINT,CH2_CHW_IN,CH2_CHW_OUT,CH2_SUCTION_PRESSURE_C1,CH2_DISCHARGE_PRESSURE_C1,CH2_RUNNING,CH2_SYSTEM_RUNNING,CH2_ALARM,CH2_ALARM_CRITICAL,CH2_ALARM_REFRIG,CH2_DELTA_T,CH2_FLOW_C1,CH2_FLOW_C2,CH2_CAPACITY_C1,CH2_CAPACITY_C2,CH2_SYSTEM_DEMAND,CH2_COMP_A_ENABLED,CH2_COMP_B_ENABLED,CH2_COMP_C_ENABLED,CH3_SETPOINT,CH3_CHW_IN,CH3_CHW_OUT,CH3_SUCTION_PRESSURE_C1,CH3_DISCHARGE_PRESSURE_C1,CH3_RUNNING,CH3_SYSTEM_RUNNING,CH3_ALARM,CH3_ALARM_CRITICAL,CH3_ALARM_REFRIG,CH3_DELTA_T,CH3_FLOW_C1,CH3_FLOW_C2,CH3_CAPACITY_C1,CH3_CAPACITY_C2,CH3_SYSTEM_DEMAND,CH3_COMP_A_ENABLED,CH3_COMP_B_ENABLED,CH3_COMP_C_ENABLED)",
+        "order": "point_code.asc"
+      },
+      "measuredAt": "2026-09-20T20:47:15.644Z",
+      "rows": 14,
+      "requestsPerHour": 360,
+      "responseBodyBytes": 1320,
+      "contentEncoding": null,
+      "localGzipBytes": 187,
+      "hypothetical24hVisibleBodyMB": 11.4048
+    },
+    {
+      "name": "nj-overview",
+      "endpoint": "v_nj_monitoring_overview",
+      "params": {
+        "select": "asset_code,asset_name,asset_type,updated_at,is_online,comp_1a_enabled,comp_1b_enabled,comp_1c_enabled,comp_2a_enabled,comp_2b_enabled,comp_2c_enabled,level_percent,has_error",
+        "order": "asset_code.asc"
+      },
+      "measuredAt": "2026-09-20T20:47:15.785Z",
+      "rows": 5,
+      "requestsPerHour": 240,
+      "responseBodyBytes": 1601,
+      "contentEncoding": null,
+      "localGzipBytes": 330,
+      "hypothetical24hVisibleBodyMB": 9.22176
+    },
+    {
+      "name": "ch1-hmi",
+      "endpoint": "v_asset_points_latest",
+      "params": {
+        "select": "asset_id,asset_code,asset_name,asset_type,point_id,point_code,point_name,point_group,data_type,value_number,value_boolean,value_text,unit,updated_at,display_order",
+        "asset_code": "eq.CH-NJ-01",
+        "order": "display_order.asc"
+      },
+      "measuredAt": "2026-09-20T20:47:15.893Z",
+      "rows": 19,
+      "requestsPerHour": 720,
+      "responseBodyBytes": 7783,
+      "contentEncoding": null,
+      "localGzipBytes": 1109,
+      "hypothetical24hVisibleBodyMB": 134.49024
+    },
+    {
+      "name": "ch2-dashboard",
+      "endpoint": "v_ch2_dashboard",
+      "params": {
+        "select": "asset_code,device_code,system_running,comp_1a_enabled,comp_1b_enabled,comp_1c_enabled,comp_2a_enabled,comp_2b_enabled,comp_2c_enabled,chiller_entering_f,chiller_leaving_f,flow_c1_gpm,flow_c2_gpm,evap_out_c1_f,evap_out_c2_f,latest_updated_at"
+      },
+      "measuredAt": "2026-09-20T20:47:15.989Z",
+      "rows": 1,
+      "requestsPerHour": 720,
+      "responseBodyBytes": 395,
+      "contentEncoding": null,
+      "localGzipBytes": 220,
+      "hypothetical24hVisibleBodyMB": 6.8256
+    },
+    {
+      "name": "ch2-raw-before",
+      "endpoint": "ch2_latest",
+      "params": {
+        "select": "point_code,point_name,value_number,value_boolean,raw_register,raw_value,updated_at",
+        "raw_register": "in.(40023,40024,40025,40051,40052,40056,40057,40061)",
+        "order": "raw_register.asc"
+      },
+      "measuredAt": "2026-09-20T20:47:16.103Z",
+      "rows": 8,
+      "requestsPerHour": 720,
+      "responseBodyBytes": 1480,
+      "contentEncoding": null,
+      "localGzipBytes": 275,
+      "hypothetical24hVisibleBodyMB": 25.5744
+    },
+    {
+      "name": "ch2-raw-after",
+      "endpoint": "ch2_latest",
+      "params": {
+        "select": "value_number,raw_register,raw_value",
+        "raw_register": "in.(40023,40024,40025,40051,40052,40056,40057,40061)",
+        "order": "raw_register.asc"
+      },
+      "measuredAt": "2026-09-20T20:47:16.175Z",
+      "rows": 8,
+      "requestsPerHour": 720,
+      "responseBodyBytes": 480,
+      "contentEncoding": null,
+      "localGzipBytes": 146,
+      "hypothetical24hVisibleBodyMB": 8.2944
+    },
+    {
+      "name": "ch3-dashboard",
+      "endpoint": "v_ch3_dashboard",
+      "params": {
+        "select": "asset_code,device_code,system_running,comp_1a_enabled,comp_1b_enabled,comp_1c_enabled,comp_2a_enabled,comp_2b_enabled,comp_2c_enabled,chiller_entering_f,chiller_leaving_f,flow_c1_gpm,flow_c2_gpm,evap_out_c1_f,evap_out_c2_f,latest_updated_at"
+      },
+      "measuredAt": "2026-09-20T20:47:16.230Z",
+      "rows": 1,
+      "requestsPerHour": 720,
+      "responseBodyBytes": 401,
+      "contentEncoding": null,
+      "localGzipBytes": 235,
+      "hypothetical24hVisibleBodyMB": 6.92928
+    },
+    {
+      "name": "ch3-raw-before",
+      "endpoint": "ch3_latest",
+      "params": {
+        "select": "point_code,point_name,value_number,value_boolean,raw_register,raw_value,updated_at",
+        "raw_register": "in.(40023,40024,40025,40051,40052,40056,40057,40061)",
+        "order": "raw_register.asc"
+      },
+      "measuredAt": "2026-09-20T20:47:16.353Z",
+      "rows": 8,
+      "requestsPerHour": 720,
+      "responseBodyBytes": 1476,
+      "contentEncoding": null,
+      "localGzipBytes": 278,
+      "hypothetical24hVisibleBodyMB": 25.50528
+    },
+    {
+      "name": "ch3-raw-after",
+      "endpoint": "ch3_latest",
+      "params": {
+        "select": "value_number,raw_register,raw_value",
+        "raw_register": "in.(40023,40024,40025,40051,40052,40056,40057,40061)",
+        "order": "raw_register.asc"
+      },
+      "measuredAt": "2026-09-20T20:47:16.398Z",
+      "rows": 8,
+      "requestsPerHour": 720,
+      "responseBodyBytes": 476,
+      "contentEncoding": null,
+      "localGzipBytes": 147,
+      "hypothetical24hVisibleBodyMB": 8.22528
+    }
+  ]
+}

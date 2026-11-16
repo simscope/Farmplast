@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useState } from 'react'
 import {
   Activity,
   AlertTriangle,
@@ -11,6 +11,8 @@ import {
   Waves,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import useMonitoringPolling from '../hooks/useMonitoringPolling'
+import { loadChillersTelemetry, CHILLERS_POLL_MS } from '../utils/chillersTelemetry'
 
 const pageWrap =
   'min-h-screen bg-slate-950 text-slate-100 px-4 md:px-6 py-6'
@@ -60,14 +62,7 @@ function toPointMap(rows) {
     map[row.point_code] = {
       value_number: row.value_number,
       value_boolean: row.value_boolean,
-      value_text: row.value_text,
-      quality: row.quality,
       updated_at: row.updated_at,
-      source_timestamp: row.source_timestamp,
-      point_name: row.point_name,
-      point_group: row.point_group,
-      point_type: row.point_type,
-      unit: row.unit,
     }
   }
   return map
@@ -256,37 +251,28 @@ export default function ChillersPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [errorText, setErrorText] = useState('')
 
-  async function loadTelemetry({ silent = false } = {}) {
+  const loadTelemetry = useCallback(async (signal, silent) => {
     try {
       if (!silent) setRefreshing(true)
       setErrorText('')
 
-      const { data, error } = await supabase
-        .from('v_asset_points_latest')
-        .select('*')
-        .or('point_code.like.CH2_%,point_code.like.CH3_%')
-        .order('point_code', { ascending: true })
+      const { data, error } = await loadChillersTelemetry(supabase, signal)
 
+      if (signal.aborted) return
       if (error) throw error
       setRows(data || [])
     } catch (error) {
+      if (signal.aborted) return
       console.error('Failed to load chillers telemetry:', error)
       setErrorText(error?.message || 'Failed to load telemetry')
     } finally {
-      setLoading(false)
-      setRefreshing(false)
+      if (!signal.aborted) {
+        setLoading(false)
+        setRefreshing(false)
+      }
     }
-  }
-
-  useEffect(() => {
-    loadTelemetry()
-
-    const interval = setInterval(() => {
-      loadTelemetry({ silent: true })
-    }, 10000)
-
-    return () => clearInterval(interval)
   }, [])
+  const refresh = useMonitoringPolling(loadTelemetry, CHILLERS_POLL_MS)
 
   const pointMap = useMemo(() => toPointMap(rows), [rows])
 
@@ -306,7 +292,7 @@ export default function ChillersPage() {
             </div>
 
             <button
-              onClick={() => loadTelemetry()}
+              onClick={() => refresh(false)}
               className="inline-flex items-center justify-center gap-2 rounded-2xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-medium text-white transition hover:bg-slate-700"
             >
               <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />

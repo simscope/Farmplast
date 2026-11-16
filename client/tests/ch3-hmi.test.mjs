@@ -25,7 +25,7 @@ test('CH3 raw query and value decoding use only the eight displayed registers', 
   assert.deepEqual(filter[1].split(',').map(Number),expected)
   assert.deepEqual([...source.matchAll(/getRawRegisterValue\(rawRows, (\d+)\)/g)].map(m=>Number(m[1])),expected)
   assert.doesNotMatch(source,/40053|40054|40060|CH3_R%/)
-  assert.match(source,/'point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at'/)
+  assert.match(source,/'value_number, raw_register, raw_value'/)
   assert.doesNotMatch(source,/\.select\(['"]\*/)
   const projection=source.match(/const CH3_DASHBOARD_COLUMNS = '([^']+)'/)[1].split(',')
   assert.ok(projection.includes('latest_updated_at') && projection.includes('system_running'))

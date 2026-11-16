@@ -1,0 +1,26 @@
+{
+  "project": "eeobivvwjzakbweluwtm",
+  "source": "Supabase Dashboard Logs Explorer, edge_logs",
+  "capturedOn": "2026-09-20",
+  "window": {"startInclusiveUtc":"2026-09-19T20:50:00Z","endExclusiveUtc":"2026-09-20T20:40:00Z","minutes":1430},
+  "note": "Transcribed from aggregate UI results. knownBodyBytes sums logged response Content-Length, not billed network bytes; missing lengths are unknown.",
+  "postgrest": [
+    {"path":"/rest/v1/telemetry_latest","method":"POST","status":200,"requests":49637,"knownBodyBytes":0,"responsesWithLength":49637},
+    {"path":"/rest/v1/rpc/ch1_device_sync","method":"POST","status":200,"requests":17040,"knownBodyBytes":1618800,"responsesWithLength":17040},
+    {"path":"/rest/v1/rpc/chiller_device_sync_diagnostic","method":"POST","status":200,"requests":5720,"knownBodyBytes":303160,"responsesWithLength":5720},
+    {"path":"/rest/v1/rpc/ingest_ch2","method":"POST","status":200,"requests":5718,"knownBodyBytes":400260,"responsesWithLength":5718},
+    {"path":"/rest/v1/zkt_bridge_commands","method":"GET","status":200,"requests":308,"knownBodyBytes":616,"responsesWithLength":308},
+    {"path":"/rest/v1/zkt_attendance_logs","method":"POST","status":201,"requests":75,"knownBodyBytes":0,"responsesWithLength":75},
+    {"path":"/rest/v1/profiles","method":"GET","status":200,"requests":3,"knownBodyBytes":6,"responsesWithLength":3},
+    {"path":"/rest/v1/profiles","method":"OPTIONS","status":200,"requests":3,"knownBodyBytes":null,"responsesWithLength":0},
+    {"path":"/rest/v1/zkt_attendance_logs","method":"POST","status":500,"requests":2,"knownBodyBytes":null,"responsesWithLength":0},
+    {"path":"/rest/v1/rpc/process_zkt_attendance_to_work_logs","method":"POST","status":200,"requests":2,"knownBodyBytes":186,"responsesWithLength":2}
+  ],
+  "fixedHour": {
+    "startInclusiveUtc":"2026-09-20T19:40:00Z",
+    "endExclusiveUtc":"2026-09-20T20:40:00Z",
+    "requests": {"telemetry_latest":2078,"rpc/ch1_device_sync":714,"rpc/ingest_ch2":240,"rpc/chiller_device_sync_diagnostic":240,"zkt_bridge_commands":12}
+  },
+  "zeroObservedPaths": ["v_asset_points_latest","v_nj_monitoring_overview","ch2_latest","ch3_latest","v_ch2_dashboard","v_ch3_dashboard","rpc/ingest_ch3"],
+  "unknown": ["per-endpoint billed bytes","complete HTTP/TLS overhead","billing cutoff/timezone alignment","whether gateway stream includes all billed traffic","response lengths for two attendance errors"]
+}
