@@ -93,7 +93,7 @@ BEGIN
  );
 END;
 $function$
-
+;
 CREATE OR REPLACE FUNCTION employee_presence_private.refresh_snapshot()
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -178,5 +178,5 @@ FROM public.employees e LEFT JOIN last_punch lp ON lp.employee_id=e.id
  RETURN jsonb_build_object('ok',true,'employees',result_count,'checked_at',refreshed_at);
 END;
 $function$
-
+;
 COMMIT;
