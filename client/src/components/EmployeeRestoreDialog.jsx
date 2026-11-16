@@ -78,6 +78,17 @@ export default function EmployeeRestoreDialog({ employee, onClose, onRestored })
       {error && <p role="alert" className="mt-4 rounded-lg bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
       {!preview && !error && <p role="status" className="mt-4 text-sm text-slate-300">Checking number availability…</p>}
       {preview && <form onSubmit={submit} className="mt-4 space-y-4">
+        {Number(preview.historical_missing_out_count || 0) > 0 && (
+          <p role="status" className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-100">
+            {preview.historical_missing_out_count} historical ZKT {Number(preview.historical_missing_out_count) === 1 ? 'shift has' : 'shifts have'} a missing OUT punch.
+            These older records and their hours stay unchanged; they do not block a new employment period.
+          </p>
+        )}
+        {Number(preview.blocking_open_shift_count || 0) > 0 && (
+          <p role="alert" className="rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-200">
+            {preview.blocking_open_shift_count} unresolved open {Number(preview.blocking_open_shift_count) === 1 ? 'shift must' : 'shifts must'} be corrected before restoring this employee.
+          </p>
+        )}
         <div className="rounded-lg border border-slate-700 bg-slate-900 p-3 text-sm">
           <p>Proposed employee number: <strong>#{preview.proposed_number}</strong> ({preview.plant_location})</p>
           <p className="mt-1 text-slate-300">{preview.previous_number_available
@@ -96,7 +107,7 @@ export default function EmployeeRestoreDialog({ employee, onClose, onRestored })
         <p className="text-xs text-amber-200">ZKT access stays disabled until the terminal identity is verified. SACS activation is queued separately.</p>
         <div className="flex justify-end gap-3 border-t border-slate-800 pt-4">
           <button type="button" onClick={onClose} disabled={saving} className="rounded-lg border border-slate-700 px-4 py-2 text-sm disabled:opacity-50">Cancel</button>
-          <button type="submit" disabled={saving || !date || (preview.earliest_date && date < preview.earliest_date)}
+          <button type="submit" disabled={saving || !date || Number(preview.blocking_open_shift_count || 0) > 0 || (preview.earliest_date && date < preview.earliest_date)}
             className="rounded-lg bg-cyan-700 px-4 py-2 text-sm font-semibold disabled:opacity-50">{saving ? 'Restoring…' : 'Confirm restore'}</button>
         </div>
       </form>}
