@@ -79,30 +79,42 @@ test('real SDK queries cross the read proxy and HTTP RAM server, then lose expir
   assert.deepEqual(expired.data, { chiller_entering_f: null, latest_updated_at: null })
 })
 
-test('hybrid cutover reads migrated chillers only from MSI and keeps the two barrels on their existing feed',async()=>{
- const env={NJ_TELEMETRY_UPSTREAM:'https://msi.tail4626fb.ts.net:10000',NJ_TELEMETRY_READ_KEY:'server-key',NJ_TELEMETRY_ALLOWED_USER_IDS:'operator',NJ_TELEMETRY_MSI_ASSETS:'CH-NJ-01,CH-NJ-02,CH-NJ-03',VITE_SUPABASE_URL:'https://auth.invalid',VITE_SUPABASE_ANON_KEY:'public'}
- const calls=[]
- let cloudFails=false
- const handler=createNjTelemetryHandler(env,async(url,options)=>{
-  calls.push({url,options})
-  if(url.endsWith('/auth/v1/user'))return new Response('{"id":"operator"}')
-  if(url.startsWith(env.NJ_TELEMETRY_UPSTREAM))return new Response(JSON.stringify([{asset_code:'CH-NJ-01',is_online:true,level_percent:null},{asset_code:'BARREL-NJ-01',is_online:false,level_percent:null},{asset_code:'BARREL-NJ-02',is_online:false,level_percent:null}]))
-  if(cloudFails)return new Response('{}',{status:503})
-  return new Response(JSON.stringify([{asset_code:'BARREL-NJ-01',is_online:true,level_percent:0},{asset_code:'BARREL-NJ-02',is_online:true,level_percent:75},{asset_code:'CH-NJ-01',is_online:false,level_percent:999}]))
- })
- const result={}
- const req={method:'GET',url:'/api/nj-telemetry?view=v_nj_monitoring_overview',headers:{authorization:'Bearer '+'x'.repeat(80)}}
- const res={setHeader(){},status(code){result.status=code;return this},json(body){result.body=body}}
- await handler(req,res)
- assert.equal(result.status,200)
- assert.equal(result.body.find(r=>r.asset_code==='CH-NJ-01').is_online,true)
- assert.equal(result.body.find(r=>r.asset_code==='BARREL-NJ-01').level_percent,0)
- assert.equal(new URL(calls[2].url).searchParams.get('asset_code'),'in.(BARREL-NJ-01,BARREL-NJ-02)')
- assert.equal(calls[2].options.headers.Authorization,req.headers.authorization)
- cloudFails=true
- await handler(req,res)
- assert.equal(result.status,200)
- assert.equal(result.body.find(r=>r.asset_code==='CH-NJ-01').is_online,true)
- assert.equal(result.body.find(r=>r.asset_code==='BARREL-NJ-01').level_percent,null)
- assert.equal(result.body.find(r=>r.asset_code==='BARREL-NJ-01').is_online,false)
+test('all NJ assets use MSI even with an old partial-cutover setting; failures never fall back to Cloud', async () => {
+  const env = {
+    NJ_TELEMETRY_UPSTREAM: 'https://msi.tail4626fb.ts.net:10000',
+    NJ_TELEMETRY_READ_KEY: 'server-key',
+    NJ_TELEMETRY_ALLOWED_USER_IDS: 'operator',
+    NJ_TELEMETRY_MSI_ASSETS: 'CH-NJ-01,CH-NJ-02,CH-NJ-03',
+    VITE_SUPABASE_URL: 'https://auth.invalid',
+    VITE_SUPABASE_ANON_KEY: 'public',
+  }
+  const input = [
+    { asset_code: 'CH-NJ-01', is_online: true, level_percent: null },
+    { asset_code: 'BARREL-NJ-01', is_online: true, level_percent: 0 },
+    { asset_code: 'BARREL-NJ-02', is_online: true, level_percent: 75 },
+  ]
+  for (const view of ['v_nj_monitoring_overview', 'v_asset_points_latest']) {
+    for (const upstream of ['ok', '503', 'timeout']) {
+      const calls = []
+      const handler = createNjTelemetryHandler(env, async url => {
+        calls.push(url)
+        if (url.endsWith('/auth/v1/user')) return new Response('{"id":"operator"}')
+        assert.equal(url, env.NJ_TELEMETRY_UPSTREAM + '/v1/read/' + view)
+        if (upstream === 'timeout') throw new Error('timeout')
+        return new Response(JSON.stringify(input), { status: upstream === '503' ? 503 : 200 })
+      })
+      const result = {}
+      await handler({
+        method: 'GET', url: '/api/nj-telemetry?view=' + view,
+        headers: { authorization: 'Bearer ' + 'x'.repeat(80) },
+      }, {
+        setHeader() {}, status(code) { result.status = code; return this },
+        json(body) { result.body = body },
+      })
+      assert.equal(result.status, upstream === 'ok' ? 200 : 503)
+      if (upstream === 'ok') assert.deepEqual(result.body, input)
+      assert.equal(calls.length, 2)
+      assert.equal(calls.some(url => url.includes('/rest/v1/')), false)
+    }
+  }
 })
