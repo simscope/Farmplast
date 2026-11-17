@@ -18,4 +18,4 @@ export function createChillerBackend(authClient,fetcher=fetch){
   return {upload:(path,file)=>request(query('upload',path),{body:file,binary:true}),download:path=>request(query('download',path),{method:'GET',binary:true}),createSignedUrl:path=>request(query('sign',path))}
  }}}
 }
-export const chillerBackend=import.meta.env.VITE_NJ_CONTROL_SOURCE==='msi'?createChillerBackend(supabase):supabase
+export const chillerBackend=createChillerBackend(supabase)

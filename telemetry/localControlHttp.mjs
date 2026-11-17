@@ -86,6 +86,10 @@ export function createLocalControlHttp(config,store,reporter){
       validateStoredImage(await readFile(published.file),published)
      }
      if(rpc==='ch1_firmware_queue'||rpc==='chiller_ota_queue'){
+      if(rpc==='chiller_ota_queue'&&args.p_device==='ESP32-CH3-PLC'){
+       const current=await store.rpc('chiller_firmware_status',{p_device:args.p_device},user)
+       if(current?.device?.version==='ch3-msi-1')return send(409,{error:'usb_migration_required'})
+      }
       const download=new URL(args.p_signed_url)
       if(download.origin!=='https://farmplast.vercel.app')throw Error('Unexpected download origin')
       const prefix='/storage/v1/object/sign/'
@@ -93,7 +97,6 @@ export function createLocalControlHttp(config,store,reporter){
       tokens.verify(download.searchParams.get('token'),download.pathname.slice(prefix.length))
      }
      const value=await store.rpc(rpc,args,user)
-     if(rpc.endsWith('_status')&&value?.releases)value.releases=value.releases.filter(r=>/^ch[123]-msi-(?:[2-9]|[1-9][0-9]+)$/.test(r.version))
      return send(200,value)
     }
     if(!await store.operator(user,bucket))return send(403,{error:'Operator access required'})

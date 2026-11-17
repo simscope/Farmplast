@@ -8,7 +8,7 @@ import {openControlStore} from './controlStore.mjs'
 import {createTelemetryServer} from './server.mjs'
 import {createLocalControlHttp,createDownloadTokens,validateStoredImage} from './localControlHttp.mjs'
 import {createTelemetryState} from './state.mjs'
-import {ch1 as ch1Rows,gateway} from './fixtures.mjs'
+import {ch1 as ch1Rows,gateway,plc} from './fixtures.mjs'
 const user='00000000-0000-0000-0000-000000000001',unknown='00000000-0000-0000-0000-000000000002'
 const secret='synthetic-device-hmac-key-'.repeat(3)
 const config={readKey:'1'.repeat(64),devices:{'chiller-1':'2'.repeat(64),'chiller-2':'3'.repeat(64),'chiller-3':'4'.repeat(64),barrels:'5'.repeat(64)},legacyKeys:{'chiller-1':secret,'chiller-2':secret,'chiller-3':secret}}
@@ -76,6 +76,11 @@ test('private MSI OTA path verifies bytes, scope, code, HMAC and new-boot teleme
   rows.find(r=>r.raw_payload?.gateway).raw_payload.gateway=fresh
   await store.exchange('chiller-1',{p_rows:rows},cfg)
   assert.equal((await rpc('ch1_firmware_status')).jobs[0].status,'completed')
+  const legacy=plc(3);legacy.payload.gateway.version='ch3-msi-1'
+  await store.exchange('chiller-3',legacy,cfg)
+  const denied=await fetch(origin+'/v1/control/rpc',{method:'POST',headers,body:JSON.stringify({name:'chiller_ota_queue',args:{p_device:'ESP32-CH3-PLC'}})})
+  assert.equal(denied.status,409)
+  assert.equal((await denied.json()).error,'usb_migration_required')
   assert.equal((await store.db.query("select count(*) n from pg_tables where schemaname='public' and tablename~'(telemetry|latest|points)' ")).rows[0].n,0)
  }finally{await new Promise(resolve=>server.close(resolve));await store.close();await rm(root,{recursive:true,force:true})}
 })
@@ -86,4 +91,43 @@ test('signed downloads expire and reject other paths or altered signatures',()=>
  assert.throws(()=>tokens.verify(token.slice(0,-4)+'xxxx','b/file'))
  now+=1800001;assert.throws(()=>tokens.verify(token,'b/file'))
  const bytes=imageFor();validateStoredImage(bytes,{device:'ESP32-CH1',version:'ch1-msi-2',hash:createHash('sha256').update(bytes).digest('hex')})
+})
+test('CH2/CH3 keep device-bound HMAC, receipt completion and command acknowledgements on MSI',async()=>{
+ const store=await openControlStore({dataDir:'memory://'},seed)
+ try{
+  for(const n of [2,3]){
+   const device=`ESP32-CH${n}-PLC`,producer=`chiller-${n}`,body=plc(n)
+   body.payload.gateway={...gateway(`ch${n}-msi-1`),boot:'a'.repeat(32)}
+   await store.exchange(producer,body,config)
+   const name=device+`/ch${n}-msi-2/`+'a'.repeat(64)+'.bin'
+   await store.registerObject('chiller-firmware',name,1024)
+   const release=await store.rpc('chiller_firmware_publish',{p_device:device,p_version:`ch${n}-msi-2`,p_sha256:'a'.repeat(64),p_size:1024,p_storage_path:name,p_verified_sha256:'a'.repeat(64)},user)
+   const {grant}=await store.rpc('chiller_firmware_unlock',{p_device:device,p_code:'1234'},user)
+   const token=createDownloadTokens('7'.repeat(64)).issue('chiller-firmware/'+name)
+   const claims=JSON.parse(Buffer.from(token.split('.')[1],'base64url'))
+   const signed='https://farmplast.vercel.app/storage/v1/object/sign/chiller-firmware/'+name+'?token='+token
+   const job=`00000000-0000-0000-0000-00000000000${n}`
+   await store.rpc('chiller_ota_queue',{p_device:device,p_grant:grant,p_id:job,p_release:release,p_signed_url:signed,p_signed_url_expires_at:new Date(claims.exp*1000).toISOString()},user)
+   const manifest=(await store.exchange(producer,body,config)).o
+   const canonical=[manifest.id,'update',device,manifest.model,manifest.version,manifest.sha256,manifest.size,manifest.expires,signed].join('|')
+   assert.equal(manifest.mac,createHmac('sha256',secret).update(canonical).digest('hex'))
+   const next={...body.payload.gateway,version:`ch${n}-msi-2`,boot:'b'.repeat(32),job,status:'waiting_for_telemetry',progress:99}
+   await store.report(producer,{p_device:device,p_secret:secret,p_metadata:next})
+   assert.notEqual((await store.rpc('chiller_firmware_status',{p_device:device},user)).jobs[0].status,'completed')
+   body.payload.gateway=next;await store.exchange(producer,body,config)
+   assert.equal((await store.rpc('chiller_firmware_status',{p_device:device},user)).jobs[0].status,'completed')
+   assert.throws(()=>store.report(n===2?'chiller-3':'chiller-2',{p_device:device,p_secret:secret,p_metadata:next}),/Wrong device/)
+  }
+  const rows=ch1Rows(),meta=gateway('ch1-msi-2');rows.find(r=>r.raw_payload?.gateway).raw_payload.gateway=meta
+  await store.exchange('chiller-1',{p_rows:rows},config)
+  const result=await store.rpc('ch1_command',{p_id:'00000000-0000-0000-0000-000000000009',p_type:'fan_setpoint',p_value:90,p_pin:null},user)
+  meta.command_revision=result.command.revision
+  await store.exchange('chiller-1',{p_rows:rows},config)
+  assert.equal((await store.rpc('ch1_firmware_status',{},user)).commands[0].status,'pending')
+  const points=(await import('./points.json',{with:{type:'json'}})).default
+  const pid=points.find(p=>p.point_code==='CH1_SETPOINT').point_id
+  rows.find(r=>r.point_id===pid).value_number=90
+  await store.exchange('chiller-1',{p_rows:rows},config)
+  assert.equal((await store.rpc('ch1_firmware_status',{},user)).commands[0].status,'applied')
+ }finally{await store.close()}
 })
