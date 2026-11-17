@@ -10,7 +10,7 @@ import {
   Wifi,
   Target,
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { monitoring } from '../lib/monitoring'
 import ChillerProgramming from '../components/ChillerProgramming'
 import useMonitoringPolling from '../hooks/useMonitoringPolling'
 import useOtaStatus from '../hooks/useOtaStatus'
@@ -125,8 +125,8 @@ export default function Chiller3HMIPage() {
 
       const [{ data: dashboardData, error: dashboardError }, { data: rawData, error: rawError }] =
         await Promise.all([
-          supabase.from('v_ch3_dashboard').select(CH3_DASHBOARD_COLUMNS).single().abortSignal(signal),
-          supabase
+          monitoring.from('v_ch3_dashboard').select(CH3_DASHBOARD_COLUMNS).single().abortSignal(signal),
+          monitoring
             .from('ch3_latest')
             .select(
               'point_code, point_name, value_number, value_boolean, raw_register, raw_value, updated_at'
@@ -143,6 +143,8 @@ export default function Chiller3HMIPage() {
       setRawRows(rawData || [])
     } catch (err) {
       if (signal.aborted) return
+      setDashboard(null)
+      setRawRows([])
       setLastError(err?.message || 'Failed to load chiller data')
     } finally {
       if (!signal.aborted) setLoading(false)

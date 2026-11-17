@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { AlertTriangle, ArrowLeft } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { monitoring } from '../lib/monitoring'
 import BarrelIllustration from '../components/monitoring/BarrelIllustration'
 import useMonitoringPolling from '../hooks/useMonitoringPolling'
 import { OVERVIEW_COLUMNS } from '../utils/monitoringColumns'
@@ -134,7 +134,7 @@ export default function MonitoringNJPage() {
   const { isMobile, isTablet, isDesktop } = useViewport()
   const load = useCallback(async (signal) => {
     try {
-      const { data, error: fetchError } = await supabase.from('v_nj_monitoring_overview')
+      const { data, error: fetchError } = await monitoring.from('v_nj_monitoring_overview')
         .select(OVERVIEW_COLUMNS).order('asset_code').abortSignal(signal)
       if (signal.aborted) return
       if (fetchError) throw fetchError

@@ -1,0 +1,332 @@
+[
+  {
+    "asset_id": "0014e66c-a0d1-4b92-8209-1d10b2bca942",
+    "point_id": "874cdde2-5987-41b5-a30c-9b06b3fb170d",
+    "point_code": "BARREL1_DISTANCE_M",
+    "point_name": "Distance to Material",
+    "point_group": "level",
+    "data_type": "number",
+    "unit": "m",
+    "display_order": 1
+  },
+  {
+    "asset_id": "0014e66c-a0d1-4b92-8209-1d10b2bca942",
+    "point_id": "f29fdfb4-e0b3-4f27-a03d-50b8af096251",
+    "point_code": "BARREL1_LEVEL_M",
+    "point_name": "Level",
+    "point_group": "level",
+    "data_type": "number",
+    "unit": "m",
+    "display_order": 2
+  },
+  {
+    "asset_id": "0014e66c-a0d1-4b92-8209-1d10b2bca942",
+    "point_id": "4f212c82-0bfd-4059-889f-bef4bdd60b3e",
+    "point_code": "BARREL1_LEVEL_PERCENT",
+    "point_name": "Level Percent",
+    "point_group": "level",
+    "data_type": "number",
+    "unit": "%",
+    "display_order": 3
+  },
+  {
+    "asset_id": "0014e66c-a0d1-4b92-8209-1d10b2bca942",
+    "point_id": "dbb00955-611e-40ea-90c2-009dd0b95716",
+    "point_code": "BARREL1_SENSOR_TEMP_C",
+    "point_name": "Sensor Temperature",
+    "point_group": "temperature",
+    "data_type": "number",
+    "unit": "C",
+    "display_order": 4
+  },
+  {
+    "asset_id": "0014e66c-a0d1-4b92-8209-1d10b2bca942",
+    "point_id": "7c8d5fee-89a5-4ec8-b801-c1c763961420",
+    "point_code": "BARREL1_ERROR_CODE",
+    "point_name": "Error Code",
+    "point_group": "status",
+    "data_type": "number",
+    "unit": "code",
+    "display_order": 5
+  },
+  {
+    "asset_id": "0014e66c-a0d1-4b92-8209-1d10b2bca942",
+    "point_id": "7a96b120-56f7-47c3-941d-bba7ad508c51",
+    "point_code": "BARREL1_HAS_ERROR",
+    "point_name": "Has Error",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 6
+  },
+  {
+    "asset_id": "0014e66c-a0d1-4b92-8209-1d10b2bca942",
+    "point_id": "eef90977-7d22-4648-af7c-a6cd3cfa9de9",
+    "point_code": "BARREL1_ONLINE",
+    "point_name": "Barrel 1 Online",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 7
+  },
+  {
+    "asset_id": "3b035658-b8e0-493b-b868-33d0bea04ece",
+    "point_id": "6b752c5d-4834-415e-ac36-0ab82053a3cb",
+    "point_code": "BARREL2_DISTANCE_M",
+    "point_name": "Distance to Material",
+    "point_group": "level",
+    "data_type": "number",
+    "unit": "m",
+    "display_order": 1
+  },
+  {
+    "asset_id": "3b035658-b8e0-493b-b868-33d0bea04ece",
+    "point_id": "67c3d309-bf74-49bc-b152-33245bd939db",
+    "point_code": "BARREL2_LEVEL_M",
+    "point_name": "Level",
+    "point_group": "level",
+    "data_type": "number",
+    "unit": "m",
+    "display_order": 2
+  },
+  {
+    "asset_id": "3b035658-b8e0-493b-b868-33d0bea04ece",
+    "point_id": "28289681-9b1d-4273-b972-57ad9125c247",
+    "point_code": "BARREL2_LEVEL_PERCENT",
+    "point_name": "Level Percent",
+    "point_group": "level",
+    "data_type": "number",
+    "unit": "%",
+    "display_order": 3
+  },
+  {
+    "asset_id": "3b035658-b8e0-493b-b868-33d0bea04ece",
+    "point_id": "0b58bd39-b980-4793-ad25-38a2b7fa246f",
+    "point_code": "BARREL2_SENSOR_TEMP_C",
+    "point_name": "Sensor Temperature",
+    "point_group": "temperature",
+    "data_type": "number",
+    "unit": "C",
+    "display_order": 4
+  },
+  {
+    "asset_id": "3b035658-b8e0-493b-b868-33d0bea04ece",
+    "point_id": "ed4619e2-3fb0-44b6-a036-c57e167c99ea",
+    "point_code": "BARREL2_ERROR_CODE",
+    "point_name": "Error Code",
+    "point_group": "status",
+    "data_type": "number",
+    "unit": "code",
+    "display_order": 5
+  },
+  {
+    "asset_id": "3b035658-b8e0-493b-b868-33d0bea04ece",
+    "point_id": "d532f8ab-fcdf-4aa5-9e1c-f8283d29e946",
+    "point_code": "BARREL2_HAS_ERROR",
+    "point_name": "Has Error",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 6
+  },
+  {
+    "asset_id": "3b035658-b8e0-493b-b868-33d0bea04ece",
+    "point_id": "4bb58b24-45c0-4ac0-8f57-6a20bc55fe86",
+    "point_code": "BARREL2_ONLINE",
+    "point_name": "Barrel 2 Online",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 7
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "18ccc8fe-9e7b-4d90-b8ef-e84a35458183",
+    "point_code": "CH1_CDW_OUT",
+    "point_name": "Condenser Water Out",
+    "point_group": "temperatures",
+    "data_type": "number",
+    "unit": "F",
+    "display_order": 10
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "f727eb7e-a071-4933-9e4f-25deb3595054",
+    "point_code": "CH1_CDW_IN",
+    "point_name": "Condenser Water In",
+    "point_group": "temperatures",
+    "data_type": "number",
+    "unit": "F",
+    "display_order": 20
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "c6b14e36-c3d8-41bb-9e16-cbbafaaada17",
+    "point_code": "CH1_CHW_IN",
+    "point_name": "Chilled Water In",
+    "point_group": "temperatures",
+    "data_type": "number",
+    "unit": "F",
+    "display_order": 30
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "e1b2517e-41d7-4499-8fec-866b5c4d5ce2",
+    "point_code": "CH1_CHW_OUT",
+    "point_name": "Chilled Water Out",
+    "point_group": "temperatures",
+    "data_type": "number",
+    "unit": "F",
+    "display_order": 40
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "829b2e01-b023-47d4-8601-b6a9db49b10a",
+    "point_code": "CH1_COMP1",
+    "point_name": "Compressor 1",
+    "point_group": "compressors",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 50
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "85ca770b-7600-4e9b-975f-41fafb7099cc",
+    "point_code": "CH1_COMP2",
+    "point_name": "Compressor 2",
+    "point_group": "compressors",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 60
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "f61b7f7f-704a-4a83-8cfb-42fee73f8e77",
+    "point_code": "CH1_ALARM",
+    "point_name": "Alarm",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 70
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "b39efd27-f542-441c-a1af-eb59206536a8",
+    "point_code": "CH1_FAN_ENABLE",
+    "point_name": "Fan Enable",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 80
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "6e8e6326-95e8-47c8-9bc4-f2a68861d9df",
+    "point_code": "CH1_FAN_30",
+    "point_name": "Fan 30Hz",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 90
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "32fe2b00-aa40-4a22-a5d2-3938caa37746",
+    "point_code": "CH1_FAN_60",
+    "point_name": "Fan 60Hz",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 100
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "5639737e-7b96-44f2-b721-fd865bb52112",
+    "point_code": "CH1_RESET",
+    "point_name": "Alarm Reset",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 110
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "ab3ff6eb-b0a8-4083-9f1b-e705a0e5cd8d",
+    "point_code": "CH1_SETPOINT",
+    "point_name": "Fan Setpoint",
+    "point_group": "temperatures",
+    "data_type": "number",
+    "unit": "F",
+    "display_order": 120
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "745fbfed-9ecb-4f71-896f-19ecbb4fe659",
+    "point_code": "CH1_D1",
+    "point_name": "Stage1 Delta",
+    "point_group": "temperatures",
+    "data_type": "number",
+    "unit": "F",
+    "display_order": 130
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "1ee0e78d-7903-4d01-8377-9917aeca12d6",
+    "point_code": "CH1_D2",
+    "point_name": "Stage2 Delta",
+    "point_group": "temperatures",
+    "data_type": "number",
+    "unit": "F",
+    "display_order": 140
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "e3b40fa9-3c63-4792-bd2d-42991044fdce",
+    "point_code": "CH1_HYST",
+    "point_name": "Hysteresis",
+    "point_group": "temperatures",
+    "data_type": "number",
+    "unit": "F",
+    "display_order": 150
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "b049389c-15a0-4c53-ab98-db1fee78a14c",
+    "point_code": "CH1_AUTO",
+    "point_name": "Auto Mode",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 160
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "793d1dd9-631f-4561-9e44-64240ca75bc1",
+    "point_code": "CH1_STAGE30",
+    "point_name": "Stage 30 Active",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 170
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "18a2b087-0764-44d2-a9ac-bf7d52ee8165",
+    "point_code": "CH1_STAGE60",
+    "point_name": "Stage 60 Active",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 180
+  },
+  {
+    "asset_id": "4327afc7-a56b-4253-97c9-3de3632fb189",
+    "point_id": "111996e4-ff83-4ad7-b4cd-233d326a30f7",
+    "point_code": "CH1_ONLINE",
+    "point_name": "Online",
+    "point_group": "status",
+    "data_type": "boolean",
+    "unit": null,
+    "display_order": 190
+  }
+]

@@ -1,0 +1,6 @@
+secrets.h
+ota_config.h
+network_config.h
+telemetry_config.h
+*.bin
+*.elf
