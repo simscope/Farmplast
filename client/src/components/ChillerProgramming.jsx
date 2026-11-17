@@ -16,13 +16,14 @@ export default function ChillerProgramming({deviceCode,label,data,error,onRefres
   const observed=data?.jobs?.[0]
   const latest=!observed || (submitted && submitted.id!==observed.id && Date.parse(submitted.created_at)>Date.parse(observed.created_at)) ? submitted : observed
   const active=latest && !['completed','failed'].includes(latest.status)
+  const usbRequired=deviceCode==='ESP32-CH3-PLC' && data?.device?.version==='ch3-msi-1'
   const online=!!data?.device && (telemetryOnline ?? Date.now()-Date.parse(data.device.last_seen)<45000)
   const deviceStatus=error?'STATUS UNAVAILABLE':!data?'LOADING':!data.device?'OTA NOT INITIALIZED':online?'ONLINE':'DEVICE OFFLINE'
   const versions=data?.releases?.filter(r=>r.version!==data?.device?.version)||[]
   const selected=versions.find(r=>r.id===release)
   async function program(event) {
     event.preventDefault()
-    if(guard.current || active || !online || !selected) return
+    if(guard.current || active || !online || !selected || usbRequired) return
     guard.current=true;setBusy(true);setMessage('')
     try {
       request.current=nextOtaRequest(request.current,release,observed)
@@ -41,8 +42,9 @@ export default function ChillerProgramming({deviceCode,label,data,error,onRefres
         {[['Current Firmware',data?.device?.version||'—'],['Device OTA Status',deviceStatus],['Last Seen',timestamp(data?.device?.last_seen)],['Available Version',data&&!error?(versions[0]?.version||(data.releases?.length?'No newer approved version':'NO APPROVED FIRMWARE AVAILABLE')):'—'],['Last Attempt',timestamp(observed?.created_at)],['Last Successful Update',timestamp(data?.last_successful_update?.updated_at)]].map(([name,value])=><div key={name}><dt className="text-sm text-slate-400">{name}</dt><dd className="mt-1 font-semibold">{value}</dd></div>)}
       </dl>
       <button type="button" style={button} disabled={busy} onClick={()=>setUpload(true)}>UPLOAD FIRMWARE</button>
-      <button type="button" style={button} disabled={busy || !!active || !online || !versions.length} onClick={()=>{setOpen(true);setMessage('');setCode('');onRefresh()}}>{active?'PROGRAMMING…':'PROGRAM FIRMWARE'}</button>
+      <button type="button" style={button} disabled={busy || !!active || !online || !versions.length || usbRequired} onClick={()=>{setOpen(true);setMessage('');setCode('');onRefresh()}}>{active?'PROGRAMMING…':'PROGRAM FIRMWARE'}</button>
     </div>
+    {usbRequired&&<p role="status" className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3">Live monitoring is available. The next firmware update requires USB installation; remote programming becomes available after that update.</p>}
     {data&&!error&&!data.device&&<div className="mt-4 rounded-lg border border-amber-400/30 bg-amber-400/10 p-3"><p>Initial physical firmware installation is required before Internet programming can be used.</p>{deviceCode==='ESP32-CH3-PLC'&&<p className="mt-1">CH3 hardware is not present.</p>}</div>}
     <div className="mt-4 rounded-lg border border-slate-600 bg-slate-900 p-3" role="status">
       <strong>{labels[latest?.status||'idle']}</strong>
