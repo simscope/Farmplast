@@ -28,4 +28,3 @@ await fs.writeFile(path.join(root, 'config.json'), JSON.stringify({
   storageBuckets:['employee-photos'],retention:'keep_all_verified_monthly_snapshots'
 }, null, 2), {flag:'wx'})
 console.log(JSON.stringify({provisioned:true,keyId:key.keyId,...(process.argv.includes('--emit-scram-verifier')?{verifier}:{})}))
-

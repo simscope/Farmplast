@@ -30,4 +30,3 @@ for(const object of objects){
  if(await sha256(file)!==object.sha256)throw Error('Restored employee photo checksum mismatch')
 }
 console.log(JSON.stringify({status:'decrypted_and_files_verified',directory:target,tables:manifest.verification.tables,photos:objects.length,databaseRestored:false}))
-

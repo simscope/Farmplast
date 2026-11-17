@@ -90,4 +90,3 @@ Auth provider settings, API keys, внешние секреты сервисов
 Миграция 20261117231041 создаёт reader без LOGIN. Операционная миграция 20261117231114 установила отдельный SCRAM verifier; в Git вместо секрета находится документированный маркер. Новая установка требует отдельного provisioning, существующий пароль при воспроизведении миграций не перезаписывается.
 
 Документация: [Supabase: dedicated backup reader](https://supabase.com/kb/troubleshooting/pg_dump-fails-with-query-would-be-affected-by-row-level-security-policy-1d5783), [backup/restore and separate Storage files](https://supabase.com/docs/guides/platform/migrating-within-supabase/backup-restore), [official Windows binaries](https://www.postgresql.org/download/windows/).
-

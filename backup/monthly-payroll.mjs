@@ -213,4 +213,3 @@ if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.ur
   console.error(JSON.stringify({status:'failed',message:error.message}));process.exitCode=1
  }
 }
-

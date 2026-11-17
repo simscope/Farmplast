@@ -12,4 +12,3 @@ with zipfile.ZipFile(archive) as z:
         if not dest.is_relative_to(root) or ".." in pathlib.PurePosixPath(n).parts: raise RuntimeError("Unsafe binary path")
         z.extract(n,root)
 print(json.dumps({"extracted_files":len(selected),"archive_sha256":expected}))
-

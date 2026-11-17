@@ -12,4 +12,3 @@ ALTER ROLE farmplast_msi_backup SET statement_timeout = '15min';
 ALTER ROLE farmplast_msi_backup SET idle_in_transaction_session_timeout = '30min';
 COMMENT ON ROLE farmplast_msi_backup IS 'MSI monthly encrypted Payroll backups; read grants only; no application cutover.';
 COMMIT;
-

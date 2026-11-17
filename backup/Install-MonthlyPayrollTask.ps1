@@ -19,4 +19,3 @@ if($task){throw 'Existing backup task found; inspect rather than replace it'}
 Register-ScheduledTask -TaskName 'Farmplast-Payroll-Monthly-Backup' -Xml $xml|Out-Null
 Export-ScheduledTask -TaskName 'Farmplast-Payroll-Monthly-Backup'|Set-Content -LiteralPath (Join-Path $root 'task.xml') -Encoding UTF8
 Get-ScheduledTaskInfo -TaskName 'Farmplast-Payroll-Monthly-Backup'|Select-Object NextRunTime,LastTaskResult|ConvertTo-Json -Compress
-

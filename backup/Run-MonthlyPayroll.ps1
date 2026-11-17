@@ -5,4 +5,3 @@ $log=Join-Path $root ('logs\run-'+[DateTime]::UtcNow.ToString('yyyyMMdd-HHmmss')
 & 'C:\Program Files\nodejs\node.exe' (Join-Path $root 'scripts\monthly-payroll.mjs') --ensure-month *> $log
 $taskExit=$LASTEXITCODE
 exit $taskExit
-
