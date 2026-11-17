@@ -1,0 +1,39 @@
+{
+  "project": "eeobivvwjzakbweluwtm",
+  "source": "Supabase Farmplast",
+  "active_backend_unchanged": true,
+  "created_at": "2026-11-17T23:22:34.005Z",
+  "month": "2026-11",
+  "destination": "E:\\SimScopeData\\Backups\\FarmplastPayroll\\snapshots\\2026-11\\payroll.tar.enc",
+  "encryption": "AES-256-GCM",
+  "encrypted_bytes": 10374180,
+  "encrypted_sha256": "031ef1e5782f583d67d4371a01c4c60de2c7b67aa5841dd78d6d6f515bfb4b69",
+  "verification": {
+    "tables": 67,
+    "rows": 49189,
+    "row_digests_match": true,
+    "photos": 64,
+    "photo_checksums_match": true,
+    "offline_restore_passed": true,
+    "encrypted_archive_decrypted_and_files_verified": true,
+    "system_task_exit": 0,
+    "idempotent_rerun_passed": true
+  },
+  "included": {
+    "employees": 73,
+    "payments": 1224,
+    "payroll_checks": 1933,
+    "auth_users": 2
+  },
+  "schedule": {
+    "task": "Farmplast-Payroll-Monthly-Backup",
+    "account": "SYSTEM",
+    "day_of_month": 1,
+    "time": "03:00",
+    "timezone": "MSI local: Atlantic Standard Time",
+    "next_run_utc": "2026-12-01T07:00:00.000Z",
+    "codex_monthly_check": "payroll-msi"
+  },
+  "retention": "keep_all_monthly_copies",
+  "recovery_key_copied_to_owner": true
+}

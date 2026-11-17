@@ -1,0 +1,10 @@
+private/
+snapshots/
+logs/
+recovery/
+tools/
+*.enc
+*.dump
+archive-key.json
+pgpass.conf
+credential-verifier.txt
