@@ -131,12 +131,12 @@ void chillerTelemetryPublished() {
   otaTelemetryHealthy=true;
 }
 static bool otaDecode(JsonObject doc,OtaJob& job) {
-  if(!otaReady || strlen(CHILLER_OTA_DEVICE_KEY)<32 || strlen(CHILLER_OTA_CA_PEM)<100) return false;
+  if(!otaReady || strlen(CHILLER_OTA_DEVICE_KEY)<32 || strlen(NJ_MSI_CA_PEM)<100) return false;
   String action=doc["action"]|"",model=doc["model"]|"",mac=doc["mac"]|"";
   job.id=doc["id"]|"";job.version=doc["version"]|"";job.sha=doc["sha256"]|"";job.url=doc["url"]|"";
   job.expires=doc["expires"]|int64_t(0);job.size=doc["size"]|uint32_t(0);
   if(job.id.length()!=36 || model!=CHILLER_OTA_MODEL || String(doc["device"]|"")!=DEVICE_CODE || action!="update" || job.expires<=time(nullptr) || job.expires>time(nullptr)+660 || job.version.length()>48 || job.url.length()>2048) return false;
-  if(job.sha.length()!=64 || !job.size || job.size>1310720 || !job.version.length() || job.version==chillerVersionMarker+16 || !job.url.startsWith(String("https://")+SUPABASE_HOST+"/storage/v1/object/sign/chiller-firmware/"+DEVICE_CODE+"/")) return false;
+  if(job.sha.length()!=64 || !job.size || job.size>1310720 || !job.version.length() || job.version==chillerVersionMarker+16 || !job.url.startsWith(String("https://farmplast.vercel.app/storage/v1/object/sign/chiller-firmware/")+DEVICE_CODE+"/")) return false;
   String canonical=job.id+"|update|"+String(DEVICE_CODE)+"|"+model+"|"+job.version+"|"+job.sha+"|"+String(job.size)+"|"+String((long long)job.expires)+"|"+job.url;
   uint8_t digest[32];
   if(mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),(const uint8_t*)CHILLER_OTA_DEVICE_KEY,strlen(CHILLER_OTA_DEVICE_KEY),(const uint8_t*)canonical.c_str(),canonical.length(),digest)) return false;
@@ -167,7 +167,7 @@ static bool otaInstall(const OtaJob& job) {
   if(!otaStage("downloading",0)) return false;
   CHILLER_DIAG_CHECKPOINT("runtime_before_https_download");
   forceInternetToWiFi();
-  WiFiClientSecure tls;tls.setCACert(CHILLER_OTA_CA_PEM);
+  WiFiClientSecure tls;tls.setCACert(NJ_MSI_CA_PEM);
   HTTPClient http;http.setTimeout(10000);http.setConnectTimeout(5000);
   if(!http.begin(tls,job.url)) return otaFail("download_begin_failed");
   if(http.GET()!=200) {http.end();return otaFail("download_http_status");}
@@ -263,13 +263,13 @@ static bool chillerOtaResponse(const String& response,bool discover) {
 bool chillerReportOta() {
   if(!otaReady || otaReporting || !otaJobId.length() || WiFi.status()!=WL_CONNECTED || time(nullptr)<1700000000) return false;
   otaReporting=true;otaLastReport=millis();forceInternetToWiFi();
-  WiFiClientSecure tls;tls.setCACert(CHILLER_OTA_CA_PEM);
+  WiFiClientSecure tls;tls.setCACert(NJ_MSI_CA_PEM);
   HTTPClient http;http.setTimeout(8000);http.setConnectTimeout(5000);
-  bool ok=http.begin(tls,String("https://")+SUPABASE_HOST+"/rest/v1/rpc/chiller_ota_report");
+  bool ok=http.begin(tls,String(NJ_REPORT_URL));
   String response;
   if(ok) {
-    http.addHeader("Content-Type","application/json");http.addHeader("apikey",SUPABASE_ANON_KEY);
-    http.addHeader("Authorization",String("Bearer ")+SUPABASE_ANON_KEY);
+    http.addHeader("Content-Type","application/json");
+    http.addHeader("Authorization",String("Bearer ")+NJ_TELEMETRY_BEARER);
     JsonDocument doc;doc["p_device"]=DEVICE_CODE;doc["p_secret"]=DEVICE_SECRET;
     JsonDocument metadata;deserializeJson(metadata,chillerGatewayMetadata());doc["p_metadata"]=metadata;
     String body;serializeJson(doc,body);const int code=http.POST(body);

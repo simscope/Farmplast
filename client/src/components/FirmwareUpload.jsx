@@ -1,5 +1,5 @@
 import {useRef,useState} from 'react'
-import {supabase} from '../lib/supabase'
+import {chillerBackend as supabase} from '../lib/chillerBackend'
 import {inspectFirmware,uploadAndApprove} from '../utils/chillerFirmware'
 
 export default function FirmwareUpload({device,onClose,onApproved,client=supabase}) {

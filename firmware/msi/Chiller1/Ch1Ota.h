@@ -79,7 +79,7 @@ static bool otaDecode(JsonObject doc,OtaJob& job) {
   job.id=doc["id"]|"";job.version=doc["version"]|"";job.sha=doc["sha256"]|"";job.url=doc["url"]|"";
   job.expires=doc["expires"]|int64_t(0);job.size=doc["size"]|uint32_t(0);
   if(job.id.length()!=36 || model!="CH1-ESP32S3-v1" || action!="update" || job.expires<=time(nullptr) || job.expires>time(nullptr)+660 || job.version.length()>48 || job.url.length()>2048) return false;
-  if(job.sha.length()!=64 || !job.size || job.size>1310720 || !job.version.length() || job.version==ch1VersionMarker+15 || !job.url.startsWith(String(SUPABASE_URL)+"/storage/v1/object/sign/ch1-firmware/")) return false;
+  if(job.sha.length()!=64 || !job.size || job.size>1310720 || !job.version.length() || job.version==ch1VersionMarker+15 || !job.url.startsWith(String("https://farmplast.vercel.app/storage/v1/object/sign/ch1-firmware/"))) return false;
   String canonical=job.id+"|update|"+model+"|"+job.version+"|"+job.sha+"|"+String(job.size)+"|"+String((long long)job.expires);
   uint8_t digest[32];
   if(mbedtls_md_hmac(mbedtls_md_info_from_type(MBEDTLS_MD_SHA256),(const uint8_t*)CH1_OTA_DEVICE_KEY,strlen(CH1_OTA_DEVICE_KEY),(const uint8_t*)canonical.c_str(),canonical.length(),digest)) return false;
@@ -96,7 +96,7 @@ static bool otaInstall(const OtaJob& job) {
   const esp_partition_t* slot=esp_ota_get_next_update_partition(nullptr);
   if(!slot || slot==esp_ota_get_running_partition() || job.size>slot->size || job.expires<=time(nullptr)) return false;
   if(!otaStage("downloading",0)) return false;
-  WiFiClientSecure tls;tls.setCACert(CH1_OTA_CA_PEM);
+  WiFiClientSecure tls;tls.setCACert(NJ_MSI_CA_PEM);
   HTTPClient http;http.setTimeout(10000);http.setConnectTimeout(5000);
   if(!http.begin(tls,job.url)) return false;
   if(http.GET()!=200 || http.getSize()!=int(job.size)) {http.end();return false;}
@@ -148,16 +148,15 @@ static void ch1OtaRunPending() {
   otaRun(job);
 }
 static bool ch1Rpc(const char* endpoint,JsonDocument& doc,String& response) {
-  if(WiFi.status()!=WL_CONNECTED || time(nullptr)<1700000000 || strlen(CH1_OTA_DEVICE_KEY)<32 || strlen(CH1_OTA_CA_PEM)<100) return false;
-  const bool telemetry = strcmp(endpoint,"/rest/v1/rpc/ingest_ch1")==0;
+  if(WiFi.status()!=WL_CONNECTED || time(nullptr)<1700000000 || strlen(CH1_OTA_DEVICE_KEY)<32 || strlen(NJ_MSI_CA_PEM)<100) return false;
+  const bool telemetry = strcmp(endpoint,"telemetry")==0;
   if(telemetry) doc.remove("p_key"); else doc["p_key"]=CH1_OTA_DEVICE_KEY;
   String body;serializeJson(doc,body);
-  WiFiClientSecure tls;tls.setCACert(telemetry ? NJ_MSI_CA_PEM : CH1_OTA_CA_PEM);
+  WiFiClientSecure tls;tls.setCACert(telemetry ? NJ_MSI_CA_PEM : NJ_MSI_CA_PEM);
   HTTPClient http;http.setTimeout(10000);http.setConnectTimeout(5000);
-  if(!http.begin(tls,telemetry ? String(NJ_TELEMETRY_URL) : String(SUPABASE_URL)+endpoint)) return false;
+  if(!http.begin(tls,telemetry ? String(NJ_TELEMETRY_URL) : String(NJ_REPORT_URL))) return false;
   http.addHeader("Content-Type","application/json");
-  if(telemetry) http.addHeader("Authorization",String("Bearer ")+NJ_TELEMETRY_BEARER);
-  else http.addHeader("apikey",SUPABASE_ANON_KEY);
+  http.addHeader("Authorization",String("Bearer ")+NJ_TELEMETRY_BEARER);
   int code=http.POST(body);bool ok=code==200 && http.getSize()<=4096;
   if(ok) {response=http.getString();ok=response.length()<=4096;}
   http.end();return ok;
@@ -165,7 +164,7 @@ static bool ch1Rpc(const char* endpoint,JsonDocument& doc,String& response) {
 bool ch1PostTelemetry(JsonArray rows,String& response) {
   JsonDocument doc;doc["p_rows"]=rows;
   otaLastExchange=millis();
-  return ch1Rpc("/rest/v1/rpc/ingest_ch1",doc,response);
+  return ch1Rpc("telemetry",doc,response);
 }
 bool ch1ProcessResponse(const String& response,bool updating) {
   JsonDocument result;
@@ -189,7 +188,7 @@ bool ch1DeviceSync(bool updating) {
   if(!updating || otaSyncing || !otaJobId.length()) return false;
   otaSyncing=true;otaLastExchange=millis();
   JsonDocument metadata,doc;deserializeJson(metadata,ch1GatewayMetadata());doc["p_gateway"]=metadata["gateway"];
-  String response;bool ok=ch1Rpc("/rest/v1/rpc/ch1_ota_report",doc,response);
+  String response;bool ok=ch1Rpc("report",doc,response);
   if(ok) ok=ch1ProcessResponse(response,true);
   otaSyncing=false;return ok;
 }

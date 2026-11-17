@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import {chillerBackend as supabase} from '../lib/chillerBackend'
 import FirmwareUpload from './FirmwareUpload'
 import {queueFirmware} from '../utils/chillerFirmware'
 

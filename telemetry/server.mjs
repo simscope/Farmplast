@@ -4,13 +4,16 @@ import { readFileSync } from 'node:fs'
 import { pathToFileURL } from 'node:url'
 import { createTelemetryState, VIEW_NAMES } from './state.mjs'
 import { createCloudBridge } from './otaBridge.mjs'
+import {createCloudReporter} from './otaBridge.mjs'
+import {openControlStore} from './controlStore.mjs'
+import {createLocalControlHttp} from './localControlHttp.mjs'
 
 function equal(actual, expected) {
   if (typeof actual !== 'string' || typeof expected !== 'string') return false
   const a = Buffer.from(actual), b = Buffer.from(expected)
   return a.length === b.length && timingSafeEqual(a, b)
 }
-export function createTelemetryServer(config, state = createTelemetryState(), bridge = createCloudBridge(config)) {
+export function createTelemetryServer(config, state = createTelemetryState(), bridge = createCloudBridge(config), controlHttp = null) {
   for (const key of [config.readKey, ...['chiller-1', 'chiller-2', 'chiller-3', 'barrels'].map(id => config.devices?.[id])]) {
     if (typeof key !== 'string' || key.length < 48) throw new Error('Provision independent read/device keys before starting')
   }
@@ -22,6 +25,7 @@ export function createTelemetryServer(config, state = createTelemetryState(), br
     res.setHeader('X-Content-Type-Options', 'nosniff')
     const send = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(body)) }
     const url = new URL(req.url, 'http://localhost')
+    if(controlHttp && await controlHttp(req,res,url))return
     const token = req.headers.authorization?.match(/^Bearer ([A-Za-z0-9_-]{16,256})$/)?.[1]
     if (url.pathname === '/healthz' && req.method === 'GET') return send(200, { ok: true, storage: 'memory', history: false })
     if (url.pathname === '/v1/status') {
@@ -78,7 +82,14 @@ export function createTelemetryServer(config, state = createTelemetryState(), br
   return server
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  const config = JSON.parse(readFileSync(process.env.NJ_TELEMETRY_CONFIG, 'utf8'))
-  const server = createTelemetryServer(config)
-  server.listen(Number(process.env.PORT || 18220), '127.0.0.1', () => process.stdout.write('Farmplast NJ RAM telemetry listening on loopback\n'))
+  try {
+   const config = JSON.parse(readFileSync(process.env.NJ_TELEMETRY_CONFIG, 'utf8'))
+   const store=config.control?await openControlStore(config.control):null
+   const local=config.control?.mode==='local'
+   const bridge=local?(producer,body)=>store.exchange(producer,body,config):createCloudBridge(config)
+   const reporter=local?(producer,args)=>store.report(producer,args):createCloudReporter(config)
+   const server = createTelemetryServer(config,createTelemetryState(),bridge,store?createLocalControlHttp(config,store,reporter):null)
+   server.listen(Number(process.env.PORT || 18220), '127.0.0.1', () => process.stdout.write('Farmplast NJ RAM telemetry listening on loopback\n'))
+   for(const signal of ['SIGINT','SIGTERM'])process.on(signal,()=>server.close(async()=>{await store?.close();process.exit(0)}))
+  } catch {process.stderr.write('MSI telemetry startup rejected; inspect private configuration without logging credentials.\n');process.exit(1)}
 }

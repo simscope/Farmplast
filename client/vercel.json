@@ -1,5 +1,6 @@
 {
   "functions": {
+    "api/nj-control.js": {"maxDuration":30},
     "api/nj-ingest.js": {
       "maxDuration": 30
     },
@@ -26,6 +27,8 @@
     }
   },
   "rewrites": [
+    {"source":"/api/nj-report/:device","destination":"/api/nj-control?kind=report&device=:device"},
+    {"source":"/storage/v1/object/sign/:object*","destination":"/api/nj-control?kind=signed-download&object=:object*"},
     {
       "source": "/api/nj-ingest/:device",
       "destination": "/api/nj-ingest?device=:device"
