@@ -1,4 +1,5 @@
 import points from './points.json' with { type: 'json' }
+import { gatewayFor } from './protocol.mjs'
 
 export const ASSETS = [
   { asset_code: 'CH-NJ-01', asset_id: '4327afc7-a56b-4253-97c9-3de3632fb189', asset_name: 'Chiller 1', asset_type: 'chiller', device_code: 'ESP32-CH1', device_id: 'db7a7808-8ceb-407a-bfbf-c215e42ffb93', producer: 'chiller-1', ttl: 16000 },
@@ -29,9 +30,11 @@ export function createTelemetryState(now = Date.now) {
       if (!fresh(asset, snapshots.get(asset.asset_code))) snapshots.delete(asset.asset_code)
     }
   }
-  function ingest(producer, body) {
+  function ingest(producer, body, transport = 'direct') {
     const assets = ASSETS.filter(a => a.producer === producer)
     if (!assets.length) throw new Error('Unknown producer')
+    const gateway = producer === 'barrels' ? null : gatewayFor(producer, body)
+    if (producer === 'chiller-1' && !Array.isArray(body)) body = body?.p_rows
     const batch = new Map()
     const put = (asset, metadata, reading) => {
       const vals = value(reading, metadata.data_type)
@@ -58,7 +61,7 @@ export function createTelemetryState(now = Date.now) {
       }
       if (batch.get(asset.asset_code)?.size !== 15) throw new Error('Incomplete PLC snapshot')
     } else {
-      if (!Array.isArray(body) || !body.length || body.length > 33) throw new Error('Invalid array batch')
+      if (!Array.isArray(body) || !body.length || body.length > (producer === 'barrels' ? 2 : 19)) throw new Error('Invalid array batch')
       for (const row of body) {
         const asset = assets.find(a => a.asset_id === row.asset_id && a.device_id === row.device_id)
         const metadata = asset && points.find(p => p.asset_id === asset.asset_id && p.point_id === row.point_id)
@@ -73,7 +76,8 @@ export function createTelemetryState(now = Date.now) {
     // Validate the whole batch before replacing any state. Missing points disappear.
     for (const [code, readings] of batch) {
       snapshots.set(code, { received: now(), points: [...readings.values()] })
-      receipts.set(code, new Date(now()).toISOString())
+      const previous = receipts.get(code)
+      receipts.set(code, { last_received_at:new Date(now()).toISOString(), transport, version:gateway?.version || null, boot:gateway?.boot || null, batches:(previous?.batches || 0) + 1 })
     }
     expire()
     return { ok: true }
@@ -125,7 +129,7 @@ export function createTelemetryState(now = Date.now) {
   }
   function status() {
     expire()
-    const devices = ASSETS.map(a => ({ asset_code: a.asset_code, online: fresh(a, snapshots.get(a.asset_code)) === true, last_received_at: receipts.get(a.asset_code) || null, points: snapshots.get(a.asset_code)?.points.length || 0 }))
+    const devices = ASSETS.map(a => ({ asset_code: a.asset_code, online: fresh(a, snapshots.get(a.asset_code)) === true, last_received_at:null, transport:null, version:null, boot:null, batches:0, ...receipts.get(a.asset_code), points: snapshots.get(a.asset_code)?.points.length || 0 }))
     return { storage: 'memory', history: false, devices, all_online: devices.every(d => d.online) }
   }
   return { ingest, read, status, expire }

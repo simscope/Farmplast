@@ -10,7 +10,7 @@ if (Get-NetTCPConnection -State Listen -LocalPort 18220 -ErrorAction SilentlyCon
 $release = Join-Path $resolved 'release'
 $private = Join-Path $resolved 'private'
 New-Item -ItemType Directory -Force -Path $release,$private | Out-Null
-foreach ($file in @('server.mjs','state.mjs','points.json')) { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination (Join-Path $release $file) }
+foreach ($file in @('server.mjs','state.mjs','points.json','protocol.mjs','otaBridge.mjs')) { Copy-Item -LiteralPath (Join-Path $PSScriptRoot $file) -Destination (Join-Path $release $file) }
 $ownerSid = [Security.Principal.WindowsIdentity]::GetCurrent().User.Value
 foreach ($dir in @('E:\SimScopeData','E:\SimScopeData\Farmplast')) {
   # Node/PowerShell must resolve the path through locked parent directories.

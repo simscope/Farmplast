@@ -1,8 +1,9 @@
 // Synthetic readings used only by tests. Never loaded into the MSI service.
 import { ASSETS, RAW_REGISTERS } from './state.mjs'
 import points from './points.json' with { type: 'json' }
+export const gateway = (version='test-1') => ({protocol:2,version,boot:'a'.repeat(32),job:'',status:'idle',progress:0})
 export function plc(n = 2, rawValue = 500) {
-  return { payload: { device_code: `ESP32-CH${n}-PLC`, readings: [
+  return { payload: { device_code: `ESP32-CH${n}-PLC`, gateway:gateway(), readings: [
     ...RAW_REGISTERS.map(reg => ({ point_code: `CH2_R${reg}`, value_number: rawValue })),
     ...['SYSTEM_RUNNING', 'COMP_1A_ENABLED', 'COMP_1B_ENABLED', 'COMP_1C_ENABLED', 'COMP_2A_ENABLED', 'COMP_2B_ENABLED', 'COMP_2C_ENABLED'].map(bit => ({ point_code: `CH2_${bit}`, value_boolean: false })),
   ] } }
@@ -12,5 +13,5 @@ export function barrels(left = 0, right = 76) {
 }
 export function ch1() {
   const asset = ASSETS[0]
-  return points.filter(p => p.asset_id === asset.asset_id).map(p => ({ asset_id: asset.asset_id, device_id: asset.device_id, point_id: p.point_id, ...(p.data_type === 'boolean' ? { value_boolean: p.point_code === 'CH1_ONLINE' } : { value_number: 50 }) }))
+  return points.filter(p => p.asset_id === asset.asset_id).map(p => ({ asset_id: asset.asset_id, device_id: asset.device_id, point_id: p.point_id, ...(p.point_code==='CH1_ONLINE'?{raw_payload:{gateway:gateway()}}:{}), ...(p.data_type === 'boolean' ? { value_boolean: p.point_code === 'CH1_ONLINE' } : { value_number: 50 }) }))
 }
