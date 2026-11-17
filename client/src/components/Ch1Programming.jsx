@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import {chillerBackend as supabase} from '../lib/chillerBackend'
 import {queueFirmware,requiresPhysicalMigration} from '../utils/ch1Firmware'
 import Ch1FirmwareUpload from './Ch1FirmwareUpload'
+import {nextOtaRequest} from '../utils/otaRequestIdentity.mjs'
 
 const button={padding:'12px 16px',borderRadius:12,border:'1px solid #64748b',background:'#0f172a',color:'#fff',cursor:'pointer',fontWeight:800}
 const labels={idle:'IDLE',authorized:'AUTHORIZED',downloading:'DOWNLOADING',verifying:'VERIFYING',installing:'INSTALLING',rebooting:'REBOOTING',waiting_for_telemetry:'WAITING FOR DEVICE / TELEMETRY',completed:'PROGRAMMING SUCCESSFUL',failed:'FAILED'}
@@ -22,7 +23,7 @@ export default function Ch1Programming({data,error,onRefresh}) {
     if(guard.current || active || !online || !selected || physicalMigration) return
     guard.current=true;setBusy(true);setMessage('')
     try {
-      if(request.current?.release!==release) request.current={id:crypto.randomUUID(),release}
+      request.current=nextOtaRequest(request.current,release,observed)
       const result=await queueFirmware(supabase,{code,release:selected,requestId:request.current.id})
       setSubmitted({id:result,status:'authorized',progress:0,created_at:new Date().toISOString(),release:{version:selected.version}})
       setOpen(false);setMessage('Job accepted. Waiting for verified firmware and telemetry after reboot.')
