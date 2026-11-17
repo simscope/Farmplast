@@ -2,6 +2,7 @@ import { useRef, useState } from 'react'
 import {chillerBackend as supabase} from '../lib/chillerBackend'
 import FirmwareUpload from './FirmwareUpload'
 import {queueFirmware} from '../utils/chillerFirmware'
+import {nextOtaRequest} from '../utils/otaRequestIdentity.mjs'
 
 const button={padding:'12px 16px',borderRadius:12,border:'1px solid #64748b',background:'#0f172a',color:'#fff',cursor:'pointer',fontWeight:800}
 const field={display:'block',boxSizing:'border-box',width:'100%',minWidth:0,minHeight:44,marginTop:6,padding:'10px 12px',borderRadius:10,border:'1px solid #64748b',background:'#0f172a',color:'#ffffff',colorScheme:'dark',fontSize:16}
@@ -24,7 +25,7 @@ export default function ChillerProgramming({deviceCode,label,data,error,onRefres
     if(guard.current || active || !online || !selected) return
     guard.current=true;setBusy(true);setMessage('')
     try {
-      if(request.current?.release!==release) request.current={id:crypto.randomUUID(),release}
+      request.current=nextOtaRequest(request.current,release,observed)
       const id=await queueFirmware(supabase,{device:deviceCode,code,release:selected,requestId:request.current.id})
       setSubmitted({id,status:'authorized',progress:0,created_at:new Date().toISOString(),release:{version:selected.version}})
       setOpen(false);setMessage('Job accepted. Waiting for the next telemetry POST, verified firmware and telemetry after reboot.')
