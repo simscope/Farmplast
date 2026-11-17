@@ -1,5 +1,8 @@
 {
   "functions": {
+    "api/nj-telemetry.js": {
+      "maxDuration": 30
+    },
     "api/sync-sacs.js": {
       "maxDuration": 60
     },
@@ -20,6 +23,10 @@
     }
   },
   "rewrites": [
+    {
+      "source": "/api/nj-telemetry/:view",
+      "destination": "/api/nj-telemetry?view=:view"
+    },
     {
       "source": "/climate/:path*",
       "destination": "/api/pa-climate-device?route=:path*"

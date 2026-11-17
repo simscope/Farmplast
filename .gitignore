@@ -6,6 +6,7 @@ supabase/.temp/
 **/.env.*
 !**/.env.example
 **/*.local.json
+**/*.local.txt
 **/*secrets.local.*
 **/secrets.h
 **/*.sqlite

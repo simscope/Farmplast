@@ -10,7 +10,7 @@ import {
   Cpu,
   Waves,
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import { monitoring } from '../lib/monitoring'
 
 const pageWrap =
   'min-h-screen bg-slate-950 text-slate-100 px-4 md:px-6 py-6'
@@ -261,7 +261,7 @@ export default function ChillersPage() {
       if (!silent) setRefreshing(true)
       setErrorText('')
 
-      const { data, error } = await supabase
+      const { data, error } = await monitoring
         .from('v_asset_points_latest')
         .select('*')
         .or('point_code.like.CH2_%,point_code.like.CH3_%')

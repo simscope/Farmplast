@@ -18,6 +18,7 @@ import {
   Cpu,
 } from 'lucide-react'
 import { supabase } from '../lib/supabase'
+import { monitoring } from '../lib/monitoring'
 import Ch1Programming from '../components/Ch1Programming'
 import { commandOutcome } from '../utils/ch1CommandState.mjs'
 import useMonitoringPolling from '../hooks/useMonitoringPolling'
@@ -895,7 +896,7 @@ export default function Chiller1HMIPage() {
     try {
       if (!silent) setLoading(true)
 
-      const { data, error: fetchError } = await supabase
+      const { data, error: fetchError } = await monitoring
         .from('v_asset_points_latest')
         .select(POINT_DETAIL_COLUMNS)
         .eq('asset_code', 'CH-NJ-01')

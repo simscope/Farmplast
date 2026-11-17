@@ -1,6 +1,6 @@
 import React, { useCallback, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { supabase } from '../lib/supabase'
+import { monitoring } from '../lib/monitoring'
 import useMonitoringPolling from '../hooks/useMonitoringPolling'
 import { BARREL_SOURCE_CODES, getBarrelStatus } from '../utils/barrelMonitoring'
 import { groupAssets, formatValue, statCardStyle, pageButtonStyle } from '../utils/monitoringHelpers'
@@ -13,7 +13,7 @@ export default function BarrelDetailPage({ barrelNumber }) {
   const [error, setError] = useState('')
   const load = useCallback(async (signal) => {
     try {
-      const { data, error: fetchError } = await supabase.from('v_asset_points_latest')
+      const { data, error: fetchError } = await monitoring.from('v_asset_points_latest')
         .select(DETAIL_COLUMNS).eq('asset_code', BARREL_SOURCE_CODES[barrelNumber])
         .order('display_order').abortSignal(signal)
       if (signal.aborted) return
