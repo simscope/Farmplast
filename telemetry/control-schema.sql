@@ -869,4 +869,3 @@ alter table "public"."chiller_ota_jobs" enable row level security;
 alter table "public"."chiller_ota_receipts" enable row level security;
 alter table "public"."chiller_ota_releases" enable row level security;
 revoke all on all tables in schema public,ch1_private,ch23_ota_private,nj_msi_private,storage from public,anon,authenticated;
-
