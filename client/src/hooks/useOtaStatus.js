@@ -1,5 +1,5 @@
 import {useCallback,useEffect,useRef,useState} from 'react'
-import {supabase} from '../lib/supabase'
+import {chillerBackend as supabase} from '../lib/chillerBackend'
 import {startOtaStatusPolling} from '../utils/otaStatusPolling'
 
 export default function useOtaStatus(device) {

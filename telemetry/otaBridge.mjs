@@ -1,5 +1,15 @@
 import { ASSETS } from './state.mjs'
 import { gatewayFor, controlReport } from './protocol.mjs'
+export function createCloudReporter(config,fetcher=fetch){
+ return async(producer,args)=>{
+  const name=producer==='chiller-1'?'ch1_ota_report':'chiller_ota_report'
+  if(producer!=='chiller-1'&&args.p_device!==ASSETS.find(a=>a.producer===producer)?.device_code)throw Error('Wrong report device')
+  const response=await fetcher(config.cloud.url+'/rest/v1/rpc/'+name,{method:'POST',headers:{'Content-Type':'application/json',apikey:config.cloud.anonKey,Authorization:'Bearer '+config.cloud.anonKey},body:JSON.stringify(args),redirect:'error',cache:'no-store',signal:AbortSignal.timeout(4000)})
+  if(!response.ok) {await response.body?.cancel();throw Error('Report rejected')}
+  const raw=await response.text();if(raw.length>4096)throw Error('Response too large')
+  return JSON.parse(raw)
+ }
+}
 export function createCloudBridge(config, fetcher = fetch) {
   if (config.cloud?.url !== 'https://eeobivvwjzakbweluwtm.supabase.co' || !config.cloud.anonKey || ['chiller-1','chiller-2','chiller-3'].some(id => typeof config.legacyKeys?.[id] !== 'string' || config.legacyKeys[id].length < 16)) return null
   return async (producer, body) => {

@@ -36,17 +36,17 @@
 static const char* FIRMWARE_VERSION = CHILLER_OTA_VERSION;
 
 // ======================================================
-// WIFI -> INTERNET / SUPABASE
+// WIFI -> INTERNET / MSI
 // ======================================================
 // WIFI_SSID is defined in ignored secrets.h.
 // WIFI_PASS is defined in ignored secrets.h.
 
 // ======================================================
-// SUPABASE
+// MSI
 // ======================================================
-static const char* SUPABASE_HOST = "eeobivvwjzakbweluwtm.supabase.co";
 
-static const char* SUPABASE_RPC_URL =
+
+static const char* TELEMETRY_RPC_URL =
   NJ_TELEMETRY_URL;
 
 // IMPORTANT: Wi-Fi DHCP currently advertises DNS 192.168.1.1.
@@ -56,7 +56,7 @@ static const char* SUPABASE_RPC_URL =
 static const IPAddress INTERNET_DNS1(1, 1, 1, 1);
 static const IPAddress INTERNET_DNS2(8, 8, 8, 8);
 
-// SUPABASE_ANON_KEY is defined in ignored secrets.h.
+// Device authentication is scoped to this controller.
 
 static const char* DEVICE_CODE   = "ESP32-CH3-PLC";
 // DEVICE_SECRET is defined in ignored secrets.h.
@@ -229,10 +229,10 @@ void printNetworkStatus() {
     Serial.print(" sleep=");
     Serial.println((int)WiFi.getSleep());
     IPAddress resolved;
-    int dnsRc = Network.hostByName(SUPABASE_HOST, resolved);
+    int dnsRc = Network.hostByName(NJ_TELEMETRY_HOST, resolved);
 
     Serial.print("[DNS] ");
-    Serial.print(SUPABASE_HOST);
+    Serial.print(NJ_TELEMETRY_HOST);
     Serial.print(" -> ");
 
     if (dnsRc == 1) {
@@ -747,7 +747,7 @@ void appendBoolReading(
 }
 
 // ======================================================
-// BUILD MINIMAL SUPABASE PAYLOAD
+// BUILD MINIMAL MSI PAYLOAD
 // ======================================================
 String buildRpcBody() {
   String body;
@@ -872,9 +872,9 @@ void diagnoseInternet() {
 }
 
 // ======================================================
-// SUPABASE POST
+// MSI POST
 // ======================================================
-TelemetryPostResult postToSupabase() {
+TelemetryPostResult postTelemetry() {
   if (!ch.valid) {
     Serial.println("[POST] Skip: no valid PLC sample");
     return POST_SKIPPED_NO_DATA;
@@ -900,7 +900,7 @@ TelemetryPostResult postToSupabase() {
   http.setConnectTimeout(5000);
   http.setTimeout(8000);
 
-  if (!http.begin(client, SUPABASE_RPC_URL)) {
+  if (!http.begin(client, TELEMETRY_RPC_URL)) {
     Serial.println("[POST] http.begin FAILED");
     client.stop();
     return POST_HTTP_FAILED;
@@ -1036,7 +1036,7 @@ void setup() {
 
   // Send first sample immediately if Internet is available.
   if (WiFi.status() == WL_CONNECTED) {
-    handlePostResult(postToSupabase());
+    handlePostResult(postTelemetry());
   }
 
   lastPollMs = millis();
@@ -1058,7 +1058,7 @@ void loop() {
 
   if (now - lastPostMs >= POST_INTERVAL_MS) {
     lastPostMs = now;
-    handlePostResult(postToSupabase());
+    handlePostResult(postTelemetry());
   }
 
   if (now - lastNetStatusMs >= NET_STATUS_INTERVAL_MS) {

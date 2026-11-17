@@ -17,7 +17,7 @@ import {
   Wind,
   Cpu,
 } from 'lucide-react'
-import { supabase } from '../lib/supabase'
+import {chillerBackend as supabase} from '../lib/chillerBackend'
 import { monitoring } from '../lib/monitoring'
 import Ch1Programming from '../components/Ch1Programming'
 import {loadFirmwareStatus} from '../utils/ch1Firmware'

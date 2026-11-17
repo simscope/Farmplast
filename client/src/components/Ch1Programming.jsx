@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import { supabase } from '../lib/supabase'
+import {chillerBackend as supabase} from '../lib/chillerBackend'
 import {queueFirmware,requiresPhysicalMigration} from '../utils/ch1Firmware'
 import Ch1FirmwareUpload from './Ch1FirmwareUpload'
 
