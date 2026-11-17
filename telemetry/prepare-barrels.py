@@ -1,9 +1,11 @@
 """Prepare a private, unflashed candidate from the owner's local Waveshare source.
 
 No serial port is opened. The original file is never modified. Credentials stay
-on MSI. This does not establish that the source matches the installed firmware.
+in private owner/MSI folders. This does not establish that the source matches
+the installed firmware.
 """
 from pathlib import Path
+import argparse
 import hashlib
 import json
 import re
@@ -14,7 +16,15 @@ EXPECTED_SHA256 = '369a4e2aafe61d0204c0ec7936f9565df4d53bea3a37e69afc90e10540762
 DEST = ROOT / 'private' / 'barrels-candidate' / 'Barel2'
 
 def main():
-    original = SOURCE.read_bytes()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--source', type=Path, default=SOURCE)
+    parser.add_argument('--dest', type=Path, default=DEST)
+    parser.add_argument('--config', type=Path, default=ROOT / 'private' / 'config.json')
+    parser.add_argument('--ca', type=Path, default=Path(__file__).resolve().parents[1] / 'firmware' / 'common' / 'msi-ca.h')
+    parser.add_argument('--panel-config', type=Path, required=True)
+    parser.add_argument('--receipt', type=Path, default=ROOT / 'barrels-preparation.json')
+    args = parser.parse_args()
+    original = args.source.read_bytes()
     if hashlib.sha256(original).hexdigest() != EXPECTED_SHA256:
         raise RuntimeError('Owner source changed; review it before preparing another candidate')
     text = original.decode('utf-8-sig')
@@ -42,23 +52,35 @@ def main():
     text = text.replace('client.setInsecure();', 'client.setCACert(NJ_MSI_CA_PEM);')
     text = text.replace('  WiFiClientSecure client;', '  if (time(nullptr) < 1700000000) return false; // Wait for NTP before verified TLS.\n  WiFiClientSecure client;')
     text = text.replace('  Serial.println(body);', '  // No complete telemetry packet is written to the serial log.')
+    # Remove diagnostic sample dumps; sensor calculations and screen rendering stay intact.
+    text, dumps = re.subn(r'  Serial\.println\("----- BARREL[12] [^\n]*\n.*?  Serial\.flush\(\);', '  // Sample diagnostics disabled: live display only.', text, flags=re.S)
+    if dumps != 2:
+        raise RuntimeError('Unexpected sensor diagnostic blocks')
+    text = text.replace('  Serial.println("BOOT: ESP32-S3 Dual Barrel Monitor");', '  Serial.println("BOOT: ESP32-S3 Dual Barrel Monitor / barrels-msi-1");')
     text = text.replace('Supabase: DIRECT REST telemetry_latest by point_id', 'MSI: current readings in RAM only')
     if 'eeobivvwjzakbweluwtm.supabase.co' in text or 'SUPABASE_ANON_KEY' in text or '.setInsecure()' in text:
         raise RuntimeError('Old cloud transport remains')
-    config = json.loads((ROOT / 'private' / 'config.json').read_text(encoding='utf-8-sig'))
+    config = json.loads(args.config.read_text(encoding='utf-8-sig'))
     key = config['devices']['barrels']
     if not re.fullmatch(r'[a-f0-9]{64}', key):
         raise RuntimeError('Unexpected device key')
     header = '#pragma once\n' + '\n'.join(credentials) + '\n'
-    header += '#define NJ_TELEMETRY_URL "https://msi.tail4626fb.ts.net:10000/v1/ingest/barrels"\n'
+    header += '#define NJ_TELEMETRY_URL "https://farmplast.vercel.app/api/nj-ingest/barrels"\n'
     header += '#define NJ_TELEMETRY_BEARER ' + json.dumps(key) + '\n'
-    ca = (ROOT / 'release' / 'msi-ca.h').read_text(encoding='utf-8')
-    DEST.mkdir(parents=True, exist_ok=True)
-    (DEST / 'Barel2.ino').write_text(text, encoding='utf-8', newline='\n')
-    (DEST / 'secrets.h').write_text(header, encoding='utf-8', newline='\n')
-    (DEST / 'msi-ca.h').write_text(ca, encoding='utf-8', newline='\n')
-    receipt = {'source': str(SOURCE), 'source_sha256': hashlib.sha256(original).hexdigest(), 'candidate': str(DEST), 'candidate_sha256': hashlib.sha256(text.encode()).hexdigest(), 'compiled': False, 'flashed': False, 'installed_source_confirmed': False, 'changes': ['MSI URL and distinct bearer', 'verified TLS and NTP guard', 'remove cloud API key', 'remove JSON packet serial logging'], 'unchanged': ['sensor calculations', 'GPIO', 'Modbus IDs/registers', 'screen rendering', '15-second cadence']}
-    (ROOT / 'barrels-preparation.json').write_text(json.dumps(receipt, indent=2), encoding='utf-8')
+    ca = args.ca.read_text(encoding='utf-8')
+    panel = args.panel_config.read_text(encoding='utf-8')
+    panel = panel.replace('#define ESP_PANEL_BOARD_DEFAULT_USE_SUPPORTED       (0)', '#define ESP_PANEL_BOARD_DEFAULT_USE_SUPPORTED       (1)')
+    panel, selected = re.subn(r'^// #define BOARD_WAVESHARE_ESP32_S3_TOUCH_LCD_7\s*$', '#define BOARD_WAVESHARE_ESP32_S3_TOUCH_LCD_7', panel, flags=re.M)
+    if selected != 1:
+        raise RuntimeError('Unexpected panel configuration template')
+    args.dest.mkdir(parents=True, exist_ok=True)
+    (args.dest / 'Barel2.ino').write_text(text, encoding='utf-8', newline='\n')
+    (args.dest / 'secrets.h').write_text(header, encoding='utf-8', newline='\n')
+    (args.dest / 'msi-ca.h').write_text(ca, encoding='utf-8', newline='\n')
+    (args.dest / 'esp_panel_board_supported_conf.h').write_text(panel, encoding='utf-8', newline='\n')
+    receipt = {'source': str(args.source), 'source_sha256': hashlib.sha256(original).hexdigest(), 'candidate': str(args.dest), 'candidate_sha256': hashlib.sha256(text.encode()).hexdigest(), 'version': 'barrels-msi-1', 'compiled': False, 'flashed': False, 'installed_source_confirmed': False, 'changes': ['MSI URL through HTTPS443 gateway and distinct bearer', 'verified TLS and NTP guard', 'remove cloud API key', 'remove sample serial logging', 'explicit Waveshare 7 panel build configuration'], 'unchanged': ['sensor calculations', 'GPIO', 'Modbus IDs/registers', 'screen rendering', '15-second cadence']}
+    args.receipt.parent.mkdir(parents=True, exist_ok=True)
+    args.receipt.write_text(json.dumps(receipt, indent=2), encoding='utf-8')
     print(json.dumps(receipt, indent=2))
 
 if __name__ == '__main__':
