@@ -1,0 +1,99 @@
+{
+  "verified_at_utc": "2026-11-17T04:31:51Z",
+  "project_ref": "eeobivvwjzakbweluwtm",
+  "migration": {
+    "version": "20261117043118",
+    "name": "farmplast_remove_cloud_chillers"
+  },
+  "removed_edge_functions": [
+    "ch1-ota",
+    "chiller-ota"
+  ],
+  "removed_custom_ota_secrets": 9,
+  "removed_firmware_objects": 18,
+  "control_source": "MSI-local",
+  "sensor_storage": "RAM",
+  "history": false,
+  "ch3_usb_limitation_accepted": true,
+  "ch3_usb_flashed": false,
+  "before": {
+    "employees": 73,
+    "auth_users": 2,
+    "barrel_assets": 2,
+    "barrel_points": 14,
+    "chiller_views": 6,
+    "barrel_devices": 2,
+    "chiller_assets": 3,
+    "chiller_tables": 21,
+    "remaining_cron": [
+      {
+        "id": 3,
+        "name": "cleanup_zkt_bridge_commands",
+        "active": true
+      }
+    ],
+    "barrel_overview": [
+      {
+        "is_online": true,
+        "asset_code": "BARREL-NJ-01"
+      },
+      {
+        "is_online": true,
+        "asset_code": "BARREL-NJ-02"
+      }
+    ],
+    "chiller_devices": 3,
+    "chiller_schemas": 3,
+    "chiller_policies": 12,
+    "firmware_buckets": 2,
+    "firmware_objects": 18,
+    "chiller_functions": 41,
+    "barrel_latest_rows": 4,
+    "chiller_named_points": 265,
+    "unrelated_columns_digest": "ed0d56b8013ddd8f42e511600ca8fd2c",
+    "unrelated_functions_digest": "0ce7efc5c51b1c94b7857960c8662e1d"
+  },
+  "after": {
+    "employees": 73,
+    "auth_users": 2,
+    "barrel_assets": 2,
+    "barrel_points": 14,
+    "chiller_views": 0,
+    "barrel_devices": 2,
+    "chiller_assets": 0,
+    "chiller_tables": 0,
+    "remaining_cron": [
+      {
+        "id": 3,
+        "name": "cleanup_zkt_bridge_commands",
+        "active": true
+      }
+    ],
+    "barrel_overview": [
+      {
+        "is_online": true,
+        "asset_code": "BARREL-NJ-01"
+      },
+      {
+        "is_online": true,
+        "asset_code": "BARREL-NJ-02"
+      }
+    ],
+    "chiller_devices": 0,
+    "chiller_schemas": 0,
+    "chiller_policies": 0,
+    "firmware_buckets": 0,
+    "firmware_objects": 0,
+    "chiller_functions": 0,
+    "barrel_latest_rows": 4,
+    "chiller_named_points": 0,
+    "unrelated_columns_digest": "ed0d56b8013ddd8f42e511600ca8fd2c",
+    "unrelated_functions_digest": "0ce7efc5c51b1c94b7857960c8662e1d"
+  },
+  "post_cleanup_control_rpc": "All three controllers verified",
+  "post_cleanup_signed_download": {
+    "size": 1137520,
+    "status": 200,
+    "sha256_match": true
+  }
+}
