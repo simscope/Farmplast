@@ -15,6 +15,7 @@ import { getEmployeePhotoThumbnailUrl } from '../../utils/employeePhotos'
 import ZktActionsMenu from './ZktActionsMenu'
 
 const LAST_ACCESSED_EMPLOYEE_KEY = 'farmplast:last-accessed-employee-id'
+const employeeColumnsClass = 'grid-cols-[60px_24px_minmax(190px,1fr)_80px_130px_160px_90px_90px_100px_200px_140px_minmax(190px,1fr)]'
 
 function normalizePlantLocation(value) {
   return String(value || 'NJ').toUpperCase() === 'PA' ? 'PA' : 'NJ'
@@ -52,6 +53,29 @@ function SortIcon({ field, employeeSort }) {
   return employeeSort.direction === 'asc'
     ? <ArrowUp size={12} />
     : <ArrowDown size={12} />
+}
+
+function EmployeeName({ employee, getFullName, onEdit }) {
+  return (
+    <button
+      type="button"
+      onClick={() => onEdit(employee)}
+      className="flex min-w-0 items-center gap-2 rounded-lg text-left font-semibold text-white transition hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
+      title="Edit employee"
+    >
+      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-[#07101d]">
+        <EmployeePhoto employee={employee} getFullName={getFullName} size={96} />
+      </div>
+      <div className="min-w-0 leading-tight">
+        <div className="truncate" title={getFullName(employee)}>{getFullName(employee)}</div>
+        {employee.company_name ? (
+          <div className="truncate text-[11px] font-normal text-slate-400">
+            {employee.company_name}
+          </div>
+        ) : null}
+      </div>
+    </button>
+  )
 }
 
 export default function WorkersList({
@@ -177,7 +201,7 @@ export default function WorkersList({
         ) : (
           <div className="hidden overflow-x-auto rounded-xl border border-slate-800 lg:block">
             <div className="min-w-[1530px]">
-              <div className="grid grid-cols-[70px_30px_230px_90px_150px_170px_100px_110px_120px_270px_160px] bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300">
+              <div className={`grid ${employeeColumnsClass} bg-slate-900/70 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-300`}>
                 <button
                   type="button"
                   onClick={() => handleEmployeeSort('number')}
@@ -219,6 +243,15 @@ export default function WorkersList({
                   />
                   <span>Print check</span>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => handleEmployeeSort('name')}
+                  className="inline-flex items-center gap-1 text-left uppercase tracking-wide text-slate-300 transition hover:text-cyan-300"
+                  title="Sort by name"
+                >
+                  Name
+                  <SortIcon field="name" employeeSort={employeeSort} />
+                </button>
               </div>
 
               {filteredEmployees.length === 0 ? (
@@ -242,7 +275,7 @@ export default function WorkersList({
                   return (
                   <div
                     key={employee.id}
-                    className={`grid grid-cols-[70px_30px_230px_90px_150px_170px_100px_110px_120px_270px_160px] items-center border-t border-slate-800 px-3 py-2 text-xs text-slate-200 ${
+                    className={`grid ${employeeColumnsClass} items-center border-t border-slate-800 px-3 py-2 text-xs text-slate-200 ${
                       isLastAccessed
                         ? `${isInactive ? 'border-l-4 border-l-orange-400 bg-orange-900/45' : 'bg-cyan-500/10'} ring-1 ring-inset ring-cyan-400/50`
                         : isInactive
@@ -266,25 +299,11 @@ export default function WorkersList({
                       )}
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => handleEditEmployee(employee)}
-                      className="flex min-w-0 items-center gap-2 rounded-lg text-left font-semibold text-white transition hover:text-cyan-300 focus:outline-none focus:ring-2 focus:ring-cyan-500/60"
-                      title="Edit employee"
-                    >
-                      <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-[#07101d]">
-                        <EmployeePhoto employee={employee} getFullName={getFullName} size={96} />
-                      </div>
-
-                      <div className="min-w-0 leading-tight">
-                        <div className="truncate">{getFullName(employee)}</div>
-                        {employee.company_name ? (
-                          <div className="truncate text-[11px] font-normal text-slate-400">
-                            {employee.company_name}
-                          </div>
-                        ) : null}
-                      </div>
-                    </button>
+                    <EmployeeName
+                      employee={employee}
+                      getFullName={getFullName}
+                      onEdit={handleEditEmployee}
+                    />
 
                     <div>
                       <Link
@@ -382,6 +401,11 @@ export default function WorkersList({
                         ) : null}
                       </div>
                     </div>
+                    <EmployeeName
+                      employee={employee}
+                      getFullName={getFullName}
+                      onEdit={handleEditEmployee}
+                    />
                   </div>
                   )
                 })}
