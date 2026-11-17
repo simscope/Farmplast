@@ -1,5 +1,4 @@
 export const VIEWS = new Set(['v_asset_points_latest', 'v_nj_monitoring_overview', 'v_ch2_dashboard', 'v_ch3_dashboard', 'ch2_latest', 'ch3_latest'])
-const ASSETS = ['CH-NJ-01','CH-NJ-02','CH-NJ-03','BARREL-NJ-01','BARREL-NJ-02']
 
 export function filterTelemetryRows(input, params) {
   let rows = input
@@ -63,28 +62,8 @@ export function createNjTelemetryHandler(env, fetcher = fetch) {
         redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(7000),
       })
       if (!response.ok) return send(503, 'MSI telemetry unavailable')
-      let input = await response.json()
+      const input = await response.json()
       if (!Array.isArray(input) || input.length > 128) return send(502, 'Invalid MSI response')
-      // Chillers can switch independently while barrels await USB installation.
-      // Cloud reads are restricted to the explicitly untransferred asset codes.
-      const migrated = new Set(env.NJ_TELEMETRY_MSI_ASSETS ? env.NJ_TELEMETRY_MSI_ASSETS.split(',').map(s=>s.trim()) : ASSETS)
-      if ([...migrated].some(code=>!ASSETS.includes(code))) return send(503,'Invalid telemetry source configuration')
-      const remaining = ASSETS.filter(code=>!migrated.has(code))
-      if (remaining.length && ['v_asset_points_latest','v_nj_monitoring_overview'].includes(view)) {
-        try {
-          const cloudUrl = new URL(env.VITE_SUPABASE_URL+'/rest/v1/'+view)
-          cloudUrl.searchParams.set('select','*')
-          cloudUrl.searchParams.set('asset_code','in.('+remaining.join(',')+')')
-          const cloud = await fetcher(cloudUrl.href, {headers:{apikey:env.VITE_SUPABASE_ANON_KEY,Authorization:`Bearer ${token}`},redirect:'error',cache:'no-store',signal:AbortSignal.timeout(7000)})
-          if (!cloud.ok) throw new Error('Untransferred source unavailable')
-          const rows = await cloud.json()
-          if (!Array.isArray(rows) || rows.length>128) throw new Error('Invalid cloud response')
-          input = [...input.filter(r=>migrated.has(r.asset_code)),...rows.filter(r=>remaining.includes(r.asset_code))]
-        } catch {
-          if (view !== 'v_nj_monitoring_overview') return send(503,'Barrel source unavailable')
-          input = input.map(r=>migrated.has(r.asset_code)?r:Object.fromEntries(Object.keys(r).map(k=>[k,['asset_code','asset_name','asset_type'].includes(k)?r[k]:k==='is_online'?false:null])))
-        }
-      }
       let rows
       try { rows = filterTelemetryRows(input, params) } catch { return send(400, 'Unsupported telemetry query') }
       const single = req.headers.accept?.includes('application/vnd.pgrst.object+json')

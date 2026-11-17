@@ -1,0 +1,66 @@
+{
+  "project": "eeobivvwjzakbweluwtm",
+  "verified_at": "2026-11-17T22:24:54.760Z",
+  "migration": "20261117222358_farmplast_retire_cloud_telemetry",
+  "removed": {
+    "tables": [
+      "assets",
+      "devices",
+      "points",
+      "alarms",
+      "device_commands",
+      "asset_points_latest",
+      "telemetry_latest",
+      "telemetry_latest_import"
+    ],
+    "views": [
+      "v_asset_points_latest",
+      "v_nj_monitoring_overview"
+    ],
+    "functions": [
+      "cleanup_1day",
+      "cleanup_old_telemetry",
+      "ingest_device_points_batch",
+      "ingest_point_telemetry",
+      "set_updated_at",
+      "skip_retired_barrel_latest",
+      "sync_telemetry_history_to_latest",
+      "touch_device_heartbeat",
+      "upsert_asset_point_latest"
+    ],
+    "table_owned_sequences": 2,
+    "telemetry_realtime_memberships": 1
+  },
+  "preserved": {
+    "table_count": 29,
+    "row_digests_unchanged": true,
+    "protected_schema_objects": 1811,
+    "protected_schema_digest": "2e3020b6ff096fcfb42395c5d953ac2e",
+    "schema_digest_unchanged": true,
+    "employees": 73,
+    "auth_users": 2,
+    "buckets": [
+      {
+        "id": "pa-climate-zone1-private",
+        "files": 2
+      },
+      {
+        "id": "employee-photos",
+        "files": 64
+      }
+    ],
+    "cron": [
+      {
+        "active": true,
+        "jobname": "cleanup_zkt_bridge_commands"
+      }
+    ]
+  },
+  "remaining_unused_target_objects": 0,
+  "backup": {
+    "kind": "schema_only",
+    "contains_sensor_readings": false,
+    "location": "Owner and MSI private recovery directory"
+  },
+  "local_migration_scenarios": 6
+}

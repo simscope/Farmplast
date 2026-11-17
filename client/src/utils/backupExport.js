@@ -11,9 +11,6 @@ export const backupTables = [
   { name: 'employee_payments', label: 'Employee payments', group: 'Payroll' },
   { name: 'zkt_attendance_logs', label: 'ZKT attendance logs', group: 'ZKT' },
   { name: 'zkt_bridge_commands', label: 'ZKT bridge commands', group: 'ZKT' },
-  { name: 'telemetry_latest', label: 'Chiller 1 latest telemetry', group: 'Monitoring' },
-  { name: 'ch2_latest', label: 'Chiller 2 latest telemetry', group: 'Monitoring' },
-  { name: 'ch3_latest', label: 'Chiller 3 latest telemetry', group: 'Monitoring' },
 ]
 
 export const storageBuckets = [
