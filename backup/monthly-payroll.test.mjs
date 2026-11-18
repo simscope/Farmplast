@@ -4,7 +4,7 @@ import fs from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import crypto from 'node:crypto'
-import {safeChild,sha256,encryptArchive,verifyArchive,decryptArchive,restoreListWithoutBootstrapSchemas} from './monthly-payroll.mjs'
+import {safeChild,sha256,encryptArchive,verifyArchive,decryptArchive,restoreListWithoutBootstrapSchemas,backupPeriod} from './monthly-payroll.mjs'
 
 test('encrypted backup round-trips and rejects changed ciphertext, tags and wrong keys',async t=>{
  const root=await fs.mkdtemp(path.join(os.tmpdir(),'farmplast-backup-test-'))
@@ -37,6 +37,16 @@ test('storage and staging paths cannot escape their assigned directory',()=>{
  assert.equal(safeChild(root,'object.blob'),path.join(root,'object.blob'))
  assert.throws(()=>safeChild(root,'../outside'),/escapes/)
  assert.throws(()=>safeChild(root,'.'),/escapes/)
+})
+
+test('weekly periods use New York Mondays, ISO years and the correct daylight-saving boundary',()=>{
+ assert.equal(backupPeriod(new Date('2026-11-17T23:00:00Z'),'weekly'),'2026-W47')
+ assert.equal(backupPeriod(new Date('2026-11-23T04:59:59Z'),'weekly'),'2026-W47')
+ assert.equal(backupPeriod(new Date('2026-11-23T05:00:00Z'),'weekly'),'2026-W48')
+ assert.equal(backupPeriod(new Date('2027-01-01T12:00:00Z'),'weekly'),'2026-W53')
+ assert.equal(backupPeriod(new Date('2027-01-04T05:00:00Z'),'weekly'),'2027-W01')
+ assert.equal(backupPeriod(new Date('2026-07-06T04:00:00Z'),'weekly'),'2026-W28')
+ assert.equal(backupPeriod(new Date('2026-11-17T23:00:00Z')),'2026-11')
 })
 
 test('offline bootstrap skips only the two already-created schemas, preserving data, functions, policies and other schemas',()=>{
