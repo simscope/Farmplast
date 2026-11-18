@@ -1,0 +1,11 @@
+{
+  "version": "pa-climate-msi-2.1.0",
+  "model": "PA-ESP32-WROOM32E-N4-R1",
+  "sha256": "7831b26ca42d06537bcecbe0f836efa8c16c7544b79f467d97baf08f161e6cd5",
+  "bytes": 1067856,
+  "arduino_core": "3.2.0",
+  "safe_staging": true,
+  "relay_gpio": 16,
+  "relay_active_high": true,
+  "physical_validation": false
+}

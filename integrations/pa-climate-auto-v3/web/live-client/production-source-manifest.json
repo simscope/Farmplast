@@ -1,0 +1,1394 @@
+{
+  "deploymentId": "dpl_8QmxeFNw5KDheRZQYs68iT9ZvD7W",
+  "origin": "https://farmplast.vercel.app",
+  "files": [
+    {
+      "path": "src/README.md",
+      "uid": "f234a01e40c5d3dd815471d31d06e39bcc6c0e58"
+    },
+    {
+      "path": "src/client/.env.example",
+      "uid": "e915005df3d572d75520ff79d18348dcc8e7f1a0"
+    },
+    {
+      "path": "src/client/README.md",
+      "uid": "c132fd040bd3b1864e5ad2944f5fc5a0a3a5fd24"
+    },
+    {
+      "path": "src/client/api/employee-integrations.js",
+      "uid": "bf0d528b100a93ad370977e52d8fb1a0c4d93928"
+    },
+    {
+      "path": "src/client/api/employee-safety-history.js",
+      "uid": "efbd927bf6b3ba1d0560d428c2a1beff6546551d"
+    },
+    {
+      "path": "src/client/api/pa-zone1.js",
+      "uid": "b11a71b2b50b7b664adfde39c3a9bd28a17d50d6"
+    },
+    {
+      "path": "src/client/api/sacs-sso.js",
+      "uid": "d1782d9887ceb96fdc6ac3220eefc5b6b491671f"
+    },
+    {
+      "path": "src/client/api/sync-sacs.js",
+      "uid": "e05eda57af7a1aa3827931087ae8f3194ac8b154"
+    },
+    {
+      "path": "src/client/eslint.config.js",
+      "uid": "4e06f7997389bb6d31f8ad126ff465cd3c86867f"
+    },
+    {
+      "path": "src/client/index.html",
+      "uid": "82c242ac78c264de9c3350f2838c91d45f7f3639"
+    },
+    {
+      "path": "src/client/package-lock.json",
+      "uid": "ae9af08ddfe065b092102daf7075d4293a8574cc"
+    },
+    {
+      "path": "src/client/package.json",
+      "uid": "61983d55380c97f310e98e0d918a18620554cd03"
+    },
+    {
+      "path": "src/client/public/pa-climate/ESPTOOL-LICENSE.txt",
+      "uid": "b0bb2432270f6141c05d565a20ec58f2ed837d1f"
+    },
+    {
+      "path": "src/client/public/pa-climate/serial-loader.js",
+      "uid": "b357bf15bd387601d324f457b5087c9da65b87ac"
+    },
+    {
+      "path": "src/client/public/vite.svg",
+      "uid": "f7f39d7237b791a945d52a5cd7a8fb365f313366"
+    },
+    {
+      "path": "src/client/scripts/compress-employee-photos.mjs",
+      "uid": "19feca731afa35cae2578c1573f473d18e48b6bc"
+    },
+    {
+      "path": "src/client/scripts/phase4-full-restore.py",
+      "uid": "50b41b73c2e3ed64735c21c7fa3d021513940403"
+    },
+    {
+      "path": "src/client/scripts/phase4-linux-setup.py",
+      "uid": "1bf7a97dd0357da06530acecf413bdeedfbb03ed"
+    },
+    {
+      "path": "src/client/scripts/phase4-restore-rehearsal.py",
+      "uid": "018c746dd74740163cf004ee8d9cf8da84ca313e"
+    },
+    {
+      "path": "src/client/scripts/phase6-archive-rehearsal.py",
+      "uid": "1a14819f08876d1ad6612a3f27d54505c9f097f2"
+    },
+    {
+      "path": "src/client/scripts/phase6-full-restore.py",
+      "uid": "62d9771644d4e046cc0796dd943ed4e655a07cd2"
+    },
+    {
+      "path": "src/client/scripts/phase6-linux-setup.py",
+      "uid": "b7071e5c87544b802f4ad3b7196b7010ba2512a4"
+    },
+    {
+      "path": "src/client/scripts/phase7-recovery-globals.py",
+      "uid": "47ab85e45933afb10c8e376e98ae1d10aada886a"
+    },
+    {
+      "path": "src/client/scripts/verify-archive-auth-browser.mjs",
+      "uid": "aeef2b9b076f3cccdeaaa0a109164b3bcb7cce2c"
+    },
+    {
+      "path": "src/client/scripts/verify-employee-archive.mjs",
+      "uid": "4c571933c707a93f9e6402bc5066bd2076af741c"
+    },
+    {
+      "path": "src/client/scripts/verify-employee-concurrency.mjs",
+      "uid": "708405431ccdfae82df5feffedd35cdc04db5ac8"
+    },
+    {
+      "path": "src/client/scripts/verify-employee-creation.mjs",
+      "uid": "cc85cf4e67c2f84e6cdccc8ea16e801a3be88639"
+    },
+    {
+      "path": "src/client/scripts/verify-employee-snapshot.mjs",
+      "uid": "c5e5ec44b6f5a44cf62ae30ff9a5ffdb7c74867d"
+    },
+    {
+      "path": "src/client/scripts/verify-employee-termination.mjs",
+      "uid": "c3960a8898ef7ed54302d16fe4583af6736fcb23"
+    },
+    {
+      "path": "src/client/scripts/verify-employees-browser.mjs",
+      "uid": "b1104865cd59318ea9033c98603f4ac485473b95"
+    },
+    {
+      "path": "src/client/scripts/verify-payroll-ytd-browser.mjs",
+      "uid": "e25d50e9030a4b0d8eff0cf03bf7993c2210d967"
+    },
+    {
+      "path": "src/client/scripts/verify-sequential-numbers.mjs",
+      "uid": "ab8c2dbb16e6958b8a25747c90975e300e1c976e"
+    },
+    {
+      "path": "src/client/server/employeeIntegration.mjs",
+      "uid": "34872193ede8587a30fb17d0cca8061bde059846"
+    },
+    {
+      "path": "src/client/server/employeeIntegrationEndpoint.mjs",
+      "uid": "77c7a8ee9b5982f241f139f3da1452236eccb407"
+    },
+    {
+      "path": "src/client/server/employeeSafetyHistory.mjs",
+      "uid": "11dab3c53239b3cc22bb3dbef16cbdbd6e5988c4"
+    },
+    {
+      "path": "src/client/server/sacsSso.mjs",
+      "uid": "6d8d34467c5ad021aeededdaf2448bc8434e4f3c"
+    },
+    {
+      "path": "src/client/server/sacsSync.mjs",
+      "uid": "8ead2b6cc54e5b8e66d480242e98149903c4c2d5"
+    },
+    {
+      "path": "src/client/src/App.css",
+      "uid": "3c535983deb551accdf50eb338c1f3bfcd758ce5"
+    },
+    {
+      "path": "src/client/src/App.jsx",
+      "uid": "2495c2f04cb0969880b69793d822935026e06804"
+    },
+    {
+      "path": "src/client/src/assets/fonts/1.tff",
+      "uid": "ba8ab5a0280b953aa97435ff8946cbcbb2755a27"
+    },
+    {
+      "path": "src/client/src/assets/fonts/MICRE13B.ttf",
+      "uid": "faf672f279768f8afe11cb1d5b3693da18d9358a"
+    },
+    {
+      "path": "src/client/src/assets/react.svg",
+      "uid": "f505ddc8ebe56bdc51efb721ef04923a8d3068dd"
+    },
+    {
+      "path": "src/client/src/components/Ch1Programming.jsx",
+      "uid": "85e68993f19f300f0426b798c890abf45fe288f3"
+    },
+    {
+      "path": "src/client/src/components/ChillerProgramming.jsx",
+      "uid": "2ed1f26fe144794fa20aec164aa7b3f85f86a50e"
+    },
+    {
+      "path": "src/client/src/components/EmployeeModal.jsx",
+      "uid": "623b40c718eda41a6a34779ae1c125c4a17ce058"
+    },
+    {
+      "path": "src/client/src/components/EmployeeNumberSuggestion.jsx",
+      "uid": "cea8ce79cdd78530927497860c6d97ae0104a354"
+    },
+    {
+      "path": "src/client/src/components/EmployeePlantTransferHint.jsx",
+      "uid": "5c1c1ea92668cbd4386969dd2fa357a6039a6465"
+    },
+    {
+      "path": "src/client/src/components/EmployeeTerminationDialog.jsx",
+      "uid": "67edb6762bc962c9631402fd7828fab21f65870f"
+    },
+    {
+      "path": "src/client/src/components/FirmwareUpload.jsx",
+      "uid": "c2c344aef3f9a228ec80e74943bb705d2045e5e5"
+    },
+    {
+      "path": "src/client/src/components/FormerEmployeeDetails.css",
+      "uid": "ee5c0f535e5c07646e9dfcfb7cb068fcbe69c259"
+    },
+    {
+      "path": "src/client/src/components/FormerEmployeeDetails.jsx",
+      "uid": "c25d3c525e3d475048092708eb443aaf9e6ee38d"
+    },
+    {
+      "path": "src/client/src/components/PayrollReport.jsx",
+      "uid": "fbdfa9f5303277e7364cef1894cbec3fda5b94d6"
+    },
+    {
+      "path": "src/client/src/components/ProtectedRoute.jsx",
+      "uid": "ddb370e71fab37ed003d0dca3d3006d24ac5d032"
+    },
+    {
+      "path": "src/client/src/components/SacsLink.jsx",
+      "uid": "8f9c6e84684da6179415d4e9aa2fcc3f612fce80"
+    },
+    {
+      "path": "src/client/src/components/monitoring/AdminLoginModal.jsx",
+      "uid": "e77eb8469d061796bc0f9c896efb4a05a763c012"
+    },
+    {
+      "path": "src/client/src/components/monitoring/BarrelIllustration.jsx",
+      "uid": "1bc1cf60bba694d432a072e32e41872d6a900b76"
+    },
+    {
+      "path": "src/client/src/components/monitoring/ChillerIllustration.jsx",
+      "uid": "d496deb1201ba97b5788d166a8ab502d0d97e7d0"
+    },
+    {
+      "path": "src/client/src/components/monitoring/DetailPanel.jsx",
+      "uid": "378455925a6a10b469158cf3659bc97cbef82960"
+    },
+    {
+      "path": "src/client/src/components/monitoring/LocationSelector.jsx",
+      "uid": "248c7885804b33c46b8f9a516406965050509bd9"
+    },
+    {
+      "path": "src/client/src/components/monitoring/StatusPill.jsx",
+      "uid": "5698e8162991fcd4feab8ee2cbabbc89c9e589f5"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/AlarmSummary.jsx",
+      "uid": "123b821fd243e519530c42ae591840fe188117ac"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/BarrelCard.jsx",
+      "uid": "a369e66370c9a32c434e0bfca3ea76e9546e2770"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/BarrelHmi.jsx",
+      "uid": "e50d1c31ee50adf4f29aa058e801e86cfb475f6f"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/ChillerCard.jsx",
+      "uid": "7ee4a27dfedfe66e3e6e6ea58a66c2e002eadb9c"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/ClimateControl.jsx",
+      "uid": "3ba7d96f0b02cc13d966d71b637ea7705605e5f9"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/ClimateZoneCard.jsx",
+      "uid": "73f6f6b5780b4c5bf28f417ba3bc651b5f33ddf6"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/DeviceCard.jsx",
+      "uid": "dc3416fe00bd2dc90aa44dc6d862f141afba485c"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/MachinePowerCard.jsx",
+      "uid": "682dd97970cb948585c49fe99f0fa0c4d909aca7"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/MixerStatus.jsx",
+      "uid": "2dbdc3d5d8458a6b6f1594bbcf121acbefa7a696"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/PlantSummary.jsx",
+      "uid": "552fcecfbaf15a45d48f9e14d8347455067935d0"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/SectionHeader.jsx",
+      "uid": "60fbf410eb0014c58385037a7a1d80f18022ba6a"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/StatusBadge.jsx",
+      "uid": "ebfac7b6341ff6d2d2a0a04e4429eefe12ce0412"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/ZoneOne.jsx",
+      "uid": "396dd44cf408a43fb779a9e02717de27720b561e"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/ZoneTarget.jsx",
+      "uid": "014900bfeb829b8599e6f9cdeb13afadca5a519b"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/barrelHmi.css",
+      "uid": "66322d8ac9e19734edaa50b43ab56b30974f0c1d"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/climateConfig.js",
+      "uid": "214de803b8165ae275e2ed3ab28b399a65ade9f4"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/climateControl.css",
+      "uid": "02dfd19eabd50fdbfe1b0aef0f4e2cdf00c6cf6c"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/climateSnapshot.js",
+      "uid": "50e84c97452580d501356edda529b1a1cca3aa29"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/config.js",
+      "uid": "2e9c9d8fef1641bf04d3c1a6a31a9f5ef6aff704"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/format.js",
+      "uid": "4145d9973ab5b03292850bc8f1cad50789aa4560"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/machineConfig.js",
+      "uid": "1761db905856a77c78bf7ccedecc4c8985c9768c"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/machineSnapshot.js",
+      "uid": "286e09300f63e91efedd2fc077d03b7b7920ca23"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/pa.css",
+      "uid": "d71953d95f0bf37529a61912a95b9b61c6095e92"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/panelDisplay.js",
+      "uid": "2dbe81f2e7cb8f1eb027678ea6d8aec40bde980d"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/plant.js",
+      "uid": "0a722bd06a8c49b776c01789c2b672bf232a7849"
+    },
+    {
+      "path": "src/client/src/components/monitoring/pa/snapshot.js",
+      "uid": "fcb116d9aefcf2728a9acbcb57a7d36b9fe4a08d"
+    },
+    {
+      "path": "src/client/src/components/payroll/CompanyPayrollCheck.jsx",
+      "uid": "f65ce06890be3b4ab03188811f8c9b7b42f7f46a"
+    },
+    {
+      "path": "src/client/src/components/payroll/PayrollCheck.css",
+      "uid": "e9ce7824b4b7e1b40bcaa895d8ac53c60b6c5845"
+    },
+    {
+      "path": "src/client/src/components/payroll/PayrollCheck.jsx",
+      "uid": "a818953d5d432c87ec915c293995a266b463ee13"
+    },
+    {
+      "path": "src/client/src/components/payroll/SelectedChecksPrintModal.jsx",
+      "uid": "584492f8f0f8f4f717068d64f7ff65272987dc11"
+    },
+    {
+      "path": "src/client/src/components/workers/WorkersList.jsx",
+      "uid": "b1aeb39d9fc1489b86ea5460b1f172b640084945"
+    },
+    {
+      "path": "src/client/src/context/AuthContext.jsx",
+      "uid": "5b2f1bdffc8984c6662813da20a550aae2f916dd"
+    },
+    {
+      "path": "src/client/src/context/authContextValue.js",
+      "uid": "4d0728145acac1f9bcede480138640bfd9eea701"
+    },
+    {
+      "path": "src/client/src/context/useAuth.js",
+      "uid": "92c46852f2432712f36e513f643bee3ec33f229c"
+    },
+    {
+      "path": "src/client/src/hooks/useEmployeeFeatureFlags.js",
+      "uid": "d9e7f8dcec9250243e34031ee7f6b598aa2797d1"
+    },
+    {
+      "path": "src/client/src/hooks/useEmployeeList.js",
+      "uid": "d199ae0a3264564048d1a8bb5a576fec2ed31e5b"
+    },
+    {
+      "path": "src/client/src/hooks/useEmployeePlantTransfer.js",
+      "uid": "17f6b39121c66197d31ff5a51242d278b7ef7a27"
+    },
+    {
+      "path": "src/client/src/hooks/useMonitoringPolling.js",
+      "uid": "abdebb71cffac33023669b7b925a3e5ebed77e3d"
+    },
+    {
+      "path": "src/client/src/hooks/useOtaStatus.js",
+      "uid": "52a6d799da4edc19141b121c79a2cbd80151145f"
+    },
+    {
+      "path": "src/client/src/index.css",
+      "uid": "afd1b762456dbf46bdc8dd9c63833515b3fbc2d3"
+    },
+    {
+      "path": "src/client/src/lib/payrollTaxMath.js",
+      "uid": "e56b5ffefd39fa02a8eabc43879bd9ebf83e7891"
+    },
+    {
+      "path": "src/client/src/lib/supabase.js",
+      "uid": "bbddbbddaf50d08cccb9836e24bd813074d2a707"
+    },
+    {
+      "path": "src/client/src/main.jsx",
+      "uid": "514357e6886bc34dcba42b8017d1bc1a688060e0"
+    },
+    {
+      "path": "src/client/src/pages/AccountingPage.jsx",
+      "uid": "49c04b10de55096c401b8b121ee28e14617abb6a"
+    },
+    {
+      "path": "src/client/src/pages/BackupPage.jsx",
+      "uid": "ee90c2903769804ab9db474a9c7b8422871b7fbf"
+    },
+    {
+      "path": "src/client/src/pages/BarrelDetailPage.jsx",
+      "uid": "321c0d21089981f1a9bf319938a7bfd04c4abcd8"
+    },
+    {
+      "path": "src/client/src/pages/Chiller1HMIPage.jsx",
+      "uid": "f7bdeb15a09854789fcbd86ad65350a381c6f033"
+    },
+    {
+      "path": "src/client/src/pages/Chiller2HMIPage.jsx",
+      "uid": "9d802a819d12e3e959647e385b4cc503621e3dee"
+    },
+    {
+      "path": "src/client/src/pages/Chiller3HMIPage.jsx",
+      "uid": "3a20f8fa9db729e6d26d72819e501bfc1ecaf7d5"
+    },
+    {
+      "path": "src/client/src/pages/ChillersPage.jsx",
+      "uid": "fdc3b791577c5cfb5497aea180204909d9a34809"
+    },
+    {
+      "path": "src/client/src/pages/ClimateProgramming.jsx",
+      "uid": "d5bc619e4322a06515af047a9d79bb40b4473440"
+    },
+    {
+      "path": "src/client/src/pages/DashboardPage.jsx",
+      "uid": "b7da102cbad79a2c79347c7a6cbbc32c77237fa0"
+    },
+    {
+      "path": "src/client/src/pages/EmployeeDetailsPage.jsx",
+      "uid": "237a438f399aacb7995b17089a4dd621acbd938f"
+    },
+    {
+      "path": "src/client/src/pages/EmployeePayStubPage.jsx",
+      "uid": "553716655fad3b7404c9305a338efbb851fe71ca"
+    },
+    {
+      "path": "src/client/src/pages/FormerEmployeesPage.jsx",
+      "uid": "2cadada4139aa61db3e7b8fe82e52a56c868525a"
+    },
+    {
+      "path": "src/client/src/pages/HomePage.jsx",
+      "uid": "873194c223cd6b01eb30e53cdadc646aa383a6c4"
+    },
+    {
+      "path": "src/client/src/pages/LoginPage.jsx",
+      "uid": "76c14641f620f2734906bcfdd97d186f7851e10b"
+    },
+    {
+      "path": "src/client/src/pages/MonitoringNJPage.jsx",
+      "uid": "cf7b6ca0af482349411f1beee0c3a2842356befb"
+    },
+    {
+      "path": "src/client/src/pages/MonitoringPAPage.jsx",
+      "uid": "a5fe0738ad1d46d0a25e0ffdbcbcd50952375c48"
+    },
+    {
+      "path": "src/client/src/pages/MonitoringPASectionPage.jsx",
+      "uid": "c58d3c5d2373a3b70360eba82c33b6bfc28180f1"
+    },
+    {
+      "path": "src/client/src/pages/MonitoringPage.jsx",
+      "uid": "e71409aea16fdd5bd8b57a42059fa6eef5d5f42f"
+    },
+    {
+      "path": "src/client/src/pages/ZktReviewPage.jsx",
+      "uid": "58de22a0d4c7a1486448988fba49a924a4f0d251"
+    },
+    {
+      "path": "src/client/src/utils/backupExport.js",
+      "uid": "6d425250eca80cfe072161894ff9cce9a8b6131a"
+    },
+    {
+      "path": "src/client/src/utils/barrelMonitoring.js",
+      "uid": "13a01c98f109ed03a4342c767569e9e607a585f7"
+    },
+    {
+      "path": "src/client/src/utils/ch1CommandState.mjs",
+      "uid": "0378cf9ef25e52388fef9f8eef3a1809612f06d6"
+    },
+    {
+      "path": "src/client/src/utils/ch2Status.js",
+      "uid": "e95440929b45d8c9de15e7d571cd017eb36c3f9b"
+    },
+    {
+      "path": "src/client/src/utils/ch3Status.js",
+      "uid": "84e7112a731f52e071bb8e30ccee6bc79cce6f5f"
+    },
+    {
+      "path": "src/client/src/utils/chillerFirmware.js",
+      "uid": "9ac53f9974baffb6c2f29b08ded06f597c4b1810"
+    },
+    {
+      "path": "src/client/src/utils/deliverEmployeeIntegrations.js",
+      "uid": "c14f1023ef4e39c36d3af5eed98498ae93c252f3"
+    },
+    {
+      "path": "src/client/src/utils/employeeNumber.js",
+      "uid": "ca699dfcded69aaf4b017a490ee9b90d91638667"
+    },
+    {
+      "path": "src/client/src/utils/employeePhotos.js",
+      "uid": "a9fb7ca8cc2eae10bd3ee8905f683f9cd6443da2"
+    },
+    {
+      "path": "src/client/src/utils/employeePlantTransfer.js",
+      "uid": "67527ab556d0d0f7cf80bf525fc0ce19a42b8a94"
+    },
+    {
+      "path": "src/client/src/utils/employeeSyncTargets.js",
+      "uid": "cc9c4a6ac13240f91fe2a3d26626caebb60449dc"
+    },
+    {
+      "path": "src/client/src/utils/formerEmployeeDates.js",
+      "uid": "9ed86429151195a6c6d589d3390418b9fa63ad0d"
+    },
+    {
+      "path": "src/client/src/utils/formerEmployeeDetails.js",
+      "uid": "928c91b6673ee6827dc0fbec27f6a16fe019191b"
+    },
+    {
+      "path": "src/client/src/utils/monitoringColumns.js",
+      "uid": "0439cd01173cc76e443d6135a80104173512af2b"
+    },
+    {
+      "path": "src/client/src/utils/monitoringHelpers.js",
+      "uid": "f7cae85da5c2eaf32cce1f37f9fee4030ba17658"
+    },
+    {
+      "path": "src/client/src/utils/monitoringPolling.js",
+      "uid": "d354d403ff7978b93b7a8d4cbbd5b185594fd578"
+    },
+    {
+      "path": "src/client/src/utils/otaStatusPolling.js",
+      "uid": "9f47ec8d59a25ccfe3e01f6dc649e238ad177c72"
+    },
+    {
+      "path": "src/client/src/utils/paymentHistory.js",
+      "uid": "8056119e95538d294b23ddce61fc8869e8fb7082"
+    },
+    {
+      "path": "src/client/src/utils/payrollMath.js",
+      "uid": "27b852296b0204e703b9d9b65e42ec7dbf5360f1"
+    },
+    {
+      "path": "src/client/src/utils/payrollYtd.js",
+      "uid": "9a2ad526dff6397d0dca8579600e22bbaa125c2c"
+    },
+    {
+      "path": "src/client/src/utils/terminateEmployee.js",
+      "uid": "e69610692387411a5b34c24470f17435a820d724"
+    },
+    {
+      "path": "src/client/tests/ch1-browser.html",
+      "uid": "d21b2c69088c2104b2524660c34abb8c656e94b7"
+    },
+    {
+      "path": "src/client/tests/ch1-browser.jsx",
+      "uid": "21197be1772bcdc2636dcbeb815675226160dfaa"
+    },
+    {
+      "path": "src/client/tests/ch1Ota.test.mjs",
+      "uid": "6503d98d0ac9d8d4e648ad8c541df3eda64d468e"
+    },
+    {
+      "path": "src/client/tests/ch2-hmi.test.mjs",
+      "uid": "3b6b9c2461a2331368975095b6601cd303496324"
+    },
+    {
+      "path": "src/client/tests/ch2-status.test.mjs",
+      "uid": "b075df66a54316e6dc670fd3629568f0e35db2de"
+    },
+    {
+      "path": "src/client/tests/ch23-compaction.test.mjs",
+      "uid": "64776da8dbe753155c44b2f04e518afeb208c0bf"
+    },
+    {
+      "path": "src/client/tests/ch23-edge-free-db.test.mjs",
+      "uid": "7e83b0c39286fc5cf5c9705d4c875c55bc7c1e79"
+    },
+    {
+      "path": "src/client/tests/ch23-edge-free-upload.test.mjs",
+      "uid": "61e73a51a4571400ed769a1d733b9f525e35f320"
+    },
+    {
+      "path": "src/client/tests/ch3-hmi.test.mjs",
+      "uid": "d5246dcb60530271fa66e4a5b93555f3720df218"
+    },
+    {
+      "path": "src/client/tests/ch3-status.test.mjs",
+      "uid": "66199c999505cf45ba825209c44b6e6a3f6adeb7"
+    },
+    {
+      "path": "src/client/tests/chiller-deferred-ota.test.mjs",
+      "uid": "379f81df4a2efa8fd803773583a228b83b7abb15"
+    },
+    {
+      "path": "src/client/tests/chiller-device-diagnostics.test.mjs",
+      "uid": "936c447cf3564b4e38c4835f62bc64473213b3e0"
+    },
+    {
+      "path": "src/client/tests/chiller-ota.test.mjs",
+      "uid": "a9b615be8bffd9037aed6c9f808aa0bd5a816791"
+    },
+    {
+      "path": "src/client/tests/chiller-post-isolation.test.mjs",
+      "uid": "6c34c36688c8a6080f0dd0b07330df4aaa582d3e"
+    },
+    {
+      "path": "src/client/tests/chiller-runtime-diagnostics.test.mjs",
+      "uid": "95ff5c2e7bead6a3275f301a6d8a86270ac23fc8"
+    },
+    {
+      "path": "src/client/tests/employee-creation.test.mjs",
+      "uid": "4de6ef2e5ff3a77d7f8ac6b7acd540bf1e0ae3ba"
+    },
+    {
+      "path": "src/client/tests/employee-delivery.test.mjs",
+      "uid": "9053926b6ef85ee564988dbfa79031ce026bfdc3"
+    },
+    {
+      "path": "src/client/tests/employee-feature-flags.test.mjs",
+      "uid": "bf928b3bf25366ae7f56a646f3f105844ca30f88"
+    },
+    {
+      "path": "src/client/tests/employee-identity.test.mjs",
+      "uid": "f6815a1ab6c440b9bfe10bd46f61b749f1c48b54"
+    },
+    {
+      "path": "src/client/tests/employee-integration.test.mjs",
+      "uid": "1df78df99daf652ac15bc547ed30c696dce8c182"
+    },
+    {
+      "path": "src/client/tests/employee-number.test.mjs",
+      "uid": "a44bbd1098ff4e0174973cffc8d90c47a071ff43"
+    },
+    {
+      "path": "src/client/tests/employee-plant-transfer.test.mjs",
+      "uid": "069d5d9df9c59caed3c62b3ef54fd612dc5a9790"
+    },
+    {
+      "path": "src/client/tests/employee-release-gates.test.mjs",
+      "uid": "ca1553483a6560a8101236693bd113a9fe015f6c"
+    },
+    {
+      "path": "src/client/tests/employee-safety-history.test.mjs",
+      "uid": "c1af07ac8dfa901b478d72d16af342ba6dc81af2"
+    },
+    {
+      "path": "src/client/tests/employee-sequential.test.mjs",
+      "uid": "43d14b77f3eb23487cd4eb980590da67afbd132f"
+    },
+    {
+      "path": "src/client/tests/employee-termination.test.mjs",
+      "uid": "c3b2f234fa18b49fc918ce793233c72d64f5e012"
+    },
+    {
+      "path": "src/client/tests/fixtures/firmware-upload.html",
+      "uid": "e23e580862f9e7d170968e2a49817a9b0f9a2b89"
+    },
+    {
+      "path": "src/client/tests/fixtures/firmware-upload.jsx",
+      "uid": "4db30d13a8909b6b2fbdc0f7fe4114b4960ac61c"
+    },
+    {
+      "path": "src/client/tests/former-employee-dates.test.mjs",
+      "uid": "8cb85635bbfa39836467522068cb754b2a86f88a"
+    },
+    {
+      "path": "src/client/tests/former-employee-details.test.mjs",
+      "uid": "39b997a4a8d5c0b1400083d9d549e53fdddc2be4"
+    },
+    {
+      "path": "src/client/tests/former-employees.test.mjs",
+      "uid": "9c29371f74c54901d3f9065d3ea621ae76146a6b"
+    },
+    {
+      "path": "src/client/tests/helpers/employee-creation-db.mjs",
+      "uid": "590feb950527d15bd40c45b5ebfa1c8a8f26f095"
+    },
+    {
+      "path": "src/client/tests/helpers/employee-identity-db.mjs",
+      "uid": "ae92e852d13fc009b6d05597cc8d4dba3136bf9a"
+    },
+    {
+      "path": "src/client/tests/helpers/employee-sequential-db.mjs",
+      "uid": "bd9b3a827ae567d301e287fd949cb9f4d612fe1f"
+    },
+    {
+      "path": "src/client/tests/helpers/employee-termination-db.mjs",
+      "uid": "97d1e0e05ab4c1dc41c25e00d792f179fa4e0764"
+    },
+    {
+      "path": "src/client/tests/monitoring-overview.test.mjs",
+      "uid": "f1c991cd4ab2c15ba0ad007ab1b22ac4adc1966e"
+    },
+    {
+      "path": "src/client/tests/monitoring-polling.test.mjs",
+      "uid": "b1789df507aa9c88754f008925f8e81c8e9ea47a"
+    },
+    {
+      "path": "src/client/tests/ota-wake.test.mjs",
+      "uid": "9f348165d892d602782fa897ee679e27dae9cb76"
+    },
+    {
+      "path": "src/client/tests/pa-climate.test.mjs",
+      "uid": "0d94390863effdf4033dbf1d2d42e6d17fecb8fd"
+    },
+    {
+      "path": "src/client/tests/pa-machine-power.test.mjs",
+      "uid": "06c1eafebaa94aaeea5dd1afdb89af9c55ae9795"
+    },
+    {
+      "path": "src/client/tests/pa-panel-display.test.mjs",
+      "uid": "520b81cacc223015fd9ed25f8c2f06ac97c42d4e"
+    },
+    {
+      "path": "src/client/tests/pa-snapshot.test.mjs",
+      "uid": "acd44f99ffcb97cb7875d434c9cd64341ac3cc85"
+    },
+    {
+      "path": "src/client/tests/payroll-downtime.test.mjs",
+      "uid": "1485df26460e976b8136af1a1dd398fbe921566e"
+    },
+    {
+      "path": "src/client/tests/payroll-ytd.test.mjs",
+      "uid": "6696d49d0ef429684f2fd20c8387eeacbacd6dae"
+    },
+    {
+      "path": "src/client/tests/programming-presentation.test.mjs",
+      "uid": "b039804ec5dc7e77494e300e3c9a6f53115be546"
+    },
+    {
+      "path": "src/client/tests/sacs-sso.test.mjs",
+      "uid": "6685c80b0a5eb420a2c2266e73579e3030bf532c"
+    },
+    {
+      "path": "src/client/tests/sacs-sync.test.mjs",
+      "uid": "1657fdccfa30e32c26a597f89e476ee81261bf6c"
+    },
+    {
+      "path": "src/client/vercel.json",
+      "uid": "3573049b6537af90571b070adecece9f3b5be442"
+    },
+    {
+      "path": "src/client/vite.config.js",
+      "uid": "81dba3eb25abf4e2a883f9e67adbaa8bf4075e00"
+    },
+    {
+      "path": "src/client/zkt-bridge/.env.example",
+      "uid": "2c8f968f91882cf3ff9263fe8d8f3407e6317065"
+    },
+    {
+      "path": "src/client/zkt-bridge/README.md",
+      "uid": "661a617f3f1f8befcddebbf024626aa4669a7f4e"
+    },
+    {
+      "path": "src/client/zkt-bridge/docs/BUILD.md",
+      "uid": "628c05e500620afe4461f768af551ce59cb16351"
+    },
+    {
+      "path": "src/client/zkt-bridge/docs/EMBEDDED-PACKAGES.json",
+      "uid": "71563039441f99910358d588aa83442c6ef63743"
+    },
+    {
+      "path": "src/client/zkt-bridge/docs/INCIDENT-20260908.md",
+      "uid": "02dbe2a99cb63091dd8c5c0b7b9e1ea750edb041"
+    },
+    {
+      "path": "src/client/zkt-bridge/docs/PRODUCTION-BRIDGE-MANIFEST.json",
+      "uid": "fa422758c0fc7ad2fca33c76ebb5e9c173dcc815"
+    },
+    {
+      "path": "src/client/zkt-bridge/docs/PRODUCTION-CONTRACT.md",
+      "uid": "d70e203f46d5dc792d9b6e774d2141a921fbfe02"
+    },
+    {
+      "path": "src/client/zkt-bridge/docs/RECOVERY-INVENTORY.md",
+      "uid": "b1fe1cd5d6290a805e8420cefba54ca8515a2fc7"
+    },
+    {
+      "path": "src/client/zkt-bridge/docs/RECOVERY.md",
+      "uid": "dbc5b198ad67fd69bb8f46a40711d848c88a1dbc"
+    },
+    {
+      "path": "src/client/zkt-bridge/docs/SOURCE-RECONSTRUCTION.md",
+      "uid": "35727da252bf42a5d41f9316055ca07737761556"
+    },
+    {
+      "path": "src/client/zkt-bridge/install/install-bridge.ps1",
+      "uid": "05de04da5abf4781f6f0bfb0af35de28e14664aa"
+    },
+    {
+      "path": "src/client/zkt-bridge/install/install-service.ps1",
+      "uid": "5d89c3fa3a63a45962ce4a30a9909a3029f878eb"
+    },
+    {
+      "path": "src/client/zkt-bridge/install/preflight-replacement-pc.ps1",
+      "uid": "7a1e2386bd30f1ce3625524d66104bda9e4fdfc7"
+    },
+    {
+      "path": "src/client/zkt-bridge/install/verify-bridge.ps1",
+      "uid": "93fca375219eb614e9bcddb793d26386c7d816f8"
+    },
+    {
+      "path": "src/client/zkt-bridge/install/verify-network.ps1",
+      "uid": "35484c5bf9dc6e61e54074b10414078a8b60ab30"
+    },
+    {
+      "path": "src/client/zkt-bridge/install/verify-zkt-com.ps1",
+      "uid": "e92912a1b76627b7034d9f127aacc8ee1ef13843"
+    },
+    {
+      "path": "src/client/zkt-bridge/package-lock.json",
+      "uid": "611a40931206b5f937a550df85882674eaa1d5bb"
+    },
+    {
+      "path": "src/client/zkt-bridge/package.json",
+      "uid": "e050ae9dc6c9fe3a4148d670a978ce644dcc26d0"
+    },
+    {
+      "path": "src/client/zkt-bridge/runtime/README.md",
+      "uid": "2c808080c14cccdb6598b82829787779102a8ef5"
+    },
+    {
+      "path": "src/client/zkt-bridge/scripts/audit-terminal-identity.ps1",
+      "uid": "4df865c3ac00e7a0028b0d57a5c645be7ab36638"
+    },
+    {
+      "path": "src/client/zkt-bridge/scripts/build.cjs",
+      "uid": "32e81a20cb03d2f47dc04876a7b338276d4e068f"
+    },
+    {
+      "path": "src/client/zkt-bridge/scripts/recover-package.cjs",
+      "uid": "cd35b3cedaeb8722ab400c835308d84673c94f68"
+    },
+    {
+      "path": "src/client/zkt-bridge/scripts/test-exe.cjs",
+      "uid": "191d363bbc59d612af439d820bc4fa1f5942eff7"
+    },
+    {
+      "path": "src/client/zkt-bridge/src/adapters.cjs",
+      "uid": "8cda371fae7840bcfd47d83aee8a8795adde8e36"
+    },
+    {
+      "path": "src/client/zkt-bridge/src/bridge.cjs",
+      "uid": "852637debc0f79af6ee39b00c163f4fea679c135"
+    },
+    {
+      "path": "src/client/zkt-bridge/src/core.cjs",
+      "uid": "d94f0508f85096d148a02b597bab27781356c06c"
+    },
+    {
+      "path": "src/client/zkt-bridge/src/zkt.ps1",
+      "uid": "16ce4699e9c86330585dd086d87bff12dad27adc"
+    },
+    {
+      "path": "src/client/zkt-bridge/test/core.test.cjs",
+      "uid": "dbc9fdf9e1f879e3f2b66e83dd97c45011afd0d3"
+    },
+    {
+      "path": "src/client/zkt-bridge/test/identity.test.cjs",
+      "uid": "f983a8513fef2102fb478a08e743ec9e00b59afa"
+    },
+    {
+      "path": "src/docs/add-employee-p0.md",
+      "uid": "357102cb73f5360d9c7afa0c85efabc07a09e952"
+    },
+    {
+      "path": "src/docs/ch2-first-ota-failure.md",
+      "uid": "5c714c98cdbd79da15881b8bed9f44fc3ea7a772"
+    },
+    {
+      "path": "src/docs/ch2-ota-device-diagnostics.md",
+      "uid": "9c7fa54ff19c075b4580fb9254a0b0e98b4f76d8"
+    },
+    {
+      "path": "src/docs/ch2-ota-observability.md",
+      "uid": "f593b171ad68a99939d01d6ab6cb0545b8527b10"
+    },
+    {
+      "path": "src/docs/ch23-edge-free-build-results.json",
+      "uid": "94dbed20408a832572db1e16333fa6d0c54a05eb"
+    },
+    {
+      "path": "src/docs/ch23-edge-free-ota.md",
+      "uid": "e065a81707a96511a66b1a9c2f1d9b9a78f8fe8c"
+    },
+    {
+      "path": "src/docs/ch23-ota-deferred-run.md",
+      "uid": "5b8780329488ae984b65a6aaf64f7812c092279a"
+    },
+    {
+      "path": "src/docs/ch23-post-failure-isolation.md",
+      "uid": "440824e22eedde188585c171f26999db8d122c14"
+    },
+    {
+      "path": "src/docs/ch23-realtime-ota-hardware-validation.md",
+      "uid": "2b0c35f105432c9066e54c08467fc83c628628fe"
+    },
+    {
+      "path": "src/docs/ch23-realtime-ota-wake.md",
+      "uid": "f6e1fedd820af9a9f1e975ae1bd9e1e78ac99a17"
+    },
+    {
+      "path": "src/docs/ch23-secure-ota.md",
+      "uid": "ce7875b6589a7f974720b41ede19416f82b3d2a7"
+    },
+    {
+      "path": "src/docs/ch23-telemetry-cleanup.md",
+      "uid": "d12f7f10b4594b6be35588029aa8a683ca2db49d"
+    },
+    {
+      "path": "src/docs/employee-sequential-numbers.md",
+      "uid": "64daf75e78d99d87f9cc8b05b3ecafe2dfc5ed26"
+    },
+    {
+      "path": "src/docs/former-employees-phase2.md",
+      "uid": "55e725fa2ee404eb59402369c1c20476205576ae"
+    },
+    {
+      "path": "src/docs/former-employees-phase3-evidence.json",
+      "uid": "7a2433f9edc09319923edda38b05175dc8168ced"
+    },
+    {
+      "path": "src/docs/former-employees-phase3.md",
+      "uid": "1fddf735a2bf31d4dd46898c1e05f1d18eca6535"
+    },
+    {
+      "path": "src/docs/former-employees-phase4-evidence.json",
+      "uid": "48921e9793be730136620dd3f2dc1aeb1398e0bf"
+    },
+    {
+      "path": "src/docs/former-employees-phase4.md",
+      "uid": "4a678b7c6d67e35e7d4f8bca5eac519697e9ef15"
+    },
+    {
+      "path": "src/docs/former-employees-phase5-evidence.json",
+      "uid": "4044484515f0b6f80ce9c1c43e927a048d6c7bd5"
+    },
+    {
+      "path": "src/docs/former-employees-phase5-security.md",
+      "uid": "9936feeb83260fedf7c4b6e8dcd1c0ca1cc34798"
+    },
+    {
+      "path": "src/docs/former-employees-phase5.md",
+      "uid": "db7605208db18262325d8300c75124dd6090870f"
+    },
+    {
+      "path": "src/docs/former-employees-phase6-evidence.json",
+      "uid": "ae71d097d7920154e80035726a3e188bf16984ef"
+    },
+    {
+      "path": "src/docs/former-employees-phase6.md",
+      "uid": "da0053c99bff34d31d91091ab430675221bd0e8c"
+    },
+    {
+      "path": "src/docs/former-employees-phase7.md",
+      "uid": "7a6f1e9d9d5a3e4029251360e6dd1649be2db1e1"
+    },
+    {
+      "path": "src/docs/former-employees-security-remediation.md",
+      "uid": "98a2e81fd9313cdbda6badc6ba0a542eb5c49e68"
+    },
+    {
+      "path": "src/docs/former-employees.md",
+      "uid": "f4a7285e04dc3202f3feaae601bcf24d3cda814d"
+    },
+    {
+      "path": "src/docs/images/ch23-firmware-upload.png",
+      "uid": "6e74a739c3f8f1cee6e96f00f5d801bc7858752d"
+    },
+    {
+      "path": "src/docs/images/ch23-firmware-wrong-target.png",
+      "uid": "919efa73a3febd6a1c39e7edf545f1f64d7ee75c"
+    },
+    {
+      "path": "src/docs/nj-monitoring-egress.md",
+      "uid": "a537e0d997f155adbe2e5128928ba9ac5787fe37"
+    },
+    {
+      "path": "src/docs/operations/farmplast-remediation-data-baseline.sql",
+      "uid": "8120db78e7294db988fd2c73d76072e2adea76f8"
+    },
+    {
+      "path": "src/docs/operations/phase5-sacs-role-disable.sql",
+      "uid": "dad15ae60466a93b4e8db0dc1102d00ce263d9de"
+    },
+    {
+      "path": "src/docs/operations/phase7-assets-proof.json",
+      "uid": "785e655567d55d3edf709e86ef122be4a965c5d0"
+    },
+    {
+      "path": "src/docs/operations/phase7-recovery-proof.json",
+      "uid": "6f27102c32068be6ae17d4e0583a58ec5c18ed44"
+    },
+    {
+      "path": "src/docs/operations/phase7-zkt-baseline.ps1",
+      "uid": "116cd2d0e752260cb82012d62183ee025c139612"
+    },
+    {
+      "path": "src/docs/operations/sacs-remediation-data-baseline.sql",
+      "uid": "f5293a17ae5ad8bdb3017f670ae6862b80085264"
+    },
+    {
+      "path": "src/docs/operations/sacs-remediation-evidence.json",
+      "uid": "d0ada37aa33710dbe267592d4d0807dcface407c"
+    },
+    {
+      "path": "src/docs/operations/sacs-remediation-preflight.sql",
+      "uid": "9e1b5209f7370df34127b6c29710973cb14f39c3"
+    },
+    {
+      "path": "src/docs/operations/sacs-temporary-role-remediation.sql",
+      "uid": "d0585710a995208bf93f0e28c382452774ef5875"
+    },
+    {
+      "path": "src/docs/operations/zkt-attendance-compatibility-test.mjs",
+      "uid": "0714b868c16cea600d9256e2460501891cc4b2fc"
+    },
+    {
+      "path": "src/docs/operations/zkt-attendance-compatibility.md",
+      "uid": "cdb779d357919f3d809fa803e534769880b68f4d"
+    },
+    {
+      "path": "src/docs/operations/zkt-identity-attendance-integration-test.mjs",
+      "uid": "e4b788c9cc019fb1fc0b5e8be7b4372b0a573eac"
+    },
+    {
+      "path": "src/docs/operations/zkt-identity-attendance-integration.md",
+      "uid": "eaeb51a3a8e3273ad2f060e44da60d687684ade1"
+    },
+    {
+      "path": "src/docs/operations/zkt-legacy-attendance-restore-test.mjs",
+      "uid": "5beb76a075aeaf967b8b1d4506c796b9422ec010"
+    },
+    {
+      "path": "src/docs/operations/zkt-legacy-attendance-restore.md",
+      "uid": "d71a76d7b584e2fc8f4b8e31e1f5c8344bf5db5b"
+    },
+    {
+      "path": "src/docs/pa-barrel-hmi.md",
+      "uid": "8f824ffeb53ba75001f7c5a6164b8f165e5778ef"
+    },
+    {
+      "path": "src/docs/restore-employee-termination.md",
+      "uid": "39eb5ec5f1f14c199c154f8ca702e9dfb9d798a0"
+    },
+    {
+      "path": "src/docs/sacs-admin-sso.md",
+      "uid": "d8236772e1d040d4bd0b0715ab7b802e778964b8"
+    },
+    {
+      "path": "src/docs/sacs-employee-sync.md",
+      "uid": "4b17d3a6227d79b3eef48d340daa783f632add5e"
+    },
+    {
+      "path": "src/firmware/Chiller1/AUDIT.md",
+      "uid": "4777513e45740caa9d171faf310b0fcb2c954c2d"
+    },
+    {
+      "path": "src/firmware/Chiller1/Ch1Ota.h",
+      "uid": "fbd847d74823c9ba45f5b4bcebd725c894995573"
+    },
+    {
+      "path": "src/firmware/Chiller1/Chiller1.ino",
+      "uid": "be2350139bab460bc26067506967f9f1183610e2"
+    },
+    {
+      "path": "src/firmware/Chiller1/OTA-IMPLEMENTATION.md",
+      "uid": "a81df9703795f29559c67b8fc86f8233bf748f83"
+    },
+    {
+      "path": "src/firmware/Chiller1/OTA-PLAN.md",
+      "uid": "02d6920c1b5aaaf2187b1e1f4f266da73849ad82"
+    },
+    {
+      "path": "src/firmware/Chiller1/README.md",
+      "uid": "29233ca4e4cfdde14d8fbfb40cc534daa94472c0"
+    },
+    {
+      "path": "src/firmware/Chiller1/ota_config.example.h",
+      "uid": "509c431d339d16a0f13e9761d82ba9d5f6c41588"
+    },
+    {
+      "path": "src/firmware/Chiller1/sdkconfig.rollback.defaults",
+      "uid": "1f518eddb44bb239ca93e6a020919519703faef4"
+    },
+    {
+      "path": "src/firmware/Chiller1/secrets.example.h",
+      "uid": "0d944e1e647d355121c5b822e4dd8815fb64055a"
+    },
+    {
+      "path": "src/firmware/Chiller2/Chiller2.ino",
+      "uid": "73016194d1fbcd9a9a25c89ed353c0f7f2b6515d"
+    },
+    {
+      "path": "src/firmware/Chiller2/network_config.example.h",
+      "uid": "0ef2cec2b307fc2755710b0dc29f2ca038facc7c"
+    },
+    {
+      "path": "src/firmware/Chiller2/ota_config.example.h",
+      "uid": "76b0a17c073a1cb4b7ecfda16333258fbf84dd97"
+    },
+    {
+      "path": "src/firmware/Chiller2/secrets.example.h",
+      "uid": "830c925fb19e2fcf2add29155a72bb2a2ed483b2"
+    },
+    {
+      "path": "src/firmware/Chiller3/Chiller3.ino",
+      "uid": "b8f786bf082b87774f8ad70f9642a91e1cb39677"
+    },
+    {
+      "path": "src/firmware/Chiller3/network_config.example.h",
+      "uid": "6af40fdf7bbc595c1264532482dcff2f95260e24"
+    },
+    {
+      "path": "src/firmware/Chiller3/ota_config.example.h",
+      "uid": "7ab3eede169f20438fb3eb9a941f809643a783bd"
+    },
+    {
+      "path": "src/firmware/Chiller3/secrets.example.h",
+      "uid": "968df4af57ffbadc99c2165ca78f52f082ffc3b2"
+    },
+    {
+      "path": "src/firmware/baselines/Chiller2-v2.0.3.sanitized.ino",
+      "uid": "11c643cbc9cc8c2677c63a6c4ec55e0fa5546220"
+    },
+    {
+      "path": "src/firmware/common/ChillerOta.h",
+      "uid": "06cfd039ff2154fd4bdd966e9ede832967554321"
+    },
+    {
+      "path": "src/firmware/common/ChillerRuntimeDiagnostics.h",
+      "uid": "5fbe99211a791a7efc54e9e93fc3a798d9fb0bf4"
+    },
+    {
+      "path": "src/firmware/common/TelemetryPostResult.h",
+      "uid": "6b5e0f761dae672e9a7c462022f108c95e51d605"
+    },
+    {
+      "path": "src/firmware/common/supabase-ca.h",
+      "uid": "e894c6b213e1b29419a54df98b11454304739c0d"
+    },
+    {
+      "path": "src/firmware/prepare-ch1-release.mjs",
+      "uid": "8e41115ab0954487c9a38b3ce4e9fb0132922cb3"
+    },
+    {
+      "path": "src/firmware/prepare-chiller-release.mjs",
+      "uid": "cc8b83ce97a4f8707496225a4de11fa270e9e81f"
+    },
+    {
+      "path": "src/firmware/validate-chiller-runtime-build.mjs",
+      "uid": "beffd60b41790c47eea5f755bddf4902697da7b8"
+    },
+    {
+      "path": "src/supabase/add_employee_default_lunch_hours.sql",
+      "uid": "7dbd807fab4c5328ee9fa736e2ac3e762f72e7e3"
+    },
+    {
+      "path": "src/supabase/add_employee_plant_location.sql",
+      "uid": "4377f45d0c335b290ca5d6c774ceb2d52b505ba7"
+    },
+    {
+      "path": "src/supabase/add_nj_monitoring_overview.sql",
+      "uid": "a8ad622111f3050875ba157f0378437ecfbbba85"
+    },
+    {
+      "path": "src/supabase/baselines/2026-09-12-ch23/dependencies.json",
+      "uid": "b5ca0296a21a482ecd76b7ed66300ff7c8530a75"
+    },
+    {
+      "path": "src/supabase/baselines/2026-09-12-ch23/ingest_ch2.sql",
+      "uid": "122fcb70fefea9df4380319e6404fb488ec1da8f"
+    },
+    {
+      "path": "src/supabase/baselines/2026-09-12-ch23/ingest_ch3.sql",
+      "uid": "4d933deeedafa7899002b0fd8565eb8cc75e698b"
+    },
+    {
+      "path": "src/supabase/baselines/2026-09-12-ch23/points.json",
+      "uid": "a5f6849465ee92bb7f2fcb137241459aac6144da"
+    },
+    {
+      "path": "src/supabase/baselines/2026-09-12-ch23/schema.json",
+      "uid": "4f591d81ce50d375aaf6e884df7a57d9c812dd32"
+    },
+    {
+      "path": "src/supabase/baselines/2026-09-12-ch23/v_ch2_dashboard.sql",
+      "uid": "764e0489f3e060b8c51cce70b0c1e87f811e0060"
+    },
+    {
+      "path": "src/supabase/baselines/2026-09-12-ch23/v_ch3_dashboard.sql",
+      "uid": "0415c949c8f87bb5ad4dc70728abbb9dec2b8c71"
+    },
+    {
+      "path": "src/supabase/baselines/2026-09-12-ch23/v_nj_monitoring_overview.sql",
+      "uid": "872790f69d6fbb22d650f1848e3fa7ee6c43f3c7"
+    },
+    {
+      "path": "src/supabase/ch1_ota.sql",
+      "uid": "dd3799da1cd1bc29160ef46ffb026cc956117a57"
+    },
+    {
+      "path": "src/supabase/ch23_edge_free_ota.sql",
+      "uid": "7d1807035924bf86a86fd574765cc335c31f9bfb"
+    },
+    {
+      "path": "src/supabase/chiller_ota.sql",
+      "uid": "67c3105b307b678d80060bc878c5a39955946d3e"
+    },
+    {
+      "path": "src/supabase/chiller_ota_failure_diagnostics.sql",
+      "uid": "9330ffb16bcee8899043dc2f0b8534e36f281651"
+    },
+    {
+      "path": "src/supabase/chiller_ota_observability.sql",
+      "uid": "80b8e1497aefb0f5b02f9918856d2c55ab2b4292"
+    },
+    {
+      "path": "src/supabase/chiller_ota_realtime_wake.sql",
+      "uid": "42689462299e599c6c7c195700b5e9b8f4b07bc4"
+    },
+    {
+      "path": "src/supabase/compact_ch2_ch3_latest.sql",
+      "uid": "3f7c2fcf6676b0ef8bcab66c87c15c090855c4ab"
+    },
+    {
+      "path": "src/supabase/config.toml",
+      "uid": "68979112adcde7cc2deba2c8c031e201a7b4c849"
+    },
+    {
+      "path": "src/supabase/connect_barrel_nj_02.sql",
+      "uid": "0fee2b3494f8012b68dd927067aafc1a852a868f"
+    },
+    {
+      "path": "src/supabase/dedupe_employee_payments.sql",
+      "uid": "d58129ce4918426f0ad8f8732a717234b7220dc4"
+    },
+    {
+      "path": "src/supabase/employee_archive_feature_flags.sql",
+      "uid": "d5d88dafd08058892703c73a6c41bd325246ddfa"
+    },
+    {
+      "path": "src/supabase/employee_creation_fix.sql",
+      "uid": "3aaa706ce2a3b01d200c907f21927b8394f488a8"
+    },
+    {
+      "path": "src/supabase/employee_lifecycle.sql",
+      "uid": "e6a04052b75d31b7f97d03b9c945fe017656a141"
+    },
+    {
+      "path": "src/supabase/employee_plant_transfer.sql",
+      "uid": "c5c9ee31a66c10c3d1285ef943d5f000ff16ee14"
+    },
+    {
+      "path": "src/supabase/employee_release_gates.sql",
+      "uid": "31b1f7e5ddd4530c8ee053e3a3d09aa1e6fa0a26"
+    },
+    {
+      "path": "src/supabase/employee_sequential_numbers.sql",
+      "uid": "ed5b9aab40011f4cbf7b79d3fc50e860706dc788"
+    },
+    {
+      "path": "src/supabase/employee_tax_profiles.sql",
+      "uid": "4b52727c095871a238ec6ef45b26e87a4239fb41"
+    },
+    {
+      "path": "src/supabase/employee_termination_async_sacs.sql",
+      "uid": "72eab5ba54061df6139aedeefb2b683370e51ad3"
+    },
+    {
+      "path": "src/supabase/employee_termination_without_settlement.sql",
+      "uid": "c803117ee4e91076abd521301ec9cfc0481ebaf2"
+    },
+    {
+      "path": "src/supabase/farmplast_sacs_sso.sql",
+      "uid": "56fc2a150f1d5a61e453fb97a6c7b8031f3b2421"
+    },
+    {
+      "path": "src/supabase/fix_ch2_overview_freshness.sql",
+      "uid": "792111990e7b0be941eff2fd75326d5b32b4daba"
+    },
+    {
+      "path": "src/supabase/former_employees.sql",
+      "uid": "68980c0ea3751901ea1aab84fd169c70742b8580"
+    },
+    {
+      "path": "src/supabase/functions/ch1-ota/commands.mjs",
+      "uid": "ba2ee34a47901a78f62f4c2d9513ff4aab718959"
+    },
+    {
+      "path": "src/supabase/functions/ch1-ota/handler.mjs",
+      "uid": "40fe21f6215470b4696bdfb9481b86946414466c"
+    },
+    {
+      "path": "src/supabase/functions/ch1-ota/index.ts",
+      "uid": "b96f989f40d744a1af61dd9854083ba3c4e49db4"
+    },
+    {
+      "path": "src/supabase/functions/ch1-ota/protocol.mjs",
+      "uid": "ec199fde68ce38ef7e1cc83fafd6baa0dbdcc67b"
+    },
+    {
+      "path": "src/supabase/functions/chiller-ota/index.ts",
+      "uid": "b96f989f40d744a1af61dd9854083ba3c4e49db4"
+    },
+    {
+      "path": "src/supabase/functions/chiller-ota/README.md",
+      "uid": "dba5430f79714e671909d19bb8b89ec88b6e182d"
+    },
+    {
+      "path": "src/supabase/functions/chiller-ota/handler.mjs",
+      "uid": "c20b7aa865b65c690e662a8511ebc12b620f3458"
+    },
+    {
+      "path": "src/supabase/functions/chiller-ota/protocol.mjs",
+      "uid": "93daebaf0990d4652e76741fc331560577e1c601"
+    },
+    {
+      "path": "src/supabase/profiles_own_read.sql",
+      "uid": "3d4f6d03cc61ef48f86a3dfec54fa3ceb17196ed"
+    },
+    {
+      "path": "src/supabase/restore_employee_termination.sql",
+      "uid": "580d6846f6075cee1a1580dd502ddb42996d0b07"
+    },
+    {
+      "path": "src/supabase/sacs/employee_history.sql",
+      "uid": "d7d5157878d47c92cba7a1b04757f884ea92346a"
+    },
+    {
+      "path": "src/supabase/sacs/functions/employee-history/handler.mjs",
+      "uid": "3e6cf9dafb35c8744cbfdd14c4f773ec6ef1993b"
+    },
+    {
+      "path": "src/supabase/sacs/functions/employee-history/index.ts",
+      "uid": "b9e784de4b4891fe308a4bf5c8f2cc55d575e659"
+    },
+    {
+      "path": "src/supabase/zkt_attendance_compatibility.sql",
+      "uid": "d4e214915e3ddefadf477ec0ee186c7a545dd856"
+    },
+    {
+      "path": "src/supabase/zkt_attendance_compatibility_rollback.sql",
+      "uid": "022f72631ba5f91d1ba9878d8e0c9c43e956001d"
+    },
+    {
+      "path": "src/supabase/zkt_event_identity.sql",
+      "uid": "c23834fe6caa59ad6428f30278d6446a0aad15db"
+    },
+    {
+      "path": "src/supabase/zkt_identity_attendance_integration.sql",
+      "uid": "75a6453fea3d3771840695332c3861ad58716220"
+    },
+    {
+      "path": "src/supabase/zkt_identity_attendance_integration_rollback.sql",
+      "uid": "dfa51ab97522a542d7666c4814853509fa95bc8e"
+    },
+    {
+      "path": "src/supabase/zkt_legacy_attendance_restore.sql",
+      "uid": "9de202da1b7ca3a94010f085d31b89e505cdcca3"
+    },
+    {
+      "path": "src/supabase/zkt_legacy_attendance_restore_rollback.sql",
+      "uid": "658e4a4a28904cafa82d2efe9e0ea900beba4523"
+    }
+  ]
+}

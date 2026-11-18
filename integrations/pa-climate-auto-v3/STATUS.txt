@@ -1,0 +1,9 @@
+2026-11-14: staged controller replacement implemented in the existing MSI Deno gateway.
+Zone 1: configured 50 F / OFF, unassigned until BF90 USB setup and explicit confirmation.
+BF90: PA-CLIM-209BA98DBF90. Not registered/ONLINE or physically verified by this deployment.
+Existing Zone 2, 3, 4 bindings, credentials and desired settings retained.
+Production site base: current main 50da67c2355912bfdbdc937030f29ce607e91cd8.
+Published site commit f2e0ee7688ab13c77aea0b6fb87fded8e0db9b9c; deployment dpl_BQQHvGUm1vTZzUvqcdSXJa2jRUcJ.
+Programming & diagnostics now provides PIN-protected Replace controller and scoped Windows USB setup.
+Firmware 2.1.0 holds its output OFF until an authenticated active assignment; GPIO 16 active HIGH retained.
+Existing MSI infrastructure only. See REPLACEMENT_RU.md for the exact owner step and verification boundaries.
