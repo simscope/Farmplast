@@ -87,7 +87,7 @@ async function openSnapshot(config,env){
  return {snapshotId,async close(){child.stdin.end('COMMIT;\n');await done}}
 }
 function inSnapshot(snapshotId,sql){return 'BEGIN ISOLATION LEVEL REPEATABLE READ READ ONLY; SET TRANSACTION SNAPSHOT '+literal(snapshotId)+'; '+sql+'; COMMIT;'}
-function tableDigestSql(schemas){
+export function tableDigestSql(schemas){
  return "with rels as(select n.nspname,c.relname from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname in ("+schemas.map(literal).join(',')+") and c.relkind in('r','p')), calculated as(select nspname,relname,query_to_xml(format('select count(*)::text as rows,md5(coalesce(string_agg(md5(to_jsonb(t)::text),'''' order by md5(to_jsonb(t)::text)),'''')) as digest from %I.%I t',nspname,relname),false,true,'') as x from rels) select coalesce(jsonb_agg(jsonb_build_object('relation',nspname||'.'||relname,'rows',((xpath('/row/rows/text()',x))[1]::text)::bigint,'digest',(xpath('/row/digest/text()',x))[1]::text) order by nspname,relname),'[]'::jsonb) from calculated"
 }
 async function writeJson(file,value){await fs.writeFile(file,JSON.stringify(value,null,2)+'\n')}
@@ -143,28 +143,41 @@ async function fetchPhotos(config,stage,objects){
  }
  return downloaded
 }
-export async function ensureMonth(){
+export function backupPeriod(date,cadence='monthly',timeZone='America/New_York'){
+ const parts=new Intl.DateTimeFormat('en-CA',{timeZone,year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date)
+ const get=type=>Number(parts.find(p=>p.type===type).value)
+ const day=new Date(Date.UTC(get('year'),get('month')-1,get('day')))
+ if(cadence==='monthly')return day.toISOString().slice(0,7)
+ if(cadence!=='weekly')throw Error('Unsupported backup cadence')
+ const weekday=day.getUTCDay()||7
+ day.setUTCDate(day.getUTCDate()+4-weekday)
+ const year=day.getUTCFullYear(),start=new Date(Date.UTC(year,0,1))
+ const week=Math.ceil((((day-start)/86400000)+1)/7)
+ return year+'-W'+String(week).padStart(2,'0')
+}
+export async function ensureBackup(cadence='monthly',{fresh=false}={}){
  if(process.platform!=='win32')throw Error('This backup runner requires the configured MSI Windows host')
  const config=JSON.parse(await fs.readFile(path.join(ROOT,'config.json'),'utf8'))
  if(config.project!=='eeobivvwjzakbweluwtm'||config.host!=='db.eeobivvwjzakbweluwtm.supabase.co'||config.user!=='farmplast_msi_backup')throw Error('Unexpected backup source')
  const secret=JSON.parse(await fs.readFile(path.join(ROOT,'private','archive-key.json'),'utf8')),key=Buffer.from(secret.key,'base64')
  if(key.length!==32)throw Error('Invalid archive key')
- const month=new Intl.DateTimeFormat('en-CA',{timeZone:config.timeZone,year:'numeric',month:'2-digit'}).format(new Date())
- if(!/^\d{4}-\d{2}$/.test(month))throw Error('Invalid backup month')
- const snapshots=path.join(ROOT,'snapshots'),final=path.join(snapshots,month)
+ const period=fresh?'manual-'+new Date().toISOString().replace(/[:.]/g,'-'):backupPeriod(new Date(),cadence,config.timeZone)
+ if(!/^[A-Za-z0-9-]+$/.test(period))throw Error('Invalid backup period')
+ const periodFields={period,cadence:fresh?'manual':cadence,...(!fresh&&cadence==='monthly'?{month:period}:{})}
+ const snapshots=path.join(ROOT,'snapshots'),final=path.join(snapshots,period)
  await fs.mkdir(snapshots,{recursive:true})
  try{
   const manifest=JSON.parse(await fs.readFile(path.join(final,'manifest.json'),'utf8')),archive=path.join(final,'payroll.tar.enc')
-  if(manifest.status!=='verified'||manifest.month!==month||manifest.project!==config.project||manifest.keyId!==secret.keyId||!manifest.verification?.restored||!manifest.verification?.rowDigestsMatch)throw Error('Existing monthly backup is not verified')
+  if(manifest.status!=='verified'||(manifest.period||manifest.month)!==period||manifest.project!==config.project||manifest.keyId!==secret.keyId||!manifest.verification?.restored||!manifest.verification?.rowDigestsMatch)throw Error('Existing backup is not verified')
   if(await sha256(archive)!==manifest.encryptedSha256)throw Error('Existing encrypted archive checksum failed')
   await verifyArchive(archive,key,manifest.plaintextSha256)
-  return {status:'already_verified',month,createdAt:manifest.createdAt,archive,verification:manifest.verification,photos:manifest.photos}
+  return {status:'already_verified',...periodFields,createdAt:manifest.createdAt,archive,verification:manifest.verification,photos:manifest.photos}
  }catch(error){if(error.code!=='ENOENT')throw error}
  const lockFile=path.join(ROOT,'private','backup.lock'),lock=await fs.open(lockFile,'wx')
  let stage,snapshot
  try{
-  await lock.writeFile(JSON.stringify({pid:process.pid,startedAt:new Date().toISOString(),month}))
-  try{await fs.access(final);throw Error('Monthly target already exists; operator review required')}catch(error){if(error.code!=='ENOENT')throw error}
+  await lock.writeFile(JSON.stringify({pid:process.pid,startedAt:new Date().toISOString(),...periodFields}))
+  try{await fs.access(final);throw Error('Backup target already exists; operator review required')}catch(error){if(error.code!=='ENOENT')throw error}
   stage=path.join(snapshots,'.partial-'+crypto.randomUUID())
   const payload=path.join(stage,'payload');await fs.mkdir(payload,{recursive:true})
   const env=commonEnv(config)
@@ -190,7 +203,7 @@ export async function ensureMonth(){
   await run('C:/Windows/System32/tar.exe',['-cf',tar,'-C',payload,'.'],process.env)
   const plaintextSha256=await sha256(tar),encrypted=path.join(stage,'payroll.tar.enc')
   await encryptArchive(tar,encrypted,key);await verifyArchive(encrypted,key,plaintextSha256)
-  const manifest={format:1,status:'verified',project:config.project,month,createdAt:new Date().toISOString(),algorithm:'aes-256-gcm',keyId:secret.keyId,
+  const manifest={format:1,status:'verified',project:config.project,...periodFields,createdAt:new Date().toISOString(),algorithm:'aes-256-gcm',keyId:secret.keyId,
    plaintextSha256,encryptedSha256:await sha256(encrypted),encryptedBytes:(await fs.stat(encrypted)).size,verification,photos:photos.length,retention:'keep_all',
    employees:before.find(t=>t.relation==='public.employees').rows,payments:before.find(t=>t.relation==='public.employee_payments').rows,
    checks:before.find(t=>t.relation==='public.payroll_checks').rows,postgresTools:(await run(path.join(config.pgBin,'pg_dump.exe'),['--version'],process.env)).trim()}
@@ -198,16 +211,18 @@ export async function ensureMonth(){
   await fs.rename(encrypted,path.join(publish,'payroll.tar.enc'));await writeJson(path.join(publish,'manifest.json'),manifest)
   await fs.rename(publish,final)
   await removeStage(stage);stage=null
-  return {status:'created_and_verified',month,archive:path.join(final,'payroll.tar.enc'),verification,photos:photos.length,encryptedBytes:manifest.encryptedBytes}
+  return {status:'created_and_verified',...periodFields,createdAt:manifest.createdAt,archive:path.join(final,'payroll.tar.enc'),verification,photos:photos.length,encryptedBytes:manifest.encryptedBytes}
  }catch(error){
   if(stage)await writeJson(path.join(stage,'failure.json'),{failedAt:new Date().toISOString(),message:error.message})
   if(error.diagnostic&&stage)await fs.writeFile(path.join(stage,'diagnostic-private.log'),error.diagnostic)
   throw error
  }finally{if(snapshot)await snapshot.close().catch(()=>{});await lock.close();await fs.unlink(lockFile)}
 }
+export const ensureMonth=()=>ensureBackup('monthly')
+export const ensureWeek=()=>ensureBackup('weekly')
 if(process.argv[1]&&path.resolve(process.argv[1])===fileURLToPath(import.meta.url)){
  try{
-  const result=await ensureMonth();await writeJson(path.join(ROOT,'last-status.json'),{...result,checkedAt:new Date().toISOString()});console.log(JSON.stringify(result))
+  const result=await ensureBackup(process.argv.includes('--ensure-week')?'weekly':'monthly',{fresh:process.argv.includes('--fresh')});await writeJson(path.join(ROOT,'last-status.json'),{...result,checkedAt:new Date().toISOString()});console.log(JSON.stringify(result))
  }catch(error){
   await writeJson(path.join(ROOT,'last-status.json'),{status:'failed',checkedAt:new Date().toISOString(),message:error.message}).catch(()=>{})
   console.error(JSON.stringify({status:'failed',message:error.message}));process.exitCode=1

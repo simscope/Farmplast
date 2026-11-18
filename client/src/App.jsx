@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './context/AuthContext'
 
 import ProtectedRoute from './components/ProtectedRoute'
+import PayrollReserveBoundary from './components/PayrollReserveBoundary'
 
 const HomePage = lazy(() => import('./pages/HomePage'))
 const LoginPage = lazy(() => import('./pages/LoginPage'))
@@ -33,6 +34,7 @@ function PageFallback() {
 export default function App() {
   return (
     <AuthProvider>
+      <PayrollReserveBoundary>
       <Suspense fallback={<PageFallback />}>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -114,6 +116,7 @@ export default function App() {
           />
         </Routes>
       </Suspense>
+      </PayrollReserveBoundary>
     </AuthProvider>
   )
 }

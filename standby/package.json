@@ -1,0 +1,1 @@
+{"name":"farmplast-payroll-standby","version":"1.0.0","private":true,"type":"module","dependencies":{"@supabase/supabase-js":"2.99.1"},"scripts":{"test":"node --test *.test.mjs"}}

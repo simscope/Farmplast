@@ -382,6 +382,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadEmployees()
+    if(import.meta.env.VITE_PAYROLL_STANDBY==='1'){
+      const timer=setInterval(()=>void loadEmployees(),30000)
+      return()=>clearInterval(timer)
+    }
     let debounceTimer
     const scheduleReload = () => {
       clearTimeout(debounceTimer)
