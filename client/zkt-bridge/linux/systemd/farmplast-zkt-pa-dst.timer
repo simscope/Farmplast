@@ -1,0 +1,11 @@
+[Unit]
+Description=Check PA ZKTeco DST transition every minute, including overnight
+
+[Timer]
+OnCalendar=*-*-* *:*:00
+AccuracySec=5s
+Persistent=true
+Unit=farmplast-zkt-pa-dst.service
+
+[Install]
+WantedBy=timers.target
