@@ -59,6 +59,15 @@ function wallMilliseconds(wall) {
 }
 
 function encodeZktTime(wall) {
+  if (!Number.isInteger(wall.year) || wall.year < 2000 || wall.year > 2099 ||
+      !Number.isInteger(wall.month) || wall.month < 1 || wall.month > 12 ||
+      !Number.isInteger(wall.day) || wall.day < 1 || wall.day > 31 ||
+      !Number.isInteger(wall.hour) || wall.hour < 0 || wall.hour > 23 ||
+      !Number.isInteger(wall.minute) || wall.minute < 0 || wall.minute > 59 ||
+      !Number.isInteger(wall.second) || wall.second < 0 || wall.second > 59 ||
+      new Date(Date.UTC(wall.year, wall.month - 1, wall.day)).getUTCDate() !== wall.day) {
+    throw new Error('Invalid ZKT encoded clock value');
+  }
   // Official ZK standalone protocol: CMD_SET_TIME, 4-byte little-endian encoded wall time.
   const year = wall.year % 100;
   const encoded = ((year * 12 * 31 + (wall.month - 1) * 31 + wall.day - 1) * 24 * 60 * 60) +
@@ -126,6 +135,7 @@ function scheduleTest() {
 async function main() {
   const mode = process.argv[2] || '--status';
   if (mode === '--test-schedule') { scheduleTest(); return; }
+  require('dotenv').config({ path: path.join(__dirname, '.env') });
   if (!['--run', '--status'].includes(mode)) throw new Error('Expected --run / --status / --test-schedule');
   if (process.env.TZ !== ZONE) throw new Error('TZ must explicitly be America/New_York');
   const due = transitionDue(Date.now());
