@@ -12,6 +12,7 @@ Environment=TZ=America/New_York
 Environment=ZKT_PLANT_LOCATION=PA
 EnvironmentFile=/opt/farmplast-zkt-linux-bridge/.env
 StateDirectory=farmplast-zkt-dst
+StateDirectoryMode=0700
 UMask=0077
 ExecStart=/usr/bin/flock -n /run/lock/farmplast-zkt-pa-dst.lock /usr/bin/node /opt/farmplast-zkt-linux-bridge/dst-clock.cjs --run
 TimeoutStartSec=90

@@ -1,195 +1,168 @@
 'use strict';
-
-// Farmplast PA ZKTeco automatic US Eastern DST adjustment.
-// Standalone systemd service invoked by a minute timer; does not modify the bridge,
-// attendance, or payroll. Fails closed unless an actual DST transition occurred.
-const fs = require('node:fs');
-const path = require('node:path');
-
-const ZONE = 'America/New_York';
-const STATE_DIR = process.env.FARMPLAST_ZKT_DST_STATE_DIR || '/var/lib/farmplast-zkt-dst';
-const STATE_FILE = path.join(STATE_DIR, 'pa-state.json');
-const MAX_TRANSITION_AGE_MS = 60 * 60 * 1000; // no same-day/mid-shift catch-up
-const MAX_CLOCK_SKEW_MS = 5 * 60 * 1000;
-const APPROVED_DRIFT_MS = 90 * 1000;
-
-function sunday(year, month, nth) {
-  const first = new Date(Date.UTC(year, month - 1, 1)).getUTCDay();
-  return 1 + ((7 - first) % 7) + 7 * (nth - 1);
-}
+// Clock-only job: no attendance reads, option changes, or database access.
+const fs=require('node:fs'), path=require('node:path'), dgram=require('node:dgram');
+const {performance}=require('node:perf_hooks');
+const {execFileSync}=require('node:child_process');
+const ZONE='America/New_York', MAX_TRANSITION_AGE_MS=5*60000, MAX_ATTEMPTS=4;
+const C={OPTIONS:11,GET_TIME:201,SET_TIME:202,ACK:2000};
 
 function transitions(year) {
+  const sunday=(month,nth)=>1+(7-new Date(Date.UTC(year,month-1,1)).getUTCDay())%7+7*(nth-1);
   return [
-    { id: 'spring-' + year, kind: 'spring', at: Date.UTC(year, 2, sunday(year, 3, 2), 7), staleOffsetMs: -3600000 },
-    { id: 'autumn-' + year, kind: 'autumn', at: Date.UTC(year, 10, sunday(year, 11, 1), 6), staleOffsetMs: 3600000 },
+    {id:`spring-${year}`,kind:'spring',at:Date.UTC(year,2,sunday(3,2),7),staleOffsetMs:-3600000},
+    {id:`autumn-${year}`,kind:'autumn',at:Date.UTC(year,10,sunday(11,1),6),staleOffsetMs:3600000},
   ];
 }
-
-function transitionDue(utcMs) {
-  const year = new Date(utcMs).getUTCFullYear();
-  return [...transitions(year - 1), ...transitions(year)].find(
-    (item) => utcMs >= item.at && utcMs - item.at <= MAX_TRANSITION_AGE_MS
-  ) || null;
+function transitionDue(ms) {
+  return transitions(new Date(ms).getUTCFullYear()).find(t=>ms>=t.at&&ms-t.at<MAX_TRANSITION_AGE_MS)||null;
 }
-
 function wallParts(date) {
-  const parts = new Intl.DateTimeFormat('en-US', {
-    timeZone: ZONE,
-    year: 'numeric', month: '2-digit', day: '2-digit',
-    hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
-  }).formatToParts(date);
-  const values = Object.fromEntries(parts.map((p) => [p.type, p.value]));
+  const p=Object.fromEntries(new Intl.DateTimeFormat('en-US',{
+    timeZone:ZONE,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23',
+  }).formatToParts(date).map(p=>[p.type,p.value]));
+  return Object.fromEntries(['year','month','day','hour','minute','second'].map(k=>[k,Number(p[k])]));
+}
+function wallMilliseconds(w){return Date.UTC(w.year,w.month-1,w.day,w.hour,w.minute,w.second);}
+function encodeZktTime(w) {
+  const ranges={year:[2000,2099],month:[1,12],day:[1,31],hour:[0,23],minute:[0,59],second:[0,59]};
+  if(Object.entries(ranges).some(([k,[min,max]])=>!Number.isInteger(w[k])||w[k]<min||w[k]>max)
+    ||new Date(wallMilliseconds(w)).getUTCDate()!==w.day)throw Error('Invalid ZKT encoded clock value');
+  const b=Buffer.alloc(4);
+  b.writeUInt32LE((((w.year-2000)*12+w.month-1)*31+w.day-1)*86400+w.hour*3600+w.minute*60+w.second);
+  return b;
+}
+function decodeZktTime(b) {
+  if(!Buffer.isBuffer(b)||b.length!==4)throw Error('Invalid packed ZKT clock');
+  let n=b.readUInt32LE();
+  const second=n%60;n=Math.floor(n/60);const minute=n%60;n=Math.floor(n/60);
+  const hour=n%24;n=Math.floor(n/24);const day=n%31+1;n=Math.floor(n/31);
+  const w={year:Math.floor(n/12)+2000,month:n%12+1,day,hour,minute,second};
+  encodeZktTime(w);return w; // No Date normalization of the nonexistent spring hour.
+}
+function replyPayload(b,length) {
+  // 1.3.0 removes the TCP prefix but retains the eight-byte ZK header.
+  if(!Buffer.isBuffer(b)||b.length<8||b.readUInt16LE(0)!==C.ACK
+    ||(length!==undefined&&b.length!==8+length))throw Error('Invalid ZKT acknowledgement or payload length');
+  return b.subarray(8);
+}
+async function readOption(zk,key) {
+  const text=replyPayload(await zk.executeCmd(C.OPTIONS,Buffer.from(key+'\0','ascii'))).toString('ascii').replace(/\0+$/,'');
+  if(!text.startsWith(key+'=')||text.includes('\0'))throw Error('Unexpected ZKT option response');
+  return text.slice(key.length+1);
+}
+function cleanSerial(b) {
+  const text=replyPayload(b).toString('ascii').replace(/\0+$/,'');
+  if(!/^~SerialNumber=[A-Za-z0-9._-]{4,70}$/.test(text))throw Error('Cannot verify unique ZKT serial response');
+  return text.slice('~SerialNumber='.length);
+}
+async function readDeviceClock(zk){return decodeZktTime(replyPayload(await zk.executeCmd(C.GET_TIME,''),4));}
+
+function parseNtpReply(packet,request,t0,t1,elapsed) {
+  if(packet.length!==48||packet[0]>>6===3||(packet[0]&7)!==4||![3,4].includes((packet[0]>>3)&7)
+    ||packet[1]<1||packet[1]>15||!packet.subarray(24,32).equals(request.subarray(40,48))
+    ||packet.readUInt32BE(8)/65536>2||elapsed>1500||elapsed<0||Math.abs(t1-t0-elapsed)>500)throw Error('Untrusted or stale NTP response');
+  const sec=packet.readUInt32BE(40);
+  const utc=((sec<2208988800?sec+4294967296:sec)-2208988800+packet.readUInt32BE(44)/4294967296)*1000;
+  const offsetMs=utc-(t0+t1)/2;
+  if(!Number.isFinite(offsetMs)||Math.abs(offsetMs)>2000)throw Error('Host clock differs from NTP by more than two seconds');
+  return offsetMs;
+}
+async function queryNtp(host) {
+  const socket=dgram.createSocket('udp4'),request=Buffer.alloc(48);request[0]=0x23;
+  require('node:crypto').randomBytes(8).copy(request,40);
+  try {
+    return await new Promise((resolve,reject)=>{
+      const timer=setTimeout(()=>reject(Error('NTP deadline exceeded')),4000);
+      socket.once('error',e=>{clearTimeout(timer);reject(e);});
+      socket.connect(123,host,()=>{
+        const t0=Date.now(),mono=performance.now();
+        socket.once('message',p=>{clearTimeout(timer);try{resolve(parseNtpReply(p,request,t0,Date.now(),performance.now()-mono));}catch(e){reject(e);}});
+        socket.send(request,e=>{if(e){clearTimeout(timer);reject(e);}});
+      });
+    });
+  } finally {socket.close();}
+}
+async function checkHostClock() {
+  if(execFileSync('/usr/bin/timedatectl',['show','-p','NTPSynchronized','--value'],{encoding:'utf8',timeout:5000}).trim()!=='yes')throw Error('Linux time service is not synchronized');
+  const offsets=await Promise.all(['time.cloudflare.com','time.google.com'].map(queryNtp));
+  if(Math.abs(offsets[0]-offsets[1])>1000)throw Error('Independent NTP sources disagree');
+  return {synchronized:true,offsetsMs:offsets.map(Math.round),checkedAt:Date.now(),monotonic:performance.now()};
+}
+function createStore(dir) {
+  fs.mkdirSync(dir,{recursive:true,mode:0o700});
+  const stateFile=path.join(dir,'pa-state.json');
+  function durable(file,value,exclusive=false) {
+    const temp=exclusive?file:file+`.${process.pid}.tmp`,fd=fs.openSync(temp,'wx',0o600);
+    try{fs.writeFileSync(fd,JSON.stringify(value));fs.fsyncSync(fd);}finally{fs.closeSync(fd);}
+    if(!exclusive)fs.renameSync(temp,file);
+    if(process.platform!=='win32'){const d=fs.openSync(dir,'r');try{fs.fsyncSync(d);}finally{fs.closeSync(d);}}
+  }
   return {
-    year: +values.year, month: +values.month, day: +values.day,
-    hour: +values.hour, minute: +values.minute, second: +values.second,
+    read(){try{return JSON.parse(fs.readFileSync(stateFile,'utf8'));}catch(e){if(e.code==='ENOENT')return {};throw e;}},
+    write(v){durable(stateFile,v);},
+    attempted(id){return fs.existsSync(path.join(dir,`pa-${id}-write.json`));},
+    reserve(id,v){durable(path.join(dir,`pa-${id}-write.json`),v,true);},
+    log(event,detail={}){const row={at:new Date().toISOString(),plant:'PA',event,...detail};fs.appendFileSync(path.join(dir,'pa-events.jsonl'),JSON.stringify(row)+'\n',{mode:0o600});console.log(JSON.stringify(row));},
   };
 }
-
-function fromDeviceDate(date) {
-  if (!(date instanceof Date) || !Number.isFinite(date.getTime())) {
-    throw new Error('Invalid getTime() result from ZKT device');
-  }
-  // node-zklib Date is a local wall-clock Date. Unit must run with TZ=America/New_York.
-  return { year: date.getFullYear(), month: date.getMonth() + 1, day: date.getDate(),
-    hour: date.getHours(), minute: date.getMinutes(), second: date.getSeconds() };
-}
-
-function wallMilliseconds(wall) {
-  return Date.UTC(wall.year, wall.month - 1, wall.day, wall.hour, wall.minute, wall.second);
-}
-
-function encodeZktTime(wall) {
-  if (!Number.isInteger(wall.year) || wall.year < 2000 || wall.year > 2099 ||
-      !Number.isInteger(wall.month) || wall.month < 1 || wall.month > 12 ||
-      !Number.isInteger(wall.day) || wall.day < 1 || wall.day > 31 ||
-      !Number.isInteger(wall.hour) || wall.hour < 0 || wall.hour > 23 ||
-      !Number.isInteger(wall.minute) || wall.minute < 0 || wall.minute > 59 ||
-      !Number.isInteger(wall.second) || wall.second < 0 || wall.second > 59 ||
-      new Date(Date.UTC(wall.year, wall.month - 1, wall.day)).getUTCDate() !== wall.day) {
-    throw new Error('Invalid ZKT encoded clock value');
-  }
-  // Official ZK standalone protocol: CMD_SET_TIME, 4-byte little-endian encoded wall time.
-  const year = wall.year % 100;
-  const encoded = ((year * 12 * 31 + (wall.month - 1) * 31 + wall.day - 1) * 24 * 60 * 60) +
-    (wall.hour * 60 + wall.minute) * 60 + wall.second;
-  if (!Number.isSafeInteger(encoded) || encoded < 0 || encoded > 0xffffffff) {
-    throw new Error('Invalid ZKT encoded clock value');
-  }
-  const bytes = Buffer.alloc(4);
-  bytes.writeUInt32LE(encoded, 0);
-  return bytes;
-}
-
-function cleanSerial(response) {
-  // Old node-zklib executeCmd() may return a complete reply with its binary header.
-  // Search the payload for the exact parameter marker and reject ambiguous responses.
-  if (!Buffer.isBuffer(response)) throw new Error('ZKT serial reply is not a Buffer');
-  const text = response.toString('latin1');
-  const matches = [...text.matchAll(/~SerialNumber=([A-Za-z0-9._-]{4,70})/g)];
-  if (matches.length !== 1) throw new Error('Cannot verify unique ZKT serial response');
-  return matches[0][1];
-}
-
-function logEvent(event, detail = {}) {
-  fs.mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
-  const row = { at: new Date().toISOString(), plant: 'PA', event, ...detail };
-  const text = JSON.stringify(row);
-  fs.appendFileSync(path.join(STATE_DIR, 'pa-events.jsonl'), text + '\n', { mode: 0o600 });
-  console.log(text);
-}
-
-function completedEvent() {
-  try { return JSON.parse(fs.readFileSync(STATE_FILE, 'utf8')).event; }
-  catch (error) { if (error.code === 'ENOENT') return null; throw error; }
-}
-
-function markCompleted(event) {
-  fs.mkdirSync(STATE_DIR, { recursive: true, mode: 0o700 });
-  const temporary = STATE_FILE + '.' + process.pid + '.tmp';
-  fs.writeFileSync(temporary, JSON.stringify({ event, verifiedUtc: new Date().toISOString() }), { mode: 0o600, flag: 'wx' });
-  fs.renameSync(temporary, STATE_FILE);
-}
-
-function scheduleTest() {
-  const y2026 = transitions(2026), y2027 = transitions(2027);
-  const cases = [
-    [y2026[0].at, '2026-03-08T07:00:00.000Z'],
-    [y2026[1].at, '2026-11-01T06:00:00.000Z'],
-    [y2027[0].at, '2027-03-14T07:00:00.000Z'],
-    [y2027[1].at, '2027-11-07T06:00:00.000Z'],
-  ];
-  for (const [ms, iso] of cases) {
-    if (new Date(ms).toISOString() !== iso) throw new Error('DST UTC calendar test failed');
-  }
-  if (transitionDue(y2027[0].at - 1000) !== null ||
-    transitionDue(y2027[0].at + MAX_TRANSITION_AGE_MS + 1000) !== null ||
-    transitionDue(y2027[0].at)?.kind !== 'spring') throw new Error('DST guard window test failed');
-  const spring = wallParts(new Date(y2027[0].at));
-  const autumn = wallParts(new Date(y2027[1].at));
-  if (spring.hour !== 3 || autumn.hour !== 1) throw new Error('Eastern wall clock test failed');
-  const value = encodeZktTime({ year: 2027, month: 3, day: 14, hour: 3, minute: 0, second: 0 });
-  if (value.length !== 4) throw new Error('Invalid protocol payload');
-  console.log(JSON.stringify({ ok: true, plant: 'PA', spring: y2027[0], autumn: y2027[1], protocolPayloadHex: value.toString('hex') }));
-}
-
-async function main() {
-  const mode = process.argv[2] || '--status';
-  if (mode === '--test-schedule') { scheduleTest(); return; }
-  require('dotenv').config({ path: path.join(__dirname, '.env') });
-  if (!['--run', '--status'].includes(mode)) throw new Error('Expected --run / --status / --test-schedule');
-  if (process.env.TZ !== ZONE) throw new Error('TZ must explicitly be America/New_York');
-  const due = transitionDue(Date.now());
-  if (mode === '--run' && (!due || completedEvent() === due.id)) return; // no device contact outside transition
-  if (process.env.ZKT_PLANT_LOCATION !== 'PA') throw new Error('PA guard rejects non-PA bridge configuration');
-  const expectedSerial = String(process.env.ZKT_SERIAL_NUMBER || '').trim();
-  const ip = String(process.env.ZKT_IP || '').trim();
-  if (!expectedSerial || !ip || !/^\d{1,3}(\.\d{1,3}){3}$/.test(ip)) {
-    throw new Error('PA verified serial and IPv4 are required in the existing private bridge .env');
-  }
-
-  const ZKLib = require('node-zklib');
-  const { COMMANDS } = require('node-zklib/constants');
-  if (COMMANDS.CMD_SET_TIME !== 202 || COMMANDS.CMD_OPTIONS_RRQ !== 11 || COMMANDS.CMD_REFRESHDATA !== 1013) {
-    throw new Error('Unsupported node-zklib protocol version');
-  }
-  const zk = new ZKLib(ip, Number(process.env.ZKT_PORT || 4370), 10000, 4000);
-  let connected = false;
+async function runGuard({zk,expectedSerial,store,now=Date.now,hostCheck=checkHostClock}) {
+  const due=transitionDue(now());if(!due)return 'outside_window';
+  const old=store.read(),attempts=old.event===due.id?old.attempts||0:0;
+  if((old.event===due.id&&old.status==='complete')||store.attempted(due.id)||attempts>=MAX_ATTEMPTS)return 'blocked';
+  const state={event:due.id,attempts:attempts+1,status:'checking'};store.write(state);
+  let connected=false;
   try {
-    await zk.createSocket();
-    connected = true;
-    const rawSerial = await zk.executeCmd(COMMANDS.CMD_OPTIONS_RRQ, Buffer.from('~SerialNumber\0', 'ascii'));
-    const serial = cleanSerial(rawSerial);
-    if (serial !== expectedSerial) throw new Error('PA ZKT serial mismatch; no change permitted');
-    const before = fromDeviceDate(await zk.getTime());
-    const expected = wallParts(new Date());
-    const skew = wallMilliseconds(before) - wallMilliseconds(expected);
-    if (mode === '--status') {
-      console.log(JSON.stringify({ ok: true, plant: 'PA', serialVerified: true, terminalClock: before, easternClock: expected, skewSeconds: skew / 1000, due: due?.id || null }));
-      return;
-    }
-    if (Math.abs(skew) <= APPROVED_DRIFT_MS) {
-      markCompleted(due.id);
-      logEvent('already_correct', { transition: due.id, skewSeconds: Math.round(skew / 1000) });
-      return;
-    }
-    if (Math.abs(skew - due.staleOffsetMs) > MAX_CLOCK_SKEW_MS) {
-      throw new Error('Unexpected PA terminal drift (' + Math.round(skew / 1000) + 's); refusing DST write');
-    }
-    const target = wallParts(new Date());
-    await zk.executeCmd(COMMANDS.CMD_SET_TIME, encodeZktTime(target));
-    await zk.executeCmd(COMMANDS.CMD_REFRESHDATA, Buffer.alloc(0));
-    const after = fromDeviceDate(await zk.getTime());
-    const finalSkew = wallMilliseconds(after) - wallMilliseconds(wallParts(new Date()));
-    if (Math.abs(finalSkew) > 15000) throw new Error('PA ZKT clock post-write verification failed');
-    markCompleted(due.id);
-    logEvent('corrected_verified', { transition: due.id, oldClock: before, newClock: after,
-      skewBeforeSeconds: Math.round(skew / 1000), skewAfterSeconds: Math.round(finalSkew / 1000) });
-  } catch (err) {
-    logEvent('error', { transition: due?.id || null, message: err.message });
-    process.exitCode = 1;
-  } finally {
-    if (connected) await zk.disconnect().catch(() => {});
-  }
+    const host=await hostCheck();if(!host?.synchronized)throw Error('Host time check failed');
+    await zk.createSocket();connected=true;
+    if(cleanSerial(await zk.executeCmd(C.OPTIONS,Buffer.from('~SerialNumber\0')))!==expectedSerial)throw Error('PA terminal serial mismatch');
+    const builtin=await readOption(zk,'DaylightSavingTime');
+    if(!['0','1'].includes(builtin))throw Error('Unknown built-in DST setting');
+    const before=await readDeviceClock(zk),skew=wallMilliseconds(before)-wallMilliseconds(wallParts(new Date(now())));
+    if(Math.abs(skew)<=90000){store.write({...state,status:'complete'});store.log('already_correct',{transition:due.id,skewSeconds:Math.round(skew/1000),host});return 'already_correct';}
+    if(builtin!=='0')throw Error('Built-in DST enabled; refusing competing clock correction');
+    if(Math.abs(skew-due.staleOffsetMs)>300000)throw Error('Unexpected device skew; refusing clock correction');
+    if(transitionDue(now())?.id!==due.id)throw Error('Transition window expired');
+    if(Number.isFinite(host.checkedAt)&&Math.abs(now()-host.checkedAt-(performance.now()-host.monotonic))>500)throw Error('Host clock jumped after NTP check');
+    if(await readOption(zk,'~SerialNumber')!==expectedSerial)throw Error('Terminal identity changed');
+    if(transitionDue(now())?.id!==due.id)throw Error('Transition window expired');
+    if(Number.isFinite(host.checkedAt)&&Math.abs(now()-host.checkedAt-(performance.now()-host.monotonic))>500)throw Error('Host clock jumped after NTP check');
+    const target=wallParts(new Date(now()));
+    // Intent is exclusive and flushed before any write. Lost ACK/crash/reboot cannot replay it.
+    store.reserve(due.id,{event:due.id,at:new Date(now()).toISOString(),target});
+    replyPayload(await zk.executeCmd(C.SET_TIME,encodeZktTime(target)),0);
+    const after=await readDeviceClock(zk),skewAfter=wallMilliseconds(after)-wallMilliseconds(wallParts(new Date(now())));
+    if(Math.abs(skewAfter)>15000)throw Error('Clock readback verification failed; write will not be repeated');
+    store.write({...state,status:'complete'});store.log('corrected_verified',{transition:due.id,oldClock:before,newClock:after,skewBeforeSeconds:Math.round(skew/1000),skewAfterSeconds:Math.round(skewAfter/1000),host});return 'corrected_verified';
+  } catch(e){store.write({...state,status:store.attempted(due.id)?'write_uncertain':'error'});store.log('error',{transition:due.id,message:e.message});throw e;}
+  finally{if(connected)await zk.disconnect().catch(()=>{});}
 }
-if (require.main === module) main().catch((err) => { console.error(err.message); process.exitCode = 1; });
-module.exports = { transitions, transitionDue, wallParts, encodeZktTime, cleanSerial, scheduleTest, fromDeviceDate };
+function scheduleTest() {
+  const dates={2026:['03-08','11-01'],2027:['03-14','11-07'],2028:['03-12','11-05'],2029:['03-11','11-04'],2030:['03-10','11-03']};
+  for(const [year,days]of Object.entries(dates)){const ts=transitions(Number(year));if(new Date(ts[0].at).toISOString()!==`${year}-${days[0]}T07:00:00.000Z`||new Date(ts[1].at).toISOString()!==`${year}-${days[1]}T06:00:00.000Z`)throw Error('DST calendar failed');}
+  console.log(JSON.stringify({ok:true,plant:'PA',years:'2026-2030',transitions2027:transitions(2027)}));
+}
+async function main() {
+  const mode=process.argv[2]||'--status';if(mode==='--test-schedule'){scheduleTest();return;}
+  if(!['--run','--status'].includes(mode))throw Error('Expected --run / --status / --test-schedule');
+  if(mode==='--run'&&!transitionDue(Date.now()))return;
+  require('dotenv').config({path:path.join(__dirname,'.env')});
+  if(process.env.ZKT_PLANT_LOCATION!=='PA'||process.env.TZ!==ZONE)throw Error('Requires verified PA configuration and TZ=America/New_York');
+  const ip=process.env.ZKT_IP,serial=process.env.ZKT_SERIAL_NUMBER;
+  if(!require('node:net').isIPv4(ip)||!serial)throw Error('Verified IP and serial required');
+  if(require('node-zklib/package.json').version!=='1.3.0')throw Error('Unsupported node-zklib version');
+  const c=require('node-zklib/constants').COMMANDS;
+  if(c.CMD_GET_TIME!==201||c.CMD_SET_TIME!==202||c.CMD_OPTIONS_RRQ!==11||c.CMD_ACK_OK!==2000)throw Error('Unsupported ZK protocol constants');
+  const ZK=require('node-zklib'),zk=new ZK(ip,Number(process.env.ZKT_PORT||4370),5000,4000);
+  const store=createStore(process.env.FARMPLAST_ZKT_DST_STATE_DIR||'/var/lib/farmplast-zkt-dst');
+  if(mode==='--run'){await runGuard({zk,expectedSerial:serial,store});return;}
+  const host=await checkHostClock();
+  try {
+    await zk.createSocket();const actual=await readOption(zk,'~SerialNumber');if(actual!==serial)throw Error('PA terminal serial mismatch');
+    const builtin=await readOption(zk,'DaylightSavingTime'),before=await readDeviceClock(zk);
+    const skew=Math.round((wallMilliseconds(before)-wallMilliseconds(wallParts(new Date())))/1000);
+    const result={ok:Math.abs(skew)<=90,plant:'PA',ip,serial:actual,serialVerified:true,terminalClock:before,easternClock:wallParts(new Date()),skewSeconds:skew,builtinDst:builtin,host};
+    store.log('status',result);if(!result.ok||builtin!=='0')throw Error('Preflight not eligible for automatic external DST');
+  }finally{await zk.disconnect().catch(()=>{});}
+}
+if(require.main===module)main().catch(e=>{console.error(e.message);process.exitCode=1;});
+module.exports={transitions,transitionDue,wallParts,wallMilliseconds,encodeZktTime,decodeZktTime,replyPayload,readOption,readDeviceClock,cleanSerial,parseNtpReply,queryNtp,createStore,runGuard,scheduleTest,MAX_TRANSITION_AGE_MS};

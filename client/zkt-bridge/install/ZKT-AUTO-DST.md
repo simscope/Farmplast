@@ -1,88 +1,92 @@
-# Farmplast NJ ZKTeco — automatic US Eastern daylight saving time
+# Farmplast NJ + PA: automatic Eastern DST
 
-Independent Windows Scheduled Task. The NJ bridge is normally stopped between 21:00 and 07:00, so overnight DST transitions cannot be handled by the ordinary bridge loop.
+Installed on both existing bridge computers on November 20, 2026. No additional daemon, dependency installation on factory hosts, database table, Payroll change or attendance rewrite is required.
 
-## Calendar
+| Site | Existing host | Physical terminal | Verified serial | Independent scheduler |
+| --- | --- | --- | --- | --- |
+| NJ | NJ-5591-TL, Windows | 192.168.22.201:4370 | RNJ6261400035 | `Farmplast ZKT NJ Auto DST`, SYSTEM, 32-bit Windows PowerShell |
+| PA | hp-pen, Linux | 192.168.1.201:4370 | RNJ6261400029 | `farmplast-zkt-pa-dst.timer` + clock-only oneshot |
 
-- Second Sunday of March: 02:00 EST -> 03:00 EDT, at 07:00 UTC.
-- First Sunday of November: 02:00 EDT -> 01:00 EST, at 06:00 UTC.
-- In 2027: March 14 / November 7.
-- Official NIST: https://www.nist.gov/pml/time-and-frequency-division/popular-links/daylight-saving-time-dst
+Both hosts use Eastern Time; both terminal `DaylightSavingTime` and `~DSTF` options were read as `0`. Firmware on NJ is `Ver 6.60 Sep 10 2019`; PA reports platform `ZMM201_TFT`. Read-only clock preflight showed approximately +1 second NJ and -7 seconds PA relative to independently verified host UTC. No physical clock was changed during installation or testing.
 
-The script evaluates UTC time every minute to avoid missing nonexistent or repeated local hours. It contacts the device only during the first hour after each transition. It retries after a network outage. It records completion only after successful readback, or after confirming the terminal is already correct.
+## Schedule and safeguards
 
-## Safety
+[Current NIST rules](https://www.nist.gov/pml/time-and-frequency-division/popular-links/daylight-saving-time-dst): second Sunday in March, 07:00 UTC (02:00 EST → 03:00 EDT); first Sunday in November, 06:00 UTC (02:00 EDT → 01:00 EST). Calendar tests cover 2026–2030. The next transitions are March 14 and November 7, 2027.
 
-- No Supabase or Payroll updates, no new tables, no editing of recorded punches.
-- Uses the existing 32-bit ZKEMKeeper COM SDK with GetDeviceTime and SetDeviceTime2.
-- Requires the verified terminal IP and exact expected serial number. If identity mismatches, no write.
-- Corrects only approximately -3600 seconds in spring or +3600 seconds in autumn, tolerance 300 seconds. Skips when already correct. Rejects other clock errors.
-- After writing, reads the terminal again and requires error <=15 seconds.
-- Logs event, original and confirmed clock to C:\ProgramData\Farmplast\ZKT-AutoDST\nj-events.jsonl. State stored in nj-state.json.
-- Does not modify terminal DST settings. If built-in DST already adjusted the clock, no additional correction is applied.
-- Relies on accurate Windows clock; ensure Windows Time is synchronized.
-- Local mutex prevents two concurrent adjustment processes.
+- Schedulers run every minute, including overnight, independently of the main bridge's working hours. NJ additionally has an enabled boot trigger; PA has an enabled persistent UTC calendar timer and an `OnBootSec=45s` trigger.
+- Only the first **five minutes** after the actual UTC boundary are eligible. No daytime or late catch-up is allowed, including after a delayed boot. DST itself changes the civil clock at the official boundary; the guard does not perform unrelated corrections during a shift.
+- Before any hardware connection in correction mode, the OS time service and two independent live NTP sources must confirm host time within two seconds and agree within one second. A host clock jump during the operation also rejects the write.
+- Verify the exact pinned physical serial before reading/considering a change, then again immediately before writing. Refuse unknown built-in DST settings or a competing enabled built-in correction. No terminal options are changed.
+- Already-correct clocks (within 90 seconds) are marked complete without a write. Only the expected one-hour error in the appropriate direction, within five minutes of tolerance, is eligible.
+- An exclusive **durably flushed write-intent file precedes the SDK/protocol write**. A lost ACK, bad readback, process crash, missing summary state or reboot cannot cause a second write for that transition. Do not delete intent files to force a retry.
+- Read back the physical clock after a successful write; require agreement within 15 seconds. At most four checks per transition; an uncertain write permanently blocks further automatic writes for that event and records an error.
+- NJ uses the installed official 32-bit ZKEMKeeper `GetDeviceTime` / `SetDeviceTime2`. A global mutex and Task Scheduler's IgnoreNew prevent concurrent jobs.
+- PA uses the **installed node-zklib 1.3.0**, which has **no `getTime()` method**. `executeCmd(201)` returns an eight-byte ZK header and four-byte packed wall time. Decode these bytes directly, without local `Date` normalization of the nonexistent spring hour. `executeCmd(202, four-byte little-endian wall time)` requires an exact ACK followed by a fresh GET_TIME. No `REFRESHDATA`, attendance or database commands are issued. Compatibility was verified against the installed library with a local TCP terminal emulator and a real read-only serial/clock preflight, not a live clock write.
 
-## Installation on NJ bridge Windows computer
+## Verification performed on the factory hosts
 
-Run once on the actual computer that can reach the NJ device over LAN. Do not install this on an unrelated PC or MSI without verified direct network route and matching COM SDK.
+- NJ: eight offline safety groups passed under the actual 32-bit Windows PowerShell. Includes exact 2026–2030 boundaries, both writes on a fake SDK object, already-correct clock, wrong serial/time, built-in DST conflict, lost acknowledgement, failed readback, persisted replay protection and bounded attempts.
+- PA: eleven offline tests passed under the actual installed Node/node-zklib. Includes the same failure cases, invalid ACK/length/date, NTP failures, durable intent and real node-zklib talking only to a `127.0.0.1` TCP emulator.
+- Real terminal serial and time were read before scheduler activation. Both preflights verified live NTP sources and disabled built-in DST.
+- Both independent schedulers were started successfully outside a transition, with no physical clock write. Normal minute-triggered executions and enabled boot settings were checked separately.
+- NJ's existing services stopped normally at 21:00; the independent DST task then succeeded at 21:00:26 with exit code 0 and another minute scheduled. PA's timer succeeded automatically at 20:59 and 21:00; the original bridge remained active with PID 7069, unchanged since November 13.
+- No factory computer was rebooted or main bridge stopped for testing. Persistence was tested with fresh guard instances and missing summary state while retaining durable intent. Boot activation is verified from the registered scheduler configuration; a real power-cycle was not performed.
+- Existing NJ bridge executable and attendance executable hashes were unchanged; PA `bridge.cjs`, `common-import.cjs` and lockfile hashes and original running bridge PID were unchanged. The clock jobs contain no database access and cannot alter Payroll/work logs. Tests reject any non-clock device command.
 
-1. Verify actual NJ ZKT serial number and the network IP.
-2. Open elevated 64-bit PowerShell at project root.
-3. Offline calendar validation:
+## Windows installation and inspection
 
-   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\client\zkt-bridge\install\zkt-auto-dst.ps1 -Mode TestSchedule
+From an elevated Windows PowerShell on the **existing NJ bridge host**, using independently verified identity:
 
-4. Install with real verified values, not the placeholder strings:
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\client\zkt-bridge\install\zkt-auto-dst.ps1 -Mode Install -Ip 192.168.22.201 -Port 4370 -Machine 1 -ExpectedSerialNumber RNJ6261400035
+```
 
-   powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\client\zkt-bridge\install\zkt-auto-dst.ps1 -Mode Install -Ip <VERIFIED_NJ_IP> -Port 4370 -Machine 1 -ExpectedSerialNumber <VERIFIED_NJ_SERIAL>
+The installer protects `C:\ProgramData\Farmplast\ZKT-AutoDST` for SYSTEM/Administrators, performs read-only preflight using the existing SDK, then registers the task. It does not modify bridge service definitions. Automatic sleep is already disabled on this host; it must remain powered on. The task allows battery operation, requests wake and starts after missed triggers. It does not change the power plan.
 
-   Installer copies script to ProgramData, creates protected config, performs a read-only 32-bit COM terminal identity/clock check, and ONLY if that succeeds creates task Farmplast ZKT NJ Auto DST under SYSTEM with one-minute repetition.
+```powershell
+Get-ScheduledTask -TaskName 'Farmplast ZKT NJ Auto DST'
+Get-ScheduledTaskInfo -TaskName 'Farmplast ZKT NJ Auto DST'
+C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\Farmplast\ZKT-AutoDST\zkt-auto-dst.ps1 -Mode Status
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\client\zkt-bridge\install\zkt-auto-dst.test.ps1
+```
 
-5. Query task:
+Logs: `nj-events.jsonl`; summary: `nj-state.json`; one-write markers: `nj-spring-YYYY-write.json` / `nj-autumn-YYYY-write.json`, in the same protected directory. Logs contain only clock status/correction events.
 
-   schtasks /Query /TN "Farmplast ZKT NJ Auto DST" /V /FO LIST
+## Linux installation and inspection
 
-6. Run task manually outside transition window (no live terminal write or connection):
+Keep the existing private `.env`, bridge sources, dependencies and service unchanged. Copy only `linux/dst-clock.cjs` into `/opt/farmplast-zkt-linux-bridge/`, root-owned. Run the read-only preflight **before** enabling the timer:
 
-   schtasks /Run /TN "Farmplast ZKT NJ Auto DST"
+```sh
+cd /opt/farmplast-zkt-linux-bridge
+TZ=America/New_York node dst-clock.cjs --status
+node dst-clock.cjs --test-schedule
+node --test test/dst-clock.test.cjs
+```
 
-7. Read terminal time without changing it:
+Install the supplied `.service` / `.timer` into `/etc/systemd/system/`, then:
 
-   C:\Windows\SysWOW64\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "C:\ProgramData\Farmplast\ZKT-AutoDST\zkt-auto-dst.ps1" -Mode Status
+```sh
+systemd-analyze verify /etc/systemd/system/farmplast-zkt-pa-dst.service /etc/systemd/system/farmplast-zkt-pa-dst.timer
+systemctl daemon-reload
+systemctl enable --now farmplast-zkt-pa-dst.timer
+systemctl start farmplast-zkt-pa-dst.service
+systemctl list-timers farmplast-zkt-pa-dst.timer
+systemctl show farmplast-zkt-pa-dst.service -p Result -p ExecMainStatus
+journalctl -u farmplast-zkt-pa-dst.service --no-pager -n 20
+```
 
-8. Before DST ensure host runs overnight and time sync is healthy. At transition confirm an already_correct or corrected_verified event in the local JSONL log and a correct device readback.
+The unit uses the existing `flock`, `node`, `timedatectl` and dependencies. Logs/state/intents are root-only in `/var/lib/farmplast-zkt-dst`; journal messages contain clock-job activity, never employee punches. Outside a transition the correction command exits before loading the SDK or contacting the device. Inspect uncertain state with `--status`; do not clear an intent to replay a production write.
 
 ## Rollback
 
-Unregister-ScheduledTask -TaskName "Farmplast ZKT NJ Auto DST" -Confirm:$false
+Disable only the added scheduler; preserve clock audit and intent files:
 
-This removes only the added task; it does not touch the bridge service, terminal attendance logs or payroll. Preserve local audit files.
+```powershell
+Unregister-ScheduledTask -TaskName 'Farmplast ZKT NJ Auto DST' -Confirm:$false
+```
 
-## Limitations
+```sh
+systemctl disable --now farmplast-zkt-pa-dst.timer
+```
 
-- Script is committed as an installation candidate, not live on the terminal until the bridge PC installation steps are completed and verified.
-- The self-test verifies calendar computations; a real physical DST write cannot be safely simulated by changing the production terminal clock.
-- PA is a separate Linux installation using node-zklib 1.3.0; this Windows SDK-based solution does NOT control PA. PA needs a separate compatible implementation or verified built-in terminal DST configuration.
-
-## PA automatic transition (Linux host hp-pen)
-
-The current PA Linux bridge uses node-zklib 1.3.0, which does not expose a high-level setTime(). The separate guard in `linux/dst-clock.cjs` therefore uses the documented ZK standalone protocol: CMD_OPTIONS_RRQ(~SerialNumber), CMD_GET_TIME via node-zklib, CMD_SET_TIME with a four-byte packed wall-clock value, and CMD_REFRESHDATA. This does not change the running attendance bridge or its dependencies.
-
-Required activation on the **actual PA Linux host** where the existing terminal is reachable:
-
-1. Review `/opt/farmplast-zkt-linux-bridge/.env` and verify correct `ZKT_IP`, `ZKT_PORT`, `ZKT_SERIAL_NUMBER`, and `ZKT_PLANT_LOCATION=PA`. The serial must be the actual physical device serial, not an invented value. Do not publish the .env.
-2. Confirm current clock synchronization: `timedatectl status` should show NTP synchronized. Confirm working `node-zklib` 1.3.0 is installed in the bridge directory. Do not modify or restart its bridge service.
-3. Copy **only** `linux/dst-clock.cjs` to `/opt/farmplast-zkt-linux-bridge/dst-clock.cjs`. Keep permissions root-owned. Do not replace `bridge.cjs`.
-4. From that directory run: `node dst-clock.cjs --test-schedule`. Also run `node --test test/dst-clock.test.cjs` against a local copy of test file; these tests require no connection to hardware.
-5. Read-only hardware preflight: with environment loaded from existing private .env and `TZ=America/New_York`, run `node dst-clock.cjs --status`. Confirm reported serialVerified=true and terminalClock/easternClock within 90 seconds. If status fails or shows a large skew, **do not activate automatic writes**; correct implementation or device time offline.
-6. Install `linux/systemd/farmplast-zkt-pa-dst.service` and `linux/systemd/farmplast-zkt-pa-dst.timer` under `/etc/systemd/system/`. Then:
-   `sudo systemctl daemon-reload`
-   `sudo systemctl enable --now farmplast-zkt-pa-dst.timer`
-   `sudo systemctl status farmplast-zkt-pa-dst.timer --no-pager`
-7. Confirm timer next run from `systemctl list-timers farmplast-zkt-pa-dst.timer` and verify `journalctl -u farmplast-zkt-pa-dst.service`. Outside transition no physical terminal contact or write occurs.
-8. On DST date, verify `corrected_verified` or `already_correct` in `/var/lib/farmplast-zkt-dst/pa-events.jsonl` and re-read clock. If failure occurs, systemd logs an error; do not automatically replay after the first hour.
-
-PA rollback: `sudo systemctl disable --now farmplast-zkt-pa-dst.timer` (leaves existing bridge running). Do not delete event/state logs.
-
-**CAUTION**: The protocol-based PA time write needs a confirmed read-only preflight on its physical firmware. It is not claimed active or verified merely because these source files exist in GitHub. Both NJ and PA safeguards limit automatic correction to the **first hour after** the DST transition. No corrections later during an employee shift.
+This leaves both existing bridges, recorded punches, employee hours and Payroll unchanged. No production clock write outside an actual DST boundary is a valid test.
