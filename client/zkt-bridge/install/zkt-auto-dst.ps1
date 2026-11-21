@@ -47,7 +47,7 @@ function Get-PendingTransition([datetime]$utcNow) {
   foreach ($year in @(($utcNow.Year - 1), $utcNow.Year)) {
     foreach ($transition in (Get-Transitions $year)) {
       $elapsed = ($utcNow - $transition.utc).TotalSeconds
-      if ($elapsed -ge 0 -and $elapsed -le 86400) { return $transition }
+      if ($elapsed -ge 0 -and $elapsed -lt 3600) { return $transition }
     }
   }
   return $null
