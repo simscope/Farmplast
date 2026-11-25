@@ -1,58 +1,58 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import http from 'node:http'
+import fs from 'node:fs'
+import os from 'node:os'
+import path from 'node:path'
 import handler from '../api/pa-climate-msi.js'
-import {codec} from '../server/climateTransport.mjs'
+import legacyHandler from '../api/pa-zone1.js'
+import {createClimateGateway} from '../../telemetry/climateGateway.mjs'
+import {MSI_ORIGIN} from '../server/climateWire.mjs'
 
-test('Live site API preserves the existing PIN check, verifies the operator and sends only scoped MSI operations',async t=>{
- const originalFetch=globalThis.fetch,originalWS=globalThis.WebSocket,originalEnv={...process.env}
- t.after(()=>{globalThis.fetch=originalFetch;globalThis.WebSocket=originalWS;for(const k of Object.keys(process.env))if(!(k in originalEnv))delete process.env[k];Object.assign(process.env,originalEnv)})
- const id='00000000-0000-4000-8000-000000000001',token='synthetic-user-jwt-'.repeat(3),secret='1'.repeat(64),crypt=codec(secret),messages=[]
- Object.assign(process.env,{VITE_SUPABASE_URL:'https://auth.example',VITE_SUPABASE_ANON_KEY:'public-test-key',FARMPLAST_SERVICE_ROLE_KEY:'private-test-key',PA_CLIMATE_TARGET_PIN:'1234',PA_CLIMATE_ALLOWED_USER_IDS:id,PA_CLIMATE_TRANSPORT_KEY:secret})
- let caller=id
- globalThis.fetch=async url=>{
-  if(String(url).includes('/auth/v1/user'))return Response.json({id:caller})
-  if(String(url).includes('/rest/v1/profiles'))return Response.json({role:'admin'})
-  if(String(url).includes('/storage/v1/object/authenticated/'))return Response.json({statusCode:404},{status:404})
-  return Response.json({})
- }
- class Socket extends EventTarget{
-  constructor(){super();this.readyState=1;this.pieces=new Map();queueMicrotask(()=>this.dispatchEvent(new Event('open')))}
-  emit(value){queueMicrotask(()=>this.dispatchEvent(new MessageEvent('message',{data:JSON.stringify(value)})))}
-  send(text){
-   const m=JSON.parse(text)
-   if(m.event==='phx_join'){this.emit({event:'phx_reply',ref:m.ref,payload:{status:'ok'}});return}
-   if(m.event!=='broadcast')return
-   const f=m.payload.payload
-   if(!this.pieces.has(f.id))this.pieces.set(f.id,[])
-   const parts=this.pieces.get(f.id);parts[f.index]=f.chunk
-   if(parts.filter(Boolean).length!==f.total)return
-   const request=crypt.open(parts.join(''),'request',f.id);messages.push(request)
-   const response={at:Date.now(),status:200,headers:{'content-type':'application/json'},body:Buffer.from(JSON.stringify(request.method==='GET'?{zones:[]}:{desired:{revision:2}})).toString('base64')}
-   this.emit({topic:crypt.topic,event:'broadcast',payload:{event:'rpc',payload:{id:f.id,kind:'response',index:0,total:1,chunk:crypt.seal(response,'response',f.id)}}})
+test('site → signed HTTPS → MSI: operator checks, local PIN throttling, firmware and replacement routes remain intact without Realtime/Storage',async t=>{
+  const originalFetch=globalThis.fetch,originalWS=globalThis.WebSocket,originalEnv={...process.env}
+  t.after(()=>{globalThis.fetch=originalFetch;globalThis.WebSocket=originalWS;for(const k of Object.keys(process.env))if(!(k in originalEnv))delete process.env[k];Object.assign(process.env,originalEnv)})
+  const id='00000000-0000-4000-8000-000000000001',token='synthetic-user-jwt-'.repeat(3),secret='1'.repeat(64),messages=[],network=[]
+  Object.assign(process.env,{VITE_SUPABASE_URL:'https://auth.example',VITE_SUPABASE_ANON_KEY:'public-test-key',PA_CLIMATE_TARGET_PIN:'1234',PA_CLIMATE_ALLOWED_USER_IDS:id,PA_CLIMATE_TRANSPORT_KEY:secret})
+  delete process.env.FARMPLAST_SERVICE_ROLE_KEY
+  const legacyFile=path.join(fs.mkdtempSync(path.join(os.tmpdir(),'pa-climate-')),'legacy.json')
+  const gateway=createClimateGateway({target:'http://127.0.0.1:18000',secret,legacyFile,allowedUserIds:[id]},async(url,init)=>{
+    messages.push({path:new URL(url).pathname,headers:init.headers,body:init.body})
+    return Response.json(init.method==='GET'?{zones:[]}:{desired:{revision:2}})
+  })
+  const server=http.createServer(async(req,res)=>{if(!await gateway(req,res,new URL(req.url,'http://localhost'))){res.writeHead(404);res.end()}})
+  await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)))
+  let caller=id
+  globalThis.WebSocket=class{constructor(){throw Error('Realtime must never be opened')}}
+  globalThis.fetch=async(url,init)=>{
+    network.push(String(url))
+    if(String(url).includes('/auth/v1/user'))return Response.json({id:caller})
+    assert.ok(String(url).startsWith(MSI_ORIGIN))
+    return originalFetch(`http://127.0.0.1:${server.address().port}`+new URL(url).pathname,init)
   }
-  close(){this.readyState=3;this.dispatchEvent(new Event('close'))}
- }
- globalThis.WebSocket=Socket
- async function run(body,authorization='Bearer '+token){const res={setHeader(){},status(code){this.code=code;return this},json(value){this.value=value;return this},end(value){this.value=JSON.parse(value.toString());return this}};await handler({method:body?'POST':'GET',headers:authorization?{authorization}:{},query:{},body},res);return res}
- assert.equal((await run(undefined,'')).code,401)
- assert.equal((await run()).code,200)
- assert.equal(messages[0].path,'/climate/operator/zones')
- assert.equal(messages[0].headers.authorization,'Bearer '+token)
- const before=messages.length
- assert.equal((await run({action:'set',zone_id:'pa-zone-2',target_f:72,pin:'wrong'})).code,403)
- assert.equal(messages.length,before)
- const good=await run({action:'set',zone_id:'pa-zone-2',target_f:72,pin:'1234'});assert.equal(good.code,200)
- assert.deepEqual(JSON.parse(Buffer.from(messages.at(-1).body,'base64')),{target_f:72})
- assert.equal((await run({action:'register'})).code,400)
- const beforeReplacement=messages.length
- assert.equal((await run({action:'replacement_create',zone_id:'pa-zone-1',old_device_id:null,request_id:'00000000-0000-4000-8000-000000000009',pin:'wrong'})).code,403)
- assert.equal(messages.length,beforeReplacement)
- assert.equal((await run({action:'replacement_create',zone_id:'pa-zone-1',old_device_id:null,expected_device_id:'PA-CLIM-209BA98DBF90',request_id:'00000000-0000-4000-8000-000000000009',pin:'1234'})).code,200)
- assert.equal(messages.at(-1).path,'/climate/operator/replacements')
- assert.equal(JSON.parse(Buffer.from(messages.at(-1).body,'base64')).expected_device_id,'PA-CLIM-209BA98DBF90')
- assert.ok(!Buffer.from(messages.at(-1).body,'base64').toString().includes('1234'))
- for(const action of ['replacement_installer','replacement_commit','replacement_cancel']){
-  const n=messages.length;assert.equal((await run({action,operation_id:'00000000-0000-4000-8000-000000000009',pin:'wrong'})).code,403);assert.equal(messages.length,n)
- }
- caller='other';assert.equal((await run()).code,403)
+  async function run(body,authorization='Bearer '+token,fn=handler){
+    const res={setHeader(){},status(code){this.code=code;return this},json(value){this.value=value;return this},end(value){this.value=JSON.parse(value.toString());return this}}
+    await fn({method:body?'POST':'GET',headers:authorization?{authorization}:{},query:{},body},res);return res
+  }
+  assert.equal((await run(undefined,'')).code,401)
+  assert.equal((await run()).code,200)
+  assert.equal(messages[0].path,'/climate/operator/zones')
+  assert.equal(messages[0].headers.authorization,'Bearer '+token)
+  const before=messages.length
+  assert.equal((await run({action:'set',zone_id:'pa-zone-2',target_f:72,pin:'wrong'})).code,403)
+  assert.equal(messages.length,before)
+  assert.equal((await run({action:'set',zone_id:'pa-zone-2',target_f:72,pin:'1234'})).code,200)
+  assert.deepEqual(JSON.parse(messages.at(-1).body),{target_f:72})
+  assert.equal((await run({action:'register'})).code,400)
+  assert.equal((await run({action:'replacement_create',zone_id:'pa-zone-1',old_device_id:null,request_id:'00000000-0000-4000-8000-000000000009',pin:'wrong'})).code,403)
+  assert.equal((await run({action:'replacement_create',zone_id:'pa-zone-1',old_device_id:null,expected_device_id:'PA-CLIM-209BA98DBF90',request_id:'00000000-0000-4000-8000-000000000009',pin:'1234'})).code,200)
+  assert.equal(messages.at(-1).path,'/climate/operator/replacements')
+  assert.equal(JSON.parse(messages.at(-1).body).expected_device_id,'PA-CLIM-209BA98DBF90')
+  for(const action of ['replacement_installer','replacement_commit','replacement_cancel'])assert.equal((await run({action,operation_id:'00000000-0000-4000-8000-000000000009',pin:'wrong'})).code,403)
+  assert.equal((await run({action:'CHECK_PIN',pin:'1234'},'Bearer '+token,legacyHandler)).code,200)
+  for(let i=0;i<5;i++)assert.equal((await run({action:'CHECK_PIN',pin:'0000'},'Bearer '+token,legacyHandler)).code,403)
+  assert.equal((await run({action:'CHECK_PIN',pin:'1234'},'Bearer '+token,legacyHandler)).code,429)
+  caller='other';assert.equal((await run()).code,403)
+  assert.ok(network.every(u=>!u.includes('/storage/')&&!u.includes('/realtime/')))
+  assert.ok(fs.existsSync(legacyFile));assert.ok(!fs.readFileSync(legacyFile,'utf8').includes('1234'))
 })

@@ -60,7 +60,8 @@ export default async function handler(req,res){
    }else return send(400,{error:'Unsupported action'})
   }else return send(405,{error:'Method not allowed'})
   const request=new Request('https://farmplast.vercel.app/climate/operator'+suffix,{method:req.method,headers:{Authorization:'Bearer '+token,...extra},body,duplex:'half'})
-  const out=await transportFetch({supabaseUrl:process.env.VITE_SUPABASE_URL,anonKey:process.env.VITE_SUPABASE_ANON_KEY,secret:process.env.PA_CLIMATE_TRANSPORT_KEY},request)
+  const out=await transportFetch({secret:process.env.PA_CLIMATE_TRANSPORT_KEY},request)
+  res.setHeader('X-Farmplast-Climate-Transport','msi-https')
   for(const name of ['content-type','content-disposition'])if(out.headers.has(name))res.setHeader(name,out.headers.get(name))
   return res.status(out.status).end(Buffer.from(await out.arrayBuffer()))
  }catch{return send(503,{error:'MSI climate unavailable'})}

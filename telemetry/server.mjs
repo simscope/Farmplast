@@ -7,6 +7,7 @@ import { createCloudBridge } from './otaBridge.mjs'
 import {createCloudReporter} from './otaBridge.mjs'
 import {openControlStore} from './controlStore.mjs'
 import {createLocalControlHttp} from './localControlHttp.mjs'
+import {createClimateGateway} from './climateGateway.mjs'
 
 function equal(actual, expected) {
   if (typeof actual !== 'string' || typeof expected !== 'string') return false
@@ -19,12 +20,14 @@ export function createTelemetryServer(config, state = createTelemetryState(), br
   }
   if (new Set([config.readKey, ...Object.values(config.devices)]).size !== 5) throw new Error('Keys must be distinct')
   const lastPost = new Map()
+  const climate = config.climateProxy ? createClimateGateway(config.climateProxy) : null
   const server = http.createServer({ requestTimeout: 10000, headersTimeout: 10000, maxHeaderSize: 8192 }, async (req, res) => {
     res.setHeader('Cache-Control', 'private, no-store, max-age=0')
     res.setHeader('Pragma', 'no-cache')
     res.setHeader('X-Content-Type-Options', 'nosniff')
     const send = (code, body) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(body)) }
     const url = new URL(req.url, 'http://localhost')
+    if(climate && await climate(req,res,url))return
     if(controlHttp && await controlHttp(req,res,url))return
     const token = req.headers.authorization?.match(/^Bearer ([A-Za-z0-9_-]{16,256})$/)?.[1]
     if (url.pathname === '/healthz' && req.method === 'GET') return send(200, { ok: true, storage: 'memory', history: false })
