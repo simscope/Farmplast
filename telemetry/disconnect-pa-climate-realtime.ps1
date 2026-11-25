@@ -27,7 +27,15 @@ try{
   if(!$healthy){throw 'Climate runtime failed its local health check'}
   $site=Invoke-WebRequest -UseBasicParsing https://farmplast.vercel.app/climate/healthz -TimeoutSec 20
   if($site.StatusCode -ne 200 -or $site.Headers['X-Farmplast-Climate-Transport'] -ne 'msi-https'){throw 'Climate site failed after disconnecting the old peer'}
-  $logs=@(& docker logs --since $since supabase-edge-functions 2>&1|ForEach-Object {"$_"})
+  # Docker writes ordinary container output to stderr as well. Windows PowerShell
+  # must not treat those log records as a failed native command.
+  $previousErrorAction=$ErrorActionPreference
+  try{
+    $ErrorActionPreference='Continue'
+    $logs=@(& docker logs --since $since supabase-edge-functions 2>&1|ForEach-Object {"$_"})
+    $logExit=$LASTEXITCODE
+  }finally{$ErrorActionPreference=$previousErrorAction}
+  if($logExit -ne 0){throw 'Could not verify climate runtime logs'}
   if(@($logs|Where-Object {$_ -match 'Farmplast Climate transport:\s*connected'}).Count){throw 'The climate Realtime peer unexpectedly reconnected'}
   [pscustomobject]@{RealtimeDisconnected=$true;LocalHealth='ok';SiteTransport='msi-https';Backup=$backup}|ConvertTo-Json -Compress
 }catch{
