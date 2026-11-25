@@ -627,12 +627,14 @@ export default function EmployeeModal({
               </div>
 
               <div>
-                <label className="mb-1 block text-xs text-slate-300">Hire date</label>
+                <label htmlFor="employee-hire-date" className="mb-1 block text-xs text-slate-300">Hire date</label>
                 <input
+                  id="employee-hire-date"
                   type="date"
                   className={inputClass}
                   value={form.hire_date}
-                  readOnly={Boolean(form.id)}
+                  required={!form.id}
+                  readOnly={transfer.active || (Boolean(form.id) && form.active !== true)}
                   onChange={(e) =>
                     setForm((prev) => ({ ...prev, hire_date: e.target.value }))
                   }

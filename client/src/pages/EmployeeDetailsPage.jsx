@@ -2709,11 +2709,12 @@ function ActiveEmployeeDetailsPage() {
                   </div>
 
                   <div>
-                    <label className="mb-1 block text-xs text-slate-300">Hire date</label>
+                    <label htmlFor="employee-details-hire-date" className="mb-1 block text-xs text-slate-300">Hire date</label>
                     <input
+                      id="employee-details-hire-date"
                       type="date"
                       value={editEmployeeForm.hire_date}
-                      readOnly
+                      readOnly={transfer.active || editEmployeeForm.active !== true}
                       onChange={(e) => updateEditEmployeeForm('hire_date', e.target.value)}
                       className={employeeEditInput}
                       disabled={savingEmployee}
