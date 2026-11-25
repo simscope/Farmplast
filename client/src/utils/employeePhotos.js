@@ -71,28 +71,6 @@ export async function compressEmployeePhoto(file) {
   }
 }
 
-export function getEmployeePhotoThumbnailUrl(photoUrl, size = 96) {
-  if (!photoUrl) return ''
-
-  try {
-    const url = new URL(photoUrl)
-
-    if (!url.pathname.includes(`/storage/v1/object/public/${EMPLOYEE_PHOTO_BUCKET}/`)) {
-      return photoUrl
-    }
-
-    url.pathname = url.pathname.replace('/storage/v1/object/public/', '/storage/v1/render/image/public/')
-    url.searchParams.set('width', String(size))
-    url.searchParams.set('height', String(size))
-    url.searchParams.set('resize', 'cover')
-    url.searchParams.set('quality', '65')
-
-    return url.toString()
-  } catch {
-    return photoUrl
-  }
-}
-
 export function getEmployeePhotoStoragePath(photoUrl) {
   if (!photoUrl) return ''
 

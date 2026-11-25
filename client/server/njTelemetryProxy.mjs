@@ -1,3 +1,5 @@
+import {createUserVerifier} from './verifiedUser.mjs'
+
 export const VIEWS = new Set(['v_asset_points_latest', 'v_nj_monitoring_overview', 'v_ch2_dashboard', 'v_ch3_dashboard', 'ch2_latest', 'ch3_latest'])
 
 export function filterTelemetryRows(input, params) {
@@ -34,6 +36,7 @@ export function filterTelemetryRows(input, params) {
 }
 
 export function createNjTelemetryHandler(env, fetcher = fetch) {
+  const verifyUser = createUserVerifier({fetchImpl: fetcher})
   return async function handler(req, res) {
     res.setHeader('Cache-Control', 'private, no-store, max-age=0')
     res.setHeader('Pragma', 'no-cache')
@@ -50,12 +53,8 @@ export function createNjTelemetryHandler(env, fetcher = fetch) {
     try {
       // A real Auth user and an explicit UUID allowlist authorize access.
       // user_metadata roles and browser-supplied identities are never trusted.
-      const auth = await fetcher(env.VITE_SUPABASE_URL + '/auth/v1/user', {
-        headers: { apikey: env.VITE_SUPABASE_ANON_KEY, Authorization: `Bearer ${token}` },
-        redirect: 'error', cache: 'no-store', signal: AbortSignal.timeout(7000),
-      })
-      if (!auth.ok) return send(401, 'Invalid Farmplast login')
-      const user = await auth.json()
+      const user = await verifyUser({authUrl: env.VITE_SUPABASE_URL, authAnonKey: env.VITE_SUPABASE_ANON_KEY}, token, {readOnly: true})
+      if (!user) return send(401, 'Invalid Farmplast login')
       if (!allow.includes(user.id)) return send(403, 'Monitoring access required')
       const response = await fetcher(`${upstream}/v1/read/${view}`, {
         headers: { Authorization: `Bearer ${env.NJ_TELEMETRY_READ_KEY}` },

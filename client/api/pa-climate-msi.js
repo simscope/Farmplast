@@ -1,6 +1,7 @@
 /* global process, Buffer */
 import {transportFetch} from '../server/climateTransport.mjs'
 import legacyHandler from './pa-zone1.js'
+import {verifyFarmplastUser} from '../server/verifiedUser.mjs'
 export const config={api:{bodyParser:{sizeLimit:'2mb'}}}
 export const maxDuration=30
 const validId=s=>typeof s==='string'&&/^[A-Za-z0-9_-]{1,64}$/.test(s)
@@ -12,8 +13,7 @@ export default async function handler(req,res){
  const allow=(process.env.PA_CLIMATE_ALLOWED_USER_IDS||process.env.SACS_SSO_ALLOWED_USER_IDS||'').split(',').map(x=>x.trim()).filter(Boolean)
  if(!allow.length||!process.env.PA_CLIMATE_TRANSPORT_KEY)return send(503,{error:'MSI bridge not configured'})
  try {
-  const auth=await fetch(process.env.VITE_SUPABASE_URL+'/auth/v1/user',{headers:{apikey:process.env.VITE_SUPABASE_ANON_KEY,Authorization:'Bearer '+token},redirect:'error',signal:AbortSignal.timeout(7000)})
-  const user=auth.ok?await auth.json():null
+  const user=await verifyFarmplastUser({authUrl:process.env.VITE_SUPABASE_URL,authAnonKey:process.env.VITE_SUPABASE_ANON_KEY},token,{readOnly:req.method==='GET'})
   if(!user?.id)return send(401,{error:'Invalid Farmplast login'})
   if(!allow.includes(user.id))return send(403,{error:'Climate operator access required'})
   let suffix,body,extra={}

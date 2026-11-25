@@ -11,7 +11,6 @@ import {
   Trash2,
   User,
 } from 'lucide-react'
-import { getEmployeePhotoThumbnailUrl } from '../../utils/employeePhotos'
 import ZktActionsMenu from './ZktActionsMenu'
 
 const LAST_ACCESSED_EMPLOYEE_KEY = 'farmplast:last-accessed-employee-id'
@@ -25,25 +24,15 @@ function getPlantLocationLabel(value) {
   return normalizePlantLocation(value) === 'PA' ? 'Pennsylvania' : 'New Jersey'
 }
 
-function EmployeePhoto({ employee, getFullName, size }) {
-  const [useOriginalPhoto, setUseOriginalPhoto] = useState(false)
-
+function EmployeePhoto({ employee, getFullName }) {
   if (!employee.photo_url) return null
 
-  const src = useOriginalPhoto
-    ? employee.photo_url
-    : getEmployeePhotoThumbnailUrl(employee.photo_url, size)
-
+  // Photos are compressed on upload, so serve the stored image directly.
   return (
     <img
-      src={src}
+      src={employee.photo_url}
       alt={getFullName(employee)}
       className="h-full w-full object-cover"
-      onError={() => {
-        if (!useOriginalPhoto) {
-          setUseOriginalPhoto(true)
-        }
-      }}
     />
   )
 }
@@ -64,7 +53,7 @@ function EmployeeName({ employee, getFullName, onEdit }) {
       title="Edit employee"
     >
       <div className="h-8 w-8 shrink-0 overflow-hidden rounded-lg border border-slate-700 bg-[#07101d]">
-        <EmployeePhoto employee={employee} getFullName={getFullName} size={96} />
+        <EmployeePhoto employee={employee} getFullName={getFullName} />
       </div>
       <div className="min-w-0 leading-tight">
         <div className="truncate" title={getFullName(employee)}>{getFullName(employee)}</div>
@@ -449,7 +438,7 @@ export default function WorkersList({
                   title="Edit employee"
                 >
                   <div className="h-12 w-12 overflow-hidden rounded-xl border border-slate-700 bg-[#07101d]">
-                    <EmployeePhoto employee={employee} getFullName={getFullName} size={128} />
+                    <EmployeePhoto employee={employee} getFullName={getFullName} />
                   </div>
 
                   <div className="min-w-0">

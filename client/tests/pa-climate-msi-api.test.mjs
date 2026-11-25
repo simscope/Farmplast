@@ -56,3 +56,35 @@ test('site → signed HTTPS → MSI: operator checks, local PIN throttling, firm
   assert.ok(network.every(u=>!u.includes('/storage/')&&!u.includes('/realtime/')))
   assert.ok(fs.existsSync(legacyFile));assert.ok(!fs.readFileSync(legacyFile,'utf8').includes('1234'))
 })
+
+test('PA read polling reuses a verified identity while keeping live data and fresh mutation authentication',async t=>{
+  const originalFetch=globalThis.fetch,originalEnv={...process.env}
+  t.after(()=>{globalThis.fetch=originalFetch;for(const k of Object.keys(process.env))if(!(k in originalEnv))delete process.env[k];Object.assign(process.env,originalEnv)})
+  const id='00000000-0000-4000-8000-000000000002',authUrl='https://read-auth.example'
+  const claims={sub:id,iss:authUrl+'/auth/v1',aud:'authenticated',exp:Math.floor(Date.now()/1000)+3600}
+  const token='eyJhbGciOiJIUzI1NiJ9.'+Buffer.from(JSON.stringify(claims)).toString('base64url')+'.synthetic-signature'
+  Object.assign(process.env,{VITE_SUPABASE_URL:authUrl,VITE_SUPABASE_ANON_KEY:'public-test-key',PA_CLIMATE_ALLOWED_USER_IDS:id,PA_CLIMATE_TRANSPORT_KEY:'2'.repeat(64)})
+  let authCalls=0,samples=0,accepted=true
+  globalThis.fetch=async url=>{
+    if(String(url)===authUrl+'/auth/v1/user'){authCalls++;return accepted?Response.json({id}):Response.json({error:'revoked'},{status:401})}
+    assert.ok(String(url).startsWith(MSI_ORIGIN+'/climate/operator/zones'))
+    return Response.json({sample:++samples})
+  }
+  async function run(body){
+    const res={setHeader(){},status(code){this.code=code;return this},json(value){this.value=value;return this},end(value){this.value=JSON.parse(value.toString());return this}}
+    await handler({method:body?'POST':'GET',headers:{authorization:'Bearer '+token},query:{},body},res)
+    return res
+  }
+  for(let i=1;i<=20;i++){const r=await run();assert.equal(r.code,200);assert.equal(r.value.sample,i)}
+  assert.equal(authCalls,1)
+  process.env.PA_CLIMATE_ALLOWED_USER_IDS='another-operator'
+  assert.equal((await run()).code,403)
+  assert.equal(samples,20)
+  process.env.PA_CLIMATE_ALLOWED_USER_IDS=id
+  accepted=false
+  assert.equal((await run({action:'mode',zone_id:'pa-zone-2',mode:'OFF'})).code,401)
+  assert.equal(authCalls,2)
+  assert.equal((await run()).code,401)
+  assert.equal(authCalls,3)
+  assert.equal(samples,20)
+})
