@@ -134,3 +134,87 @@ export async function loadPayrollPaymentHistory(supabase, { employeeIds } = {}) 
   }
   return normalizePaymentHistory(payments)
 }
+
+const FINAL_CHECK_STATUSES = ['printed', 'paid']
+const DEDUCTION_FIELDS = ['rent', 'electric', 'water', 'clean', 'transport']
+
+function cents(value) {
+  if (value === null || value === undefined || value === '') return null
+  const amount = Number(value)
+  return Number.isFinite(amount) ? Math.round(amount * 100) : null
+}
+
+function paymentPeriodKey(employeeId, start, end) {
+  return JSON.stringify([String(employeeId), start, end])
+}
+
+export async function loadPayrollEarningsChecks(supabase, employeeId, payments) {
+  const periodStarts = [...new Set(payments.map((payment) => payment.period_start).filter(Boolean))].sort()
+  if (!employeeId || !periodStarts.length) return []
+
+  const checks = []
+  const pageSize = 500
+  for (let offset = 0; ; offset += pageSize) {
+    const { data, error } = await supabase.from('payroll_checks')
+      .select('id,employee_id,pay_period_start,pay_period_end,status,voided_at,regular_labor,overtime_labor,gross_pay,net_pay,employee_tax,rent,electric,water,clean,transport')
+      .eq('employee_id', employeeId)
+      .in('status', FINAL_CHECK_STATUSES)
+      .is('voided_at', null)
+      .gte('pay_period_start', periodStarts[0])
+      .lte('pay_period_start', periodStarts.at(-1))
+      .order('id', { ascending: true })
+      .range(offset, offset + pageSize - 1)
+    if (error) throw error
+    const rows = data || []
+    checks.push(...rows)
+    if (rows.length < pageSize) return checks
+  }
+}
+
+// Payments define what's included in YTD. Use checks only for a verifiable split:
+// older payments and grouped company checks may have no matching individual snapshot.
+export function getPaystubYtdEarnings({ priorPayments, referencePayment, priorYtdGross }, checks, preview) {
+  const checksByPeriod = new Map()
+  for (const check of checks) {
+    if (check.voided_at || !FINAL_CHECK_STATUSES.includes(check.status)) continue
+    const key = paymentPeriodKey(check.employee_id, check.pay_period_start, check.pay_period_end)
+    if (!checksByPeriod.has(key)) checksByPeriod.set(key, [])
+    checksByPeriod.get(key).push(check)
+  }
+
+  const paidPayments = referencePayment ? [...priorPayments, referencePayment] : priorPayments
+  const gross = cents(priorYtdGross) + (cents(referencePayment?.total_labor) ?? cents(preview.grossPay))
+  let regular = referencePayment ? 0 : cents(preview.mainLabor)
+  let overtime = referencePayment ? 0 : cents(preview.overtimeLabor)
+  let missingPayments = 0
+
+  for (const payment of paidPayments) {
+    const key = paymentPeriodKey(payment.employee_id, payment.period_start, payment.period_end)
+    const paidGross = cents(payment.total_labor)
+    const matches = (checksByPeriod.get(key) || []).filter((check) =>
+      paidGross !== null && cents(check.gross_pay) === paidGross &&
+      ['net_pay', 'employee_tax'].every((field) =>
+        cents(payment[field]) !== null && cents(check[field]) === cents(payment[field])
+      ) &&
+      DEDUCTION_FIELDS.every((field) => (cents(check[field]) ?? 0) === (cents(payment[field]) ?? 0))
+    )
+    const checkRegular = cents(matches[0]?.regular_labor)
+    const checkOvertime = cents(matches[0]?.overtime_labor)
+    // Reprints with the same split do not make it ambiguous. Conflicting snapshots do.
+    if (checkRegular === null || checkOvertime === null || checkRegular + checkOvertime !== paidGross ||
+        matches.some((check) => cents(check.regular_labor) !== checkRegular || cents(check.overtime_labor) !== checkOvertime)) {
+      missingPayments += 1
+      continue
+    }
+    regular += checkRegular
+    overtime += checkOvertime
+  }
+
+  const complete = missingPayments === 0 && regular + overtime === gross
+  return {
+    gross: gross / 100,
+    regular: complete ? regular / 100 : undefined,
+    overtime: complete ? overtime / 100 : undefined,
+    missingPayments,
+  }
+}

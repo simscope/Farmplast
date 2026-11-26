@@ -3,8 +3,10 @@ import assert from 'node:assert/strict'
 import { createRequire } from 'node:module'
 import fs from 'node:fs/promises'
 
-const require = createRequire('C:/Users/Owner/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')
-const { chromium } = require('playwright')
+const require = createRequire(process.env.PLAYWRIGHT_MODULE
+  ? import.meta.url
+  : 'C:/Users/Owner/.cache/codex-runtimes/codex-primary-runtime/dependencies/node/package.json')
+const { chromium } = require(process.env.PLAYWRIGHT_MODULE || 'playwright')
 const appOrigin = 'http://127.0.0.1:4187'
 const apiOrigin = 'http://127.0.0.1:4188'
 const outputDir = new URL('../../../reports/nj-payroll-20261109/browser-ytd/', import.meta.url)
@@ -49,7 +51,7 @@ function logsFor(start) {
 function filtered(rows, url) {
   return rows.filter((row) => {
     for (const [field, raw] of url.searchParams) {
-      if (!['id', 'employee_id', 'period_start', 'period_end', 'work_date', 'active', 'status'].includes(field)) continue
+      if (!['id', 'employee_id', 'period_start', 'period_end', 'pay_period_start', 'voided_at', 'work_date', 'active', 'status'].includes(field)) continue
       const dot = raw.indexOf('.')
       const operator = raw.slice(0, dot), value = raw.slice(dot + 1)
       const actual = String(row[field])
@@ -57,14 +59,20 @@ function filtered(rows, url) {
       if (operator === 'gte' && actual < value) return false
       if (operator === 'lte' && actual > value) return false
       if (operator === 'in' && !value.slice(1, -1).split(',').includes(actual)) return false
+      if (operator === 'is' && value === 'null' && row[field] != null) return false
     }
     return true
   }).slice(Number(url.searchParams.get('offset') || 0), Number(url.searchParams.get('offset') || 0) + Number(url.searchParams.get('limit') || 10000))
 }
 
-const browser = await chromium.launch({ headless: true, channel: process.env.PLAYWRIGHT_CHANNEL || 'msedge' })
+const browser = await chromium.launch({
+  headless: true,
+  ...(process.env.PLAYWRIGHT_EXECUTABLE
+    ? { executablePath: process.env.PLAYWRIGHT_EXECUTABLE }
+    : { channel: process.env.PLAYWRIGHT_CHANNEL || 'msedge' }),
+})
 const results = []
-async function fixture({ clock, logs, payments, failFirstPayment = false, loseFirstConfirmation = false }) {
+async function fixture({ clock, logs, payments, checks = [], failFirstPayment = false, loseFirstConfirmation = false }) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, timezoneId: 'America/New_York', serviceWorkers: 'block' })
   const state = { payments: structuredClone(payments), logs: structuredClone(logs), drafts: [], updates: [], confirmations: [], checkReads: [], paymentWrites: [], unexpected: [], pageErrors: [], clock }
   const page = await context.newPage()
@@ -119,7 +127,7 @@ async function fixture({ clock, logs, payments, failFirstPayment = false, loseFi
       data = state.draft
     } else if (resource === 'payroll_checks' && method === 'GET') {
       state.checkReads.push(url.search)
-      data = filtered(state.draft ? [state.draft] : [], url)
+      data = filtered(state.draft ? [...checks, state.draft] : checks, url)
     } else if (resource === 'payroll_checks' && method === 'PATCH') {
       assert.equal(url.searchParams.get('status'), 'eq.draft')
       const payload = JSON.parse(request.postData())
@@ -141,10 +149,22 @@ async function fixture({ clock, logs, payments, failFirstPayment = false, loseFi
 try {
   {
     const own = { ...januaryPayment, id: '00000000-0000-4000-8000-000000000203', period_start: '2026-12-28', period_end: '2027-01-03', paid_at: '2027-01-08T17:00:00Z', created_at: '2027-01-08T17:00:00Z', total_labor: 700 }
-    const { context, page, state } = await fixture({ clock: '2027-01-11T15:00:00Z', logs: logsFor('2026-12-28'), payments: [oldPayment, januaryPayment, own] })
+    const checks = [januaryPayment, own].map((payment, index) => ({
+      ...payment,
+      pay_period_start: payment.period_start,
+      pay_period_end: payment.period_end,
+      status: 'printed',
+      voided_at: null,
+      gross_pay: payment.total_labor,
+      regular_labor: payment.total_labor - (index ? 0 : 200),
+      overtime_labor: index ? 0 : 200,
+    }))
+    const { context, page, state } = await fixture({ clock: '2027-01-11T15:00:00Z', logs: logsFor('2026-12-28'), payments: [oldPayment, januaryPayment, own], checks })
     await page.goto(`${appOrigin}/employees/${employeeId}/paystub?periodStart=2026-12-28&periodEnd=2027-01-03`)
     await page.getByText('YTD gross before this check: $1,000.00', { exact: true }).waitFor()
     assert.match(await page.getByRole('button', { name: /^Gross earnings/ }).innerText(), /\$700\.00\s+\$1,700\.00/)
+    assert.match(await page.getByText('Regular earnings', { exact: true }).locator('..').innerText(), /\$700\.00\s+\$1,500\.00$/)
+    assert.match(await page.getByText('Overtime earnings', { exact: true }).locator('..').innerText(), /\$0\.00\s+\$200\.00$/)
     await page.screenshot({ path: new URL('paystub-january-desktop.png', outputDir).pathname.replace(/^\/([A-Za-z]:)/, '$1'), fullPage: true })
     await page.setViewportSize({ width: 390, height: 844 })
     assert.equal(await page.getByText('YTD gross before this check: $1,000.00', { exact: true }).count(), 1)
@@ -156,14 +176,16 @@ try {
     await context.close()
   }
   {
-    const firstJanuary = { ...januaryPayment, total_labor: 700 }
+    const firstJanuary = { ...januaryPayment, total_labor: 950 }
     const { context, page, state } = await fixture({ clock: '2027-01-04T15:00:00Z', logs: logsFor('2026-12-21'), payments: [oldPayment, firstJanuary] })
     await page.goto(`${appOrigin}/employees/${employeeId}/paystub?periodStart=2026-12-21&periodEnd=2026-12-27`)
     await page.getByText('YTD gross before this check: $0.00', { exact: true }).waitFor()
-    assert.match(await page.getByRole('button', { name: /^Gross earnings/ }).innerText(), /\$700\.00\s+\$700\.00/)
+    assert.match(await page.getByRole('button', { name: /^Gross earnings/ }).innerText(), /\$700\.00\s+\$950\.00/)
+    await page.getByText('Year-to-date regular and overtime earnings are unavailable without a verified breakdown.').waitFor()
+    assert.match(await page.getByText('Overtime earnings', { exact: true }).locator('..').innerText(), /\$0\.00\s+-$/)
     assert.deepEqual(state.pageErrors, [])
     assert.deepEqual(state.unexpected, [])
-    results.push({ check: 'paystub: first January payment resets prior YTD and adds current check once', passed: true, priorYtdGross: 0, ytdAfterCheck: 700 })
+    results.push({ check: 'paystub: first January payment uses recorded gross; missing split is not estimated', passed: true, priorYtdGross: 0, ytdAfterCheck: 950 })
     await context.close()
   }
   {
