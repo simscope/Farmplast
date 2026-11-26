@@ -14,7 +14,12 @@ import {
   calculatePaystubDetails,
   getDefaultPaystubPeriod,
 } from '../lib/payrollTaxMath'
-import { getPayrollYtdTotals, loadPayrollPaymentHistory } from '../utils/payrollYtd'
+import {
+  getPayrollYtdTotals,
+  getPaystubYtdEarnings,
+  loadPayrollEarningsChecks,
+  loadPayrollPaymentHistory,
+} from '../utils/payrollYtd'
 
 const shell =
   'rounded-lg border border-slate-200 bg-white shadow-[0_12px_30px_rgba(15,23,42,0.06)]'
@@ -175,6 +180,7 @@ export default function EmployeePayStubPage() {
     netPay: 0,
     recordedPayment: null,
   })
+  const [earningsHistory, setEarningsHistory] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
 
@@ -191,6 +197,7 @@ export default function EmployeePayStubPage() {
   }, [defaultPeriod.end, defaultPeriod.start, searchParams, setSearchParams])
 
   useEffect(() => {
+    let active = true
     async function loadPaystub() {
       try {
         setLoading(true)
@@ -238,7 +245,16 @@ export default function EmployeePayStubPage() {
 
         const paymentHistory = await loadPayrollPaymentHistory(supabase, { employeeIds: [employeeId] })
         const ytd = getPayrollYtdTotals(paymentHistory, { employeeId, periodStart, periodEnd })
+        const paidPayments = ytd.referencePayment ? [...ytd.priorPayments, ytd.referencePayment] : ytd.priorPayments
+        let checks = []
+        try {
+          checks = await loadPayrollEarningsChecks(supabase, employeeId, paidPayments)
+        } catch (err) {
+          // The paid totals are still available even if the earnings split cannot be loaded.
+          console.warn('Paystub earnings split unavailable:', err)
+        }
 
+        if (!active) return
         setEmployee(employeeData)
         setTaxProfile(taxProfileData || null)
         setLogs(logsData || [])
@@ -252,15 +268,18 @@ export default function EmployeePayStubPage() {
           netPay: ytd.priorYtdNetPay,
           recordedPayment: ytd.referencePayment,
         })
+        setEarningsHistory({ ytd, checks })
       } catch (err) {
+        if (!active) return
         console.error('loadPaystub error:', err)
         setError(err.message || 'Failed to load paystub')
       } finally {
-        setLoading(false)
+        if (active) setLoading(false)
       }
     }
 
     loadPaystub()
+    return () => { active = false }
   }, [employeeId, periodEnd, periodStart])
 
   const paystub = useMemo(
@@ -284,6 +303,9 @@ export default function EmployeePayStubPage() {
   )
 
   const employeeName = getEmployeeName(employee)
+  const ytdEarnings = earningsHistory
+    ? getPaystubYtdEarnings(earningsHistory.ytd, earningsHistory.checks, paystub)
+    : null
 
   function applyPeriod(mode) {
     const range = getPaystubPeriod(mode)
@@ -398,7 +420,7 @@ export default function EmployeePayStubPage() {
               <PaystubSection
                 title="Gross earnings"
                 amount={paystub.grossPay}
-                ytdAmount={paystub.ytdGrossPay}
+                ytdAmount={ytdEarnings?.gross}
                 defaultOpen
               >
                 <div className="grid grid-cols-[1fr_90px_80px_105px_105px] gap-4 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -413,15 +435,20 @@ export default function EmployeePayStubPage() {
                   rate={paystub.regularRate}
                   hours={paystub.mainHours}
                   value={paystub.mainLabor}
-                  ytdValue={paystub.ytdGrossPay - paystub.overtimeLabor}
+                  ytdValue={ytdEarnings?.regular}
                 />
                 <EarningsRow
                   label="Overtime earnings"
                   rate={paystub.overtimeRate}
                   hours={paystub.overtimeHours}
                   value={paystub.overtimeLabor}
-                  ytdValue={paystub.overtimeLabor}
+                  ytdValue={ytdEarnings?.overtime}
                 />
+                {ytdEarnings?.regular === undefined && (
+                  <p className="border-t border-slate-100 pt-2.5 text-xs text-slate-600">
+                    Year-to-date regular and overtime earnings are unavailable without a verified breakdown.
+                  </p>
+                )}
               </PaystubSection>
 
               <PaystubSection
@@ -476,7 +503,7 @@ export default function EmployeePayStubPage() {
                 defaultOpen
                 tone="net"
               >
-                <DetailRow label="Gross pay" value={paystub.grossPay} ytdValue={paystub.ytdGrossPay} />
+                <DetailRow label="Gross pay" value={paystub.grossPay} ytdValue={ytdEarnings?.gross} />
                 <DetailRow
                   label="Total employee taxes"
                   value={-paystub.totalEmployeeTaxes}
@@ -505,7 +532,7 @@ export default function EmployeePayStubPage() {
                 </div>
 
                 <div className="divide-y divide-slate-100 px-5 py-2">
-                  <DetailRow label="Gross Pay" value={paystub.grossPay} ytdValue={paystub.ytdGrossPay} />
+                  <DetailRow label="Gross Pay" value={paystub.grossPay} ytdValue={ytdEarnings?.gross} />
                   <DetailRow
                     label="Total Employee Taxes"
                     value={paystub.totalEmployeeTaxes}
